@@ -1,0 +1,29 @@
+{
+	"compilerOptions": {
+		"baseUrl": ".",
+		"paths": {
+			"@backend/*": [
+				"../backend/src/*"
+			],
+			"@frontend/*": [
+				"./src/*"
+			]
+		},
+		"tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo"
+	},
+	"exclude": [
+		"node_modules",
+		"**/*.spec.ts",
+		"**/*.spec.tsx",
+		"e2e/**/*",
+	],
+	"extends": "@connected-repo/typescript-config/vite.json",
+	"include": [
+		"src",
+		"src/vite-env.d.ts"
+	],
+	"typeRoots": [
+		"../../node_modules/@types",
+		"./node_modules/@types"
+	]
+}

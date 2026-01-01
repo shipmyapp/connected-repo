@@ -1,0 +1,53 @@
+{
+	"author": "Balkrishna Agarwal <krishna@shipmyapp.in>",
+	"dependencies": {
+		"@connected-repo/ui-mui": "*",
+		"@connected-repo/zod-schemas": "*",
+		"@emotion/react": "^11.14.0",
+		"@emotion/styled": "^11.14.1",
+		"@hookform/resolvers": "^5.2.2",
+		"@mui/icons-material": "^7.3.4",
+		"@mui/material": "^7.3.4",
+		"@mui/x-date-pickers": "^8.17.0",
+		"@orpc/client": "^1.12.1",
+		"@orpc/tanstack-query": "^1.12.1",
+		"@sentry/react": "^10.32.1",
+		"@tanstack/react-query": "^5.90.5",
+		"better-auth": "^1.4.6",
+		"material-react-table": "^3.2.1",
+		"react": "^19.2.0",
+		"react-dom": "^19.2.0",
+		"react-hook-form": "^7.66.0",
+		"react-router": "^7.9.4"
+	},
+	"devDependencies": {
+		"@connected-repo/typescript-config": "*",
+		"@playwright/test": "^1.57.0",
+		"@sentry/vite-plugin": "^4.6.1",
+		"@types/react": "^19.2.2",
+		"@types/react-dom": "^19.2.2",
+		"@vitejs/plugin-react-swc": "^4.2.0",
+		"dotenv": "^17.2.3",
+		"vite": "^7.3.0",
+		"vite-bundle-analyzer": "^1.2.3"
+	},
+	"license": "AGPL-3.0-only",
+	"name": "@connected-repo/frontend",
+	"private": true,
+	"repository": "git@github.com:shipmyapp/connected-repo.git",
+	"scripts": {
+		"build": "tsc -b && npx vite build",
+		"build:debug": "tsc -b tsconfig.app.json && vite build --debug",
+		"check-types": "tsc --noEmit",
+		"clean": "rm -rf node_modules && rm -rf dist",
+		"dev": "vite",
+		"format": "biome format . --write",
+		"lint": "biome check .",
+		"preview": "vite preview",
+		"test:build": "tsc -b && vite build --mode test",
+		"test:e2e": "playwright test",
+		"test:e2e:ui": "playwright test --ui"
+	},
+	"type": "module",
+	"version": "0.0.0"
+}

@@ -1,0 +1,12 @@
+[build]
+  command = "yarn install --frozen-lockfile && npx turbo run build --filter=@connected-repo/frontend"
+  publish = "apps/frontend/dist"
+
+[build.environment]
+	NODE_VERSION = "22"
+  NETLIFY_USE_YARN = "true"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

@@ -1,0 +1,14 @@
+{
+	"name": "@connected-repo/typescript-config",
+	"version": "0.0.0",
+	"private": true,
+	"license": "AGPL-3.0-only",
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"clean": "rm -rf node_modules && rm -rf dist",
+		"lint": "biome check .",
+		"format": "biome format . --write"
+	}
+}

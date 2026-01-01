@@ -1,0 +1,49 @@
+{
+	"author": "Balkrishna Agarwal <krishna@shipmyapp.in>",
+	"dependencies": {
+		"@orpc/server": "^1.12.1",
+		"ulid": "^3.0.1",
+		"zod": "^4.1.12"
+	},
+	"description": "Starter Monorepo using Turbo of Nodejs + Fastify + OrchidORM + oRPC + Reactjs with opentelemetry setup",
+	"devDependencies": {
+		"@biomejs/biome": "^2.3.10",
+		"concurrently": "^9.2.1",
+		"knip": "^5.30.6",
+		"tsc-alias": "^1.8.16",
+		"turbo": "^2.5.8",
+		"typescript": "5.9.3"
+	},
+	"engines": {
+		"node": ">=22"
+	},
+	"license": "AGPL-3.0-only",
+	"name": "connected-repo",
+	"packageManager": "yarn@1.22.22",
+	"private": true,
+	"repository": "git@github.com:shipmyapp/connected-repo.git",
+	"scripts": {
+		"build": "npx turbo run build",
+		"check-types": "turbo run check-types",
+		"clean": "turbo run clean && rm -rf node_modules && rm -rf .yarn/cache && yarn cache clean",
+		"db": "turbo db --",
+		"dev": "yarn env:sync && turbo run dev",
+		"env:sync": "node scripts/sync-env.js",
+		"format": "biome format . --write",
+		"knip": "knip",
+		"lint": "turbo run lint",
+		"test": "turbo run test",
+		"test:build": "turbo run test:build",
+		"test:coverage": "turbo run test:coverage",
+		"test:db:setup": "turbo run test:db:setup",
+		"test:e2e": "bash -c 'if [[ \"$*\" == *\"--build\"* || \"$*\" == *\"-b\"* ]]; then turbo run test:e2e:with-build; else turbo run test:e2e:no-build; fi' --",
+		"test:e2e:ui": "bash -c 'if [[ \"$*\" == *\"--build\"* || \"$*\" == *\"-b\"* ]]; then turbo run test:e2e:ui:with-build; else turbo run test:e2e:ui:no-build; fi' --",
+		"test:run": "turbo run test:run",
+		"test:ui": "turbo run test:ui"
+	},
+	"version": "1.0.0",
+	"workspaces": [
+		"apps/*",
+		"packages/*"
+	]
+}

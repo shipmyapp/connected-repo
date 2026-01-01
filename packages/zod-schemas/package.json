@@ -1,0 +1,39 @@
+{
+	"author": "Balkrishna Agarwal",
+	"description": "Common Zod Schemas to be used everywhere",
+	"dependencies": {
+		"@faker-js/faker": "^10.1.0"
+	},
+	"devDependencies": {
+		"@connected-repo/typescript-config": "*",
+		"tsc-alias": "^1.8.16",
+		"typescript": "^5.9.3",
+		"zod": "^4.1.12"
+	},
+	"exports": {
+		"./*": {
+			"default": "./dist/*.js",
+			"import": "./dist/*.js",
+			"types": "./src/*.ts"
+		}
+	},
+	"license": "AGPL-3.0-only",
+	"name": "@connected-repo/zod-schemas",
+	"peerDependencies": {
+		"zod": "^4.1.12"
+	},
+	"private": true,
+	"repository": "git@github.com:shipmyapp/connected-repo.git",
+	"scripts": {
+		"build": "tsc && npx tsc-alias",
+		"check-types": "tsc --noEmit",
+		"clean": "rm -rf node_modules && rm -rf dist",
+		"dev": "concurrently --kill-others \"tsc -w\" \"tsc-alias -w\"",
+		"format": "biome format . --write",
+		"lint": "biome check .",
+		"typecheck": "tsc --noEmit"
+	},
+	"sideEffects": false,
+	"type": "module",
+	"version": "1.0.0"
+}
