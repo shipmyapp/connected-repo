@@ -1,6 +1,6 @@
 # Full-Stack TypeScript Monorepo
 
-A production-ready Turborepo monorepo for building full-stack TypeScript applications with end-to-end type safety, with a implemented project for detailed reference.
+Production-ready Turborepo monorepo for building full-stack TypeScript applications with end-to-end type safety. Includes a complete reference implementation of a Scheduled Prompt & Journal app.
 
 ## Tech Stack
 
@@ -76,17 +76,12 @@ A production-ready Turborepo monorepo for building full-stack TypeScript applica
 
 ## Project Overview
 
-This repository contains a **Scheduled Prompt & Journal** app that delivers timed notifications with thought-provoking prompts and enables simple text-based journaling. Key features include:
-- Timed notifications with thought-provoking prompts
-- Simple text-based journaling
-- Search functionality for past entries
-- Gamification (streaks & badges)
-- Free tier (with ads) and paid tier (cloud sync, ad-free)
-- Mobile & web support (PWA + Capacitor)
+**Scheduled Prompt & Journal App** - Delivers timed notifications with thought-provoking prompts and enables text-based journaling with search, gamification (streaks & badges), free/paid tiers, and mobile & web support (PWA + Capacitor).
 
-For detailed development roadmap and priorities, see [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md).
-
-For contribution guidelines, code style, and development setup, see [CONTRIBUTING.md](./CONTRIBUTING.md).
+**Documentation**:
+- [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md) - Roadmap and priorities
+- [CONTRIBUTING.md](./CONTRIBUTING.md) - Contribution guidelines, code style, development setup
+- [AGENTS.md](./AGENTS.md) - Agent guidelines for coding assistants
 
 ## Getting Started
 
@@ -351,27 +346,23 @@ Multi-layer error handling system:
 
 ## Turborepo
 
-This monorepo uses Turborepo for task orchestration. Key tasks:
+Uses Turborepo for task orchestration with dependency graph awareness. Key tasks: `build`, `dev`, `check-types`, `clean`.
 
-- `build` - Builds with dependency graph awareness
-- `dev` - Runs development servers (persistent, no cache)
-- `check-types` - Type checking across workspaces
-- `clean` - Cleanup task
-
-Learn more:
-- [Tasks](https://turbo.build/repo/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turbo.build/repo/docs/crafting-your-repository/caching)
-- [Configuration](https://turbo.build/repo/docs/reference/configuration)
+Learn more: [Tasks](https://turbo.build/repo/docs/crafting-your-repository/running-tasks) | [Caching](https://turbo.build/repo/docs/crafting-your-repository/caching) | [Configuration](https://turbo.build/repo/docs/reference/configuration)
 
 ## Documentation
 
-- [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md) - Detailed development roadmap and priorities
-- [CONTRIBUTING.md](./CONTRIBUTING.md) - Contribution guidelines, code style, and development setup
-- [AGENTS.md](./AGENTS.md) - Agent guidelines for coding agents
-- [apps/frontend/AGENTS.md](./apps/frontend/AGENTS.md) - Frontend React patterns and best practices
-- [packages/ui-mui/AGENTS.md](./packages/ui-mui/AGENTS.md) - UI component library documentation
-- [packages/zod-schemas/AGENTS.md](./packages/zod-schemas/AGENTS.md) - Zod schema documentation
-- [packages/AGENTS.md](./packages/AGENTS.md) - Package architecture overview
+**Main**:
+- [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md) - Development roadmap
+- [CONTRIBUTING.md](./CONTRIBUTING.md) - Contribution guidelines
+- [AGENTS.md](./AGENTS.md) - Agent guidelines
+
+**Component Guides**:
+- [apps/backend/AGENTS.md](./apps/backend/AGENTS.md) - Backend patterns
+- [apps/frontend/AGENTS.md](./apps/frontend/AGENTS.md) - Frontend React patterns
+- [packages/AGENTS.md](./packages/AGENTS.md) - Package architecture
+- [packages/ui-mui/AGENTS.md](./packages/ui-mui/AGENTS.md) - UI components
+- [packages/zod-schemas/AGENTS.md](./packages/zod-schemas/AGENTS.md) - Zod schemas
 
 ## API Documentation
 
@@ -382,11 +373,9 @@ Learn more:
 **Endpoints:**
 - oRPC APIs: http://localhost:3000/orpc
 - REST APIs: http://localhost:3000/api/v1/*
-- Health Check: http://localhost:3000/health
+- Health Check: http://localhost:3000/api/health
 - Better Auth: http://localhost:3000/api/auth/*
-- Internal APIs: http://localhost:3000/internal/* (secured by bearer token)
 
 ## License
 
-[AGPL-3.0] (./LICENSE) 
-Copyright (c) 2025 Hexatech Hub Solutions LLP, India
+[AGPL-3.0](./LICENSE) - Copyright (c) 2025 Hexatech Hub Solutions LLP, India
