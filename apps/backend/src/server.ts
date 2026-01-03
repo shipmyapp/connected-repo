@@ -4,6 +4,7 @@ import { createServer } from 'node:http';
 import { allowedOrigins } from '@backend/configs/allowed_origins.config';
 import { env, isDev, isProd, isStaging, isTest } from '@backend/configs/env.config';
 import { betterAuthHandler } from '@backend/request_handlers/better_auth.handler';
+import { cronJobsHandler } from '@backend/request_handlers/cron_jobs.handler';
 import { openApiHandler } from '@backend/request_handlers/open_api.handler';
 import { userAppHandler } from '@backend/request_handlers/user_app.handler';
 import { handleServerClose } from '@backend/utils/graceful_shutdown.utils';
@@ -79,17 +80,23 @@ try {
        return;
      }
 
-     // Handle OpenAPI routes (/api/*)
-     let result = await openApiHandler.handle(req, res, {
-       context: {},
-       prefix: '/api',
-     });
+      // Handle OpenAPI routes (/api/*)
+      let result = await openApiHandler.handle(req, res, {
+        context: {},
+        prefix: '/api',
+      });
 
-       // Handle oRPC routes
-     result = await userAppHandler.handle(req, res, {
-       context: {},
-       prefix: '/user-app',
-     })
+      // Handle Cron Jobs routes (/cron/*)
+      result = await cronJobsHandler.handle(req, res, {
+        context: {},
+        prefix: '/cron',
+      });
+
+        // Handle oRPC routes
+      result = await userAppHandler.handle(req, res, {
+        context: {},
+        prefix: '/user-app',
+      })
 
      if (!result.matched) {
        res.statusCode = 404

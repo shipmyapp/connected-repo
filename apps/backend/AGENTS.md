@@ -12,10 +12,10 @@ Fastify, oRPC (type-safe APIs), Orchid ORM (PostgreSQL), Better Auth (Google OAu
 ## Structure
 ```
 src/
-├── modules/          # Features: auth, journal-entries, prompts, teams, users
-├── routers/          # user_app/ - oRPC routes
-├── procedures/       # public, protected, sensitive
-├── middlewares/      # API key auth, IP whitelist, session security
+├── modules/          # Features: auth, journal-entries, prompts, logs, subscriptions, teams, users, webhook_calls
+├── routers/          # user_app/ - oRPC routes, open_api/ - external APIs, cron_jobs/ - cron jobs
+├── procedures/       # public, protected, sensitive, open_api_auth, cron_job_auth
+├── middlewares/      # API key auth, IP whitelist, session security, cron job auth
 ├── db/              # Tables, migrations, seeds
 └── server.ts        # Entry
 ```
@@ -136,12 +136,70 @@ describe('Journal Entries', () => {
 **Better Auth**: Google OAuth in `modules/auth/auth.config.ts`, custom Orchid adapter
 **Auth Middleware**: Validates session & user in `modules/auth/auth.middleware.ts`
 **API Key Auth**: Scrypt-hashed team API keys in `middlewares/api-key-auth.middleware.ts`
+**Cron Job Auth**: Bearer token auth in `middlewares/cron-job-auth.middleware.ts`
 
 ## Error Handling
 
 **Error Parser** (`utils/errorParser.ts`): Converts DB/validation errors to user-friendly messages
 **Usage**: `throw new Error(handleErrors(error))`
 **oRPC**: Auto-catches and formats errors
+
+## Cron Jobs Authentication
+
+**Procedure** (`procedures/cron_job_auth.procedure.ts`):
+```typescript
+export const cronJobAuthProcedure = openApiPublicProcedure
+  .use(cronJobAuthMiddleware);
+```
+
+**Middleware** (`middlewares/cron-job-auth.middleware.ts`):
+```typescript
+// Checks Authorization: Bearer <CRON_JOB_TOKEN>
+if (authorization !== `Bearer ${env.CRON_JOB_TOKEN}`) {
+  throw new ORPCError("UNAUTHORIZED", { status: 401, message: "Invalid Authorization token" });
+}
+```
+
+## Webhook Processing
+
+**Queue Table** (`modules/webhook_calls/tables/webhookCallQueue.table.ts`): Stores pending/failed webhook calls with retry logic
+**Service** (`modules/webhook_calls/services/initiate.webhook_calls.service.ts`): Sends webhook with Bearer token, updates status
+**Cron Job** (`routers/cron_jobs/cron_jobs.router.ts`): Processes pending webhooks in batches (100 at a time)
+
+## OpenAPI Endpoints
+
+**Procedure** (`procedures/open_api_auth.procedure.ts`): API key + team ID auth, CORS, rate limiting, subscription checks
+**Router** (`routers/open_api/open_api.router.ts`): External REST APIs with Swagger docs at `/api/documentation`
+**Request Logging**: All API calls logged to `api_product_request_logs` table
+**Subscription Usage**: Atomic increment with 90% threshold alerts via webhooks
+
+**Create Endpoint** (`modules/<module>/<module>.openapi.router.ts`):
+```typescript
+const createRequest = openApiAuthProcedure
+  .route({ method: "POST", tags: ["<Module>"] })
+  .input(openapiCreateInputZod)
+  .output(apiProductRequestLogSelectAllZod)
+  .handler(async ({ context: { team }, input }) => {
+    const logEntry = await createRequestLog(input, reqHeaders, path, team.teamId);
+    const { subscription } = await checkSubscriptionAndUpdateLog(logEntry, "product", sku, teamId, userRef);
+    if (!subscription) return logEntry;
+
+    await incrementSubscriptionUsage(subscription.subscriptionId, team);
+    // Process request
+    return logEntry;
+  });
+```
+
+**Response Endpoint**:
+```typescript
+const getResponse = openApiAuthProcedure
+  .route({ method: "GET", tags: ["<Module>"] })
+  .input(z.object({ requestId: z.string() }))
+  .output(responseZod)
+  .handler(async ({ context: { team }, input: { requestId } }) => {
+    return db.apiProductRequestLogs.find(requestId).where({ teamId: team.teamId });
+  });
+```
 
 ## Environment
 
@@ -184,6 +242,13 @@ await db.$transaction(async (tx) => {
   await tx.entries.create(entryData);
   await tx.logs.create(logData);
 });
+```
+
+**Increment Subscription Usage**:
+```typescript
+import { incrementSubscriptionUsage } from '../subscriptions/services/increment_usage.subscriptions.service';
+
+await incrementSubscriptionUsage(subscriptionId, team);  // Atomic increment, queues webhook at 90%
 ```
 
 ## Best Practices

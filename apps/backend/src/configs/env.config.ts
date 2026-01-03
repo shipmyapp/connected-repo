@@ -42,6 +42,8 @@ if (nodeEnv === "test") {
 const envSchema = z.object({
 	ALLOWED_ORIGINS: zString.optional(),
 	BETTER_AUTH_SECRET: zString.min(32, "Better Auth secret must be at least 32 characters"),
+	CRON_JOB_ALLOWED_ORIGIN: z.preprocess((val) => (val === "" ? undefined : val), z.url().optional()),
+	CRON_JOB_TOKEN: zString.min(32, "Cron job token must be at least 32 characters"),
 	DB_HOST: zString.optional(),
 	DB_PORT: zString.optional(),
 	DB_USER: zString.optional(),

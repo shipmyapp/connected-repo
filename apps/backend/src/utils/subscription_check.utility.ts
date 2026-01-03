@@ -2,7 +2,7 @@ import { sql } from "@backend/db/base_table";
 import { db } from "@backend/db/db";
 import { ApiProductRequestLog } from "@backend/modules/logs/tables/api_product_request_logs.table";
 import { findActiveSubscription } from "@backend/modules/subscriptions/services/get_active.subscriptions.service";
-import { API_PRODUCTS, ApiProductSku } from "@connected-repo/zod-schemas/enums.zod";
+import { API_PRODUCTS, type ApiProductSku } from "@connected-repo/zod-schemas/enums.zod";
 
 /**
  * Check Subscription and Update Log

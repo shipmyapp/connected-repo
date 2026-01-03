@@ -226,9 +226,12 @@ yarn start
 - Quota enforcement per subscription
 - Atomic real-time usage tracking
 - 90% usage threshold triggers webhook alert
-- Webhook queue with retry logic (3 max attempts, exponential backoff)
-- Batch processing limit: 50 webhooks per run
-- Configuration constants in `api-gateway/constants/apiGateway.constants.ts`
+- Webhook queue with retry logic (3 max attempts)
+- Batch processing limit: 100 webhooks per run via cron jobs
+
+**Cron Jobs:**
+- Bearer token authentication for secure cron job endpoints
+- Automated webhook processing with batching and retry logic
 
 ### End-to-End Type Safety & Shared Schemas
 
@@ -266,7 +269,7 @@ const create = orpc.journalEntry.create.useMutation();
 - Frontend: Playwright E2E with shared state across browsers
 - Test utilities for auth flows and common operations
 
-Key tables: users, sessions, teams, team_members, journal_entries, prompts, subscriptions
+Key tables: users, sessions, teams, team_members, journal_entries, prompts, subscriptions, webhook_call_queue, api_product_request_logs
 
 ### Error Handling
 
@@ -337,6 +340,12 @@ Multi-layer error handling system:
 4. Add route in `apps/backend/src/modules/api-gateway/api-gateway.router.ts`
 5. Test via Swagger UI at `/api/documentation`
 
+### New Cron Job Endpoint
+
+1. Use `cronJobAuthProcedure` for Bearer token auth
+2. Add to `routers/cron_jobs/cron_jobs.router.ts`
+3. Handler processes batches with cursor-based pagination
+
 ### New Frontend Page
 
 1. Create in `apps/frontend/src/modules/<feature>/pages/`
@@ -373,6 +382,7 @@ Learn more: [Tasks](https://turbo.build/repo/docs/crafting-your-repository/runni
 **Endpoints:**
 - oRPC APIs: http://localhost:3000/orpc
 - REST APIs: http://localhost:3000/api/v1/*
+- Cron Jobs: http://localhost:3000/cron/*
 - Health Check: http://localhost:3000/api/health
 - Better Auth: http://localhost:3000/api/auth/*
 

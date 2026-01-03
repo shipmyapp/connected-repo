@@ -43,10 +43,17 @@ export const userGetByIdInputZod = z.object({ userId: z.uuid() });
 ## Structure
 ```
 src/
-├── user.zod.ts     # User schemas
-├── post.zod.ts     # Post schemas
-├── node_env.ts     # Environment enum
-└── zod_utils.ts    # Reusable validators
+├── api_product_request_log.zod.ts
+├── enums.zod.ts
+├── journal_entry.zod.ts
+├── node_env.ts
+├── subscription.zod.ts
+├── team.zod.ts
+├── user.zod.ts
+├── webhook_call_queue.zod.ts
+├── zod_utils.ts
+├── journal_entry.fixture.ts
+├── user.fixture.ts
 ```
 
 ## Imports
