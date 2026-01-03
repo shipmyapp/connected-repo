@@ -108,7 +108,7 @@ export const zPhoneNumber = z
 	.trim()
 	.min(10, "Phone number must be at least 10 digits")
 	.max(15, "Phone number must be at most 15 digits")
-	.regex(/^[+]?[1-9][\d\s\-\(\)]{8,14}$/, "Invalid phone number format");
+	.regex(/^[+]?[1-9][\d\s\-()]{8,14}$/, "Invalid phone number format");
 
 /* Location Types */
 // https://stackoverflow.com/questions/3518504/regular-expression-for-matching-latitude-longitude-coordinates/31408260#31408260

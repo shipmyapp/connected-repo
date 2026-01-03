@@ -10,7 +10,7 @@ export class WebhookCallQueueTable extends BaseTable {
 
       teamId: t.uuid(),
       webhookUrl: t.string(),
-      payload: t.json(),
+      payload: t.json<Record<string, unknown>>(),
       status: t.webhookStatusEnum(),
       attempts: t.integer().default(0),
       maxAttempts: t.integer(),

@@ -1,11 +1,13 @@
 import { db } from "@backend/db/db";
+import { journalEntriesOpenApiRouter } from "@backend/modules/journal-entries/journal-entries.openapi.router";
+import { subscriptionOpenApiRouter } from "@backend/modules/subscriptions/subscription.router";
 import { openApiPublicProcedure } from "@backend/procedures/open_api_public.procedure";
 import * as z from "zod";
 import { teamRouter } from "./team.router";
 
 // Health check endpoint for OpenAPI (public - no auth required)
 const healthCheck = openApiPublicProcedure
-	.route({ method: "GET", path: "/health" })
+	.route({ method: "GET", path: "/health", tags: ["Health"] })
 	.output(
 		z.object({
 			status: z.string(),
@@ -35,6 +37,8 @@ const healthCheck = openApiPublicProcedure
 export const openApiRouter = {
 	health: healthCheck,
 	v1: {
+		"journal-entries": journalEntriesOpenApiRouter,
+		subscriptions: subscriptionOpenApiRouter,
 		team: teamRouter,
 	},
 };

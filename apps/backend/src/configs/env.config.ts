@@ -1,8 +1,8 @@
-import fs from "node:fs";
-import path from "node:path";
 import { NODE_ENV_ZOD } from "@connected-repo/zod-schemas/node_env";
 import { zString } from "@connected-repo/zod-schemas/zod_utils";
 import dotenv from "dotenv";
+import fs from "node:fs";
+import path from "node:path";
 import { z } from "zod";
 
 // Load environment variables based on NODE_ENV
@@ -56,7 +56,7 @@ const envSchema = z.object({
 	PORT: z.coerce.number().default(3000),
 	SESSION_SECRET: zString.min(32, "Session secret must be at least 32 characters"),
 	VITE_OTEL_SERVICE_NAME: zString.min(1),
-	VITE_SENTRY_DSN: z.url().optional(),
+	VITE_SENTRY_DSN: z.preprocess((val) => (val === "" ? undefined : val), z.url().optional()),
 	VITE_SENTRY_ENV: zString.optional(),
 	VITE_API_URL: z.url(),
 	WEBAPP_URL: z.url(),

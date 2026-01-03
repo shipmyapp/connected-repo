@@ -6,6 +6,7 @@ export class TeamTable extends BaseTable {
   columns = this.setColumns((t) => ({
     teamId: t.uuid().primaryKey().default(t.sql`gen_random_uuid()`),
 
+    allowApiSubsCreationForSkus: t.array(t.string()).default([]),
     allowedDomains: t.array(t.string()),
     allowedIPs: t.array(t.string()),
     apiSecretHash: t.string().select(false),

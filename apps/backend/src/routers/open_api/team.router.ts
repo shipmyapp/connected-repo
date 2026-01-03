@@ -2,7 +2,7 @@ import { openApiAuthProcedure } from "@backend/procedures/open_api_auth.procedur
 import { teamSelectAllZod } from "@connected-repo/zod-schemas/team.zod";
 
 const getTeamInfo = openApiAuthProcedure
-	.route({ method: "GET", path: "/info" })
+	.route({ method: "GET", tags: ["Team"] })
 	.output(teamSelectAllZod)
 	.handler(async ({ context }) => {
 		return context.team;
