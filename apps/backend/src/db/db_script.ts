@@ -1,8 +1,8 @@
 import { BaseTable } from "@backend/db/base_table";
-import { dbConfig } from "@backend/db/config";
+import { dbConfig } from "@backend/db/config.db.js";
 import { rakeDb } from "orchid-orm/migrations/node-postgres";
 
-export const change = rakeDb([dbConfig], {
+export const change = rakeDb(dbConfig, {
 	baseTable: BaseTable,
 	dbPath: "./db",
 	migrationId: "serial",

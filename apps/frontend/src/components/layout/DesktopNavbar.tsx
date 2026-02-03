@@ -3,7 +3,7 @@ import { Button } from "@connected-repo/ui-mui/form/Button";
 import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { AppBar } from "@connected-repo/ui-mui/navigation/AppBar";
 import { Toolbar } from "@connected-repo/ui-mui/navigation/Toolbar";
-import { navItems } from "@frontend/config/nav.config";
+import { navItems } from "@frontend/configs/nav.config";
 import { useLocation, useNavigate } from "react-router";
 import { UserProfileMenu } from "./UserProfileMenu";
 

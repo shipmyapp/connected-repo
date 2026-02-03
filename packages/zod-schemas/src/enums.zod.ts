@@ -17,10 +17,18 @@ export const apiProductSkuEnum = API_PRODUCTS.map(product => product.sku) as ["j
 export const apiProductSkuZod = z.enum(apiProductSkuEnum);
 export type ApiProductSku = z.infer<typeof apiProductSkuZod>;
 
+export const API_REQUEST_METHOD_ENUM = ["GET", "POST", "PUT", "DELETE"] as const;
+export const apiRequestMethodZod = z.enum(API_REQUEST_METHOD_ENUM);
+export type ApiRequestMethod = z.infer<typeof apiRequestMethodZod>;
+
+export const THEME_SETTING_ENUM = ["dark", "light", "system"] as const;
+export const themeSettingZod = z.enum(THEME_SETTING_ENUM);
+export type ThemeSetting = z.infer<typeof themeSettingZod>;
+
 export const WEBHOOK_STATUS_ENUM = ["Pending", "Sent", "Failed"] as const;
 export const webhookStatusZod = z.enum(WEBHOOK_STATUS_ENUM);
 export type WebhookStatus = z.infer<typeof webhookStatusZod>;
 
-export const API_REQUEST_METHOD_ENUM = ["GET", "POST", "PUT", "DELETE"] as const;
-export const apiRequestMethodZod = z.enum(API_REQUEST_METHOD_ENUM);
-export type ApiRequestMethod = z.infer<typeof apiRequestMethodZod>;
+export const PG_TBUS_TASK_STATUS_ENUM = ["pending", "active", "completed", "failed", "cancelled"] as const;
+export const pgTbusTaskStatusZod = z.enum(PG_TBUS_TASK_STATUS_ENUM);
+export type PgTbusTaskStatus = z.infer<typeof pgTbusTaskStatusZod>;

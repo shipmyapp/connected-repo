@@ -59,7 +59,8 @@ export const LoginPage = () => {
 					...dummyUser,
 					image: dummyUser.image ?? undefined,
 					password,
-					callbackURL
+					callbackURL,
+					journalReminderTimes: []
 				}, {
 					throw: true
 				});

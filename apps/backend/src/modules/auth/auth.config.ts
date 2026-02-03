@@ -3,6 +3,8 @@ import { env, isDev, isProd, isTest } from "@backend/configs/env.config";
 import { db } from "@backend/db/db";
 import { logger } from "@backend/utils/logger.utils";
 import { recordErrorOtel } from "@backend/utils/record-message.otel.utils";
+import { themeSettingZod } from "@connected-repo/zod-schemas/enums.zod";
+import { uniqueTimeArrayZod, zTimezone } from "@connected-repo/zod-schemas/zod_utils";
 import { betterAuth } from "better-auth";
 import { orchidAdapter } from "./orchid-adapter/factory.orchid_adapter";
 
@@ -25,8 +27,10 @@ export const auth = betterAuth({
 				attributes: {
 					sameSite: isProd ? "none" : "lax",
 					secure: !isDev,
-				}
-			}
+					httpOnly: true,
+					path: "/",
+				},
+			},
 		},
 		database: {
 			// Setting generateId to false allows your database handle all ID generation
@@ -40,6 +44,7 @@ export const auth = betterAuth({
 	defaultCookieAttributes: {
 		httpOnly: true,
 		secure: isProd,
+		sameSite: isProd ? "none" : "lax", // "none" requires secure: true
 		path: "/",
 	},
 	emailAndPassword: {
@@ -115,19 +120,52 @@ export const auth = betterAuth({
 			redirectURI: `${env.VITE_API_URL}/api/auth/callback/google`,
 		},
 	},
-	trustedOrigins: allowedOrigins,
+	trustedOrigins: allowedOrigins.length > 0 ? allowedOrigins : ["*"],
 	user: {
 		changeEmail: {
 			enabled: false, // Disable email changes for simplicity
+		},
+		additionalFields: {
+			timezone: {
+				defaultValue: "Etc/UTC",
+				input: true,
+				required: true,
+				type: "string",
+				validator: {
+					input: zTimezone,
+					output: zTimezone
+				}
+			},
+			themeSetting: {
+				type: "string",
+				required: true,
+				defaultValue: "system",
+				input: true,
+				validator: {
+					input: themeSettingZod,
+					output: themeSettingZod
+				}
+			},
+			journalReminderTimes: {
+				type: "string[]",
+				required: true,
+				defaultValue: [],
+				input: true,
+				validator: {
+					input: uniqueTimeArrayZod,
+					output: uniqueTimeArrayZod,
+				}
+			}
 		},
 		modelName: "users",
 	},
 	verification: {
 		modelName: "verifications",
 	},
-	experimental: {
-		joins: true,
-	},
+	// Leads to session leakage. Probably need to check the adapter implementation first.
+	// experimental: {
+	// 	joins: true,
+	// },
 	plugins: [
 		// Custom plugin to capture OAuth state_mismatch and other errors before redirect
 		{

@@ -2,8 +2,8 @@
 
 **Project:** Connected Repo Starter - Journal MVP
 **Repository:** shipmyapp/connected-repo
-**Tech Stack:** oRPC, Orchid ORM, Better Auth, React 19, Vite, PostgreSQL
-**Last Updated:** 2026-01-01
+**Tech Stack:** oRPC, Orchid ORM, Better Auth, React 19, Vite, PostgreSQL, pg-tbus, SuprSend
+**Last Updated:** 2026-02-04
 
 ---
 
@@ -40,18 +40,20 @@ Building a **Scheduled Prompt & Journal** app with:
 1. ~~**Testing Infrastructure (P0):** Vitest setup for backend/frontend with database integration~~ ✅ COMPLETED
 2. ~~**OpenTelemetry & RUM (P0):** Error tracking, performance monitoring, distributed tracing~~ ✅ COMPLETED
 3. ~~**CI/CD & DevOps (P0):** GitHub Actions, Coolify deployment setup~~ ✅ COMPLETED (Basic CI/CD)
-4. **PWA Setup (P0):** Service workers, manifest, offline support, install prompt
-5. **Event-Driven Architecture (P0):** Database-backed event bus (swappable with Kafka/RabbitMQ later)
-6. **Email & Notification Infrastructure (P0):** Brevo setup, event-driven notification module (email-first, extensible for push/SMS/in-app)
-7. **User Schedules (P0):** Schedule management for timed notifications
-8. **Email Notifications (P0):** Event-driven daily prompt emails via Brevo (after PWA for testing)
-9. **Capacitor Setup (P0):** iOS/Android native app configuration (after email notifications working)
-10. **Push Notifications (P0):** FCM/APNs setup and event-driven push notifications (after Capacitor)
-11. **Mobile CI/CD (P0):** GitHub Actions for Android/iOS builds and store uploads
-12. **Payments & Subscriptions (P0):** Stripe integration ($5/month, $50/year)
-13. **Offline-First (V1):** Make app offline-first, free version offline-only, paid gets cloud sync
-14. **Search Functionality (V1):** Backend search implementation
-15. **Gamification (V1):** Streaks and badges system (event-driven)
+4. ~~**PWA Setup (P0):** Service workers, manifest, offline support, install prompt~~ ✅ COMPLETED
+5. ~~**Event-Driven Architecture (P0):** Database-backed event bus with pg-tbus~~ ✅ COMPLETED
+6. ~~**Notification Infrastructure (P0):** SuprSend setup, event-driven notifications~~ ✅ COMPLETED
+7. ~~**Cron Jobs (P0):** Per-minute cron with pg-tbus task scheduling~~ ✅ COMPLETED
+8. ~~**Webhook Processing (P0):** Subscription alerts with retry logic~~ ✅ COMPLETED
+9. **User Schedules (P0):** Schedule management for timed notifications
+10. **Email Notifications (P0):** Event-driven daily prompt emails (after user schedules)
+11. **Capacitor Setup (P0):** iOS/Android native app configuration
+12. **Push Notifications (P0):** FCM/APNs setup and event-driven push notifications
+13. **Mobile CI/CD (P0):** GitHub Actions for Android/iOS builds and store uploads
+14. **Payments & Subscriptions (P0):** Stripe integration ($5/month, $50/year)
+15. **Offline-First (V1):** Make app offline-first, free version offline-only, paid gets cloud sync
+16. **Search Functionality (V1):** Backend search implementation
+17. **Gamification (V1):** Streaks and badges system (event-driven)
 
 ---
 
@@ -284,214 +286,163 @@ Building a **Scheduled Prompt & Journal** app with:
 
 ---
 
-### Phase 4: PWA Setup 📱
+### Phase 4: PWA Setup 📱 ✅ COMPLETED
 
-**Priority:** CRITICAL - Mobile-first experience
+**Status:** ✅ COMPLETED - All PWA features implemented and tested
 
-#### Epic 4.1: Progressive Web App Implementation
+**Implementation Summary:**
+- **Vite PWA Plugin:** Configured with `vite-plugin-pwa` using injectManifest strategy
+- **Service Worker:** Custom `sw.ts` with Workbox integration, caches static assets (JS, CSS, HTML, images, fonts)
+- **Manifest:** Complete web app manifest with icons (192x192, 512x512, maskable, apple-touch-icon), theme colors, display modes
+- **Install Prompts:** Platform-specific prompts for iOS and Android with dismiss functionality
+- **Update Prompts:** Service worker update detection with user notification
+- **Offline Blocker:** `OfflineBlocker.tsx` component that blocks UI when connection is lost
+- **State Management:** Zustand store (`usePwaInstall.store.ts`) manages installation state
 
-**Issues:**
-
-**4.1.1: Configure Vite PWA Plugin**
-- Install vite-plugin-pwa
-- Configure plugin in vite.config.ts
-- Create web app manifest (name, description, icons, colors)
-- Generate app icons (512x512, 192x192, 180x180, 96x96, etc.)
-- Configure start_url and display mode (standalone)
-- Set theme_color and background_color
-- Test manifest validation
-- **Acceptance Criteria:**
-  - PWA manifest valid
-  - Icons display correctly
-  - App name and colors set
-  - Lighthouse PWA audit passes
-
-**4.1.2: Set up Service Worker**
-- Configure Workbox strategies in PWA plugin
-- Cache static assets (CSS, JS, fonts, images)
-- Cache API responses with expiration (1 hour)
-- Implement offline fallback page
-- Configure network-first for API, cache-first for assets
-- Test offline functionality
-- **Acceptance Criteria:**
-  - Static assets cached
-  - App loads offline (cached version)
-  - API responses cached appropriately
-  - Offline fallback shows when needed
-  - Service worker updates properly
-
-**4.1.3: Create Install Prompt UI**
-- Detect if app is installable
-- Show install banner/prompt
-- Handle beforeinstallprompt event
-- Dismiss prompt if user declines
-- Don't show again if already installed
-- Track installation in analytics
-- **Acceptance Criteria:**
-  - Install prompt appears when eligible
-  - Clicking prompt triggers install
-  - Prompt dismissed properly
-  - Works on Chrome, Safari, Firefox
-
-**4.1.4: Test PWA on Mobile Browsers**
-- Test installation on Chrome (Android)
-- Test installation on Safari (iOS)
-- Verify offline functionality on mobile
-- Test add to home screen
-- Check icon and splash screen
-- **Acceptance Criteria:**
-  - Installs successfully on Android
-  - Installs successfully on iOS
-  - Icon appears on home screen
-  - Splash screen displays
-  - Offline mode works on mobile
+**Files:**
+- `apps/frontend/vite.config.ts` - PWA configuration
+- `apps/frontend/src/sw.ts` - Service worker
+- `apps/frontend/src/components/pwa/install_prompt.pwa.tsx` - Install prompts
+- `apps/frontend/src/components/pwa/update_prompt.pwa.tsx` - Update prompts
+- `apps/frontend/src/components/OfflineBlocker.tsx` - Offline UI blocker
+- `apps/frontend/src/stores/usePwaInstall.store.ts` - Installation state
+- `apps/frontend/src/hooks/usePwaInstall.ts` - Install hook
 
 ---
 
-### Phase 5: Centralized Notification Service 🔔
+### Phase 5: Event-Driven Architecture & Notifications 🔔 ✅ COMPLETED
 
-**Priority:** HIGH - Core infrastructure for all notification types (do AFTER PWA)
+**Status:** ✅ COMPLETED - pg-tbus event system, SuprSend notifications, cron jobs, webhooks
 
-#### Epic 5.1: Email Setup with Brevo & Centralized Notification Module
+**Implementation Summary:**
 
-**Issues:**
+#### Epic 5.1: Event-Driven Architecture with pg-tbus ✅
 
-**5.1.1: Set up Brevo Account & Email Service**
-- Create Brevo account (https://brevo.com)
-- Verify sender domain
-- Configure API key in .env
-- Install Brevo SDK (@getbrevo/brevo)
-- Create email utility wrapper for Brevo API
-- Test sending emails in development
-- **Acceptance Criteria:**
-  - Brevo account configured
-  - Domain verified or using sandbox
-  - Can send test emails
-  - API key secured in environment variables
-  - Email delivery confirmed
+**pg-tbus Implementation:**
+- **Library:** pg-tbus for PostgreSQL-based event bus with Transactional Outbox Pattern
+- **Configuration:** `apps/backend/src/events/tbus.ts` - TBus instance with PostgreSQL connection
+- **Schema:** `apps/backend/src/events/events.schema.ts` - Type-safe event and task definitions
+  - `userCreatedEventDef` - User registration events
+  - `userReminderTaskDef` - Scheduled reminder tasks
+  - `subscriptionAlertWebhookTaskDef` - Webhook tasks with retry logic
+- **Queries:** `apps/backend/src/events/events.queries.ts` - Event registration and handlers
+- **Utils:** `apps/backend/src/events/events.utils.ts` - Orchid ORM to TBus query adapter
 
-**5.1.2: Design Transactional Email Templates**
-- Create reusable email template system
-- Design templates for:
-  - Welcome email (post-signup)
-  - Daily prompt notification
-  - Password reset (future)
-  - Subscription confirmation
-  - Payment receipts
-- Make templates responsive for mobile
-- Include branding (logo, colors)
-- Add unsubscribe/settings link
-- Test in Gmail, Outlook, Apple Mail
-- **Acceptance Criteria:**
-  - Email templates professional and branded
-  - Responsive on mobile email clients
-  - Unsubscribe links functional
-  - Templates reusable and configurable
-  - Tested across major email clients
+**Features:**
+- Type-safe events using TypeBox schemas
+- Transactional event publishing (atomic with DB operations)
+- Task definitions with retry configuration (retryLimit, retryDelay, retryBackoff)
+- Event handlers for user creation and reminders
+- Audit logging via `pg_tbus_task_log` table
 
-**5.1.3: Design Event-Driven Architecture with Transactional Outbox Pattern**
-- **IMPORTANT:** Use **pg-tbus** library - Built for events, not jobs:
-  - **Reference 1:** Type-safe event-driven with PubSub - https://dev.to/encore/building-type-safe-event-driven-applications-in-typescript-using-pubsub-cron-jobs-and-postgresql-50jc
-  - **Reference 2:** Scalable event-driven Node.js services - https://itnext.io/how-to-create-simple-and-scalable-event-driven-nodejs-services-14e9dee75a74
-  - **DO NOT roll everything by hand** - use pg-tbus library
-- Install and configure **pg-tbus**:
-  - `yarn add pg-tbus`
-  - Implements Transactional Outbox Pattern
-  - Atomic event publishing: Save data + publish event in SAME transaction
-  - Built-in polling and relay mechanism (no custom polling needed)
-  - Multiple subscribers per event (like Kafka)
-  - Native TypeScript support
-- Create `apps/backend/src/modules/events/` module for event infrastructure
-- **Why pg-tbus over pg-boss:**
-  - ✅ Built for **events** (integration events), not jobs
-  - ✅ **Transactional integrity**: Publish event atomically with DB changes
-  - ✅ **Subscription model**: Multiple subscribers per event (like Kafka)
-  - ✅ **Outbox pattern**: Prevents ghost notifications if transaction fails
-  - ✅ **Easy Kafka migration**: API similar to message brokers
-- Design event system using pg-tbus patterns:
-  - pg-tbus auto-creates outbox tables
-  - Type-safe event definitions using TypeScript + Zod
-  - Abstract wrapper interface for future Kafka migration
-  - No custom polling logic needed (pg-tbus handles it)
-- Define core events with **type safety**:
-  - `user.created` - New user registered
-  - `user.deleted` - User account deleted
-  - `journal_entry.created` - New journal entry created
-  - `schedule.updated` - User schedule changed
-  - `subscription.updated` - Subscription status changed
-  - `notification.scheduled` - Notification needs to be sent
-- Implement patterns from references:
-  - Type-safe event payloads (use Zod schemas)
-  - Event versioning strategy
-  - Idempotency keys to prevent duplicate processing
-  - Structured logging for event tracing
-  - Transactional event publishing (atomic with business logic)
-- **Built for easy Kafka migration:**
-  - pg-tbus subscription API matches message broker patterns
-  - When migrating to Kafka: swap pg-tbus wrapper with Kafka client
-  - Business logic stays unchanged
-- **Acceptance Criteria:**
-  - pg-tbus library installed and configured
-  - Events published atomically with database transactions
-  - Multiple subscribers can listen to same event
-  - Type-safe event definitions with Zod schemas
-  - No ghost notifications (transactional integrity)
-  - Idempotency keys prevent duplicate processing
-  - Structured logging for event tracing
-  - Architecture ready for Kafka migration (minimal code changes)
+#### Epic 5.2: Cron Job Infrastructure ✅
 
-**5.1.4: Create Centralized Notification Module**
-- Create `apps/backend/src/modules/notifications/` module
-- Design notification service architecture:
-  - Abstract notification interface (send, schedule, cancel)
-  - Email provider implementation (Brevo)
-  - Push notification provider interface (for future)
-  - SMS provider interface (for future)
-  - In-app notification interface (for future)
-- Subscribe to events from event bus:
-  - Listen to `user.created` → send welcome email
-  - Listen to `notification.scheduled` → send email/push based on preferences
-  - Listen to `subscription.updated` → send confirmation email
-- Implement notification preferences (user can enable/disable types)
-- Add notification logging and tracking
-- **Acceptance Criteria:**
-  - Module follows monorepo patterns
-  - Abstract interface allows multiple providers
-  - Email notifications working via Brevo
-  - Subscribes to events from event bus
-  - User preferences stored in database
-  - Logging captures all notification events
-  - Extensible for push/SMS/in-app later
+**Implementation:**
+- **Library:** node-cron for per-minute scheduling
+- **File:** `apps/backend/src/cron_jobs/services/per_minute_cron.ts`
+- **Pattern:** Mutex flag prevents concurrent execution
+- **Tasks:**
+  - Journal entry reminder scheduling
+  - Future: webhook processing, cleanup jobs
 
-**5.1.5: Implement Event Publishing in Core Modules**
-- Update existing modules to publish events:
-  - `auth` module: Publish `user.created` after successful signup
-  - `journal-entries` module: Publish `journal_entry.created` after creation
-  - `subscriptions` module: Publish `subscription.updated` on status change
-- Events published via event bus interface (database-backed for MVP)
-- Add error handling for event publishing failures
-- **Acceptance Criteria:**
-  - Core modules publish events correctly
-  - Events stored in database event log
-  - Event publishing doesn't block main operations (async)
-  - Failed event publishing logged and retried
+**Mutex Pattern:**
+```typescript
+let isCronJobRunning = false;
+cron.schedule('* * * * *', async () => {
+  if (isCronJobRunning) return;
+  isCronJobRunning = true;
+  try {
+    await runScheduledTasks();
+  } finally {
+    isCronJobRunning = false;
+  }
+});
+```
 
-**5.1.6: Implement Email Notification Endpoints**
-- Create `notifications.sendEmail` oRPC endpoint (internal/admin only)
-- Create `notifications.getPreferences` endpoint (user-specific)
-- Create `notifications.updatePreferences` endpoint (user-specific)
-- Create `notifications.testEmail` endpoint (development only)
-- Add authentication and authorization checks
-- **Acceptance Criteria:**
-  - Endpoints properly secured
-  - Email sending works via API
-  - User can view/update preferences
-  - Test endpoint helps debugging
-  - Error handling robust
+#### Epic 5.3: Notification Infrastructure ✅
+
+**SuprSend Implementation:**
+- **Configuration:** `apps/backend/src/configs/suprsend.config.ts`
+- **Library:** @suprsend/node-sdk
+- **Event Types:**
+  - `USER REMINDER SCHEDULED` - Daily prompt reminders
+  - User created notifications
+
+**Handler:** `apps/backend/src/modules/journal-entries/notifications/reminder.notifications.journal_entries.ts`
+
+#### Epic 5.4: Webhook Processing ✅
+
+**Implementation:**
+- **Handler:** `apps/backend/src/modules/webhook_calls/handlers/subscription_alert_webhook.handler.ts`
+- **Features:**
+  - Sends subscription usage alerts at 90% threshold
+  - Audit logging to `pg_tbus_task_log` table
+  - Retry logic via pg-tbus (3 attempts with exponential backoff)
+  - Bearer token authentication
+  - 30-second timeout
+
+**Audit Logging:**
+- Task execution tracked in `pg_tbus_task_log` table
+- Success/failure status, error messages, response codes
+- Retry tracking and willRetry flags
 
 ---
 
-#### Epic 5.2: User Schedule Management
+### Phase 6: User Schedules & Advanced Notifications 📅
+
+**Priority:** HIGH - Schedule management for timed notifications
+
+**Status:** 🔄 PENDING - Next priority after PWA completion
+
+#### Epic 6.1: User Schedule Management
+
+**Note:** User schedules stored in `users.journalReminderTimes` array (already exists in schema). May need dedicated `user_schedules` table for more complex scheduling.
+
+**Issues:**
+
+**6.1.1: Create UserSchedule Table (if needed)**
+- Evaluate if `users.journalReminderTimes` array is sufficient
+- If not, create `user_schedules` table:
+  - id, userId, scheduledTime, timezone, frequency, isActive
+  - Support daily frequency for MVP
+  - Store time as string (e.g., "08:00", "20:00")
+  - Store timezone (e.g., "America/New_York", "Asia/Kolkata")
+- Run migration: `yarn db g user_schedules`
+- **Acceptance Criteria:**
+  - Table created with proper schema
+  - Timezone validation
+  - Foreign key to users table
+  - Default schedule can be set
+
+**6.1.2: Build Schedule oRPC Endpoints**
+- `schedule.get` - Get user's current schedule
+- `schedule.upsert` - Create or update schedule
+- `schedule.delete` - Remove schedule
+- Validate timezone against IANA timezone list
+- Validate time format (HH:MM)
+- **Acceptance Criteria:**
+  - Endpoints validate input
+  - Timezone validation works
+  - User can only modify their own schedule
+  - Clear error messages
+
+**6.1.3: Create Schedule Settings UI**
+- Build settings page for notification schedule
+- Time picker for scheduled time
+- Timezone selector (react-timezone-select)
+- Toggle to enable/disable notifications
+- Save button calls oRPC endpoint
+- Show current settings on load
+- **Acceptance Criteria:**
+  - Clean, intuitive UI
+  - Time picker easy to use
+  - Timezone auto-detected if possible
+  - Changes saved successfully
+  - Confirmation message on save
+
+---
+
+#### Epic 6.2: Daily Prompt Notifications
 
 **Issues:**
 
@@ -536,11 +487,26 @@ Building a **Scheduled Prompt & Journal** app with:
 
 ---
 
-#### Epic 5.3: Daily Prompt Email Notifications
+#### Epic 6.2: Daily Prompt Notifications
+
+**Note:** Using SuprSend for notifications (already implemented). Email templates via Brevo can be added later if needed.
 
 **Issues:**
 
-**5.3.1: Create Daily Prompt Email Template**
+**6.2.1: Create Daily Prompt Notification Template**
+- Design notification template for daily prompts (SuprSend)
+- Include prompt text prominently
+- Add "Write your response" CTA linking to app
+- Include unsubscribe/settings link
+- Make responsive for mobile
+- **Acceptance Criteria:**
+  - Notification template professional and branded
+  - CTA button works correctly
+  - Responsive on mobile
+  - Unsubscribe link functional
+  - Branding consistent with app
+
+**6.2.2: Implement Cron Job for Daily Prompt Scheduling**
 - Design HTML email template for daily prompts
 - Include prompt text prominently
 - Add "Write your response" CTA button linking to app
@@ -554,14 +520,14 @@ Building a **Scheduled Prompt & Journal** app with:
   - Unsubscribe link functional
   - Branding consistent with app
 
-**5.3.2: Implement Cron Job for Daily Prompt Scheduling**
-- Use **node-cron** or **system cron** for scheduling (pg-tbus focuses on events, not job scheduling)
+**6.2.2: Implement Cron Job for Daily Prompt Scheduling**
+- Use **node-cron** for scheduling (already configured in `per_minute_cron.ts`)
 - Create cron job that runs every minute: `cron.schedule('* * * * *', handler)`
 - In job handler:
   - Query users with active schedules matching current time (in their timezone)
   - For each matched user:
     - Fetch daily prompt
-    - Publish `notification.scheduled` event transactionally using pg-tbus
+    - Publish `userReminderTaskDef` event via pg-tbus
 - Prevent duplicate scheduling using idempotency keys: `${userId}:${date}`
 - **Acceptance Criteria:**
   - Cron job runs reliably every minute
@@ -571,34 +537,34 @@ Building a **Scheduled Prompt & Journal** app with:
   - Events published atomically (no ghost notifications)
   - Scales to 1000+ users
 
-**5.3.3: Implement Event-Driven Email Sending**
-- Notification service subscribes to `notification.scheduled` events
-- On event received:
+**6.2.3: Implement Event-Driven Notification Sending**
+- Notification service already subscribes to events via `reminderNotificationJournalEntryHandler`
+- Extend handler to process `userReminderTaskDef` events:
   - Check user notification preferences
-  - If email enabled, send email with prompt via Brevo
-  - Mark event as processed in database
+  - Send notification via SuprSend
+  - Mark event as processed
   - Log successful sends and errors
-- Handle rate limits and retries (exponential backoff)
+- Handle rate limits and retries via pg-tbus config (already set: retryLimit: 3)
 - **Acceptance Criteria:**
   - Event subscription working
-  - Emails sent when events published
+  - Notifications sent when events published
   - User preferences respected
   - Failed sends retried with backoff
   - Event marked processed after successful send
   - Errors logged but don't crash service
 
-**5.3.4: Test Event-Driven Email Notifications End-to-End**
+**6.2.4: Test Event-Driven Notifications End-to-End**
 - Test event publishing from cron job
 - Test event processing by notification service
 - Test timezone conversions
-- Test email delivery at scheduled times
+- Test notification delivery at scheduled times
 - Test unsubscribe functionality
 - Test notification preferences
-- Monitor email delivery rates
+- Monitor delivery rates
 - **Acceptance Criteria:**
   - Events published correctly from cron
   - Events processed by notification service
-  - Emails sent at correct times across timezones
+  - Notifications sent at correct times across timezones
   - Delivery rates >95%
   - Unsubscribe works correctly
   - Preferences respected
@@ -1248,16 +1214,17 @@ Building a **Scheduled Prompt & Journal** app with:
 
 ## Success Metrics
 
-### MVP Launch (V0 Complete)
-- [x] Users can sign in with Google
+### MVP Launch (V0 - Current Status)
+- [x] Users can sign in with Google (Better Auth)
 - [x] Users can create journal entries (form & list view)
-- [x] App installable as PWA
-- [x] Native mobile apps (Android + iOS) via Capacitor
-- [x] Users receive email & push notifications with prompts
-- [x] Premium subscriptions live ($5/month, $50/year via Stripe)
-- [x] 80% test coverage on backend, E2E on frontend
-- [x] CI/CD pipeline operational
-- [x] Error monitoring & RUM active
+- [x] App installable as PWA (Vite PWA, service worker, install prompts)
+- [x] Event-driven architecture (pg-tbus, cron jobs, notifications)
+- [ ] Native mobile apps (Android + iOS) via Capacitor ⏳ Phase 7
+- [ ] Users receive notifications with prompts ⏳ Phase 6 (SuprSend configured)
+- [ ] Premium subscriptions live ($5/month, $50/year via Stripe) ⏳ Phase 9
+- [x] 80% test coverage on backend (Vitest), E2E on frontend (Playwright)
+- [x] CI/CD pipeline operational (GitHub Actions, Coolify)
+- [x] Error monitoring & RUM active (Sentry, OpenTelemetry)
 - [x] Coolify deployment automated
 
 ### Post-MVP (V1 Complete)
@@ -1292,7 +1259,9 @@ Building a **Scheduled Prompt & Journal** app with:
 - **Event Bus:** pg-tbus (Transactional Outbox Pattern) - built for easy Kafka migration
 - **Architecture:** Event-driven with Transactional Outbox Pattern
 - **Cron Jobs:** node-cron (scheduling)
-- **Notifications:** Brevo (transactional email), FCM/APNs (push notifications)
+- **Notifications:** SuprSend (transactional notifications), FCM/APNs (push - future)
+- **Cron Jobs:** node-cron (per-minute scheduling with mutex)
+- **Webhooks:** pg-tbus tasks with retry logic and audit logging
 - **Payments:** Stripe, Google Play Billing, Apple IAP
 - **Testing:** Vitest
 

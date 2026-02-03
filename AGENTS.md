@@ -7,6 +7,7 @@
 - Build: `yarn build` (all workspaces)
 - Lint/Format: `yarn lint`, `yarn format` (Biome: tabs, 100 chars, double quotes)
 - Type Check: `yarn check-types`
+- DB: `yarn db g <name>`, `yarn db up`, `yarn db seed`, `yarn test:db:setup`
 
 **Code Style:**
 - Tabs (NOT spaces), 100 char line width, double quotes
@@ -16,13 +17,13 @@
 
 ## Detailed Guidelines
 
-**Backend (Fastify + oRPC + Orchid ORM):**
+**Backend (oRPC + Orchid ORM + pg-tbus):**
 - See [apps/backend/AGENTS.md](apps/backend/AGENTS.md)
-- Database tables, oRPC endpoints, testing, auth
+- Database tables, migrations, oRPC endpoints, events, cron jobs, testing
 
-**Frontend (React 19 + Vite + TanStack Query):**
+**Frontend (React 19 + Vite + TanStack Query + PWA):**
 - See [apps/frontend/AGENTS.md](apps/frontend/AGENTS.md)
-- React patterns, oRPC client, E2E testing, UI design
+- React patterns, oRPC client, PWA features, E2E testing, UI design
 
 **Packages:**
 - See [packages/AGENTS.md](packages/AGENTS.md)

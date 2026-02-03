@@ -1,39 +1,4 @@
-
-type JoinConfig = {
-  [model: string]: {
-    /**
-     * The joining column names.
-     */
-    on: {
-      /**
-       * Column name from the main table
-       */
-      from: string;
-      /**
-       * Column name from the joined table
-       */
-      to: string;
-    };
-    /**
-     * Limit the number of rows to return.
-     *
-     * If the relation has `unique` constraint, then this option will be ignored and limit will be set to 1.
-     *
-     * @default 100
-     */
-    limit?: number;
-    /**
-     * The relation type. Determines the output joined model data.
-     *
-     * `one-to-one` would have a single object in the output.
-     * `one-to-many` would have an array of objects in the output.
-     * `many-to-many` would have an array of objects in the output.
-     *
-     * @default "one-to-many"
-     */
-    relation?: "one-to-one" | "one-to-many" | "many-to-many";
-  };
-};
+import { JoinConfig } from "@better-auth/core/db/adapter";
 
 /**
  * Applies better-auth JoinConfig to an Orchid ORM query.

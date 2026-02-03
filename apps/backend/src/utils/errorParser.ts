@@ -119,7 +119,7 @@ export function orpcErrorParser(error: Error): CustomError {
 				// @ts-ignore
 				details: error.cause ? { originalError: String(error.cause) } : undefined,
 				httpStatus: 403,
-				userFriendlyMessage: "You don't have permission to perform this action",
+				userFriendlyMessage: error.message || "You don't have permission to perform this action",
 				actionRequired: "Contact an administrator if you believe this is an error",
 			};
 

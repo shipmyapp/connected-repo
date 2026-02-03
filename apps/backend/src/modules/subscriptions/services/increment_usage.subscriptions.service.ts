@@ -1,18 +1,21 @@
 import { sql } from "@backend/db/base_table";
 import { db } from "@backend/db/db";
+import { subscriptionAlertWebhookTaskDef } from "@backend/events/events.schema";
+import { tbus } from "@backend/events/tbus";
 import { logger } from "@backend/utils/logger.utils";
 import type { ApiProductSku } from "@connected-repo/zod-schemas/enums.zod";
-import { TeamSelectAll } from "@connected-repo/zod-schemas/team.zod";
+import type { TeamSelectAll } from "@connected-repo/zod-schemas/team.zod";
 import { subscriptionAlertWebhookPayloadZod } from "@connected-repo/zod-schemas/webhook_call_queue.zod";
 
 const SUBSCRIPTION_USAGE_ALERT_THRESHOLD_PERCENT = 90;
-const WEBHOOK_MAX_RETRY_ATTEMPTS = 3;
 
 /**
- * Check if subscription has reached usage threshold and queue webhook if needed
+ * Check if subscription has reached usage threshold and schedule webhook task if needed
+ * Uses pg-tbus for reliable queuing with automatic retries and audit logging
  * @param subscription - The subscription object
+ * @param team - The team with webhook configuration
  */
-const checkAndQueueWebhookAt90Percent = async (
+const checkAndScheduleWebhookAt90Percent = async (
   subscription: {
     subscriptionId: string;
     teamId: string;
@@ -25,9 +28,10 @@ const checkAndQueueWebhookAt90Percent = async (
 ) => {
   const usagePercent = (subscription.requestsConsumed / subscription.maxRequests) * 100;
 
-  // Only queue if:
+  // Only schedule if:
   // 1. Usage is >= threshold percentage
   // 2. Notification hasn't been sent yet
+  // 3. Team has webhook URL configured
   if (
     team?.subscriptionAlertWebhookUrl &&
     usagePercent >= SUBSCRIPTION_USAGE_ALERT_THRESHOLD_PERCENT &&
@@ -44,35 +48,33 @@ const checkAndQueueWebhookAt90Percent = async (
       timestamp: Date.now(),
     });
 
-    return db.$transaction(async () => {
-      // Queue webhook
-      const createWebhook = db.webhookCallQueues.create({
-        teamId: subscription.teamId,
+    // Schedule pg-tbus task
+    // Note: This is intentionally outside the DB transaction to avoid blocking.
+    // If scheduling fails, pg-tbus will retry. The notification flag prevents duplicate alerts.
+    await tbus.send(
+      subscriptionAlertWebhookTaskDef.from({
         subscriptionId: subscription.subscriptionId,
-        webhookUrl: team.subscriptionAlertWebhookUrl!,
-        status: "Pending",
-        attempts: 0,
-        maxAttempts: WEBHOOK_MAX_RETRY_ATTEMPTS,
-        scheduledFor: () => sql`NOW()`,
+        teamId: subscription.teamId,
         payload,
+      })
+    );
+
+    // Mark subscription as notified
+    // This runs in a separate transaction to ensure it succeeds independently
+    await db.subscriptions
+      .find(subscription.subscriptionId)
+      .where({ notifiedAt90PercentUse: null })
+      .update({
+        notifiedAt90PercentUse: () => sql`NOW()`,
       });
-
-      // Mark subscription as notified
-      const markNotified = db.subscriptions
-        .find(subscription.subscriptionId)
-        .where({ notifiedAt90PercentUse: null })
-        .update({
-          notifiedAt90PercentUse: () => sql`NOW()`,
-        });
-
-      return await Promise.all([createWebhook, markNotified]);
-    });
   }
-}
+};
 
 /**
- * Atomically increment subscription usage and check for usage threshold
+ * Atomically increment subscription usage and schedule webhook task if threshold reached
+ * Uses pg-tbus for reliable task queuing with built-in retries and audit logging
  * @param subscriptionId - The subscription ID
+ * @param team - The team with webhook configuration
  * @returns Updated subscription with new usage count
  */
 export async function incrementSubscriptionUsage(subscriptionId: string, team: TeamSelectAll) {
@@ -86,11 +88,12 @@ export async function incrementSubscriptionUsage(subscriptionId: string, team: T
     throw new Error(`Subscription ${subscriptionId} not found`);
   }
 
-  // Check if usage threshold reached and webhook not already sent
-  await checkAndQueueWebhookAt90Percent(updatedSubscription, team)
+  // Check if usage threshold reached and schedule webhook task
+  // This is non-blocking - if it fails, the usage was still incremented
+  checkAndScheduleWebhookAt90Percent(updatedSubscription, team)
     .catch(error => {
-      // Not throwing error as it might fail due to race-conditions in marking notified.
-      logger.error("Error checking and queueing webhook at 90% usage:", error);
+      // Log error but don't fail the request - the webhook is a side effect
+      logger.error("Error scheduling webhook task at 90% usage:", error);
     });
 
   return updatedSubscription;

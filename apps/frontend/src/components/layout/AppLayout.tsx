@@ -1,7 +1,11 @@
 import { Box } from "@connected-repo/ui-mui/layout/Box";
+import { useThemeMode } from "@connected-repo/ui-mui/theme/ThemeContext";
+import { PwaInstallPrompt } from "@frontend/components/pwa/install_prompt.pwa";
+import { PwaUpdatePrompt } from "@frontend/components/pwa/update_prompt.pwa";
 import type { SessionInfo } from "@frontend/contexts/UserContext";
 import { useMediaQuery } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
+import { useEffect } from "react";
 import { Outlet, useLoaderData } from "react-router";
 import { DesktopNavbar } from "./DesktopNavbar";
 import { MobileNavbar } from "./MobileNavbar";
@@ -22,6 +26,13 @@ export const AppLayout = () => {
 
 	// Get session data from authLoader
 	const sessionInfo = useLoaderData() as SessionInfo;
+	const { setThemeMode } = useThemeMode();
+
+	useEffect(() => {
+		if (sessionInfo.user?.themeSetting) {
+			setThemeMode(sessionInfo.user.themeSetting);
+		}
+	}, [sessionInfo.user?.themeSetting, setThemeMode]);
 
 	return (
 		<Box
@@ -45,6 +56,8 @@ export const AppLayout = () => {
 				}}
 			>
 				<Outlet context={sessionInfo} />
+				<PwaInstallPrompt />
+				<PwaUpdatePrompt />
 			</Box>
 		</Box>
 	);

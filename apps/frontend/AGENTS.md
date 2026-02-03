@@ -1,7 +1,7 @@
 # Frontend Agent Guidelines
 
 ## Stack
-React 19, Vite 7 + SWC, React Router 7, TanStack Query + oRPC, React Hook Form, Zustand, Material-UI (via `@connected-repo/ui-mui`), Zod, Better Auth, Sentry
+React 19, Vite 7 + SWC, React Router 7, TanStack Query + oRPC, React Hook Form, Zustand, Material-UI (via `@connected-repo/ui-mui`), Zod, Better Auth, Sentry, Vite PWA
 
 ## Testing
 - **E2E**: Playwright - `yarn test:e2e`, `yarn test:e2e:ui`
@@ -16,13 +16,16 @@ React 19, Vite 7 + SWC, React Router 7, TanStack Query + oRPC, React Hook Form, 
 ## Structure
 ```
 src/
-├── modules/          # Feature modules (auth, journal-entries, etc.)
+├── modules/          # Feature modules
 │   └── <module>/
 │       ├── pages/          # Module pages
 │       ├── <module>.router.tsx  # Routes
 │       └── <module>.spec.ts     # E2E tests
 ├── components/       # Shared (prefer ui-mui package)
+│   ├── pwa/          # PWA components (install/update prompts, offline blocker)
+│   └── layout/       # Layout components
 ├── utils/           # oRPC client, auth, query client
+├── configs/         # Environment and navigation config
 ├── router.tsx       # Main routes
 └── main.tsx         # Entry
 ```
@@ -43,6 +46,67 @@ src/
 import { Button } from '@connected-repo/ui-mui/form/Button'
 import { Card } from '@connected-repo/ui-mui/layout/Card'
 import { RhfTextField } from '@connected-repo/ui-mui/rhf-form/RhfTextField'
+```
+
+## PWA (Progressive Web App)
+
+**Features:**
+- Offline functionality via service worker
+- Install prompts for iOS and Android
+- Update prompts for new versions
+- Offline blocker UI when connection is lost
+
+**Configuration** (`vite.config.ts`):
+```typescript
+import { VitePWA } from 'vite-plugin-pwa';
+
+VitePWA({
+  strategies: 'injectManifest',
+  srcDir: 'src',
+  filename: 'sw.ts',
+  registerType: 'prompt',
+  injectManifest: {
+    globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+  },
+  workbox: { cleanupOutdatedCaches: true },
+  manifest: {
+    name: 'AppName',
+    short_name: 'AppName',
+    start_url: '/',
+    display: 'standalone',
+    background_color: '#ffffff',
+    theme_color: '#1976d2',
+    icons: [/* 192x192, 512x512, maskable, apple-touch-icon */]
+  }
+})
+```
+
+**Service Worker** (`src/sw.ts`):
+```typescript
+// Custom service worker logic
+self.addEventListener('install', (event) => {
+  // Skip waiting to activate immediately
+  self.skipWaiting();
+});
+```
+
+**Components:**
+- `PwaInstallPrompt` - Shows install prompt for iOS/Android
+- `PwaUpdatePrompt` - Shows update prompt when new version available
+- `OfflineBlocker` - Blocks UI when connection lost
+
+**Install Hook** (`hooks/usePwaInstall.ts`):
+```typescript
+import { usePwaInstall } from '@/hooks/usePwaInstall';
+
+const { deferredPrompt, showInstallPrompt } = usePwaInstall();
+```
+
+**Store** (`stores/usePwaInstall.store.ts`):
+```typescript
+import { usePwaInstallStore } from '@/stores/usePwaInstall.store';
+
+const deferredPrompt = usePwaInstallStore((state) => state.deferredInstallationPrompt);
 ```
 
 ## Forms (React Hook Form)
@@ -66,7 +130,7 @@ return (
 
 ## State Management
 - **Server state**: oRPC + TanStack Query
-- **Global state**: Zustand (theme, user session, shared UI state)
+- **Global state**: Zustand (theme, user session, PWA state, shared UI state)
 - **Form state**: React Hook Form
 - **URL state**: React Router params
 - **Local state**: useState/useReducer
@@ -76,11 +140,11 @@ return (
 import { orpc } from '@/utils/orpc.client'
 
 // Query
-const { data, isLoading } = orpc.journalEntry.getAll.useQuery()
+const { data, isLoading } = orpc.moduleName.getAll.useQuery()
 
 // Mutation
-const createEntry = orpc.journalEntry.create.useMutation()
-await createEntry.mutateAsync({ content: 'Test' })
+const createEntity = orpc.moduleName.create.useMutation()
+await createEntity.mutateAsync({ content: 'Test' })
 ```
 
 ## Design Principles (CRITICAL)
@@ -143,7 +207,7 @@ sx={{
 **Grid**:
 ```tsx
 <Grid container spacing={{ xs: 2, md: 3 }}>
-  <Grid item xs={12} sm={6} md={4}>  {/* Responsive columns */}
+  <Grid item xs={12} sm={6} md={4}>
 </Grid>
 ```
 
@@ -166,6 +230,7 @@ return isMobile ? <MobileView /> : <DesktopView />
 ## Environment
 - Prefix: `VITE_`
 - Access: `import.meta.env.VITE_API_URL`
+- Validation: `envValidationVitePlugin` in vite.config.ts
 
 ## Key Takeaways
 1. React 19: use(), useTransition, Suspense - minimize useEffect
@@ -178,3 +243,4 @@ return isMobile ? <MobileView /> : <DesktopView />
 8. Responsive: ALWAYS mobile, tablet, desktop
 9. Forms: React Hook Form + Zod + RHF components
 10. State: Server (oRPC/Query), Global (Zustand), Forms (RHF), URL (Router), Local (useState)
+11. PWA: Service worker, install prompts, offline support

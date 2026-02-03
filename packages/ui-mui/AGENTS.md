@@ -12,12 +12,15 @@ Material-UI components with direct exports for tree-shaking + React Hook Form wr
 ```
 src/
 ├── components/      # Custom composites
-├── data-display/    # MUI data display
-├── feedback/        # MUI feedback
-├── form/            # MUI form controls
-├── layout/          # MUI layout
+├── data-display/    # MUI data display (Typography, Table, List, Chip, Avatar, Badge, Tooltip)
+├── feedback/        # MUI feedback (Alert, CircularProgress, Dialog, Snackbar, Skeleton, Fade)
+├── form/            # MUI form controls (Button, TextField, Select, Checkbox, Radio, Switch, FormControl, MenuItem)
+├── icons/           # MUI icons
+├── layout/          # MUI layout (Box, Stack, Grid, Container, Paper, Card, Divider)
+├── mrt/             # Material React Table
+├── navigation/      # MUI navigation (AppBar, BottomNavigation, Drawer, Tabs, Breadcrumbs, Link, Menu, Pagination, Stepper)
 ├── rhf-form/        # React Hook Form wrappers
-└── theme/           # Theme config
+└── theme/           # Theme config (ThemeProvider, useThemeSwitcher)
 ```
 
 ## Imports
@@ -26,6 +29,9 @@ src/
 ```typescript
 import { Button } from '@connected-repo/ui-mui/form/Button'
 import { RhfTextField } from '@connected-repo/ui-mui/rhf-form/RhfTextField'
+import { Typography } from '@connected-repo/ui-mui/data-display/Typography'
+import { Box } from '@connected-repo/ui-mui/layout/Box'
+import { Alert } from '@connected-repo/ui-mui/feedback/Alert'
 ```
 
 **Internal** (within ui-mui):
@@ -40,37 +46,42 @@ import { NumLockAlert } from "@ui-mui/feedback/NumLockAlert";
 ## Component Categories
 
 ### form/ - Form Controls
-```typescript
-import { Button, TextField, Select, Checkbox, Radio, Switch, FormControl, MenuItem } from '@connected-repo/ui-mui/form/*'
-```
+Button, TextField, Select, Checkbox, Radio, Switch, FormControl, MenuItem, FormControlLabel, FormHelperText, FormLabel, InputLabel, RadioGroup
 
 ### layout/ - Layout
-```typescript
-import { Box, Stack, Grid, Container, Paper, Card, Divider } from '@connected-repo/ui-mui/layout/*'
-```
+Box, Stack, Grid, Container, Paper, Card, CardActions, CardContent, CardHeader, Divider
 
 ### feedback/ - Feedback
-```typescript
-import { Alert, CircularProgress, Dialog, Snackbar, Skeleton } from '@connected-repo/ui-mui/feedback/*'
-```
+Alert, CircularProgress, Dialog, Snackbar, Skeleton, Fade, Backdrop, Collapse, LinearProgress, SkeletonStack
 
-### data-display/ - Data
-```typescript
-import { Typography, Table, List, Chip, Avatar, Badge, Tooltip } from '@connected-repo/ui-mui/data-display/*'
-```
+### data-display/ - Data Display
+Typography, Table, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Chip, Avatar, Badge, Tooltip, IconButton
 
-### components/ - Custom
-```typescript
-import { ContentCard, ErrorAlert, SuccessAlert, LoadingSpinner, PrimaryButton, SecondaryButton } from '@connected-repo/ui-mui/components/*'
-```
+### navigation/ - Navigation
+AppBar, BottomNavigation, Drawer, Tabs, Breadcrumbs, Link, Menu, MenuList, Pagination, Stepper
+
+### components/ - Custom Components
+ContentCard, ErrorAlert, SuccessAlert, LoadingSpinner, PrimaryButton, SecondaryButton, NumLockAlert
+
+### icons/ - Icons
+All Material-UI icons exported individually
+
+### mrt/ - Material React Table
+MaterialReactTable component
 
 ## RHF Components
 
 **All RHF components**: Responsive margins, full width, iOS-friendly font sizes, error handling
 
-```typescript
-import { useRhfForm, RhfFormProvider, RhfTextField, RhfCheckbox, RhfSwitch, RhfSelect, RhfRadio, RhfSubmitButton } from '@connected-repo/ui-mui/rhf-form/*'
-```
+**Available**:
+- `useRhfForm` - Hook for form initialization
+- `RhfFormProvider` - Form context provider
+- `RhfTextField` - Text input
+- `RhfCheckbox` - Checkbox
+- `RhfSwitch` - Switch toggle
+- `RhfSelect` - Select dropdown
+- `RhfRadio` - Radio buttons
+- `RhfSubmitButton` - Submit button with loading state
 
 **Example**:
 ```typescript
@@ -99,12 +110,13 @@ return (
 
 ```typescript
 import { ThemeProvider } from '@connected-repo/ui-mui/theme/ThemeProvider'
+import { useThemeSwitcher } from '@connected-repo/ui-mui/theme/useThemeSwitcher'
 ```
 
-**Colors**: Primary (#007bff), Secondary (#6c757d), Success (#28a745), Error (#dc3545)
+**Colors**: Primary (#1976d2), Secondary (#6c757d), Success (#28a745), Error (#dc3545)
 **Spacing**: 8px base unit
 **Border Radius**: 5px
-**Defaults**: Buttons (no elevation, font-weight 500), TextFields (outlined, small), Cards (subtle shadow)
+**Defaults**: Buttons (contained, font-weight 500), TextFields (outlined), Cards (subtle shadow)
 
 ## Design Principles (CRITICAL)
 
@@ -208,7 +220,7 @@ Rebuild: `yarn build`
 ```
 
 **Theme Spacing**: `p: 1` (8px), `p: 2` (16px), `p: 3` (24px)
-**Theme Colors**: `primary.main`, `error.light`, `divider`
+**Theme Colors**: `primary.main`, `error.light`, `divider`, `background.paper`, `text.primary`
 
 ## Peer Dependencies
 ```json

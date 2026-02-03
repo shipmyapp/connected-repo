@@ -1,4 +1,5 @@
 import { db } from '@backend/db/db';
+import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 
 describe('Basic Database Test', () => {
@@ -12,11 +13,13 @@ describe('Basic Database Test', () => {
 	it('should have isolated transactions between tests', async () => {
 		// Get initial count
 		const initialCount = await db.users.count();
+		const uniqueId = randomUUID();
 
 		// Create a test user (this will be rolled back after the test)
 		await db.users.create({
-			email: 'test@example.com',
+			email: `test-${uniqueId}@example.com`,
 			name: 'Test User',
+			themeSetting: 'system',
 		});
 
 		// Verify the user was created in this transaction
@@ -24,7 +27,7 @@ describe('Basic Database Test', () => {
 		expect(afterCreateCount).toBe(initialCount + 1);
 
 		// Find the created user
-		const user = await db.users.findBy({ email: 'test@example.com' });
+		const user = await db.users.findBy({ email: `test-${uniqueId}@example.com` });
 		expect(user).toBeTruthy();
 		expect(user?.name).toBe('Test User');
 	});

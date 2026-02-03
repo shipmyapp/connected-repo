@@ -115,3 +115,13 @@ export const zPhoneNumber = z
 export const zLatitude = zString.regex(/^(\+|-)?(?:90(?:(?:\.0{1,6})?)|(?:[0-9]|[1-8][0-9])(?:(?:\.[0-9]{1,6})?))$/);
 export const zLongitude = zString
 	.regex(/^(\+|-)?(?:180(?:(?:\.0{1,6})?)|(?:[0-9]|[1-9][0-9]|1[0-7][0-9])(?:(?:\.[0-9]{1,6})?))$/);
+
+/* Timezone Types */
+export const zTimezone = zString;
+
+/* Custom */
+export const uniqueTimeArrayZod = z.array(z.iso.time({ precision: -1 }))
+		.refine(times => new Set(times).size === times.length, {
+			message: "Reminder times must be unique"
+		})
+		.default([])

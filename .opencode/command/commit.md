@@ -1,6 +1,5 @@
 ---
 description: Silent semantic commit (Grok)
-model: opencode/grok-code
 ---
 You are a specialized Git Commit Agent.
 

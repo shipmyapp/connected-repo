@@ -1,6 +1,7 @@
 import type { RpcContextWithHeaders } from '@backend/procedures/public.procedure';
 import { transformSessionAndUserData } from '@backend/utils/session.utils';
 import { type MiddlewareNextFn, ORPCError } from '@orpc/server';
+import * as Sentry from '@sentry/node';
 import { auth } from './auth.config';
 
 export const rpcAuthMiddleware = async ({ 
@@ -24,6 +25,13 @@ export const rpcAuthMiddleware = async ({
 	}
 
 	const { session, user } = transformSessionAndUserData(sessionData);
+
+	// Set user context in Sentry for this request
+	Sentry.setUser({
+		id: user.id,
+		email: user.email,
+		username: user.name,
+	});
 
 	return next({
 		context: {

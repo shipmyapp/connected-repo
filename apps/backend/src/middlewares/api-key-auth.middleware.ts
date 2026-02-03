@@ -2,8 +2,6 @@ import { db } from "@backend/db/db";
 import type { OpenApiContextWithHeaders } from "@backend/procedures/open_api_public.procedure";
 import { verifyApiKey } from "@backend/utils/apiKeyGenerator.utils";
 import { omitKeys } from "@backend/utils/omit.utils";
-import { teamSelectAllZod } from "@connected-repo/zod-schemas/team.zod";
-import { zString } from "@connected-repo/zod-schemas/zod_utils";
 import type { MiddlewareNextFn } from "@orpc/server";
 import { ORPCError } from "@orpc/server";
 
@@ -40,13 +38,9 @@ export const apiKeyAuthMiddleware = async ({
 	}
 
 	try {
-		// We need to fetch all teams and verify API key against each hash
-		// since we can't query by the hash directly
 		const teamFromDb = await db.teams.find(teamId).select("*", "apiSecretHash");
-
-		const team = teamSelectAllZod.extend({ apiSecretHash: zString }).parse(teamFromDb);
 		
-		const isValid = await verifyApiKey(apiKey, team.apiSecretHash);
+		const isValid = await verifyApiKey(apiKey, teamFromDb.apiSecretHash);
 
 		if (!isValid) {
 			throw new ORPCError("UNAUTHORIZED", {
@@ -60,7 +54,7 @@ export const apiKeyAuthMiddleware = async ({
 				...context,
 				"x-team-id": teamId,
 				"x-api-key": apiKey,
-				team: omitKeys(team, ["apiSecretHash"])
+				team: omitKeys(teamFromDb, ["apiSecretHash"])
 			},
 		});
 	} catch (error) {

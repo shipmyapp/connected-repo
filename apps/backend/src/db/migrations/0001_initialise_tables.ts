@@ -1,23 +1,15 @@
 import { change } from '../db_script';
 
 change(async (db) => {
-  await db.createEnum('public.api_product_enum', ['journal_entry_create']);
+  await db.createEnum('theme_setting_enum', ['dark', 'light', 'system']);
 
-  await db.createEnum('public.api_request_method_enum', ['GET', 'POST', 'PUT', 'DELETE']);
+  await db.createEnum('api_product_enum', ['journal_entry_create']);
 
-  await db.createEnum('public.api_status_enum', ['AI Error', 'No active subscription', 'Requests exhausted', 'Pending', 'Server Error', 'Success']);
+  await db.createEnum('api_request_method_enum', ['GET', 'POST', 'PUT', 'DELETE']);
 
-  await db.createEnum('public.webhook_status_enum', ['Pending', 'Sent', 'Failed']);
+  await db.createEnum('api_status_enum', ['AI Error', 'Invalid API route', 'No active subscription', 'Requests exhausted', 'Pending', 'Server Error', 'Success']);
 
-  await db.createTable('users', (t) => ({
-    id: t.uuid().primaryKey().default(t.sql`gen_random_uuid()`),
-    email: t.string().unique(),
-    emailVerified: t.boolean().default(false),
-    name: t.string(),
-    image: t.string().nullable(),
-    createdAt: t.timestamps().createdAt,
-    updatedAt: t.timestamps().updatedAt,
-  }));
+  await db.createEnum('pg_tbus_task_status_enum', ['pending', 'active', 'completed', 'failed', 'cancelled']);
 
   await db.createTable('prompts', (t) => ({
     promptId: t.smallint().identity().primaryKey(),
@@ -33,7 +25,7 @@ change(async (db) => {
     'sessions',
     (t) => ({
       id: t.string().primaryKey(),
-      token: t.string(),
+      token: t.string().unique(),
       userId: t.uuid().nullable(),
       ipAddress: t.string().nullable(),
       userAgent: t.text().nullable(),
@@ -96,12 +88,13 @@ change(async (db) => {
 
   await db.createTable('teams', (t) => ({
     teamId: t.uuid().primaryKey().default(t.sql`gen_random_uuid()`),
+    allowApiSubsCreationForSkus: t.array(t.string()).default([]),
     allowedDomains: t.array(t.string()),
     allowedIPs: t.array(t.string()),
     apiSecretHash: t.string().select(false),
     name: t.string(),
     rateLimitPerMinute: t.integer(),
-    subscriptionAlertWebhookUrl: t.string(),
+    subscriptionAlertWebhookUrl: t.string().nullable(),
     subscriptionAlertWebhookBearerToken: t.string().select(false).nullable(),
     createdAt: t.timestamps().createdAt,
     updatedAt: t.timestamps().updatedAt,
@@ -109,18 +102,15 @@ change(async (db) => {
 });
 
 change(async (db) => {
-  await db.createTable('journal_entries', (t) => ({
-    journalEntryId: t.string(26).primaryKey(),
-    prompt: t.string(500).nullable(),
-    promptId: t.smallint().foreignKey('prompts', 'promptId', {
-      onUpdate: 'RESTRICT',
-      onDelete: 'SET NULL',
-    }).nullable(),
-    content: t.text(),
-    authorUserId: t.uuid().foreignKey('users', 'id', {
-      onUpdate: 'RESTRICT',
-      onDelete: 'CASCADE',
-    }),
+  await db.createTable('users', (t) => ({
+    id: t.uuid().primaryKey().default(t.sql`gen_random_uuid()`),
+    email: t.string().unique(),
+    emailVerified: t.boolean().default(false),
+    name: t.string(),
+    journalReminderTimes: t.array(t.string()),
+    image: t.string().nullable(),
+    timezone: t.string().default('Etc/UTC'),
+    themeSetting: t.enum('theme_setting_enum'),
     createdAt: t.timestamps().createdAt,
     updatedAt: t.timestamps().updatedAt,
   }));
@@ -179,27 +169,56 @@ change(async (db) => {
 });
 
 change(async (db) => {
+  await db.createTable('journal_entries', (t) => ({
+    journalEntryId: t.string(26).primaryKey(),
+    prompt: t.string(500).nullable(),
+    promptId: t.smallint().foreignKey('prompts', 'promptId', {
+      onUpdate: 'RESTRICT',
+      onDelete: 'SET NULL',
+    }).nullable(),
+    content: t.text(),
+    authorUserId: t.uuid().foreignKey('users', 'id', {
+      onUpdate: 'RESTRICT',
+      onDelete: 'CASCADE',
+    }),
+    createdAt: t.timestamps().createdAt,
+    updatedAt: t.timestamps().updatedAt,
+  }));
+
+
+
   await db.createTable(
-    'webhook_call_queue',
+    'pg_tbus_task_log',
     (t) => ({
-      webhookCallQueueId: t.string(26).primaryKey(),
-      teamId: t.uuid(),
-      webhookUrl: t.string(),
-      payload: t.json(),
-      status: t.enum('webhook_status_enum'),
-      attempts: t.integer().default(0),
-      maxAttempts: t.integer(),
-      lastAttemptAt: t.timestamp().nullable(),
-      scheduledFor: t.timestamp(),
-      sentAt: t.timestamp().nullable(),
-      subscriptionId: t.string().foreignKey('subscriptions', 'subscriptionId', {
-        onUpdate: 'RESTRICT',
-        onDelete: 'RESTRICT',
-      }),
+      pgTbusTaskLogId: t.string(26).primaryKey(),
+      tbusTaskId: t.uuid().nullable(),
+      taskName: t.string(),
+      queueName: t.string().nullable(),
+      entityType: t.string().nullable(),
+      entityId: t.string().nullable(),
+      teamId: t.uuid().nullable(),
+      status: t.enum('pg_tbus_task_status_enum'),
+      attemptNumber: t.integer().default(0),
+      scheduledAt: t.timestamp().nullable(),
+      startedAt: t.timestamp().nullable(),
+      completedAt: t.timestamp().nullable(),
+      success: t.boolean().nullable(),
       errorMessage: t.text().nullable(),
+      errorCode: t.string().nullable(),
+      responseStatusCode: t.integer().nullable(),
+      payload: t.json().nullable(),
+      response: t.json().nullable(),
+      retryLimit: t.integer().nullable(),
+      willRetry: t.boolean().nullable(),
       createdAt: t.timestamps().createdAt,
       updatedAt: t.timestamps().updatedAt,
     }),
-    (t) => t.index(['status', 'scheduledFor']),
+    (t) => [
+      t.index(['taskName', 'status']),
+      t.index(['entityType', 'entityId']),
+      t.index(['teamId', 'createdAt']),
+      t.index(['tbusTaskId']),
+      t.index(['status', 'createdAt']),
+    ],
   );
 });

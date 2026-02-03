@@ -1,63 +1,48 @@
-import { sql } from "@backend/db/base_table";
-import { db } from "@backend/db/db";
-import { initiateWebhookCallService } from "@backend/modules/webhook_calls/services/initiate.webhook_calls.service";
+import { getTaskStats, queryFailedTasks } from "@backend/events/events.queries";
 import { cronJobAuthProcedure } from "@backend/procedures/cron_job_auth.procedure";
 import * as z from "zod";
 
-const processWebhookCalls = cronJobAuthProcedure
-	.route({ method: "POST", tags: ["Cron Jobs"] })
+/**
+ * Get pg-tbus task statistics
+ * Useful for monitoring task queue health
+ */
+const getTaskStatsEndpoint = cronJobAuthProcedure
+	.route({ method: "GET", tags: ["Cron Jobs"] })
+	.input(z.object({})) // Empty input for GET request
 	.output(
 		z.object({
-			processed: z.number(),
+			total: z.number(),
+			pending: z.number(),
+			active: z.number(),
+			completed: z.number(),
+			failed: z.number(),
+			cancelled: z.number(),
+			successRate: z.string(),
 		})
 	)
 	.handler(async () => {
-		let cursor: { scheduledFor: number; webhookCallQueueId: string } | null = null;
-		const batchSize = 100;
-		let totalProcessed = 0;
+		return await getTaskStats();
+	});
 
-		while (true) {
-			const baseWhere = {
-				scheduledFor: {
-					lte: sql`NOW()`
-				},
-				status: {
-					not: "Sent"
-				},
-				attempts: {
-					lt: sql`"max_attempts"`
-				}
-			};
-
-			let query = db.webhookCallQueues
-				.selectAll()
-				.where(baseWhere)
-				.order({
-					scheduledFor: "ASC",
-					webhookCallQueueId: "ASC"
-				})
-				.limit(batchSize);
-
-			if (cursor) {
-				query = query.where(sql` (scheduled_for > ${cursor.scheduledFor} OR (scheduled_for = ${cursor.scheduledFor} AND webhook_call_queue_id > '${cursor.webhookCallQueueId}')) `);
-			}
-
-			const pendingCalls = await query;
-
-			if (pendingCalls.length === 0) break;
-
-			await Promise.all(pendingCalls.map(call => initiateWebhookCallService(call)));
-			totalProcessed += pendingCalls.length;
-			const lastCall = pendingCalls[pendingCalls.length - 1]!;
-			cursor = {
-				scheduledFor: lastCall.scheduledFor,
-				webhookCallQueueId: lastCall.webhookCallQueueId
-			};
-		}
-
-		return { processed: totalProcessed };
+/**
+ * Get recent failed tasks
+ * Useful for debugging webhook or other task failures
+ */
+const getFailedTasksEndpoint = cronJobAuthProcedure
+	.route({ method: "GET", path: "/failed-tasks", tags: ["Cron Jobs"] })
+	.input(
+		z.object({
+			taskName: z.string().optional(),
+			hours: z.number().default(24),
+		})
+	)
+	.output(z.array(z.object({}).passthrough()))
+	.handler(async ({ input }) => {
+		const since = Date.now() - input.hours * 60 * 60 * 1000;
+		return await queryFailedTasks(input.taskName, since);
 	});
 
 export const cronJobsRouter = {
-	"process-webhook-calls": processWebhookCalls,
+	"task-stats": getTaskStatsEndpoint,
+	"failed-tasks": getFailedTasksEndpoint,
 };

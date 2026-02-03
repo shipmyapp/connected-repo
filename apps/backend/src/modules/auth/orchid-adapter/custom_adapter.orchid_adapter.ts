@@ -66,10 +66,10 @@ export const createCustomAdapterOrchid = (db: Db): AdapterFactoryCustomizeAdapte
       
       return await joinedQuery.selectAll();
     },
-    count: ({ model, where }) => {
+    count: async ({ model, where }) => {
       const modelName = validateModel(model);
       const query = applyBetterAuthWhere(db[modelName], where);
-      return query.count();
+      return await query.count();
     },
     deleteMany: async ({ model, where }) => {
       const modelName = validateModel(model);

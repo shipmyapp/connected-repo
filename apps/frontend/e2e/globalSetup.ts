@@ -20,7 +20,7 @@ async function createAuthState<T extends typeof devices>(deviceConfig: T[keyof T
 		// Save the authenticated state
 		await context.storageState({ path: authFilePath });
 
-		console.log(`✅ Auth state saved for ${authFilePath}`);
+		console.info(`✅ Auth state saved for ${authFilePath}`);
 	} finally {
 		await browser.close();
 	}
@@ -40,7 +40,7 @@ async function globalSetup() {
 			createAuthState(devices["iPhone 12"], 'e2e/.auth/mobile-safari-user.json'),
 		]);
 
-		console.log('✅ All E2E auth states created successfully');
+		console.info('✅ All E2E auth states created successfully');
 	} catch (error) {
 		console.error('❌ E2E Global Setup Failed:');
 		console.error('Error during authentication setup for E2E tests');

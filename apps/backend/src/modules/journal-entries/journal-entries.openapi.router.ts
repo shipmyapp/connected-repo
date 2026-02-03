@@ -34,8 +34,7 @@ const createJournalEntryRequest = openApiAuthProcedure
     };
 
     db.$transaction(async () => {
-      const entry = await db.journalEntries
-        .create(input.data);
+      const entry = await db.journalEntries.create(input.data);
       const increment = await incrementSubscriptionUsage(subscription.subscriptionId, team);
       return Promise.all([entry, increment]);
     })

@@ -41,7 +41,8 @@ export const createUserAndLogin = async (userInput: Partial<UserCreateInput> = {
     body: {
       ...fixture,
       password,
-      image: fixture.image ?? undefined
+      image: fixture.image ?? undefined,
+      journalReminderTimes: ["08:00", "21:00"]
     },
   });
 

@@ -1,5 +1,4 @@
 import { BaseTable } from "@backend/db/base_table";
-import { WebhookCallQueueTable } from "@backend/modules/subscriptions/tables/webhookCallQueue.table";
 import { UserTable } from "@backend/modules/users/tables/users.table";
 
 export class SubscriptionsTable extends BaseTable {
@@ -28,10 +27,6 @@ export class SubscriptionsTable extends BaseTable {
   );
 
   relations = {
-    webHooksCalled: this.hasMany(() => WebhookCallQueueTable, {
-      columns: ["subscriptionId"],
-      references: ["subscriptionId"],
-    }),
     user: this.belongsTo(() => UserTable, {
       columns: ["teamUserReferenceId"],
       references: ["id"],

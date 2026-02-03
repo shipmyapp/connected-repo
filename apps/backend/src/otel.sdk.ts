@@ -1,5 +1,5 @@
 // Initialize OpenTelemetry and Sentry
-import { env } from '@backend/configs/env.config';
+import { env, isDev } from '@backend/configs/env.config';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
 import { PgInstrumentation } from '@opentelemetry/instrumentation-pg';
@@ -18,7 +18,7 @@ import { nodeProfilingIntegration } from '@sentry/profiling-node';
 const sentryClient = Sentry.init({
   dsn: env.VITE_SENTRY_DSN,
   environment: env.VITE_SENTRY_ENV || env.NODE_ENV,
-  sampleRate: 1.0, // 100% for dev, 10% for prod
+  sampleRate: isDev ? 0 : 1.0, // 100% for dev, 10% for prod
   skipOpenTelemetrySetup: true, // disables the Sentry SDK's automatic OpenTelemetry configuration
   integrations: [
     // Add profiling integration
@@ -26,17 +26,24 @@ const sentryClient = Sentry.init({
     // We have our own @opentelemetry/instrumentation-http instance in your OpenTelemetry setup.
     // Hence disabled span creation in Sentry's httpIntegration
     Sentry.httpIntegration({ spans: false }),
+    // Pino integration for structured logging
+    Sentry.pinoIntegration({
+      log: { levels: ['debug', 'info', 'warn', 'error'] },
+      error: { levels: ['error'] }
+    }),
   ],
   sendDefaultPii: true,
+  // need with profiling integration
+  profilesSampleRate: isDev ? 0 : 1.0,
   // Enable tracing
-  tracesSampleRate: 1.0,
+  tracesSampleRate: isDev ? 0 : 1.0,
 });
 
 export const otelNodeSdk = new NodeSDK({
     contextManager: new Sentry.SentryContextManager(),
     
     resource: resourceFromAttributes({
-      'service.name': env.VITE_OTEL_SERVICE_NAME,
+      'service.name': env.OTEL_SERVICE_NAME,
     }),
     sampler: sentryClient ? new SentrySampler(sentryClient) : undefined,
     textMapPropagator: new SentryPropagator(),

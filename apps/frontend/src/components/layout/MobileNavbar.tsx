@@ -5,7 +5,7 @@ import { AppBar } from "@connected-repo/ui-mui/navigation/AppBar";
 import { BottomNavigation } from "@connected-repo/ui-mui/navigation/BottomNavigation";
 import { BottomNavigationAction } from "@connected-repo/ui-mui/navigation/BottomNavigationAction";
 import { Toolbar } from "@connected-repo/ui-mui/navigation/Toolbar";
-import { navItems } from "@frontend/config/nav.config";
+import { navItems } from "@frontend/configs/nav.config";
 import { useLocation, useNavigate } from "react-router";
 import { UserProfileMenu } from "./UserProfileMenu";
 

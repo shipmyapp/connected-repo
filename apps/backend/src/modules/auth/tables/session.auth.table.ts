@@ -8,7 +8,7 @@ export class SessionTable extends BaseTable {
 
 	columns = this.setColumns((t) => ({
 		id: t.string().default(() => ulid()).primaryKey(),
-		token: t.string(),
+		token: t.string().unique(),
 		userId: t.uuid().nullable(),
 		ipAddress: t.string().nullable(),
 		userAgent: t.text().nullable(),

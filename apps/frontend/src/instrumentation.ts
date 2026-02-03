@@ -1,4 +1,4 @@
-import { env } from "@frontend/configs/env.config";
+import { env, isDev } from "@frontend/configs/env.config";
 import * as Sentry from "@sentry/react";
 import { useEffect } from "react";
 import {
@@ -22,10 +22,16 @@ Sentry.init({
     // https://docs.sentry.io/platforms/javascript/guides/react/configuration/integrations/react-router/
     Sentry.browserProfilingIntegration(),
     Sentry.browserTracingIntegration(),
-    Sentry.replayIntegration(),
     Sentry.feedbackIntegration({
       // Additional SDK configuration goes in here, for example:
       colorScheme: "system",
+    }),
+    Sentry.replayIntegration({
+      attachRawBodyFromRequest: true,
+      blockAllMedia: false,
+      maskAllInputs: false,
+      maskAllText: false,
+      stickySession: true,
     }),
     Sentry.reactRouterV7BrowserTracingIntegration({
       useEffect,
@@ -38,7 +44,7 @@ Sentry.init({
   // Enable logs to be sent to Sentry
   enableLogs: true,
   profileLifecycle: "trace",
-  tracesSampleRate: 1.0,
+  tracesSampleRate: isDev ? 0 : 1.0,
   // Set `tracePropagationTargets` to control for which URLs trace propagation should be enabled
   tracePropagationTargets: [
     "localhost",
@@ -46,6 +52,6 @@ Sentry.init({
   ],
   // FIXME: Setup tunneling to avoid ad-blocker issues
   // tunnel: "/tunnel",
-  replaysSessionSampleRate: 0.1,
-  replaysOnErrorSampleRate: 1.0,
+  replaysSessionSampleRate: isDev ? 0 : 0.1,
+  replaysOnErrorSampleRate: isDev ? 0 : 1.0,
 });
