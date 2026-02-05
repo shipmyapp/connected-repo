@@ -6,6 +6,7 @@ import { Toolbar } from "@connected-repo/ui-mui/navigation/Toolbar";
 import { navItems } from "@frontend/configs/nav.config";
 import { useLocation, useNavigate } from "react-router";
 import { UserProfileMenu } from "./UserProfileMenu";
+import { SyncStatusIndicator } from "./SyncStatusIndicator";
 
 /**
  * DesktopNavbar - Top navigation bar for desktop layout
@@ -58,6 +59,7 @@ export const DesktopNavbar = () => {
 					>
 						OneQ
 					</Typography>
+					<SyncStatusIndicator />
 				</Box>
 
 				{/* Navigation Links */}

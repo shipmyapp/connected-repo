@@ -8,13 +8,20 @@ import { TableRowsIcon } from "@connected-repo/ui-mui/icons/TableRowsIcon";
 import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { Container } from "@connected-repo/ui-mui/layout/Container";
 import { Pagination } from "@connected-repo/ui-mui/navigation/Pagination";
-import { JournalEntriesEmptyState } from "@frontend/components/JournalEntriesEmptyState";
-import { JournalEntryCardView } from "@frontend/components/JournalEntryCardView";
-import { JournalEntryTableView } from "@frontend/components/JournalEntryTableView";
-import { orpc } from "@frontend/utils/orpc.client";
-import { useMediaQuery, useTheme } from "@mui/material";
-import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { SyncProgress } from "@frontend/components/SyncProgress";
+import { usePendingEntries } from "@frontend/hooks/usePendingEntries";
+import { useWorkerQuery } from "@frontend/hooks/useWorkerQuery";
+import { useWorkerEvent } from "@frontend/hooks/useWorkerStatus";
+import { JournalEntriesEmptyState } from "@frontend/modules/journal-entries/components/JournalEntriesEmptyState";
+import { JournalEntryCardView } from "@frontend/modules/journal-entries/components/JournalEntryCardView";
+import { JournalEntryTableView, type JournalEntry } from "@frontend/modules/journal-entries/components/JournalEntryTableView";
+import { UserAppBackendOutputs } from "@frontend/utils/orpc.client";
+import { queryClient } from "@frontend/utils/queryClient";
+import ExpandLessIcon from "@mui/icons-material/ExpandLess";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import RefreshIcon from "@mui/icons-material/Refresh";
+import { Collapse, IconButton, Tooltip, useMediaQuery, useTheme } from "@mui/material";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 
 const ITEMS_PER_PAGE = 12;
@@ -27,8 +34,38 @@ export default function JournalEntriesPage() {
 	const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 	const [viewMode, setViewMode] = useState<ViewMode>("card");
 	const [currentPage, setCurrentPage] = useState(1);
+	const [pendingExpanded, setPendingExpanded] = useState(true);
+	const [syncedExpanded, setSyncedExpanded] = useState(true);
 
-	const { data: journalEntries, isLoading, error } = useQuery(orpc.journalEntries.getAll.queryOptions());
+	const { 
+		data: journalEntriesResult, 
+		isLoading, 
+		error,
+		refetch: refetchEntries
+	} = useWorkerQuery<UserAppBackendOutputs['journalEntries']['getAll']>({
+		entity: 'journalEntries',
+		operation: 'getAll',
+		sortBy: 'createdAt',
+		descending: true,
+		limit: ITEMS_PER_PAGE,
+		offset: (currentPage - 1) * ITEMS_PER_PAGE,
+	});
+
+	const { data: pendingEntriesResult, refetch: refetchPending } = usePendingEntries<JournalEntry>({
+		entity: 'journalEntries',
+		sortBy: 'createdAt',
+		descending: true,
+	});
+
+	const journalEntries = journalEntriesResult?.data || [];
+	const pendingEntries = pendingEntriesResult?.data || [];
+	const totalSyncedEntries = journalEntriesResult?.meta?.total || 0;
+
+	// Auto-refresh when sync completes without re-rendering the whole page for every event
+	useWorkerEvent('sync-complete', () => {
+		queryClient.invalidateQueries({ queryKey: [['journalEntries', 'getAll']] });
+		queryClient.invalidateQueries({ queryKey: [['pending', 'journalEntries']] });
+	});
 
 	const handleViewModeChange = (_event: React.MouseEvent<HTMLElement>, newMode: ViewMode | null) => {
 		if (newMode !== null) {
@@ -41,17 +78,9 @@ export default function JournalEntriesPage() {
 		navigate(`/journal-entries/${entryId}`);
 	};
 
-	const paginatedEntries = useMemo(() => {
-		if (!journalEntries) return [];
-		const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-		const endIndex = startIndex + ITEMS_PER_PAGE;
-		return journalEntries.slice(startIndex, endIndex);
-	}, [journalEntries, currentPage]);
-
 	const totalPages = useMemo(() => {
-		if (!journalEntries) return 0;
-		return Math.ceil(journalEntries.length / ITEMS_PER_PAGE);
-	}, [journalEntries]);
+		return Math.ceil(totalSyncedEntries / ITEMS_PER_PAGE);
+	}, [totalSyncedEntries]);
 
 	if (isLoading) return <LoadingSpinner text="Loading journal entries..." />;
 
@@ -64,28 +93,19 @@ export default function JournalEntriesPage() {
 		);
 	}
 
-	if (!journalEntries || journalEntries.length === 0) {
-		return (
-			<Container maxWidth="lg" sx={{ py: 4 }}>
-				<JournalEntriesEmptyState />
-			</Container>
-		);
-	}
-
 	return (
 		<Container maxWidth="xl" sx={{ py: { xs: 3, md: 5 } }}>
 			{/* Header Section */}
 			<Box
 				sx={{
-					mb: 5,
+					mb: 4,
 					display: "flex",
-					flexDirection: "row",
 					justifyContent: "space-between",
-					alignItems: "center",
+					alignItems: { xs: "flex-start", md: "center" },
 					gap: 3,
 				}}
 			>
-				<Box>
+				<Box sx={{ display: 'flex', flexDirection: 'column' }}>
 					<Typography
 						variant="h3"
 						component="h1"
@@ -93,14 +113,13 @@ export default function JournalEntriesPage() {
 							fontSize: { xs: "2rem", md: "2.5rem" },
 							fontWeight: 700,
 							color: "text.primary",
-							mb: 1,
 							letterSpacing: "-0.01em",
 						}}
 					>
 						My Journal
 					</Typography>
 					<Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.875rem" }}>
-						{journalEntries.length} {journalEntries.length === 1 ? "entry" : "entries"} in total
+						{totalSyncedEntries + pendingEntries.length} Total Entries
 					</Typography>
 				</Box>
 
@@ -155,10 +174,99 @@ export default function JournalEntriesPage() {
 
 			{/* Content Section */}
 			<Box sx={{ mb: 4 }}>
-				{viewMode === "card" ? (
-					<JournalEntryCardView entries={paginatedEntries} onEntryClick={handleEntryClick} />
+				{journalEntries.length === 0 && pendingEntries.length === 0 ? (
+					<JournalEntriesEmptyState />
 				) : (
-					<JournalEntryTableView entries={paginatedEntries} onEntryClick={handleEntryClick} />
+					<>
+						<Box sx={{ mb: 6 }}>
+							<Box 
+								sx={{ 
+									display: 'flex', 
+									justifyContent: 'space-between', 
+									alignItems: 'center',
+									mb: 2, 
+									cursor: 'pointer',
+									'&:hover': { opacity: 0.8 }
+								}}
+							>
+								<Box 
+									onClick={() => setPendingExpanded(!pendingExpanded)}
+									sx={{ display: 'flex', alignItems: 'center', gap: 1, width: "100%" }}
+								>
+									{pendingExpanded ? <ExpandLessIcon sx={{ color: 'warning.main' }} /> : <ExpandMoreIcon sx={{ color: 'warning.main' }} />}
+									<Typography variant="h5" sx={{ fontWeight: 600, color: 'warning.main' }}>
+										Pending Sync ({pendingEntries.length})
+									</Typography>
+								</Box>
+								<Box onClick={(e) => e.stopPropagation()}>
+									<SyncProgress />
+								</Box>
+							</Box>
+							<Collapse in={pendingExpanded}>
+								{viewMode === "card" ? (
+									<JournalEntryCardView
+										entries={pendingEntries}
+										onEntryClick={(id) => navigate(`/journal-entries/pending/${id}`)}
+									/>
+								) : (
+									<JournalEntryTableView
+										entries={pendingEntries}
+										onEntryClick={(id) => navigate(`/journal-entries/pending/${id}`)}
+									/>
+								)}
+							</Collapse>
+						</Box>
+						<Box
+							sx={{ 
+								display: 'flex', 
+								justifyContent: 'space-between', 
+								alignItems: 'center',
+								mb: 2, 
+								cursor: 'pointer',
+								'&:hover': { opacity: 0.8 }
+							}}
+						>
+							<Box
+								onClick={() => setSyncedExpanded(!syncedExpanded)} 
+								sx={{ display: 'flex', alignItems: 'center', gap: 1, width: "100%" }}
+							>
+								{syncedExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+								<Typography variant="h5" sx={{ fontWeight: 600 }}>
+									Synced Entries ({totalSyncedEntries})
+								</Typography>
+							</Box>
+							<Tooltip title="Refresh from cloud">
+								<IconButton 
+									onClick={(e) => {
+										e.stopPropagation();
+										refetchEntries();
+										refetchPending();
+									}}
+									size="small"
+									color="primary"
+									sx={{ 
+										bgcolor: 'primary.lighter',
+										'&:hover': { bgcolor: 'primary.light', color: 'primary.contrastText' }
+									}}
+								>
+									<RefreshIcon fontSize="small" />
+								</IconButton>
+							</Tooltip>
+						</Box>
+						<Collapse in={syncedExpanded}>
+							{viewMode === "card" ? (
+								<JournalEntryCardView
+									entries={journalEntries}
+									onEntryClick={handleEntryClick}
+								/>
+							) : (
+								<JournalEntryTableView
+									entries={journalEntries}
+									onEntryClick={handleEntryClick}
+								/>
+							)}
+						</Collapse>
+					</>
 				)}
 			</Box>
 
@@ -168,7 +276,7 @@ export default function JournalEntriesPage() {
 					<Pagination
 						count={totalPages}
 						page={currentPage}
-						onChange={(_event: React.ChangeEvent<unknown>, page: number) => setCurrentPage(page)}
+							onChange={(_event: React.ChangeEvent<unknown>, page: number) => setCurrentPage(page)}
 						color="primary"
 						size="large"
 						showFirstButton

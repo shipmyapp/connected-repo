@@ -11,15 +11,37 @@ change(async (db) => {
 
   await db.createEnum('pg_tbus_task_status_enum', ['pending', 'active', 'completed', 'failed', 'cancelled']);
 
-  await db.createTable('prompts', (t) => ({
-    promptId: t.smallint().identity().primaryKey(),
-    text: t.string(500),
-    category: t.string(100).nullable(),
-    tags: t.array(t.string()).nullable(),
-    isActive: t.boolean().default(true),
-    createdAt: t.timestamps().createdAt,
-    updatedAt: t.timestamps().updatedAt,
-  }));
+  await db.createTable(
+    'prompts',
+    (t) => ({
+      promptId: t.smallint().identity().primaryKey(),
+      text: t.string(500),
+      category: t.string(100).nullable(),
+      tags: t.array(t.string()).nullable(),
+      isActive: t.boolean().default(true),
+      deletedAt: t.timestamp().nullable(),
+      createdAt: t.timestamps().createdAt,
+      updatedAt: t.timestamps().updatedAt,
+    }),
+    (t) => [
+      t.index(
+        [
+          {
+            column: 'updatedAt',
+            order: 'DESC',
+          },
+        ]
+      ),
+      t.index(
+        [
+          {
+            column: 'deletedAt',
+            order: 'DESC',
+          },
+        ]
+      ),
+    ],
+  );
 
   await db.createTable(
     'sessions',
@@ -107,10 +129,10 @@ change(async (db) => {
     email: t.string().unique(),
     emailVerified: t.boolean().default(false),
     name: t.string(),
-    journalReminderTimes: t.array(t.string()),
     image: t.string().nullable(),
     timezone: t.string().default('Etc/UTC'),
     themeSetting: t.enum('theme_setting_enum'),
+    journalReminderTimes: t.array(t.string()).default([]),
     createdAt: t.timestamps().createdAt,
     updatedAt: t.timestamps().updatedAt,
   }));
@@ -166,26 +188,6 @@ change(async (db) => {
         ]
       ),
   );
-});
-
-change(async (db) => {
-  await db.createTable('journal_entries', (t) => ({
-    journalEntryId: t.string(26).primaryKey(),
-    prompt: t.string(500).nullable(),
-    promptId: t.smallint().foreignKey('prompts', 'promptId', {
-      onUpdate: 'RESTRICT',
-      onDelete: 'SET NULL',
-    }).nullable(),
-    content: t.text(),
-    authorUserId: t.uuid().foreignKey('users', 'id', {
-      onUpdate: 'RESTRICT',
-      onDelete: 'CASCADE',
-    }),
-    createdAt: t.timestamps().createdAt,
-    updatedAt: t.timestamps().updatedAt,
-  }));
-
-
 
   await db.createTable(
     'pg_tbus_task_log',
@@ -219,6 +221,47 @@ change(async (db) => {
       t.index(['teamId', 'createdAt']),
       t.index(['tbusTaskId']),
       t.index(['status', 'createdAt']),
+    ],
+  );
+});
+
+change(async (db) => {
+  await db.createTable(
+    'journal_entries',
+    (t) => ({
+      journalEntryId: t.string(26).primaryKey(),
+      prompt: t.string(500).nullable(),
+      promptId: t.smallint().foreignKey('prompts', 'promptId', {
+        onUpdate: 'RESTRICT',
+        onDelete: 'SET NULL',
+      }).nullable(),
+      content: t.text(),
+      authorUserId: t.uuid().foreignKey('users', 'id', {
+        onUpdate: 'RESTRICT',
+        onDelete: 'CASCADE',
+      }),
+      deletedAt: t.timestamp().nullable(),
+      createdAt: t.timestamps().createdAt,
+      updatedAt: t.timestamps().updatedAt,
+    }),
+    (t) => [
+      t.index(
+        [
+          'authorUserId',
+          {
+            column: 'updatedAt',
+            order: 'DESC',
+          },
+        ]
+      ),
+      t.index(
+        [
+          {
+            column: 'deletedAt',
+            order: 'DESC',
+          },
+        ]
+      ),
     ],
   );
 });

@@ -9,7 +9,6 @@ import {
 
 // Get all journal entries for the authenticated user
 const getAll = rpcProtectedProcedure.handler(async ({ context: { user } }) => {
-
 	const journalEntries = await db.journalEntries
 		.select("*", {
 			author: (t) => t.author.selectAll(),
@@ -62,7 +61,10 @@ const getByUser = rpcProtectedProcedure
 const deleteEntry = rpcProtectedProcedure
 	.input(journalEntryDeleteZod)
 	.handler(async ({ input: { journalEntryId }, context: { user } }) => {
-		await db.journalEntries.find(journalEntryId).where({ authorUserId: user.id }).delete();
+		await db.journalEntries
+			.find(journalEntryId)
+			.where({ authorUserId: user.id })
+			.delete();
 
 		return { success: true };
 	});

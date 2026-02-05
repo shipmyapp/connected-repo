@@ -8,6 +8,5 @@ export const dbConfig = {
 	generatorIgnore: {
 		schemas: [ "tbus" ],
 	},
-	schema: env.DB_SCHEMA,
 	ssl: false,
 };

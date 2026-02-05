@@ -2,6 +2,11 @@
 
 ## Quick Reference
 
+**Core Stack:**
+- **Backend**: oRPC + Orchid ORM + pg-tbus + Better Auth
+- **Frontend**: React 19 + Vite + Data Worker + TinyBase + MUI
+- **Shared**: Zod Schemas + UI Package
+
 **Commands:**
 - Dev: `yarn dev` (all apps)
 - Build: `yarn build` (all workspaces)
@@ -15,24 +20,15 @@
 - Direct imports: `@connected-repo/ui-mui/form/Button` (NO barrel exports)
 - Naming: camelCase (code), snake_case (DB), descriptive IDs (`userId` not `id`)
 
-## Detailed Guidelines
+## Documentation Index
 
-**Backend (oRPC + Orchid ORM + pg-tbus):**
-- See [apps/backend/AGENTS.md](apps/backend/AGENTS.md)
-- Database tables, migrations, oRPC endpoints, events, cron jobs, testing
+- **Architecture Deep-Dive**: [SYNC_ARCHITECTURE.md](./docs/SYNC_ARCHITECTURE.md)
+- **Backend Guidelines**: [apps/backend/AGENTS.md](apps/backend/AGENTS.md)
+- **Frontend Guidelines**: [apps/frontend/AGENTS.md](apps/frontend/AGENTS.md)
+- **Packages/UI Guidelines**: [packages/AGENTS.md](packages/AGENTS.md)
+- **Zod Schemas Guidelines**: [packages/zod-schemas/AGENTS.md](packages/zod-schemas/AGENTS.md)
 
-**Frontend (React 19 + Vite + TanStack Query + PWA):**
-- See [apps/frontend/AGENTS.md](apps/frontend/AGENTS.md)
-- React patterns, oRPC client, PWA features, E2E testing, UI design
+---
 
-**Packages:**
-- See [packages/AGENTS.md](packages/AGENTS.md)
-- Package architecture, no barrel exports, tree-shaking
-
-**UI Components:**
-- See [packages/ui-mui/AGENTS.md](packages/ui-mui/AGENTS.md)
-- Material-UI components, RHF wrappers, responsive design
-
-**Validation Schemas:**
-- See [packages/zod-schemas/AGENTS.md](packages/zod-schemas/AGENTS.md)
-- Entity schemas, validators, shared types
+> [!TIP]
+> This project follows an **Offline-First** architecture. Always prioritize data consistency and reactive UI patterns. See the sub-component guidelines for implementation details.

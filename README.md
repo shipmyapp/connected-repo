@@ -20,6 +20,7 @@ Production-ready Turborepo monorepo for building full-stack TypeScript applicati
 - **State**: TanStack Query (server), Zustand (global), React Hook Form (forms)
 - **UI**: Material-UI (via `@connected-repo/ui-mui`)
 - **PWA**: Vite PWA plugin with offline support
+- **Offline-First**: [TinyBase](https://tinybase.org/) for local data management & sync
 - **Testing**: Playwright (E2E)
 
 ### Tooling
@@ -180,6 +181,15 @@ tbus.registerTask(notificationTaskDef, async ({ input }) => {
   await sendNotification(input.userId, input.message);
 });
 ```
+
+### Offline-First Architecture
+
+The application uses a **Web Worker based Data Layer** combined with **TinyBase** for local storage:
+- **Data Worker**: Processes all storage and sync logic in a background thread to keep the UI responsive.
+- **SyncManager**: Handles background data synchronization, delta syncs, and real-time updates via SSE.
+- **Optimistic Updates**: All mutations are applied locally first and synced to the server in the background.
+
+For more details, see [SYNC_ARCHITECTURE.md](./docs/SYNC_ARCHITECTURE.md).
 
 ### PWA (Progressive Web App)
 

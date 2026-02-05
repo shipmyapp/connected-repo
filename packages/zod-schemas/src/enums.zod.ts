@@ -9,8 +9,8 @@ export const API_PRODUCTS = [
     apiRoute: "journal-entries",
     name: "Save Journal Entry",
     sku: "journal_entry_create",
-    unit_size: 100,
-    validity_days: 30,
+    unitSize: 100,
+    validityDays: 30,
   }
 ]as const;
 export const apiProductSkuEnum = API_PRODUCTS.map(product => product.sku) as ["journal_entry_create"];

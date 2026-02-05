@@ -15,6 +15,8 @@ import type { SessionInfo } from "@frontend/contexts/UserContext";
 import { authClient } from "@frontend/utils/auth.client";
 import { useState } from "react";
 import { useLoaderData, useNavigate } from "react-router";
+import { dataWorkerClient } from "@frontend/worker/worker.client";
+import { LogoutConfirmationDialog } from "./LogoutConfirmationDialog";
 
 interface UserProfileMenuProps {
 	/** Optional custom trigger button. If not provided, uses default avatar */
@@ -30,6 +32,8 @@ export const UserProfileMenu = ({
 	const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 	const navigate = useNavigate();
 	const open = Boolean(anchorEl);
+	const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+	const [pendingCount, setPendingCount] = useState(0);
 
 	// Get session info from prop or loader data
 	const sessionInfo = useLoaderData() as SessionInfo | undefined;
@@ -40,18 +44,43 @@ export const UserProfileMenu = ({
 	const { mode, toggleTheme } = useThemeMode();
 	const isDarkMode = mode === "dark";
 
-	const handleLogout = () => {
+	const handleLogoutClick = async () => {
 		handleClose();
-		authClient.signOut()
-			.then(() => {
-				// Redirect to login after successful logout
-				navigate("/auth/login");
-			})
-			.catch((error) => {
-				console.error("Logout failed:", error);
-				// Still redirect to login even if mutation fails
-				navigate("/auth/login");
-			});
+		try {
+			const count = await dataWorkerClient.getPendingCount();
+			if(count > 0) {
+				setPendingCount(count);
+				setLogoutDialogOpen(true);
+			} else {
+				handleConfirmLogout();
+			}
+		} catch (error) {
+			console.error("Failed to get pending count:", error);
+			// Fallback: show dialog anyway but with 0 count
+			setPendingCount(0);
+			setLogoutDialogOpen(true);
+		}
+	};
+
+	const handleConfirmLogout = async () => {
+		setLogoutDialogOpen(false);
+		try {
+			// 1. Clear TinyBase cache (manual user request)
+			// await dataWorkerClient.clearCache();
+			
+			// 2. Clear session cache from localStorage
+			localStorage.removeItem("connected-repo-session");
+
+			// 3. Perform actual logout
+			await authClient.signOut();
+			
+			// 4. Redirect to login
+			navigate("/auth/login");
+		} catch (error) {
+			console.error("Logout failed:", error);
+			// Still redirect to login even if some steps fail
+			navigate("/auth/login");
+		}
 	};
 
 	const handleOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -227,7 +256,7 @@ export const UserProfileMenu = ({
 
 				{/* Logout */}
 				<MenuItem
-					onClick={handleLogout}
+					onClick={handleLogoutClick}
 					sx={{
 						py: 1.5,
 						gap: 1.5,
@@ -243,6 +272,13 @@ export const UserProfileMenu = ({
 					<Typography variant="body2">Logout</Typography>
 				</MenuItem>
 			</Menu>
+
+			<LogoutConfirmationDialog
+				open={logoutDialogOpen}
+				onClose={() => setLogoutDialogOpen(false)}
+				onConfirm={handleConfirmLogout}
+				pendingCount={pendingCount}
+			/>
 		</>
 	);
 };

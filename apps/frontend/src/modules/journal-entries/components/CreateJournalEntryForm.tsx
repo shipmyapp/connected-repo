@@ -13,12 +13,14 @@ import { RhfSubmitButton } from "@connected-repo/ui-mui/rhf-form/RhfSubmitButton
 import { RhfTextField } from "@connected-repo/ui-mui/rhf-form/RhfTextField";
 import { useRhfForm } from "@connected-repo/ui-mui/rhf-form/useRhfForm";
 import { type JournalEntryCreateInput, journalEntryCreateInputZod } from "@connected-repo/zod-schemas/journal_entry.zod";
-import { orpc, orpcFetch } from "@frontend/utils/orpc.client";
+import { PromptSelectAll } from "@connected-repo/zod-schemas/prompt.zod";
+import { useWorkerMutation } from "@frontend/hooks/useWorkerMutation";
+import { useWorkerQuery } from "@frontend/hooks/useWorkerQuery";
+import { UserAppBackendInputs, UserAppBackendOutputs } from "@frontend/utils/orpc.client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import EditNoteIcon from "@mui/icons-material/EditNote";
 import RefreshIcon from "@mui/icons-material/Refresh";
-import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
 type WritingMode = "prompted" | "free";
@@ -27,30 +29,57 @@ export function CreateJournalEntryForm() {
 	const [success, setSuccess] = useState("");
 	const [writingMode, setWritingMode] = useState<WritingMode>("prompted");
 
-	// Fetch random prompt
+	// Fetch random prompt via Worker
 	const {
 		data: randomPrompt,
 		isLoading: promptLoading,
 		error: promptError,
 		refetch: refetchPrompt,
-	} = useQuery(orpc.prompts.getRandomActive.queryOptions());
+	} = useWorkerQuery< UserAppBackendOutputs['prompts']['getRandomActive'] | null>({
+		entity: 'prompts',
+		operation: 'getRandomActive',
+	});
+
+	// Create journal entry mutation via Worker
+	const createMutation = useWorkerMutation<unknown, UserAppBackendInputs['journalEntries']['create']>({
+		entity: 'journalEntries',
+		operation: 'create',
+		invalidateKeys: [
+			['journalEntries', 'getAll'],
+			['pending', 'journalEntries'],
+		],
+	});
 
 	// Form setup with Zod validation and RHF
 	const { formMethods, RhfFormProvider } = useRhfForm<JournalEntryCreateInput>({
 		onSubmit: async (data) => {
+			console.log("[CreateJournalEntryForm] onSubmit triggered", { timestamp: new Date().toISOString(), writingMode });
 			// Set prompt to null if in free writing mode
 			const submitData = {
 				...data,
 				prompt: writingMode === "free" ? null : data.prompt,
-				promptId: writingMode === "free"? null : randomPrompt?.promptId ?? null
+				promptId: writingMode === "free"? null : randomPrompt?.data?.promptId ?? null,
+				createdAt: Date.now(),
 			};
-			await orpcFetch.journalEntries.create(submitData);
-			formMethods.reset();
-			setSuccess("Journal entry created successfully!");
-			setTimeout(() => setSuccess(""), 3000);
-			// Get a new prompt after successful submission if in prompted mode
-			if (writingMode === "prompted") {
-				refetchPrompt();
+			
+			console.log("[CreateJournalEntryForm] Preparing to call mutateAsync", { submitData });
+			
+			try {
+				const start = Date.now();
+				await createMutation.mutateAsync(submitData);
+				console.log(`[CreateJournalEntryForm] mutateAsync completed successfully in ${Date.now() - start}ms`);
+				
+				formMethods.reset();
+				setSuccess("Journal entry created successfully!");
+				setTimeout(() => setSuccess(""), 3000);
+				
+				// Get a new prompt after successful submission if in prompted mode
+				if (writingMode === "prompted") {
+					console.log("[CreateJournalEntryForm] Refetching prompt");
+					refetchPrompt();
+				}
+			} catch (error) {
+				console.error("[CreateJournalEntryForm] mutateAsync failed:", error);
 			}
 		},
 		formConfig: {
@@ -68,8 +97,8 @@ export function CreateJournalEntryForm() {
 			formMethods.setValue("prompt", null);
 		} 
 		// Auto-populate prompt when random prompt loads and in prompted mode
-		else if (writingMode === "prompted" && randomPrompt?.text) {
-			formMethods.setValue("prompt", randomPrompt.text);
+		else if (writingMode === "prompted" && randomPrompt?.data?.text) {
+			formMethods.setValue("prompt", randomPrompt.data.text);
 		}
 	}, [writingMode, formMethods, randomPrompt]);
 
@@ -269,9 +298,9 @@ export function CreateJournalEntryForm() {
 										px: 1,
 									}}
 								>
-									"{randomPrompt?.text}"
+									"{randomPrompt?.data?.text}"
 								</Typography>
-								{randomPrompt?.category && (
+								{randomPrompt?.data?.category && (
 									<Box sx={{ mt: 2, display: "flex", justifyContent: "flex-end" }}>
 										<Typography
 											variant="caption"
@@ -287,7 +316,7 @@ export function CreateJournalEntryForm() {
 												fontSize: "0.6rem",
 											}}
 										>
-											{randomPrompt.category}
+											{randomPrompt.data.category}
 										</Typography>
 									</Box>
 								)}

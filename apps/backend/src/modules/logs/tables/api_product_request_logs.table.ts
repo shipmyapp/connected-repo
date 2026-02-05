@@ -2,7 +2,7 @@ import { BaseTable } from "@backend/db/base_table";
 import { UserTable } from "@backend/modules/users/tables/users.table";
 import { DefaultSelect } from "orchid-orm";
 
-export class ApiProductRequestLogsTable extends BaseTable {
+export class ApiProductRequestLogTable extends BaseTable {
   readonly table = "api_product_request_logs";
   
   columns = this.setColumns(
@@ -36,4 +36,4 @@ export class ApiProductRequestLogsTable extends BaseTable {
   }
 };
 
-export type ApiProductRequestLog = DefaultSelect<ApiProductRequestLogsTable>;
+export type ApiProductRequestLog = DefaultSelect<ApiProductRequestLogTable>;

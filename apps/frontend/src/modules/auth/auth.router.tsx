@@ -1,3 +1,4 @@
+import { ConflictPage } from "@frontend/modules/auth/pages/Conflict.page";
 import { LoginPage } from "@frontend/modules/auth/pages/Login.page";
 import { Navigate, Route, Routes, useSearchParams } from "react-router";
 
@@ -15,6 +16,7 @@ const AuthRouter = () => {
 			<Route path="/">
 				<Route index element={<Navigate to="/auth/login" />} />
 				<Route path="login" element={<LoginPage />} />
+				<Route path="conflict" element={<ConflictPage />} />
 				<Route path="error" element={<AuthErrorRedirect />} />
 			</Route>
 		</Routes>
