@@ -29,7 +29,7 @@ export class LeadTable extends BaseTable {
 	columns = this.setColumns((t) => ({
 		leadId: t.ulid().primaryKey(),
 
-		contactName: t.string(255),
+		contactName: t.string(255).nullable(),
 		companyName: t.string(255).nullable(),
 		jobTitle: t.string(255).nullable(),
 		email: t.string(255).nullable(),
@@ -37,6 +37,10 @@ export class LeadTable extends BaseTable {
 		website: t.string(255).nullable(),
 		address: t.text().nullable(),
 		notes: t.text().nullable(),
+		
+		visitingCardFrontUrl: t.string(2048).nullable(),
+		visitingCardBackUrl: t.string(2048).nullable(),
+		voiceNoteUrl: t.string(2048).nullable(),
 		
 		capturedByUserId: t.uuid().foreignKey("users", "id", {
 			onDelete: "CASCADE",

@@ -1,11 +1,14 @@
 import { Chip } from "@connected-repo/ui-mui/data-display/Chip";
 import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
 import { Box } from "@connected-repo/ui-mui/layout/Box";
-import { Card, CardContent } from "@connected-repo/ui-mui/layout/Card";
+import { Card, CardContent, Tooltip } from "@mui/material";
 import type { LeadSelectAll } from "@connected-repo/zod-schemas/leads.zod";
 import BusinessIcon from "@mui/icons-material/Business";
 import EmailIcon from "@mui/icons-material/Email";
 import PhoneIcon from "@mui/icons-material/Phone";
+import PhotoLibraryIcon from "@mui/icons-material/PhotoLibrary";
+import MicIcon from "@mui/icons-material/Mic";
+import { Avatar } from "@connected-repo/ui-mui/data-display/Avatar";
 
 interface LeadCardViewProps {
 	entries: (LeadSelectAll & { _isPending?: boolean })[];
@@ -56,9 +59,18 @@ export function LeadCardView({ entries, onEntryClick }: LeadCardViewProps) {
 				>
 					<CardContent sx={{ flexGrow: 1, p: { xs: 2, sm: 2.5 } }}>
 						<Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-							<Typography variant="h6" sx={{ fontWeight: 700, color: "text.primary" }}>
-								{lead.contactName}
-							</Typography>
+							<Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+								{(lead as any).visitingCardFrontUrl && (
+									<Avatar 
+										src={(lead as any).visitingCardFrontUrl} 
+										variant="rounded"
+										sx={{ width: 40, height: 40, border: '1px solid', borderColor: 'divider' }}
+									/>
+								)}
+								<Typography variant="h6" sx={{ fontWeight: 700, color: "text.primary" }}>
+									{lead.contactName}
+								</Typography>
+							</Box>
 							{lead.teamId && (
 								<Chip 
 									label="Team" 
@@ -97,7 +109,31 @@ export function LeadCardView({ entries, onEntryClick }: LeadCardViewProps) {
 							</Box>
 						)}
 
-						{/* Tags or other info could go here */}
+						{/* Media Indicators */}
+						<Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
+							{(lead as any).visitingCardFrontUrl && (
+								<Tooltip title="Business Card Captured">
+									<Chip 
+										icon={<PhotoLibraryIcon sx={{ fontSize: '1rem' }} />} 
+										label="Card" 
+										size="small" 
+										variant="outlined" 
+										sx={{ height: 20 }} 
+									/>
+								</Tooltip>
+							)}
+							{(lead as any).voiceNoteUrl && (
+								<Tooltip title="Voice Note Captured">
+									<Chip 
+										icon={<MicIcon sx={{ fontSize: '1rem' }} />} 
+										label="Voice" 
+										size="small" 
+										variant="outlined" 
+										sx={{ height: 20 }} 
+									/>
+								</Tooltip>
+							)}
+						</Box>
 
 						<Box
 							sx={{

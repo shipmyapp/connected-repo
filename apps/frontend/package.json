@@ -21,6 +21,7 @@
 		"react-router": "^7.9.4",
 		"react-toastify": "^11.0.5",
 		"tinybase": "^5.4",
+		"ulid": "^3.0.2",
 		"vite-plugin-pwa": "^1.2.0",
 		"workbox-precaching": "^7.4.0",
 		"workbox-routing": "^7.4.0",

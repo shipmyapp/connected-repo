@@ -3,6 +3,9 @@ import { MaterialReactTable } from "@connected-repo/ui-mui/mrt/MaterialReactTabl
 import type { LeadSelectAll } from "@connected-repo/zod-schemas/leads.zod";
 import type { MRT_ColumnDef } from "material-react-table";
 import { useCallback, useMemo } from "react";
+import PhotoLibraryIcon from "@mui/icons-material/PhotoLibrary";
+import MicIcon from "@mui/icons-material/Mic";
+import { Tooltip, Stack } from "@mui/material";
 
 interface LeadTableViewProps {
 	entries: LeadSelectAll[];
@@ -28,6 +31,26 @@ export function LeadTableView({ entries, onEntryClick }: LeadTableViewProps) {
 				accessorKey: "contactName",
 				header: "Name",
 				size: 150,
+			},
+			{
+				id: "media",
+				header: "Media",
+				size: 100,
+				Cell: ({ row }) => (
+					<Stack direction="row" spacing={1}>
+						{(row.original as any).visitingCardFrontUrl && (
+							<Tooltip title="Business Card Captured">
+								<PhotoLibraryIcon color="primary" sx={{ fontSize: '1.2rem' }} />
+							</Tooltip>
+						)}
+						{(row.original as any).voiceNoteUrl && (
+							<Tooltip title="Voice Note Captured">
+								<MicIcon color="secondary" sx={{ fontSize: '1.2rem' }} />
+							</Tooltip>
+						)}
+						{!(row.original as any).visitingCardFrontUrl && !(row.original as any).voiceNoteUrl && "-"}
+					</Stack>
+				),
 			},
 			{
 				accessorKey: "companyName",

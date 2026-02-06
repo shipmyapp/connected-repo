@@ -8,6 +8,7 @@ import { Card } from "@connected-repo/ui-mui/layout/Card";
 import { Container } from "@connected-repo/ui-mui/layout/Container";
 import { Stack } from "@connected-repo/ui-mui/layout/Stack";
 import { useSessionInfo } from "@frontend/contexts/UserContext";
+import { DashboardLeadCapture } from "@frontend/components/DashboardLeadCapture";
 
 const DashboardPage = () => {
 	// Get user data from session context (provided by AppLayout)
@@ -30,118 +31,51 @@ const DashboardPage = () => {
 								p: { xs: 3, md: 4 },
 								background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
 								color: "white",
-								borderRadius: 2,
+								borderRadius: 4,
 								boxShadow: "0 8px 32px rgba(102, 126, 234, 0.3)",
 							}}
 						>
 							<Stack
-								direction={{ xs: "column", sm: "row" }}
-								spacing={3}
-								alignItems={{ xs: "center", sm: "flex-start" }}
+								direction={{ xs: "row" }}
+								spacing={2}
+								alignItems="center"
 							>
 								{user?.image && (
 									<Avatar
 										src={user.image}
 										alt={user.name || undefined}
 										sx={{
-											width: 80,
-											height: 80,
-											border: "4px solid rgba(255,255,255,0.3)",
-											boxShadow: 3,
+											width: 48,
+											height: 48,
+											border: "2px solid rgba(255,255,255,0.3)",
 										}}
 									/>
 								)}
-								<Box sx={{ textAlign: { xs: "center", sm: "left" } }}>
-									<Typography variant="h4" fontWeight={600} gutterBottom>
-										Welcome back, {user?.name || "User"}!
+								<Box>
+									<Typography variant="h6" fontWeight={600}>
+										Hi, {user?.name?.split(' ')[0] || "User"}!
 									</Typography>
-									<Typography variant="body1" sx={{ opacity: 0.9 }}>
-										{user?.email}
+									<Typography variant="caption" sx={{ opacity: 0.8 }}>
+										Ready to capture leads?
 									</Typography>
 								</Box>
 							</Stack>
 						</Card>
 
+						{/* Instant Capture Section - Mobile First */}
+						<DashboardLeadCapture />
+
 						{/* Success Message */}
 						<Fade in timeout={600}>
-							<Alert
-								severity="success"
-								sx={{
-									borderRadius: 2,
-									boxShadow: 1,
-								}}
+							<Alert 
+								severity="info" 
+								sx={{ borderRadius: 3, bgcolor: 'primary.lighter', border: 'none' }}
 							>
-								<Typography variant="body1" fontWeight={500}>
-									Your account is now active!
-								</Typography>
-								<Typography variant="body2" color="text.secondary">
-									You can now access all features of the application.
+								<Typography variant="body2" fontWeight={500}>
+									Pro Tip: Double tap to scan both sides of a card!
 								</Typography>
 							</Alert>
 						</Fade>
-
-						{/* Quick Actions */}
-						<Stack spacing={2}>
-							<Typography variant="h5" fontWeight={600}>
-								Quick Actions
-							</Typography>
-							<Stack
-								direction={{ xs: "column", md: "row" }}
-								spacing={2}
-							>
-								<Card
-									sx={{
-										p: 3,
-										flex: 1,
-										cursor: "pointer",
-										transition: "all 0.2s ease-in-out",
-										border: "1px solid",
-										borderColor: "divider",
-										"&:hover": {
-											borderColor: "primary.main",
-											transform: "translateY(-4px)",
-											boxShadow: 4,
-										},
-									}}
-								>
-									<Typography variant="h6" gutterBottom fontWeight={600}>
-										View Profile
-									</Typography>
-									<Typography variant="body2" color="text.secondary" mb={2}>
-										Manage your account settings and preferences
-									</Typography>
-									<Button variant="outlined" size="small">
-										Go to Profile
-									</Button>
-								</Card>
-
-								<Card
-									sx={{
-										p: 3,
-										flex: 1,
-										cursor: "pointer",
-										transition: "all 0.2s ease-in-out",
-										border: "1px solid",
-										borderColor: "divider",
-										"&:hover": {
-											borderColor: "primary.main",
-											transform: "translateY(-4px)",
-											boxShadow: 4,
-										},
-									}}
-								>
-									<Typography variant="h6" gutterBottom fontWeight={600}>
-										Explore Features
-									</Typography>
-									<Typography variant="body2" color="text.secondary" mb={2}>
-										Discover what you can do with your account
-									</Typography>
-									<Button variant="outlined" size="small">
-										Get Started
-									</Button>
-								</Card>
-							</Stack>
-						</Stack>
 					</Stack>
 				</Fade>
 			</Container>

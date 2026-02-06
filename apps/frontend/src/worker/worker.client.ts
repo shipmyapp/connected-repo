@@ -1,3 +1,4 @@
+import { ulid } from 'ulid';
 import type {
   EntityName,
   WorkerOutgoing,
@@ -48,7 +49,7 @@ class DataWorkerClient {
         };
 
         // Send init
-        const correlationId = crypto.randomUUID();
+        const correlationId = ulid();
         this._sendRaw({
           correlationId,
           type: 'init',

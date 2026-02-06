@@ -3,6 +3,7 @@ import type { ConnectivityService } from './connectivity.service';
 import type { StorageEngine, StorageRow } from '../stores/storage.engine';
 import type { SyncManager } from './sync-manager.service';
 import type { EntityName, WorkerPushEvent } from '../worker.types';
+import { ulid } from 'ulid';
 
 export class DataService {
   constructor(
@@ -208,11 +209,11 @@ export class DataService {
       
       // Ensure payload has an ID for idempotency
       if (!payload[idFieldName]) {
-        payload[idFieldName] = crypto.randomUUID();
+        payload[idFieldName] = ulid();
         console.log(`[DataService] Generated new ID for create: ${payload[idFieldName]}`);
       }
 
-      const entryId = crypto.randomUUID();
+      const entryId = ulid();
       const now = Date.now();
 
       const pendingRow = {

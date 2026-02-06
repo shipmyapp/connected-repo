@@ -32,6 +32,12 @@ export function createDataStore(): Store {
         _isNull_teamId: { type: 'boolean', default: true },
         createdAt: { type: 'number' },
         updatedAt: { type: 'number' },
+        visitingCardFrontUrl: { type: 'string', default: '' },
+        _isNull_visitingCardFrontUrl: { type: 'boolean', default: true },
+        visitingCardBackUrl: { type: 'string', default: '' },
+        _isNull_visitingCardBackUrl: { type: 'boolean', default: true },
+        voiceNoteUrl: { type: 'string', default: '' },
+        _isNull_voiceNoteUrl: { type: 'boolean', default: true },
         _isPending: { type: 'boolean', default: false },
       },
       pending_entries: {
@@ -43,6 +49,19 @@ export function createDataStore(): Store {
         retryCount: { type: 'number', default: 0 },
         createdAt: { type: 'number' },
         nextRetryAt: { type: 'number', default: 0 },
+      },
+      uploads: {
+        id: { type: 'string' },
+        leadId: { type: 'string' },
+        localUrl: { type: 'string' },
+        remoteUrl: { type: 'string', default: '' },
+        _isNull_remoteUrl: { type: 'boolean', default: true },
+        type: { type: 'string' }, // 'image' | 'voice'
+        fileType: { type: 'string', default: '' },
+        field: { type: 'string' }, // 'visitingCardFrontUrl' | 'visitingCardBackUrl' | 'voiceNoteUrl'
+        status: { type: 'string', default: 'pending' }, // 'pending' | 'uploading' | 'done' | 'error'
+        error: { type: 'string', default: '' },
+        createdAt: { type: 'number' },
       },
       syncMetadata: {
         tableName: { type: 'string' },

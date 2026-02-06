@@ -5,6 +5,10 @@ export type EntityOperationMap = {
     query: 'getAll' | 'getById';
     mutation: 'create' | 'delete';
   };
+  uploads: {
+    query: 'getAll';
+    mutation: 'create';
+  };
 };
 
 export type EntityName = keyof EntityOperationMap;

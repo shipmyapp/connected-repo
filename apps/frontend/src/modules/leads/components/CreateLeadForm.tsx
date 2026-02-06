@@ -9,12 +9,24 @@ import { type LeadCreateInput, leadCreateInputZod } from "@connected-repo/zod-sc
 import { useWorkerMutation } from "@frontend/hooks/useWorkerMutation";
 import { UserAppBackendInputs } from "@frontend/utils/orpc.client";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
+import { MediaCapture } from "./MediaCapture";
+import { ulid } from "ulid";
+import { dataWorkerClient } from "@frontend/worker/worker.client";
 
-export function CreateLeadForm() {
+interface CreateLeadFormProps {
+	initialLeadId?: string;
+	onComplete?: () => void;
+}
+
+export function CreateLeadForm({ initialLeadId, onComplete }: CreateLeadFormProps) {
 	const [success, setSuccess] = useState("");
+	const [uploads, setUploads] = useState<any[]>([]);
 	const navigate = useNavigate();
+
+	// Generate a stable leadId for this form session
+	const leadId = useMemo(() => initialLeadId || ulid(), [initialLeadId]);
 
 	// Create lead mutation via Worker
 	const createMutation = useWorkerMutation<unknown, UserAppBackendInputs['leads']['create']>({
@@ -26,11 +38,68 @@ export function CreateLeadForm() {
 		],
 	});
 
+	// Subscribe to upload status changes in worker
+	useEffect(() => {
+		const unsubscribe = dataWorkerClient.onPushEvent((ev) => {
+			if (ev.type === 'push' && ev.event === 'table-changed' && ev.payload.table === 'uploads') {
+				fetchUploads();
+			}
+		});
+
+		const fetchUploads = async () => {
+			const result = await dataWorkerClient.query<any[]>({
+				entity: 'uploads',
+				operation: 'getAll',
+			});
+			const leadUploads = result.data.filter(u => u.leadId === leadId);
+			setUploads(leadUploads);
+		};
+
+		fetchUploads();
+		return unsubscribe;
+	}, [leadId]);
+
+	const handleMediaCapture = async (media: { 
+		type: 'image' | 'voice'; 
+		file: File; 
+		field: 'visitingCardFrontUrl' | 'visitingCardBackUrl' | 'voiceNoteUrl' 
+	}) => {
+		// Convert file to Data URL for worker
+		const reader = new FileReader();
+		reader.onloadend = async () => {
+			const localUrl = reader.result as string;
+			
+			// Send to worker for upload tracking
+			await dataWorkerClient.mutate({
+				entity: 'uploads',
+				operation: 'create',
+				payload: {
+					localUrl,
+					fileType: media.file.type,
+					fileName: media.file.name,
+					leadId,
+					field: media.field,
+				}
+			});
+		};
+		reader.readAsDataURL(media.file);
+	};
+
 	// Form setup with Zod validation and RHF
 	const { formMethods, RhfFormProvider } = useRhfForm<LeadCreateInput>({
 		onSubmit: async (data) => {
+			// Link any successfully uploaded media
+			const mediaUrls: any = {};
+			uploads.forEach(u => {
+				if (u.status === 'done' && u.remoteUrl) {
+					mediaUrls[u.field] = u.remoteUrl;
+				}
+			});
+
 			const submitData = {
 				...data,
+				...mediaUrls,
+				leadId, // Use the pre-generated ULID
 				createdAt: Date.now(),
 			};
 			
@@ -40,7 +109,11 @@ export function CreateLeadForm() {
 				formMethods.reset();
 				setTimeout(() => {
 					setSuccess("");
-					navigate("/leads");
+					if (onComplete) {
+						onComplete();
+					} else {
+						navigate("/leads");
+					}
 				}, 2000);
 			} catch (error) {
 				console.error("[CreateLeadForm] mutateAsync failed:", error);
@@ -66,11 +139,15 @@ export function CreateLeadForm() {
 		<ContentCard>
 			<RhfFormProvider>
 				<Stack spacing={3}>
+					<MediaCapture 
+						onCapture={handleMediaCapture} 
+						uploads={uploads} 
+					/>
+
 					<RhfTextField
 						name="contactName"
 						label="Full Name"
 						placeholder="e.g. John Doe"
-						required
 					/>
 					
 					<Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>

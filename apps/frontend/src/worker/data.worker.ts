@@ -1,4 +1,5 @@
 import { ConnectivityService } from './services/connectivity.service';
+import { MediaService } from './services/media.service';
 import { createWorkerOrpcClient } from './services/orpc-worker.client';
 import { SyncManager } from './services/sync-manager.service';
 import { createAndStartPersister } from './stores/tinybase.persister';
@@ -15,6 +16,7 @@ import type {
 
 let dataService: DataService | null = null;
 let syncManager: SyncManager | null = null;
+let mediaService: MediaService | null = null;
 let connectivity: ConnectivityService | null = null;
 let globalStore: any = null;
 let globalStorage: TinyBaseStorageEngine | null = null;
@@ -62,71 +64,120 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
   }
 
   try {
-    if (msg.type === 'query') {
-      const queryResult = await dataService.query(
-        msg.entity, 
-        msg.operation, 
-        msg.payload, 
-        { sortBy: msg.sortBy, descending: msg.descending, limit: msg.limit, offset: msg.offset }
-      );
-      respond(msg.correlationId, { 
-        success: true, 
-        data: queryResult.data, 
-        meta: { source: queryResult.source, total: queryResult.total } 
-      });
-    } else if (msg.type === 'mutation') {
-      const mutationResult = await dataService.mutate(msg.entity, msg.operation, msg.payload);
-      respond(msg.correlationId, { success: true, data: mutationResult.data, meta: { source: mutationResult.source } });
-    } else if (msg.type === 'get-pending') {
-      const pendingResult = await dataService.getPending(
-        msg.entity,
-        { sortBy: msg.sortBy, descending: msg.descending, limit: msg.limit, offset: msg.offset }
-      );
-      respond(msg.correlationId, { 
-        success: true, 
-        data: pendingResult.data, 
-        meta: { source: 'cache', total: pendingResult.total } 
-      });
-    } else if (msg.type === 'get-pending-by-id') {
-      const pendingItem = await dataService.getPendingById(msg.entity, msg.id);
-      respond(msg.correlationId, { success: true, data: pendingItem, meta: { source: 'cache' } });
-    } else if (msg.type === 'force-sync') {
-      const force = !!msg.payload?.force;
-      syncManager.sync(force);
-      respond(msg.correlationId, { success: true, data: { status: 'sync-started', force }, meta: { source: 'cache' } });
-    } else if (msg.type === 'sync-update') {
-      syncManager.applySyncEvent(msg.payload);
-    } else if (msg.type === 'clear-cache' && globalStore) {
-      console.log('[Worker] Nuking all tables in TinyBase store.');
-      globalStore.delTables();
-      respond(msg.correlationId, { success: true, data: { cleared: true }, meta: { source: 'cache' } });
-    } else if (msg.type === 'get-pending-count' && globalStore) {
-      const pendingIds = globalStore.getRowIds('pending_entries');
-      respond(msg.correlationId, { success: true, data: { count: pendingIds.length }, meta: { source: 'cache' } });
-    } else if (msg.type === 'get-sync-status' && connectivity && syncManager) {
-      respond(msg.correlationId, { 
-        success: true, 
-        data: { 
-          sseStatus: (connectivity as any)._sseStatus || 'disconnected',
-          isOnline: (connectivity as any)._isOnline ?? true,
-          // We don't have a direct syncProgress getter in syncManager yet, but we can send current state
-        }, 
-        meta: { source: 'cache' } 
-      });
-    } else if (msg.type === 'get-sync-meta' && globalStore) {
-      const metaRows = globalStore.getTable('syncMeta');
-      const meta: Record<string, string> = {};
-      for (const [key, row] of Object.entries(metaRows)) {
-        meta[key] = (row as any).value;
+    const type = msg.type;
+    
+    switch (type) {
+      case 'query': {
+        const queryResult = await dataService.query(
+          msg.entity, 
+          msg.operation, 
+          msg.payload, 
+          { sortBy: msg.sortBy, descending: msg.descending, limit: msg.limit, offset: msg.offset }
+        );
+        respond(msg.correlationId, { 
+          success: true, 
+          data: queryResult.data, 
+          meta: { source: queryResult.source, total: queryResult.total } 
+        });
+        break;
       }
-      respond(msg.correlationId, { success: true, data: meta, meta: { source: 'cache' } });
-    } else if (msg.type === 'update-user-meta' && globalStore) {
-      const { userId, userEmail } = msg.payload;
-      globalStore.setRow('syncMeta', 'userId', { value: userId });
-      globalStore.setRow('syncMeta', 'userEmail', { value: userEmail });
-      respond(msg.correlationId, { success: true, data: { updated: true }, meta: { source: 'cache' } });
-    } else {
-      respondError((msg as any).correlationId, new Error(`Unknown message type: ${(msg as any).type}`));
+      case 'mutation': {
+        if (msg.entity === 'uploads') {
+          // Special handling for media uploads via worker mutation
+          console.log('[DataWorker] Handling upload mutation:', msg.payload);
+          const { localUrl, fileType, fileName, leadId, field } = msg.payload as any;
+          if (mediaService) {
+            console.log('[DataWorker] Calling mediaService.queueUpload with:', { fileType, fileName, leadId, field });
+            const uploadId = await mediaService.queueUpload(localUrl, fileType, fileName, leadId, field);
+            console.log('[DataWorker] Upload queued successfully with ID:', uploadId);
+            respond(msg.correlationId, { success: true, data: { uploadId }, meta: { source: 'cache' } });
+          } else {
+            console.error('[DataWorker] Media service not initialized!');
+            respondError(msg.correlationId, new Error('Media service not initialized'));
+          }
+        } else {
+          const mutationResult = await dataService.mutate(msg.entity, msg.operation, msg.payload);
+          respond(msg.correlationId, { success: true, data: mutationResult.data, meta: { source: mutationResult.source } });
+        }
+        break;
+      }
+      case 'get-pending': {
+        const pendingResult = await dataService.getPending(
+          msg.entity,
+          { sortBy: msg.sortBy, descending: msg.descending, limit: msg.limit, offset: msg.offset }
+        );
+        respond(msg.correlationId, { 
+          success: true, 
+          data: pendingResult.data, 
+          meta: { source: 'cache', total: pendingResult.total } 
+        });
+        break;
+      }
+      case 'get-pending-by-id': {
+        const pendingItem = await dataService.getPendingById(msg.entity, msg.id);
+        respond(msg.correlationId, { success: true, data: pendingItem, meta: { source: 'cache' } });
+        break;
+      }
+      case 'force-sync': {
+        const force = !!msg.payload?.force;
+        syncManager.sync(force);
+        respond(msg.correlationId, { success: true, data: { status: 'sync-started', force }, meta: { source: 'cache' } });
+        break;
+      }
+      case 'sync-update': {
+        syncManager.applySyncEvent(msg.payload);
+        break;
+      }
+      case 'clear-cache': {
+        if (globalStore) {
+          console.log('[Worker] Nuking all tables in TinyBase store.');
+          globalStore.delTables();
+          respond(msg.correlationId, { success: true, data: { cleared: true }, meta: { source: 'cache' } });
+        }
+        break;
+      }
+      case 'get-pending-count': {
+        if (globalStore) {
+          const pendingIds = globalStore.getRowIds('pending_entries');
+          respond(msg.correlationId, { success: true, data: { count: pendingIds.length }, meta: { source: 'cache' } });
+        }
+        break;
+      }
+      case 'get-sync-status': {
+        if (connectivity && syncManager) {
+          respond(msg.correlationId, { 
+            success: true, 
+            data: { 
+              sseStatus: (connectivity as any)._sseStatus || 'disconnected',
+              isOnline: (connectivity as any)._isOnline ?? true,
+            }, 
+            meta: { source: 'cache' } 
+          });
+        }
+        break;
+      }
+      case 'get-sync-meta': {
+        if (globalStore) {
+          const metaRows = globalStore.getTable('syncMeta');
+          const meta: Record<string, string> = {};
+          for (const [key, row] of Object.entries(metaRows)) {
+            meta[key] = (row as any).value;
+          }
+          respond(msg.correlationId, { success: true, data: meta, meta: { source: 'cache' } });
+        }
+        break;
+      }
+      case 'update-user-meta': {
+        if (globalStore) {
+          const { userId, userEmail } = msg.payload;
+          globalStore.setRow('syncMeta', 'userId', { value: userId });
+          globalStore.setRow('syncMeta', 'userEmail', { value: userEmail });
+          respond(msg.correlationId, { success: true, data: { updated: true }, meta: { source: 'cache' } });
+        }
+        break;
+      }
+      default:
+        respondError((msg as any).correlationId, new Error(`Unknown message type: ${(msg as any).type}`));
     }
   } catch (err) {
     respondError(msg.correlationId, err);
@@ -149,6 +200,8 @@ async function initialize(apiUrl: string): Promise<void> {
 
   const orpc = createWorkerOrpcClient(apiUrl, broadcast);
 
+  mediaService = new MediaService(store, orpc);
+  
   syncManager = new SyncManager(storage, orpc, connectivity, broadcast);
   dataService = new DataService(storage, orpc, connectivity, syncManager, broadcast);
 
@@ -166,6 +219,11 @@ async function initialize(apiUrl: string): Promise<void> {
 
   // Attempt to sync any pending items & start live stream
   syncManager.start().catch(err => console.error('[Worker] Initial sync/live-sync failed:', err));
+  
+  // Also start media upload processing if online
+  if (navigator.onLine && mediaService) {
+    mediaService.processPendingUploads().catch(console.error);
+  }
 }
 
 // ── Response helpers ────────────────────────────────────────────────

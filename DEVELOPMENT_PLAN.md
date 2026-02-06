@@ -1696,13 +1696,15 @@ export const syncRouter = {
 
 **Lead Capture:**
 - [x] Build lead capture form
-- [ ] Implement camera integration
-- [ ] Create image compression utility
-- [ ] Build voice recorder
+- [x] Implement camera integration (MediaCapture component with presigned S3 uploads)
+- [x] Create image compression utility (MediaService with WebP compression)
+- [x] Build voice recorder (MediaRecorder API with WebM format)
+- [x] Dashboard instant capture widget
 
 **Lead Management:**
 - [x] Create lead list view (card/table toggle with pagination)
-- [ ] Build lead detail page
+- [x] Build lead detail page (with media gallery)
+- [x] Add media indicators to list views (card icons, table columns)
 - [ ] Implement lead editing
 - [ ] Create tag management
 
@@ -1710,8 +1712,10 @@ export const syncRouter = {
 - [x] Implement leads router (getAll, getById, create, delete)
 - [x] Create leads table with sync hooks (afterCreateCommit, afterUpdateCommit, afterDeleteCommit)
 - [x] Migration: Drop journal_entries and prompts tables
+- [x] Migration 0004: Add media fields (visitingCardFrontUrl, visitingCardBackUrl, voiceNoteUrl)
+- [x] Create media router with presigned URL generation (DigitalOcean Spaces)
+- [x] S3 service for direct-to-cloud uploads
 - [ ] Create tags router
-- [ ] Add voice notes and attachments support
 
 **Deliverables:**
 - Capture leads locally

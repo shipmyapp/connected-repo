@@ -2,11 +2,11 @@ import { z } from "zod";
 import { zString, zTimestamps, zTimeEpoch, zPhoneNumber } from "./zod_utils.js";
 
 export const leadMandatoryZod = z.object({
-	contactName: zString.min(1, "Contact name is required").max(255),
 	capturedByUserId: z.uuid(),
 });
 
 export const leadOptionalZod = z.object({
+	contactName: zString.max(255).nullable(),
 	companyName: zString.max(255).nullable(),
 	jobTitle: zString.max(255).nullable(),
 	email: z.string().email("Invalid email").max(255).nullable(),
@@ -15,6 +15,9 @@ export const leadOptionalZod = z.object({
 	address: zString.max(500).nullable(),
 	notes: zString.max(5000).nullable(),
 	teamId: z.uuid().nullable(),
+	visitingCardFrontUrl: z.string().url().nullable(),
+	visitingCardBackUrl: z.string().url().nullable(),
+	voiceNoteUrl: z.string().url().nullable(),
 	deletedAt: zTimeEpoch.nullable(),
 });
 

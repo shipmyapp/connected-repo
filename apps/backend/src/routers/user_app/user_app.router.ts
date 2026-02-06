@@ -1,6 +1,7 @@
 import { leadsRouter } from '@backend/modules/leads/leads.router'
 import { rpcPublicProcedure } from '@backend/procedures/public.procedure'
 import { usersRouter } from '@backend/routers/user_app/users.user_app.router'
+import { mediaRouter } from '@backend/routers/user_app/media.router'
 import { syncRouter } from '@backend/modules/sync/sync.router'
 import type { InferRouterInputs, InferRouterOutputs, RouterClient } from '@orpc/server'
 
@@ -23,6 +24,7 @@ export const userAppRouter = {
 	health: healthCheck,
 	users: usersRouter,
 	leads: leadsRouter,
+	media: mediaRouter,
 	sync: syncRouter,
 };
 
