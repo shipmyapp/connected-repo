@@ -14,7 +14,7 @@ export const leadOptionalZod = z.object({
 	website: z.string().url("Invalid URL").max(255).nullable(),
 	address: zString.max(500).nullable(),
 	notes: zString.max(5000).nullable(),
-	teamId: z.uuid().nullable(),
+	userTeamId: z.string().max(26).nullable(),
 	visitingCardFrontUrl: z.string().url().nullable(),
 	visitingCardBackUrl: z.string().url().nullable(),
 	voiceNoteUrl: z.string().url().nullable(),

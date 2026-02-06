@@ -3,6 +3,7 @@ import { syncService } from "@backend/modules/sync/sync.service";
 import { UserTable } from "@backend/modules/users/tables/users.table";
 import { TeamTable } from "@backend/modules/teams/tables/teams.table";
 import { LeadSelectAll, leadSelectAllZod } from "@connected-repo/zod-schemas/leads.zod";
+import { UserTeamsTable } from "@backend/modules/user-teams/tables/user-teams.table";
 
 const groupByUserIdAndPush = (leads: LeadSelectAll[], operation: 'create' | 'update' | 'delete' ) => {
 	const groupedByUserId = new Map<string, LeadSelectAll[]>();
@@ -46,7 +47,7 @@ export class LeadTable extends BaseTable {
 			onDelete: "CASCADE",
 			onUpdate: "RESTRICT",
 		}),
-		teamId: t.uuid().foreignKey("teams", "teamId", {
+		userTeamId: t.varchar(26).foreignKey("user_teams", "userTeamId", {
 			onDelete: "CASCADE",
 			onUpdate: "RESTRICT",
 		}).nullable(),
@@ -56,7 +57,7 @@ export class LeadTable extends BaseTable {
 	}),
 	(t) => [
 		t.index(["capturedByUserId", { column: "updatedAt", order: "DESC" }]),
-		t.index(["teamId", { column: "updatedAt", order: "DESC" }]),
+		t.index(["userTeamId", { column: "updatedAt", order: "DESC" }]),
 		t.index([{column: "deletedAt", order: "DESC"}]),
 	]);
 
@@ -79,9 +80,9 @@ export class LeadTable extends BaseTable {
 			columns: ["capturedByUserId"],
 			references: ["id"],
 		}),
-		team: this.belongsTo(() => TeamTable, {
-			columns: ["teamId"],
-			references: ["teamId"],
+		userTeam: this.belongsTo(() => UserTeamsTable, {
+			columns: ["userTeamId"],
+			references: ["userTeamId"],
 		})
 	};
 }

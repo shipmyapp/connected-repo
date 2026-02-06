@@ -7,6 +7,8 @@ import { LeadTable } from "@backend/modules/leads/tables/leads.table";
 import { ApiProductRequestLogTable } from "@backend/modules/logs/tables/api_product_request_logs.table";
 import { SubscriptionTable } from "@backend/modules/subscriptions/tables/subscriptions.table";
 import { TeamTable } from "@backend/modules/teams/tables/teams.table";
+import { UserTeamsTable } from "@backend/modules/user-teams/tables/user-teams.table";
+import { TeamMembersTable } from "@backend/modules/team-members/tables/team-members.table";
 import { UserTable } from "@backend/modules/users/tables/users.table";
 import { orchidORM } from "orchid-orm/node-postgres";
 
@@ -24,6 +26,8 @@ export const db = orchidORM(
 		verifications: VerificationTable,
 		subscriptions: SubscriptionTable,
 		teams: TeamTable,
+		userTeams: UserTeamsTable,
+		teamMembers: TeamMembersTable,
 		apiProductRequestLogs: ApiProductRequestLogTable,
 		pgTbusTaskLogs: PgTbusTaskLogTable,
 	},

@@ -14,6 +14,7 @@ import { useNavigate } from "react-router";
 import { MediaCapture } from "./MediaCapture";
 import { ulid } from "ulid";
 import { dataWorkerClient } from "@frontend/worker/worker.client";
+import { useTeam } from "@frontend/contexts/TeamContext";
 
 interface CreateLeadFormProps {
 	initialLeadId?: string;
@@ -85,6 +86,9 @@ export function CreateLeadForm({ initialLeadId, onComplete }: CreateLeadFormProp
 		reader.readAsDataURL(media.file);
 	};
 
+	// Get current team context
+	const { currentTeam } = useTeam();
+
 	// Form setup with Zod validation and RHF
 	const { formMethods, RhfFormProvider } = useRhfForm<LeadCreateInput>({
 		onSubmit: async (data) => {
@@ -101,6 +105,8 @@ export function CreateLeadForm({ initialLeadId, onComplete }: CreateLeadFormProp
 				...mediaUrls,
 				leadId, // Use the pre-generated ULID
 				createdAt: Date.now(),
+				// inject active team context
+				userTeamId: currentTeam?.userTeamId ?? null,
 			};
 			
 			try {
@@ -130,7 +136,7 @@ export function CreateLeadForm({ initialLeadId, onComplete }: CreateLeadFormProp
 				website: null,
 				address: null,
 				notes: null,
-				teamId: null,
+				userTeamId: null, // Will be overridden on submit
 			},
 		},
 	});

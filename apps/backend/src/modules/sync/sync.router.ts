@@ -20,27 +20,84 @@ export const getDelta = rpcProtectedProcedure
 	.input(getDeltaInput)
 	.handler(async ({ input: { since }, context: { user } }) => {
 		
-        const thirtySecondsAgo = since.getTime() - 30000;
+        // 1. Get user's team memberships with joinedAt
+        const memberships = await db.teamMembers
+            .where({ userId: user.id })
+            .select('userTeamId', 'joinedAt');
 
-        // --- Leads Overlap Logic ---
-        const twentiethLead = await db.leads
+        const sinceTime = since.getTime();
+        
+        // Split into "newly joined" vs "existing" teams
+        // If joinedAt > since, we need to fetch ALL leads for that team (bootstrap), 
+        // ignoring the updatedAt filter for them (but still respecting 30s buffer if needed, usually effectively all).
+        
+        const newTeamIds = memberships
+            .filter(m => Number(m.joinedAt) > sinceTime)
+            .map(m => m.userTeamId);
+            
+        const existingTeamIds = memberships
+            .filter(m => Number(m.joinedAt) <= sinceTime)
+            .map(m => m.userTeamId);
+
+        // --- Step A: Calculate Safety Floor for Incremental Sync ---
+        // (Only relevant for Personal and Existing Teams)
+        
+        const incrementalFilter = (q: any) => {
+             const conditions: any[] = [{ capturedByUserId: user.id }];
+             if (existingTeamIds.length > 0) {
+                conditions.push({ userTeamId: { in: existingTeamIds } });
+             }
+             return q.or(conditions);
+        };
+
+        const twentyLeads = await db.leads
             .select('updatedAt')
-            .where({ capturedByUserId: user.id })
+            .where(incrementalFilter)
             .order({ updatedAt: 'DESC' })
             .limit(20)
-            .includeDeleted()
-            .then(res => res?.[res.length - 1]);
+            .includeDeleted();
+            
+        const twentiethLead = twentyLeads[twentyLeads.length - 1];
 
         const leadFloor = new Date(Math.min(
             thirtySecondsAgo, 
-            twentiethLead?.updatedAt ?? thirtySecondsAgo
+            twentyLeads.length > 0 ? (twentiethLead?.updatedAt?.getTime() ?? thirtySecondsAgo) : thirtySecondsAgo
         ));
+        
+        // --- Step B: Build Final Query ---
+        // 1. Personal & Existing Teams: >= leadFloor
+        // 2. New Teams: All time (no floor)
+
+        const finalFilter = (q: any) => {
+            const conditions: any[] = [];
+            const timestampCriteria = { updatedAt: { gte: leadFloor } };
+            
+            // 1. Personal
+            conditions.push({ 
+                capturedByUserId: user.id,
+                ...timestampCriteria
+            });
+            
+            // 2. Existing Teams
+            if (existingTeamIds.length > 0) {
+                conditions.push({
+                    userTeamId: { in: existingTeamIds },
+                    ...timestampCriteria
+                });
+            }
+            
+            // 3. New Teams (Fetch EVERYTHING)
+            if (newTeamIds.length > 0) {
+                 conditions.push({
+                    userTeamId: { in: newTeamIds }
+                });
+            }
+            
+            return q.or(conditions);
+        };
 
         const leads = await db.leads
-			.where({ 
-				capturedByUserId: user.id,
-                updatedAt: { gte: leadFloor }
-			})
+			.where(finalFilter)
 			.select("*")
             .order({ updatedAt: 'DESC' })
             .includeDeleted();

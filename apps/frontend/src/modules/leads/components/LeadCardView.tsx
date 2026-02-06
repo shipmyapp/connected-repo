@@ -71,7 +71,7 @@ export function LeadCardView({ entries, onEntryClick }: LeadCardViewProps) {
 									{lead.contactName}
 								</Typography>
 							</Box>
-							{lead.teamId && (
+							{lead.userTeamId && (
 								<Chip 
 									label="Team" 
 									size="small" 

@@ -5,8 +5,9 @@ import { AppBar } from "@connected-repo/ui-mui/navigation/AppBar";
 import { Toolbar } from "@connected-repo/ui-mui/navigation/Toolbar";
 import { navItems } from "@frontend/configs/nav.config";
 import { useLocation, useNavigate } from "react-router";
-import { UserProfileMenu } from "./UserProfileMenu";
 import { SyncStatusIndicator } from "./SyncStatusIndicator";
+import { UserProfileMenu } from "./UserProfileMenu";
+import { TeamSwitcher } from "../teams/TeamSwitcher";
 
 /**
  * DesktopNavbar - Top navigation bar for desktop layout
@@ -17,7 +18,29 @@ import { SyncStatusIndicator } from "./SyncStatusIndicator";
  * - User profile menu on right
  * - Sticky position
  */
-export const DesktopNavbar = () => {
+import { IconButton } from "@connected-repo/ui-mui/form/IconButton";
+import { Settings as SettingsIcon } from "@mui/icons-material";
+import { useTeam } from "@frontend/contexts/TeamContext";
+
+const TeamSettingsButton = () => {
+    const { currentTeam } = useTeam();
+    const navigate = useNavigate();
+
+    if (!currentTeam) return null;
+
+    return (
+        <IconButton 
+            onClick={() => navigate("/teams/settings")}
+            title="Team Settings"
+            sx={{ ml: 1 }}
+        >
+            <SettingsIcon />
+        </IconButton>
+    );
+};
+
+/**
+ * DesktopNavbar - Top navigation bar for desktop layout
 	const navigate = useNavigate();
 	const location = useLocation();
 
@@ -96,6 +119,17 @@ export const DesktopNavbar = () => {
 						</Button>
 					))}
 				</Box>
+
+				{/* Team Switcher */}
+                <TeamSwitcher />
+                
+                {/* Team Settings Button - only visible if a team (not personal) is selected? 
+                    Actually, let's just show it and let the page handle empty state or disable it.
+                    But user asked for "team-leads button". 
+                    Let's check if the user is in a team context using useTeam() if we were inside a child that used it, 
+                    but DesktopNavbar is inside TeamProvider (AppLayout wraps it), so we CAN use useTeam().
+                */}
+                <TeamSettingsButton />
 
 				{/* User Profile Menu */}
 				<UserProfileMenu />

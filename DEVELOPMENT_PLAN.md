@@ -1745,27 +1745,31 @@ export const syncRouter = {
 - Real-time updates functional
 - Conflict resolution ready
 
-### Phase 6: Teams Foundation (Days 27-32)
+### Phase 6: Teams Foundation (Days 27-32) ✅ COMPLETED
 
 **Database:**
-- [ ] Create teams table
-- [ ] Create team_members table
-- [ ] Update leads table for team support
+- [x] Create user_teams table with migrations (0005-0010)
+- [x] Create team_members table with role enum (owner/admin/user)
+- [x] Update leads table - replace teamId with userTeamId
 
 **Backend:**
-- [ ] Implement teams router
-- [ ] Create team members router
-- [ ] Add permission checks
+- [x] Implement userTeams router (create, getMyTeams, update, delete)
+- [x] Create teamMembers router (add, remove, updateRole, getMembers)
+- [x] Add permission checks (owner/admin validation)
+- [x] Update sync router for team-based delta sync
 
 **Frontend:**
-- [ ] Build workspace switcher
-- [ ] Create team creation flow
-- [ ] Implement member management
+- [x] Build TeamSwitcher component with dropdown
+- [x] Create team creation flow (CreateTeamModal)
+- [x] Implement member management (TeamSettings page, AddMemberDialog)
+- [x] Add TeamContext for state management
+- [x] Integrate team context into leads (CreateLeadForm, LeadsList)
 
 **Deliverables:**
-- Create teams
-- Switch workspaces
-- Add/remove members
+- Create teams with auto-owner assignment
+- Switch between personal and team workspaces
+- Add/remove team members with role-based permissions
+- Team-scoped lead visibility and capture
 
 ### Phase 7: Subscriptions (Days 33-38)
 

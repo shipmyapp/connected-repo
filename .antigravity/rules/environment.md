@@ -5,3 +5,4 @@
 - grep
 - head
 - tail
+- cp

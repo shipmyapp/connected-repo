@@ -1,4 +1,4 @@
-import { themeSettingZod } from "@zod-schemas/enums.zod.js";
+import { themeSettingZod } from "./enums.zod.js";
 import z from "zod";
 import { uniqueTimeArrayZod, zString, zTimestamps, zTimezone } from "./zod_utils.js";
 

@@ -12,6 +12,7 @@ import { SyncProgress } from "@frontend/components/SyncProgress";
 import { usePendingEntries } from "@frontend/hooks/usePendingEntries";
 import { useWorkerQuery } from "@frontend/hooks/useWorkerQuery";
 import { useWorkerEvent } from "@frontend/hooks/useWorkerStatus";
+import { useTeam } from "@frontend/contexts/TeamContext";
 import { LeadsEmptyState } from "@frontend/modules/leads/components/LeadsEmptyState";
 import { LeadCardView } from "@frontend/modules/leads/components/LeadCardView";
 import { LeadTableView } from "@frontend/modules/leads/components/LeadTableView";
@@ -39,6 +40,15 @@ export default function LeadsListPage() {
 	const [pendingExpanded, setPendingExpanded] = useState(true);
 	const [syncedExpanded, setSyncedExpanded] = useState(true);
 
+	const { currentTeam } = useTeam();
+    // Default to personal workspace logic if no team selected, 
+    // but for now let's assume if currentTeam is present we filter by it.
+    // If currentTeam is null, it might mean "Personal" or "All", depending on design.
+    // Based on implementation plan, we have "Personal" vs "Team".
+    // TeamContext provides currentTeam. If it is null/undefined, effectively we are in "Personal" or "Global" mode?
+    // User flow diagrams say: "Workspace switcher".
+    // Let's assume we pass userTeamId if it exists.
+
 	const { 
 		data: leadsResult, 
 		isLoading, 
@@ -47,16 +57,24 @@ export default function LeadsListPage() {
 	} = useWorkerQuery<UserAppBackendOutputs['leads']['getAll']>({
 		entity: 'leads',
 		operation: 'getAll',
+		payload: { userTeamId: currentTeam?.userTeamId },
 		sortBy: 'createdAt',
 		descending: true,
 		limit: ITEMS_PER_PAGE,
 		offset: (currentPage - 1) * ITEMS_PER_PAGE,
+		// Add userTeamId to queryKey to force refresh when team changes
+		queryKey: ['leads', 'getAll', currentTeam?.userTeamId, currentPage],
 	});
 
 	const { data: pendingLeadsResult, refetch: refetchPending } = usePendingEntries<LeadSelectAll>({
 		entity: 'leads',
 		sortBy: 'createdAt',
 		descending: true,
+        // usePendingEntries might need an update to accept filters/payload for filtering?
+        // For now, let's pass it and we will update usePendingEntries hook if needed.
+        // But usePendingEntries definition in LeadsList only accepts those props.
+        // We might need to filter client-side or update usePendingEntries.
+        // Let's first look at usePendingEntries definition.
 	});
 
 	const syncedLeads = leadsResult?.data || [];

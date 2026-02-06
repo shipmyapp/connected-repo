@@ -32,26 +32,67 @@ export class DataService {
       if (operation === 'getById') {
         data = this.storage.getRow(entity, (payload as any)?.[idFieldName]);
       } else {
+        // Prepare filtering
+        let allData = this.storage.getAll(entity);
+
+          const userTeamId = (payload as any)?.userTeamId;
+          
+          console.log(`[DataService] Querying leads. Payload teamId: ${userTeamId}. Total total leads: ${allData.length}`);
+          
+          // Debug: print a few leads to check their structure
+          if (allData.length > 0) {
+              console.log('[DataService] Sample lead structure:', JSON.stringify(allData[0], null, 2));
+              const teamLeads = allData.filter((r: any) => !!r.userTeamId);
+              console.log(`[DataService] Leads with ANY userTeamId: ${teamLeads.length}`);
+          } else {
+              console.log('[DataService] No leads in store.');
+          }
+
+          if (userTeamId) {
+            // Filter by specific team
+            allData = allData.filter((row: any) => {
+                const match = row.userTeamId === userTeamId;
+                return match;
+            });
+          } else {
+             // Filter for personal workspace (leads with no team connection)
+             // or check if workspaceType is 'personal'
+             allData = allData.filter((row: any) => {
+                 const match = !row.userTeamId;
+                 return match;
+             });
+          }
+          console.log(`[DataService] Filtered leads count: ${allData.length}`);
+
         const { sortBy, descending = true, limit, offset } = options;
         if (sortBy) {
-          const allIds = this.storage.getSortedRowIds(entity, sortBy, descending);
-          total = allIds.length;
+          // Soritng logic needs to run on filtered data
+          allData.sort((a: any, b: any) => {
+              const valA = a[sortBy];
+              const valB = b[sortBy];
+              if (valA < valB) return descending ? 1 : -1;
+              if (valA > valB) return descending ? -1 : 1;
+              return 0;
+          });
           
-          let pagedIds = allIds;
+          total = allData.length;
+          
           if (offset !== undefined || limit !== undefined) {
              const start = offset || 0;
              const end = limit !== undefined ? start + limit : undefined;
-             pagedIds = allIds.slice(start, end);
+             data = allData.slice(start, end);
+          } else {
+            data = allData;
           }
-          data = pagedIds.map(id => this.storage.getRow(entity, id));
         } else {
-          data = this.storage.getAll(entity);
-          total = data.length;
+          total = allData.length;
           
           if (offset !== undefined || limit !== undefined) {
              const start = offset || 0;
              const end = limit !== undefined ? start + limit : undefined;
-             data = data.slice(start, end);
+             data = allData.slice(start, end);
+          } else {
+             data = allData;
           }
         }
       }

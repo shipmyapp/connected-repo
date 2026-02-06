@@ -7,8 +7,9 @@ import { BottomNavigationAction } from "@connected-repo/ui-mui/navigation/Bottom
 import { Toolbar } from "@connected-repo/ui-mui/navigation/Toolbar";
 import { navItems } from "@frontend/configs/nav.config";
 import { useLocation, useNavigate } from "react-router";
-import { UserProfileMenu } from "./UserProfileMenu";
 import { SyncStatusIndicator } from "./SyncStatusIndicator";
+import { UserProfileMenu } from "./UserProfileMenu";
+import { TeamSwitcher } from "../teams/TeamSwitcher";
 
 export const MobileNavbar = () => {
 	const navigate = useNavigate();
@@ -82,8 +83,11 @@ export const MobileNavbar = () => {
 						<SyncStatusIndicator />
 					</Box>
 
-					{/* User Avatar - triggers menu */}
-					<UserProfileMenu />
+					{/* User Actions */}
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <TeamSwitcher compact /> 
+					    <UserProfileMenu />
+                    </Box>
 				</Toolbar>
 			</AppBar>
 
