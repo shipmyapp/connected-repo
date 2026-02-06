@@ -1,6 +1,20 @@
-# Full-Stack TypeScript Monorepo
+# Expowiz - Trade Fair Lead Capture Platform
 
-Production-ready Turborepo monorepo for building full-stack TypeScript applications with end-to-end type safety.
+**Mobile-first, offline-capable lead capture and team collaboration platform for trade fair exhibitors.**
+
+Built with a full-stack TypeScript monorepo using Turborepo, featuring end-to-end type safety, offline-first architecture, and real-time synchronization.
+
+---
+
+## Overview
+
+Expowiz enables booth staff to:
+- **Capture leads instantly** - Scan visiting cards, record voice notes, add tags
+- **Work offline** - Full functionality without internet, sync when connected
+- **Collaborate in teams** - Share leads across booth staff with role-based access
+- **Manage subscriptions** - Per-member pricing for team access
+
+---
 
 ## Tech Stack
 
@@ -29,6 +43,8 @@ Production-ready Turborepo monorepo for building full-stack TypeScript applicati
 - **Linting**: Biome (tabs, 100 chars, double quotes)
 - **TypeScript**: v5.9.x strict mode
 
+---
+
 ## Project Structure
 
 ```
@@ -36,7 +52,7 @@ Production-ready Turborepo monorepo for building full-stack TypeScript applicati
 ├── apps/
 │   ├── backend/                    # oRPC server
 │   │   ├── src/
-│   │   │   ├── modules/            # Feature modules
+│   │   │   ├── modules/            # Feature modules (leads, teams, subscriptions)
 │   │   │   ├── routers/            # Route organization
 │   │   │   ├── procedures/         # oRPC procedures
 │   │   │   ├── db/                 # Database layer
@@ -47,6 +63,10 @@ Production-ready Turborepo monorepo for building full-stack TypeScript applicati
 │   └── frontend/                   # React + Vite
 │       ├── src/
 │       │   ├── modules/            # Feature modules
+│       │   │   ├── leads/          # Lead capture & management
+│       │   │   ├── teams/          # Team collaboration
+│       │   │   └── subscriptions/  # Subscription management
+│       │   ├── worker/             # Data Worker (offline sync)
 │       │   ├── components/         # Shared components
 │       │   └── main.tsx            # Entry
 │       └── package.json
@@ -54,8 +74,11 @@ Production-ready Turborepo monorepo for building full-stack TypeScript applicati
 │   ├── typescript-config/          # Shared TS configs
 │   ├── ui-mui/                   # Material-UI components
 │   └── zod-schemas/              # Shared Zod schemas
+├── DEVELOPMENT_PLAN.md            # Complete build specification
 └── turbo.json
 ```
+
+---
 
 ## Getting Started
 
@@ -94,7 +117,9 @@ yarn db seed
 yarn test:db:setup  # Setup test database
 ```
 
-### Development
+---
+
+## Development
 
 Start both frontend and backend:
 ```bash
@@ -106,6 +131,8 @@ Or individually:
 cd apps/backend && yarn dev   # Backend only (http://localhost:3000)
 cd apps/frontend && yarn dev  # Frontend only (http://localhost:5173)
 ```
+
+---
 
 ## Available Scripts
 
@@ -139,7 +166,18 @@ yarn test:e2e -b       # Build before testing
 yarn test:e2e:ui       # UI mode
 ```
 
+---
+
 ## Key Features
+
+### Offline-First Architecture
+
+Expowiz is built with a **Web Worker based Data Layer** combined with **TinyBase** for local storage:
+- **Data Worker**: Processes all storage and sync logic in a background thread to keep the UI responsive.
+- **SyncManager**: Handles background data synchronization, delta syncs, and real-time updates via SSE.
+- **Optimistic Updates**: All mutations are applied locally first and synced to the server in the background.
+
+For detailed specification, see [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md).
 
 ### Dual API Architecture
 
@@ -147,7 +185,7 @@ yarn test:e2e:ui       # UI mode
 - Type-safe APIs for frontend-backend communication
 - Zero code generation - types flow automatically
 - Routes: `/orpc/*`
-- Example: `orpc.moduleName.create.useMutation()`
+- Example: `orpc.leads.create.useMutation()`
 
 **REST/OpenAPI for External APIs:**
 - Automatic Swagger documentation at `/api`
@@ -161,9 +199,9 @@ PostgreSQL-based event bus for background tasks and notifications:
 
 ```typescript
 // Define event
-export const userCreatedEventDef = defineEvent({
-  event_name: "user.created",
-  schema: Type.Object({ userId: Type.String() }),
+export const leadCreatedEventDef = defineEvent({
+  event_name: "lead.created",
+  schema: Type.Object({ leadId: Type.String() }),
 });
 
 // Define task
@@ -174,22 +212,13 @@ export const notificationTaskDef = defineTask({
 });
 
 // Emit event
-tbus.emit(userCreatedEventDef, { userId: "123" });
+tbus.emit(leadCreatedEventDef, { leadId: "123" });
 
 // Register task handler
 tbus.registerTask(notificationTaskDef, async ({ input }) => {
   await sendNotification(input.userId, input.message);
 });
 ```
-
-### Offline-First Architecture
-
-The application uses a **Web Worker based Data Layer** combined with **TinyBase** for local storage:
-- **Data Worker**: Processes all storage and sync logic in a background thread to keep the UI responsive.
-- **SyncManager**: Handles background data synchronization, delta syncs, and real-time updates via SSE.
-- **Optimistic Updates**: All mutations are applied locally first and synced to the server in the background.
-
-For more details, see [SYNC_ARCHITECTURE.md](./docs/SYNC_ARCHITECTURE.md).
 
 ### PWA (Progressive Web App)
 
@@ -199,31 +228,19 @@ Frontend includes PWA support:
 - Update prompts for new versions
 - Offline blocker UI when connection is lost
 
-### Cron Jobs
+### Team Collaboration
 
-Per-minute cron jobs using node-cron with mutex locking:
-
-```typescript
-// In src/cron_jobs/services/per_minute_cron.ts
-cron.schedule('* * * * *', async () => {
-  if (isCronJobRunning) return; // Prevent concurrent runs
-  await scheduleReminders();
-});
-```
-
-### Webhook Processing
-
-Automated webhook queue with retry logic:
-- Webhooks triggered at 90% subscription usage
-- pg-tbus handles retries with exponential backoff
-- Audit logging via `pg_tbus_task_log` table
+- **Workspace switching**: Personal and team workspaces
+- **Role-based access**: Owner, Admin, User roles
+- **Shared lead visibility**: Team leads visible to all members
+- **Centralized billing**: Per-member subscription pricing
 
 ### Database Migrations
 
 **CRITICAL**: Always auto-generate migrations:
 
 ```bash
-yarn db g <migration_name>   # Generate only
+yarn db g <migration_name>   # ALWAYS use this command
 yarn db up                   # Apply migrations
 ```
 
@@ -250,13 +267,17 @@ Shared Zod schemas in `packages/zod-schemas/`:
 - Direct TypeScript imports from backend to frontend
 - No code generation required
 
+---
+
 ## Documentation
 
-- [CONTRIBUTING.md](./CONTRIBUTING.md) - Contribution guidelines
+- [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md) - Complete build specification
 - [AGENTS.md](./AGENTS.md) - Agent guidelines
 - [apps/backend/AGENTS.md](./apps/backend/AGENTS.md) - Backend patterns
 - [apps/frontend/AGENTS.md](./apps/frontend/AGENTS.md) - Frontend patterns
 - [packages/AGENTS.md](./packages/AGENTS.md) - Package architecture
+
+---
 
 ## API Endpoints
 
@@ -265,6 +286,8 @@ Shared Zod schemas in `packages/zod-schemas/`:
 - **Swagger UI**: http://localhost:3000/api
 - **Health Check**: http://localhost:3000/api/health
 - **Better Auth**: http://localhost:3000/api/auth/*
+
+---
 
 ## License
 

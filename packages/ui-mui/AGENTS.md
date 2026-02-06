@@ -1,6 +1,10 @@
 # @connected-repo/ui-mui
 
+**Expowiz UI Components**
+
 Material-UI components with direct exports for tree-shaking + React Hook Form wrappers
+
+Used for building the Expowiz trade fair lead capture interface.
 
 ## Purpose
 - Re-exports of MUI components with consistent theming

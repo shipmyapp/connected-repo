@@ -1,4 +1,6 @@
-# Packages Guidelines
+# Expowiz Packages Guidelines
+
+Shared packages for the Expowiz Trade Fair Lead Capture Platform.
 
 ## Architecture
 

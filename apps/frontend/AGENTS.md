@@ -1,7 +1,9 @@
-# Frontend Agent Guidelines
+# Expowiz Frontend Agent Guidelines
+
+**Trade Fair Lead Capture Platform - Frontend**
 
 ## Stack
-React 19, Vite 7 + SWC, React Router 7, TanStack Query + oRPC, React Hook Form, Zustand, Material-UI (via `@connected-repo/ui-mui`), Zod, Better Auth, Sentry, Vite PWA
+React 19, Vite 7 + SWC, React Router 7, Data Worker + TinyBase, React Hook Form, Zustand, Material-UI (via `@connected-repo/ui-mui`), Zod, Better Auth, Sentry, Vite PWA
 
 ## Testing
 - **E2E**: Playwright - `yarn test:e2e`, `yarn test:e2e:ui`
@@ -17,18 +19,36 @@ React 19, Vite 7 + SWC, React Router 7, TanStack Query + oRPC, React Hook Form, 
 ```
 src/
 ├── modules/          # Feature modules
-│   └── <module>/
-│       ├── pages/          # Module pages
-│       ├── <module>.router.tsx  # Routes
-│       └── <module>.spec.ts     # E2E tests
+│   ├── auth/               # Authentication
+│   ├── leads/              # Lead capture & management
+│   ├── tags/               # Tag management
+│   ├── teams/              # Team collaboration
+│   └── subscriptions/      # Subscription management
+├── worker/          # Data Worker (offline-first sync)
+│   ├── data.worker.ts      # Main worker entry
+│   ├── services/           # DataService, SyncManager
+│   ├── stores/             # TinyBase store
+│   └── utils/              # Worker utilities
 ├── components/       # Shared (prefer ui-mui package)
-│   ├── pwa/          # PWA components (install/update prompts, offline blocker)
+│   ├── pwa/          # PWA components
 │   └── layout/       # Layout components
-├── utils/           # oRPC client, auth, query client
-├── configs/         # Environment and navigation config
+├── hooks/           # Custom hooks (useWorkerQuery, etc.)
+├── stores/          # Zustand stores
+├── utils/           # oRPC client, auth
+├── configs/         # Environment config
 ├── router.tsx       # Main routes
 └── main.tsx         # Entry
 ```
+
+## Domain Context
+
+**Expowiz** is a trade fair lead capture platform. Key features:
+
+- **Lead Capture**: Card scanning, voice notes, tags
+- **Offline-First**: Works without internet, syncs when online
+- **Team Workspaces**: Personal and team contexts
+- **Real-time Sync**: SSE updates for collaborative features
+- **Mobile-First**: Optimized for trade fair booth usage
 
 ## Module Rules
 - **Self-contained**: Each module has own pages, routes, logic
@@ -253,7 +273,7 @@ The main thread and worker communicate via a message-response protocol:
 // Main Thread
 const result = await workerClient.request({
   type: 'query',
-  entity: 'journalEntries',
+  entity: 'leads',
   operation: 'getAll'
 });
 
@@ -274,6 +294,7 @@ The worker pushes unsolicited status updates:
 1.  **Optimistic UI**: Update local store immediately in worker, let `SyncManager` handle the background server update.
 2.  **Table Listeners**: Hooks use `useSyncExternalStore` to listen for `table-changed` events for real-time reactivity.
 3.  **Error Handling**: Mutations in the worker use exponential backoff for automatic retries.
+4.  **Sync-Delete Policy**: If a remote data update is received with a `deletedAt` timestamp set, the frontend perform a **hard-delete** of that record from the TinyBase store.
 
 ---
 

@@ -1,4 +1,6 @@
-# Backend Agent Guidelines
+# Expowiz Backend Agent Guidelines
+
+**Trade Fair Lead Capture Platform - Backend**
 
 ## Commands
 - **Dev**: `yarn dev`, `yarn dev:inspect`
@@ -12,7 +14,7 @@ oRPC (type-safe APIs), Orchid ORM (PostgreSQL), pg-tbus (task queue), Better Aut
 ## Structure
 ```
 src/
-├── modules/          # Features: auth, journal-entries, prompts, logs, subscriptions, teams, users, webhook_calls
+├── modules/          # Features: auth, leads, tags, attachments, teams, subscriptions, users, sync, webhook_calls
 ├── routers/          # user_app/ - oRPC routes, open_api/ - external APIs, cron_jobs/ - cron jobs
 ├── procedures/       # public, protected, sensitive, open_api_public, cron_job_auth
 ├── middlewares/      # API key auth, IP whitelist, session security, cron job auth
@@ -21,6 +23,16 @@ src/
 ├── db/              # Tables, migrations, seeds
 └── server.ts        # Entry
 ```
+
+## Domain Context
+
+**Expowiz** is a trade fair lead capture platform. Key domain concepts:
+
+- **Leads**: Business contacts with card images, voice notes, tags
+- **Teams**: Groups sharing leads with role-based access
+- **Subscriptions**: Time-based team access with per-member pricing
+- **Workspaces**: Personal vs Team contexts for data isolation
+- **Sync**: Real-time updates via SSE for collaborative features
 
 ## Database Tables
 
@@ -34,8 +46,11 @@ export class EntityNameTable extends BaseTable {
     entityId: t.uuid().primaryKey().default(t.sql`gen_random_uuid()`),
     authorUserId: t.uuid().foreignKey('users', 'userId'),
     content: t.text(),
+    teamId: t.uuid().foreignKey('teams', 'teamId').nullable(),
+    deletedAt: t.deletedAt(),
     ...this.baseTableColumns(t),  // createdAt, updatedAt
   }));
+  readonly softDelete = true;
 }
 ```
 
@@ -393,12 +408,12 @@ await tbus.task(webhookTaskDef).send({ subscriptionId, teamId, payload });
 The backend uses a singleton `syncService` to broadcast data changes to connected clients.
 
 ```typescript
-// modules/journal-entries/journal-entries.router.ts
+// modules/leads/leads.router.ts
 import { syncService } from '../sync/sync.service';
 
-await db.journalEntries.create(input);
+await db.leads.create(input);
 syncService.push({
-  type: 'journalEntries',
+  type: 'leads',
   operation: 'create',
   data: result
 });
@@ -407,8 +422,9 @@ syncService.push({
 ### Soft Delete Support
 All primary entities should support soft deletes to ensure the local client store can stay in sync without losing references.
 
-- Use the `deletedAt` column.
-- The `SyncManager` on the client looks for `deletedAt` tombstones to remove local records.
+- Use the `deletedAt` column for all entities that require sync.
+- The `SyncManager` on the client looks for `deletedAt` tombstones to perform a hard-delete of the local record.
+- Always include `teamId` (nullable) for entities that can be owned by or shared within a team.
 
 ### Delta Sync
 Endpoints should support a `since` parameter (timestamp) to allow clients to fetch only what has changed since their last sync.

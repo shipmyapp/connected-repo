@@ -1,1554 +1,2058 @@
-# Development Plan - Scheduled Prompt & Journal App
+# Expowiz - Development Plan
 
-**Project:** Connected Repo Starter - Journal MVP
-**Repository:** shipmyapp/connected-repo
-**Tech Stack:** oRPC, Orchid ORM, Better Auth, React 19, Vite, PostgreSQL, pg-tbus, SuprSend
-**Last Updated:** 2026-02-04
-
----
-
-## Executive Summary
-
-Building a **Scheduled Prompt & Journal** app with:
-- Timed notifications with thought-provoking prompts
-- Simple text-based journaling
-- Search functionality for past entries
-- Gamification (streaks & badges)
-- Free tier (with ads) and paid tier (cloud sync, ad-free)
-- Mobile & web support (PWA + Capacitor)
-
-### Current State Analysis
-
-**ALREADY IMPLEMENTED ✅**
-- Better Auth with Google OAuth
-- Database setup with OrchidORM + PostgreSQL
-- User, JournalEntry, Prompt, Subscription, Team tables
-- Basic journal entry CRUD endpoints (oRPC)
-- Basic prompt endpoints (getAllActive, getRandomActive)
-- **Journal Entry Form & List View (UI Components)**
-- Frontend with React 19, React Router 7, Material UI
-- Dashboard page with user context
-- Biome linting & formatting configured
-- Turbo monorepo setup with workspace dependencies
-- Environment variable sync script
-- **Code Hygiene (P0):** Pre-commit hooks, linting on save, unused code detection, contribution guidelines ✅ COMPLETED
-- **Testing Infrastructure (P0):** Vitest + Playwright setup with database integration ✅ COMPLETED
-- **OpenTelemetry & RUM (P0):** Sentry + OTEL distributed tracing ✅ COMPLETED
-- **CI/CD (P0):** GitHub Actions + Coolify deployment (basic) ✅ COMPLETED
-
-**MISSING FOR MVP ❌**
-1. ~~**Testing Infrastructure (P0):** Vitest setup for backend/frontend with database integration~~ ✅ COMPLETED
-2. ~~**OpenTelemetry & RUM (P0):** Error tracking, performance monitoring, distributed tracing~~ ✅ COMPLETED
-3. ~~**CI/CD & DevOps (P0):** GitHub Actions, Coolify deployment setup~~ ✅ COMPLETED (Basic CI/CD)
-4. ~~**PWA Setup (P0):** Service workers, manifest, offline support, install prompt~~ ✅ COMPLETED
-5. ~~**Event-Driven Architecture (P0):** Database-backed event bus with pg-tbus~~ ✅ COMPLETED
-6. ~~**Notification Infrastructure (P0):** SuprSend setup, event-driven notifications~~ ✅ COMPLETED
-7. ~~**Cron Jobs (P0):** Per-minute cron with pg-tbus task scheduling~~ ✅ COMPLETED
-8. ~~**Webhook Processing (P0):** Subscription alerts with retry logic~~ ✅ COMPLETED
-9. ~~**Data Worker & Offline-First (P0):** TinyBase Worker for offline-first functionality~~ ✅ COMPLETED
-10. **User Schedules (P0):** Schedule management for timed notifications
-11. **Email Notifications (P0):** Event-driven daily prompt emails (after user schedules)
-12. **Capacitor Setup (P0):** iOS/Android native app configuration
-13. **Push Notifications (P0):** FCM/APNs setup and event-driven push notifications
-14. **Mobile CI/CD (P0):** GitHub Actions for Android/iOS builds and store uploads
-15. **Performance Optimization (P0):** Code splitting & pre-caching for faster loads. Ensure all files are downloaded the first time rather than waiting to be called.
-16. **Partial Replication (P0):** Limit offline support to the last 100-200 entries. Primary querying happens with filters and pagination from the server only.
-17. **Robust Persistence (P0):** TinyBase + SQLite-WASM + OPFS implementation with durability requests (Persistent Storage) and security headers (COOP/COEP).
-18. **Payments & Subscriptions (P0):** Stripe integration ($5/month, $50/year)
-19. **Search Functionality (V1):** Backend search implementation
-20. **Gamification (V1):** Streaks and badges system (event-driven)
+**Trade Fair Lead Capture & Team Collaboration Platform**
+*Complete Build Specification - Aligned with Repository Architecture*
+*Version 3.0 - February 2026*
 
 ---
 
-## Priority Levels
+## Table of Contents
 
-- **V0 (MVP Critical)** = Must have for launch
-- **V1 (Post-MVP)** = Needed for growth
-- **V2 (Enhancement)** = Polish & scale
-
----
-
-## V0: MVP FOUNDATION (CRITICAL)
-
-### Phase 1: Developer Experience & Code Hygiene 🔧
-
-**Priority:** HIGHEST - Foundation for all future work
-
-#### Epic 1.1: Pre-commit Hooks & Linting Setup
-
-**Issues:**
-
-**1.1.1: Set up Biome Pre-commit Hooks** ✅ COMPLETED
-- Manual Git pre-commit hook implemented using Biome's --staged flag
-- Runs Biome check --write --staged --files-ignore-unknown=true --no-errors-on-unmatched
-- Includes TypeScript type checking
-- **Acceptance Criteria:**
-  - Pre-commit hook runs Biome linting on staged files
-  - Type checking runs on all files
-  - Commits blocked if lint/type errors exist
-  - No external dependencies (Husky/lint-staged avoided)
-
-**1.1.2: Configure Knip to avoid unused-exports & unused-files** ✅ COMPLETED
-
-**1.1.3: Configure Linting on Save (VSCode)** ✅ COMPLETED
-- Create/update .vscode/settings.json
-- Enable Biome format on save
-- Enable organize imports on save
-- Configure editor to respect Biome config (tabs, 100 chars, double quotes)
-- Add recommended extensions list
-- **Acceptance Criteria:**
-  - VSCode formats on save
-  - Imports auto-organize
-  - Settings committed to repo
-  - Works for all team members
-
-**1.1.4: Configure Biome for Unused Code Detection** ✅ COMPLETED
-- Enabled Biome rules for unused variables, functions, and imports
-- Configured Biome to detect unused files
-- Added pre-commit hook to block commits with unused code
-- Set up CI to fail on unused code
-- **Acceptance Criteria:**
-  - Unused functions flagged as errors
-  - Unused files detected and reported
-  - Pre-commit blocks unused code
-  - CI fails on unused code
-
-**1.1.5: Create CONTRIBUTING.md** ✅ COMPLETED
-- Document setup instructions
-- Explain commit message format
-- Define code style guidelines (tabs, double quotes, no any)
-- Explain branch naming conventions (feat/, fix/, chore/)
-- Add PR template guidelines
-- Document testing requirements
-- Document unused code policy
-- **Acceptance Criteria:**
-  - Clear onboarding guide for new developers
-  - Examples of good commits
-  - Code style documented
-  - Unused code policy documented
-  - PR process explained
+1. [Introduction](#1-introduction)
+2. [Architecture Overview](#2-architecture-overview)
+3. [Code Conventions](#3-code-conventions)
+4. [Base Application Features](#4-base-application-features)
+5. [Offline-First Data Architecture](#5-offline-first-data-architecture)
+6. [Teams Feature](#6-teams-feature)
+7. [Database Schema](#7-database-schema)
+8. [API Specifications](#8-api-specifications)
+9. [Implementation Phases](#9-implementation-phases)
+10. [Edge Cases & Error Handling](#10-edge-cases--error-handling)
 
 ---
 
-### Phase 2: Testing Infrastructure 🧪
+## 1. Introduction
 
-**Priority:** CRITICAL - Required for confident AI-assisted development
+### 1.1 What is Expowiz?
 
-#### Epic 2.1: Backend Testing Setup
+Expowiz is a mobile-first, offline-capable web application for trade fair exhibitors to capture, organize, and manage business leads. Built with an offline-first architecture, it enables booth staff to digitize visiting cards, record voice notes, add tags, and attach files - all stored locally first and synced to the cloud when connectivity returns.
 
-**Issues:**
+### 1.2 Key Features
 
-**2.1.1: Set up Vitest for Backend with OrchidORM** ✅ COMPLETED
-- Install vitest, @vitest/ui, and testing utilities
-- Create vitest.config.ts for apps/backend
-- Configure test environment (node)
-- Set up test database (separate from dev)
-- Follow OrchidORM testing guides:
-  - Use `testTransaction` for database tests: https://orchid-orm.netlify.app/guide/transactions.html#testtransaction
-  - Use test factories for data creation: https://orchid-orm.netlify.app/guide/test-factories.html#test-factories
-- Create test utilities (db setup/teardown helpers)
-- Add test script to package.json
-- Configure coverage collection
-- **Acceptance Criteria:**
-  - Vitest runs successfully
-  - OrchidORM testTransaction configured
-  - Test factories created for User, JournalEntry, Prompt
-  - Test database isolated from development
-  - Can run `yarn test` in apps/backend
-  - Coverage reports generated
+**Core Lead Capture:**
+- Scan front and back of visiting cards using device camera
+- Record voice notes about conversations
+- Add custom tags for categorization
+- Attach additional files and documents
+- Quick note-taking with rich text
 
-**2.1.2: Write oRPC Endpoint Tests with Database Integration** ✅ COMPLETED
-- Test journal entry endpoints (create, getAll, getById, delete) - includes database constraints
-- Test prompt endpoints (getAllActive, getRandomActive, getById) - includes database queries
-- Test auth context (protected procedures require user)
-- Test database foreign key constraints and cascade deletes
-- Test unique constraints and validation
-- Mock Better Auth session
-- Test error cases (not found, unauthorized, constraint violations)
-- Achieve >80% coverage on routers
-- **Acceptance Criteria:**
-  - All oRPC endpoints tested with real database operations
-  - Database constraints validated (foreign keys, unique constraints)
-  - Success and error cases covered
-  - Better Auth mocked properly
-  - Tests use testTransaction for isolation
-  - Coverage >80% on router files
+**Offline-First Design:**
+- Full functionality without internet connection
+- Local storage via TinyBase in Web Worker
+- Automatic background sync via Data Worker
+- Optimistic UI with conflict resolution
+- Real-time updates via Server-Sent Events (SSE)
 
-**2.1.3: Test Factory Setup** ✅ COMPLETED
-- Create factories for User, JournalEntry, Prompt
-- Implement factory methods for creating test data with relationships
-- Add helper methods for common test scenarios
-- **Acceptance Criteria:**
-  - Test factories create consistent test data
-  - Relationships properly established
-  - Factories reusable across tests
+**Team Collaboration:**
+- Create teams for booth staff
+- Share leads across team members
+- Role-based access (Owner, Admin, User)
+- Centralized subscription management with per-member pricing
 
----
+### 1.3 Target Users
 
-#### Epic 2.2: Frontend E2E Testing Setup
+- **Individual Exhibitors**: Single users capturing leads at trade fairs
+- **Team Booth Staff**: Multiple staff sharing lead capture duties
+- **Sales Teams**: Organizations managing leads across multiple events
 
-**Issues:**
+### 1.4 Application Architecture Overview
 
-**2.2.1: Set up Playwright for E2E Testing** ✅ COMPLETED
-- Install Playwright
-- Configure playwright.config.ts
-- Set up test environment with backend test-server
-- Create helper utilities for auth and navigation
-- Add test script to package.json
-- **Acceptance Criteria:**
-  - Playwright configured for E2E testing
-  - Backend test-server integration
-  - Auth helpers for login/signup
-  - Can run `yarn test:e2e`
-
-**2.2.2: Write Critical Flow E2E Tests** ✅ COMPLETED
-- Test user registration/login flow
-- Test journal entry creation and viewing
-- Test basic navigation and responsiveness
-- Test PWA installation prompt (when implemented)
-- Focus on critical user journeys, not every component
-- **Acceptance Criteria:**
-  - Key user flows tested end-to-end
-  - Tests run against real backend
-  - Mobile responsiveness tested
-  - Critical bugs caught by E2E
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        MAIN THREAD (React)                          │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  Components use: useWorkerQuery, useWorkerMutation          │   │
+│  │  Zustand stores for global UI state                         │   │
+│  │  MUI v7 for UI components                                   │   │
+│  └───────────────────────────┬─────────────────────────────────┘   │
+└───────────────────────────────┼─────────────────────────────────────┘
+                                │ PostMessage
+┌───────────────────────────────▼─────────────────────────────────────┐
+│                      DATA WORKER (Web Worker)                       │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  DataService: TinyBase store with IndexedDB persistence     │   │
+│  │  SyncManager: Drains pending_entries queue                  │   │
+│  │  ConnectivityService: Online/offline detection              │   │
+│  │  StorageEngine: Manages local data storage                  │   │
+│  └───────────────────────────┬─────────────────────────────────┘   │
+└───────────────────────────────┼─────────────────────────────────────┘
+                                │ HTTP/SSE
+┌───────────────────────────────▼─────────────────────────────────────┐
+│                      BACKEND (Node.js + oRPC)                       │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  oRPC Router: Type-safe API endpoints                       │   │
+│  │  Orchid ORM: PostgreSQL database access                    │   │
+│  │  pg-tbus: Event-driven background tasks                   │   │
+│  │  Better Auth: Authentication with Google OAuth            │   │
+│  │  SSE Endpoint: Real-time sync push                        │   │
+│  └───────────────────────────┬─────────────────────────────────┘   │
+└───────────────────────────────┼─────────────────────────────────────┘
+                                │
+┌───────────────────────────────▼─────────────────────────────────────┐
+│                         POSTGRESQL                                  │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  leads, tags, attachments, teams, subscriptions            │   │
+│  │  pending_entries, sync_status, users                      │   │
+│  │  pg_tbus_task_log for audit                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-### Phase 3: OpenTelemetry & RUM Setup 📊
+## 2. Architecture Overview
 
-**Priority:** CRITICAL - Must catch errors before users complain
+### 2.1 Technology Stack
 
-#### Epic 3.1: Backend Error Tracking & Tracing
+**Monorepo:**
+- **Tool**: Turborepo 2.x with Yarn 1.22 workspaces
+- **Structure**: `apps/*`, `packages/*`
+- **Build Orchestration**: Parallel builds with dependency graph
 
-**Issues:**
+**Frontend (apps/frontend):**
+- **Framework**: React 19 + TypeScript 5.9
+- **Build**: Vite 7 + SWC
+- **Router**: React Router 7
+- **UI**: Material-UI (MUI) v7 + @emotion
+- **Forms**: React Hook Form + Zod resolvers
+- **State**: 
+  - Server: TanStack Query + oRPC client
+  - Global: Zustand 5
+  - Local: TinyBase 5.4 (in Web Worker)
+- **Auth**: Better Auth (Google OAuth)
+- **Offline**: Custom Data Worker (Web Worker)
+- **PWA**: Vite PWA plugin + custom service worker
+- **Testing**: Playwright (E2E)
 
-**3.1.1: Integrate Sentry for Backend** ✅ COMPLETED
-- Create Sentry account and project
-- Install @sentry/node and @sentry/profiling-node
-- Initialize Sentry in server.ts
-- Configure error sampling (100% for dev, 10% for prod)
-- Capture errors in oRPC error handler
-- Upload source maps
-- Test error reporting
-- **Acceptance Criteria:**
-  - Sentry captures backend errors
-  - User context attached (userId, email)
-  - Source maps working
-  - Errors visible in Sentry dashboard
+**Backend (apps/backend):**
+- **Runtime**: Node.js 22+
+- **Framework**: oRPC (type-safe RPC) with OpenAPI
+- **Database**: PostgreSQL 15+ with Orchid ORM 1.57
+- **Task Queue**: pg-tbus (PostgreSQL-based event bus)
+- **Auth**: Better Auth with custom Orchid adapter
+- **Cron**: node-cron with mutex pattern
+- **Observability**: OpenTelemetry + Sentry + Pino
+- **Testing**: Vitest
 
-**3.1.2: Set up OpenTelemetry Tracing** ✅ COMPLETED
-- Configure trace exporter (Sentry or OTLP)
-- Generate trace IDs for all requests
-- Return trace IDs in response headers (x-trace-id)
-- Link traces to Sentry errors
-- **Implemented:** Renamed sentry.sdk.ts to otel.sdk.ts, added @kubiks/otel-better-auth for automatic Better Auth tracing, created record-message.otel.utils.ts for context-aware error/message recording, updated graceful shutdown to use OTEL utilities
-- **For Capacitor/Mobile:** Evaluate options:
-  - **last9.io**: Check if they support Capacitor - if yes, use their SDK
-  - **Alternative libraries**: @opentelemetry/api + capacitor-opentelemetry-plugin, or Sentry's Capacitor SDK
-- **Acceptance Criteria:**
-  - Distributed tracing active
-  - Database queries traced
-  - HTTP requests traced
-  - Trace IDs in headers
-  - End-to-end request visibility
-  - Mobile OTEL solution identified
+**Shared Packages:**
+- `@connected-repo/zod-schemas`: Validation schemas
+- `@connected-repo/ui-mui`: MUI components + form wrappers
+- `@connected-repo/typescript-config`: Shared TS configs
 
----
+### 2.2 Key Architectural Patterns
 
-#### Epic 3.2: Frontend Error Tracking & RUM
+**Offline-First Data Flow:**
+1. UI calls `useWorkerMutation()` hook
+2. Worker creates `pending_entry` in TinyBase queue
+3. Optimistically updates local data table
+4. Worker broadcasts `table-changed` event
+5. `SyncManager` drains queue in background
+6. Server processes changes and pushes via SSE
+7. Local store updated with confirmed data
 
-**Issues:**
+**Event-Driven Backend:**
+- Events defined in `events/events.schema.ts`
+- Handlers in `events/events.queries.ts`
+- Tasks have retry limits, exponential backoff
+- All execution logged to `pg_tbus_task_log`
 
-**3.2.1: Integrate Sentry for Frontend** ✅ COMPLETED
-- Install @sentry/react
-- Initialize Sentry in main.tsx
-- Integrate with React Router error boundaries
-- Configure breadcrumbs (user actions)
-- Capture user context
-- Upload source maps
-- **Acceptance Criteria:**
-  - Frontend errors reported to Sentry
-  - React error boundaries integrated
-  - User context captured
-  - Source maps working
+**Type Safety:**
+- oRPC provides end-to-end type safety
+- Zod schemas shared between frontend/backend
+- Orchid ORM generates TypeScript types from DB
 
-**3.2.2: Enable Real User Monitoring (RUM)**
-- Enable Sentry Performance Monitoring
-- Track page load times (First Contentful Paint, Time to Interactive)
-- Track API request durations (oRPC calls)
-- Monitor Core Web Vitals (LCP, FID, CLS)
-- Set performance budgets
-- Capture trace IDs from backend responses
-- Link frontend errors to backend traces
-- **Acceptance Criteria:**
-  - Performance data in Sentry
-  - Core Web Vitals monitored
-  - API requests tracked with durations
-  - Frontend-backend traces linked
+**Module Isolation:**
+- No cross-module imports
+- Each feature is self-contained
+- Clear separation between modules
 
 ---
 
-### Phase 4: PWA Setup 📱 ✅ COMPLETED
+## 3. Code Conventions
 
-**Status:** ✅ COMPLETED - All PWA features implemented and tested
+### 3.1 Formatting & Style
 
-**Implementation Summary:**
-- **Vite PWA Plugin:** Configured with `vite-plugin-pwa` using injectManifest strategy
-- **Service Worker:** Custom `sw.ts` with Workbox integration, caches static assets (JS, CSS, HTML, images, fonts)
-- **Manifest:** Complete web app manifest with icons (192x192, 512x512, maskable, apple-touch-icon), theme colors, display modes
-- **Install Prompts:** Platform-specific prompts for iOS and Android with dismiss functionality
-- **Update Prompts:** Service worker update detection with user notification
-- **Offline Blocker:** `OfflineBlocker.tsx` component that blocks UI when connection is lost
-- **State Management:** Zustand store (`usePwaInstall.store.ts`) manages installation state
+**Enforced by Biome:**
+- **Indentation**: Tabs (NOT spaces)
+- **Line Width**: 100 characters
+- **Quotes**: Double quotes
+- **Semicolons**: Always
+- **Trailing commas**: ES5 style
 
-**Files:**
-- `apps/frontend/vite.config.ts` - PWA configuration
-- `apps/frontend/src/sw.ts` - Service worker
-- `apps/frontend/src/components/pwa/install_prompt.pwa.tsx` - Install prompts
-- `apps/frontend/src/components/pwa/update_prompt.pwa.tsx` - Update prompts
-- `apps/frontend/src/components/OfflineBlocker.tsx` - Offline UI blocker
-- `apps/frontend/src/stores/usePwaInstall.store.ts` - Installation state
-- `apps/frontend/src/hooks/usePwaInstall.ts` - Install hook
+**TypeScript:**
+- **NO `any` or `as unknown`**: Strict TypeScript enforced
+- **Descriptive IDs**: `userId`, `leadId` (NOT `id`)
+- **Foreign Keys**: Descriptive (`capturedByUserId`, not `capturedById`)
+- **Naming**: camelCase (code), snake_case (DB), PascalCase (classes)
+
+**Imports:**
+- **NO barrel exports**: Direct imports only
+```typescript
+// CORRECT
+import { Button } from '@connected-repo/ui-mui/form/Button'
+import { leadCreateZod } from '@connected-repo/zod-schemas/lead.zod'
+
+// WRONG
+import { Button } from '@connected-repo/ui-mui'
+```
+
+### 3.2 Database Conventions
+
+**Naming:**
+- Tables: snake_case (`team_members`, `pending_leads`)
+- Columns: snake_case (`created_at`, `captured_by_user_id`)
+- Classes: PascalCase (`LeadTable`, `TeamMemberTable`)
+
+**Migrations:**
+- **ALWAYS auto-generate**: `yarn db g <name>`
+- **Backward-compatible only**: Start-first deployment
+- **Never manual**: Only if auto-generator fails
+- **Test before deploy**: On production-like data
+
+**Patterns:**
+- **Soft deletes**: Use `deletedAt` column (NOT `deleted_at` in Orchid)
+- **Timestamps**: Use `timestampNumber` (epoch ms) or `timestamps()` helper
+- **Primary Keys**: ULID (NOT UUID) for sortability
+- **Foreign Keys**: Always descriptive
+
+### 3.3 File Organization
+
+**Frontend Module Structure:**
+```
+modules/
+├── leads/
+│   ├── pages/
+│   │   ├── LeadsList.page.tsx
+│   │   └── LeadDetail.page.tsx
+│   ├── leads.router.tsx
+│   └── leads.spec.ts
+```
+
+**Backend Module Structure:**
+```
+modules/
+├── leads/
+│   ├── leads.table.ts
+│   ├── leads.router.ts
+│   ├── leads.zod.ts
+│   └── leads.service.ts
+```
 
 ---
 
-### Phase 5: Event-Driven Architecture & Notifications 🔔 ✅ COMPLETED
+## 4. Base Application Features
 
-**Status:** ✅ COMPLETED - pg-tbus event system, SuprSend notifications, cron jobs, webhooks
+### 4.1 User Authentication
 
-**Implementation Summary:**
+**Sign Up / Login:**
+- Google OAuth via Better Auth
+- Session management with refresh tokens
+- Profile management (name, avatar, company)
 
-#### Epic 5.1: Event-Driven Architecture with pg-tbus ✅
+**Auto-Join Teams:**
+- If email pre-added to team roster, auto-join on first login
+- No invitation acceptance required
 
-**pg-tbus Implementation:**
-- **Library:** pg-tbus for PostgreSQL-based event bus with Transactional Outbox Pattern
-- **Configuration:** `apps/backend/src/events/tbus.ts` - TBus instance with PostgreSQL connection
-- **Schema:** `apps/backend/src/events/events.schema.ts` - Type-safe event and task definitions
-  - `userCreatedEventDef` - User registration events
-  - `userReminderTaskDef` - Scheduled reminder tasks
-  - `subscriptionAlertWebhookTaskDef` - Webhook tasks with retry logic
-- **Queries:** `apps/backend/src/events/events.queries.ts` - Event registration and handlers
-- **Utils:** `apps/backend/src/events/events.utils.ts` - Orchid ORM to TBus query adapter
+### 4.2 Lead Capture
+
+#### Visiting Card Scanning
+
+**Flow:**
+1. User taps "Capture Lead" button
+2. Camera interface opens (device camera API)
+3. Take photo of card front
+4. Optional: Take photo of card back
+5. Images compressed to WebP (max 1200px)
+6. Manual entry/edit of contact details
+7. Save to local TinyBase store (immediate)
+8. Create pending_entry for sync
+
+**Image Handling:**
+- Capture: Device camera (front/back)
+- Compression: Client-side WebP conversion
+- Local: Base64 in TinyBase (temporarily)
+- Remote: Upload to storage bucket (post-sync)
+- Format: WebP for efficiency
+
+**Contact Fields:**
+- contactName (required)
+- companyName
+- jobTitle
+- email
+- phone
+- website
+- address
+
+#### Voice Notes
+
+**Recording:**
+- Hold-to-record button
+- Maximum 5 minutes per note
+- Visual waveform during recording
+- Pause/resume functionality
+
+**Storage:**
+- Local: Base64 encoded audio (temporary)
+- Remote: MP3 format, storage bucket
+- Compression: 64kbps for efficiency
+
+#### Tags System
+
+**Creating Tags:**
+- Type and create on-the-fly
+- Color-coded categories (predefined palette)
+- Auto-suggest existing tags
+
+**Tag Management:**
+- Predefined sets (Hot Lead, Follow-up, Qualified, etc.)
+- Workspace-scoped (personal vs team)
+- Bulk tag operations
+
+**Zod Schema:**
+```typescript
+export const tagZod = z.object({
+  tagId: z.string().ulid(),
+  workspaceType: z.enum(['personal', 'team']),
+  teamId: z.string().ulid().optional(),
+  name: z.string().min(1).max(100),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
+  createdByUserId: z.string().ulid(),
+  createdAt: z.number(),
+})
+```
+
+#### Additional Notes
+
+**Rich Text Notes:**
+- Plain text with markdown support
+- Auto-save while typing (debounced)
+- Maximum 5000 characters
+
+### 4.3 Lead Management
+
+#### Lead List View
 
 **Features:**
-- Type-safe events using TypeBox schemas
-- Transactional event publishing (atomic with DB operations)
-- Task definitions with retry configuration (retryLimit, retryDelay, retryBackoff)
-- Event handlers for user creation and reminders
-- Audit logging via `pg_tbus_task_log` table
+- Grid/list toggle
+- Sort by: Date, Name, Company, Rating
+- Filter by: Tags, Date range, Sync status
+- Search: Full-text across contact fields
+- Virtual scrolling for performance
 
-#### Epic 5.2: Cron Job Infrastructure ✅
+**Lead Card Display:**
+- Thumbnail of card front
+- Contact name & company
+- Tags (up to 3 visible)
+- Capture date
+- Sync status indicator (synced/pending/offline)
 
-**Implementation:**
-- **Library:** node-cron for per-minute scheduling
-- **File:** `apps/backend/src/cron_jobs/services/per_minute_cron.ts`
-- **Pattern:** Mutex flag prevents concurrent execution
-- **Tasks:**
-  - Journal entry reminder scheduling
-  - Future: webhook processing, cleanup jobs
+#### Lead Detail View
 
-**Mutex Pattern:**
+**Sections:**
+1. **Card Images**: Gallery with zoom
+2. **Contact Info**: Editable fields
+3. **Voice Notes**: Audio player
+4. **Tags**: Add/remove interface
+5. **Notes**: Markdown editor
+6. **Activity Log**: Capture history, edits, syncs
+
+#### Lead Editing
+
+**Capabilities:**
+- Edit all contact fields
+- Re-record voice notes
+- Add/remove card images
+- Modify tags
+- Update notes
+
+**Audit Trail:**
+- Track changes via TinyBase history
+- Show last modified timestamp
+- Soft delete with recovery option
+
+### 4.4 Export & Import
+
+#### Export Leads
+
+**Formats:**
+- **Excel**: .xlsx with images as links
+- **CSV**: Standard format
+- **vCard**: Individual contact export
+
+**Filters:**
+- Date range
+- Tags
+- Sync status
+- Workspace scope
+
+---
+
+## 5. Offline-First Data Architecture
+
+### 5.1 Data Worker Architecture
+
+The Data Worker runs in a separate thread and manages all data operations:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      DATA WORKER                            │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ┌───────────────────────────────────────────────────────┐ │
+│  │  TinyBase Store                                       │ │
+│  │  ├─ leads table                                       │ │
+│  │  ├─ tags table                                        │ │
+│  │  ├─ attachments table                                 │ │
+│  │  ├─ pending_entries queue                             │ │
+│  │  └─ sync_status table                                 │ │
+│  └───────────────────────────────────────────────────────┘ │
+│                            │                                │
+│  ┌─────────────────────────▼─────────────────────────────┐ │
+│  │  Storage Engine (IndexedDB)                          │ │
+│  └───────────────────────────────────────────────────────┘ │
+│                            │                                │
+│  ┌─────────────────────────▼─────────────────────────────┐ │
+│  │  SyncManager                                          │ │
+│  │  ├─ drainPendingEntries()                            │ │
+│  │  ├─ exponential backoff retry                        │ │
+│  │  ├─ conflict resolution                              │ │
+│  │  └─ sync status tracking                             │ │
+│  └───────────────────────────────────────────────────────┘ │
+│                            │                                │
+│  ┌─────────────────────────▼─────────────────────────────┐ │
+│  │  ConnectivityService                                  │ │
+│  │  ├─ Online/offline detection                         │ │
+│  │  ├─ Network change events                            │ │
+│  │  └─ Auto-sync on reconnect                           │ │
+│  └───────────────────────────────────────────────────────┘ │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 5.2 TinyBase Schema
+
 ```typescript
-let isCronJobRunning = false;
-cron.schedule('* * * * *', async () => {
-  if (isCronJobRunning) return;
-  isCronJobRunning = true;
-  try {
-    await runScheduledTasks();
-  } finally {
-    isCronJobRunning = false;
+// TinyBase schema for local data management
+export const localSchema = {
+  // Leads table - primary data
+  leads: {
+    leadId: { type: 'string' },
+    workspaceType: { type: 'string' }, // 'personal', 'team'
+    teamId: { type: 'string', nullable: true },
+    
+    // Contact info
+    contactName: { type: 'string' },
+    companyName: { type: 'string', nullable: true },
+    jobTitle: { type: 'string', nullable: true },
+    email: { type: 'string', nullable: true },
+    phone: { type: 'string', nullable: true },
+    website: { type: 'string', nullable: true },
+    address: { type: 'string', nullable: true },
+    
+    // Content
+    notes: { type: 'string', nullable: true },
+    voiceNoteUrl: { type: 'string', nullable: true },
+    voiceNoteTranscript: { type: 'string', nullable: true },
+    cardImages: { type: 'string' }, // JSON array
+    
+    // Tags (simplified many-to-many)
+    tagIds: { type: 'string' }, // JSON array
+    
+    // Status
+    status: { type: 'string' }, // 'active', 'archived', 'deleted'
+    syncStatus: { type: 'string' }, // 'synced', 'pending', 'error'
+    
+    // Timestamps (epoch ms)
+    createdAt: { type: 'number' },
+    updatedAt: { type: 'number' },
+    capturedByUserId: { type: 'string' },
+    
+    // Remote IDs
+    remoteLeadId: { type: 'string', nullable: true },
+  },
+
+  // Tags table
+  tags: {
+    tagId: { type: 'string' },
+    workspaceType: { type: 'string' },
+    teamId: { type: 'string', nullable: true },
+    name: { type: 'string' },
+    color: { type: 'string' },
+    createdByUserId: { type: 'string' },
+    createdAt: { type: 'number' },
+    remoteTagId: { type: 'string', nullable: true },
+  },
+
+  // Attachments
+  attachments: {
+    attachmentId: { type: 'string' },
+    leadId: { type: 'string' },
+    filename: { type: 'string' },
+    fileType: { type: 'string' },
+    sizeBytes: { type: 'number' },
+    localData: { type: 'string', nullable: true }, // base64
+    remoteUrl: { type: 'string', nullable: true },
+    syncStatus: { type: 'string' },
+    createdAt: { type: 'number' },
+  },
+
+  // Pending entries queue (for sync)
+  pending_entries: {
+    pendingEntryId: { type: 'string' },
+    workspaceId: { type: 'string' },
+    entityType: { type: 'string' }, // 'lead', 'tag', 'attachment'
+    entityId: { type: 'string' },
+    operation: { type: 'string' }, // 'create', 'update', 'delete'
+    data: { type: 'string' }, // JSON
+    status: { type: 'string' }, // 'pending', 'in_progress', 'completed', 'failed'
+    retryCount: { type: 'number' },
+    errorMessage: { type: 'string', nullable: true },
+    createdAt: { type: 'number' },
+  },
+
+  // Sync status tracking
+  sync_status: {
+    workspaceId: { type: 'string' },
+    lastSyncAt: { type: 'number', nullable: true },
+    isSyncing: { type: 'boolean' },
+    pendingCount: { type: 'number' },
+    errorCount: { type: 'number' },
+  },
+};
+```
+
+### 5.3 Sync Flow
+
+**Creating a Lead (Optimistic):**
+```typescript
+// 1. UI calls mutation hook
+const { mutate } = useWorkerMutation({
+  mutationFn: async (leadData) => {
+    // 2. Worker creates pending entry
+    const pendingEntry = {
+      pendingEntryId: ulid(),
+      workspaceId: getCurrentWorkspaceId(),
+      entityType: 'lead',
+      entityId: localLeadId,
+      operation: 'create',
+      data: JSON.stringify(leadData),
+      status: 'pending',
+      retryCount: 0,
+      createdAt: Date.now(),
+    }
+    
+    // 3. Add to pending_entries queue
+    await addPendingEntry(pendingEntry)
+    
+    // 4. Optimistically update leads table
+    await createLeadLocally({ ...leadData, syncStatus: 'pending' })
+    
+    // 5. Broadcast change to UI
+    broadcastTableChange('leads', 'create', localLeadId)
+    
+    return { localLeadId }
   }
-});
+})
 ```
 
-#### Epic 5.3: Notification Infrastructure ✅
-
-**SuprSend Implementation:**
-- **Configuration:** `apps/backend/src/configs/suprsend.config.ts`
-- **Library:** @suprsend/node-sdk
-- **Event Types:**
-  - `USER REMINDER SCHEDULED` - Daily prompt reminders
-  - User created notifications
-
-**Handler:** `apps/backend/src/modules/journal-entries/notifications/reminder.notifications.journal_entries.ts`
-
-#### Epic 5.4: Webhook Processing ✅
-
-**Implementation:**
-- **Handler:** `apps/backend/src/modules/webhook_calls/handlers/subscription_alert_webhook.handler.ts`
-- **Features:**
-  - Sends subscription usage alerts at 90% threshold
-  - Audit logging to `pg_tbus_task_log` table
-  - Retry logic via pg-tbus (3 attempts with exponential backoff)
-  - Bearer token authentication
-  - 30-second timeout
-
-**Audit Logging:**
-- Task execution tracked in `pg_tbus_task_log` table
-- Success/failure status, error messages, response codes
-- Retry tracking and willRetry flags
-
----
-
-### Phase 6: Data Worker & Offline-First Implementation 📱 ✅ COMPLETED
-
-**Status:** ✅ COMPLETED - TinyBase Worker for offline-first functionality
-
-**Implementation Summary:**
-
-#### Epic 6.1: Data Worker Architecture
-- **TinyBase Worker:** `apps/frontend/src/worker/worker.ts` - Web Worker for local data management
-- **Client Wrapper:** `apps/frontend/src/worker/worker.client.ts` - Promise-based API for Worker communication
-- **Type Definitions:** `apps/frontend/src/worker/worker.types.ts` - Type-safe Worker interface
-- **Features:**
-  - Server-first data fetching with local cache fallback
-  - Pending operations queue for offline mode
-  - Automatic sync when connection restored
-  - Event-driven status updates (connectivity, sync progress, auth expiry)
-  - SQLite-like storage via TinyBase
-
-#### Epic 6.2: Worker Integration & Hooks
-- **Worker Hooks:** `apps/frontend/src/hooks/` directory
-  - `useDataWorker.ts` - Initialize and manage Worker lifecycle
-  - `useWorkerQuery.ts` - Drop-in replacement for TanStack Query reads
-  - `useWorkerMutation.ts` - Drop-in replacement for TanStack Query mutations
-  - `useWorkerStatus.ts` - Connectivity and sync status via useSyncExternalStore
-  - `usePendingEntries.ts` - Query pending offline operations
-  - `useWorkerSync.ts` - Sync management and force sync functionality
-
-#### Epic 6.3: UI Components & Integration
-- **Sync Components:** 
-  - `SyncProgress.tsx` - Visual sync indicator with progress tracking
-  - `SyncStatusIndicator*.tsx` - Multiple status indicator variants
-  - `OfflineBanner.tsx` - Non-blocking offline status banner (replaced OfflineBlocker)
-- **Journal Entries Integration:**
-  - Updated CreateJournalEntryForm to use Worker mutations
-  - Updated JournalEntries page to show pending/synced entries separately
-  - Added sync controls and real-time status updates
-- **App Integration:**
-  - Early Worker initialization in main.tsx
-  - Auth expiry handling via Worker events in App.tsx
-
-#### Epic 6.4: Architecture Benefits
-- **Offline-First:** App continues working without internet connection
-- **Progressive Enhancement:** Free users get offline-only, premium gets cloud sync
-- **Event-Driven:** Real-time updates via Worker push events
-- **Type Safety:** Full TypeScript coverage with Zod validation
-- **Performance:** Local cache reduces server requests
-- **Atomic Operations:** Queue ensures data consistency
-- **Documentation:** See [SYNC_ARCHITECTURE.md](./docs/SYNC_ARCHITECTURE.md) for a deep-dive.
-
-**Files Created/Modified:**
-- `apps/frontend/package.json` - Added tinybase dependency
-- `apps/frontend/src/worker/` - Worker implementation (3 files)
-- `apps/frontend/src/hooks/` - Worker hooks (6 files)
-- `apps/frontend/src/components/` - Sync and status components (5 files)
-- `apps/frontend/src/modules/journal-entries/` - Updated for Worker integration
-- `apps/frontend/src/App.tsx` - Worker initialization and auth handling
-- `apps/frontend/src/main.tsx` - Early Worker setup
-
----
-
-### Phase 7: User Schedules & Advanced Notifications 📅
-
-**Priority:** HIGH - Schedule management for timed notifications
-
-**Status:** 🔄 PENDING - Next priority after PWA completion
-
-#### Epic 6.1: User Schedule Management
-
-**Note:** User schedules stored in `users.journalReminderTimes` array (already exists in schema). May need dedicated `user_schedules` table for more complex scheduling.
-
-**Issues:**
-
-**6.1.1: Create UserSchedule Table (if needed)**
-- Evaluate if `users.journalReminderTimes` array is sufficient
-- If not, create `user_schedules` table:
-  - id, userId, scheduledTime, timezone, frequency, isActive
-  - Support daily frequency for MVP
-  - Store time as string (e.g., "08:00", "20:00")
-  - Store timezone (e.g., "America/New_York", "Asia/Kolkata")
-- Run migration: `yarn db g user_schedules`
-- **Acceptance Criteria:**
-  - Table created with proper schema
-  - Timezone validation
-  - Foreign key to users table
-  - Default schedule can be set
-
-**6.1.2: Build Schedule oRPC Endpoints**
-- `schedule.get` - Get user's current schedule
-- `schedule.upsert` - Create or update schedule
-- `schedule.delete` - Remove schedule
-- Validate timezone against IANA timezone list
-- Validate time format (HH:MM)
-- **Acceptance Criteria:**
-  - Endpoints validate input
-  - Timezone validation works
-  - User can only modify their own schedule
-  - Clear error messages
-
-**6.1.3: Create Schedule Settings UI**
-- Build settings page for notification schedule
-- Time picker for scheduled time
-- Timezone selector (react-timezone-select)
-- Toggle to enable/disable notifications
-- Save button calls oRPC endpoint
-- Show current settings on load
-- **Acceptance Criteria:**
-  - Clean, intuitive UI
-  - Time picker easy to use
-  - Timezone auto-detected if possible
-  - Changes saved successfully
-  - Confirmation message on save
-
----
-
-#### Epic 6.2: Daily Prompt Notifications
-
-**Issues:**
-
-**5.2.1: Create UserSchedule Table**
-- Create `UserSchedule` table (id, userId, scheduledTime, timezone, frequency, isActive)
-- Support daily frequency for MVP
-- Store time as string (e.g., "08:00", "20:00")
-- Store timezone (e.g., "America/New_York", "Asia/Kolkata")
-- Add unique constraint on userId (one schedule per user for MVP)
-- Run migration
-- **Acceptance Criteria:**
-  - Table created with proper schema
-  - Timezone validation
-  - Foreign key to users table
-  - Default schedule can be set
-
-**5.2.2: Build Schedule oRPC Endpoints**
-- `schedule.get` - Get user's current schedule
-- `schedule.upsert` - Create or update schedule
-- `schedule.delete` - Remove schedule
-- Validate timezone against IANA timezone list
-- Validate time format (HH:MM)
-- **Acceptance Criteria:**
-  - Endpoints validate input
-  - Timezone validation works
-  - User can only modify their own schedule
-  - Clear error messages
-
-**5.2.3: Create Schedule Settings UI**
-- Build settings page for notification schedule
-- Time picker for scheduled time
-- Timezone selector (react-timezone-select)
-- Toggle to enable/disable notifications
-- Save button calls oRPC endpoint
-- Show current settings on load
-- **Acceptance Criteria:**
-  - Clean, intuitive UI
-  - Time picker easy to use
-  - Timezone auto-detected if possible
-  - Changes saved successfully
-  - Confirmation message on save
-
----
-
-#### Epic 6.2: Daily Prompt Notifications
-
-**Note:** Using SuprSend for notifications (already implemented). Email templates via Brevo can be added later if needed.
-
-**Issues:**
-
-**6.2.1: Create Daily Prompt Notification Template**
-- Design notification template for daily prompts (SuprSend)
-- Include prompt text prominently
-- Add "Write your response" CTA linking to app
-- Include unsubscribe/settings link
-- Make responsive for mobile
-- **Acceptance Criteria:**
-  - Notification template professional and branded
-  - CTA button works correctly
-  - Responsive on mobile
-  - Unsubscribe link functional
-  - Branding consistent with app
-
-**6.2.2: Implement Cron Job for Daily Prompt Scheduling**
-- Design HTML email template for daily prompts
-- Include prompt text prominently
-- Add "Write your response" CTA button linking to app
-- Include unsubscribe/settings link
-- Make responsive for mobile
-- Test in Gmail, Outlook, Apple Mail
-- **Acceptance Criteria:**
-  - Email looks professional
-  - CTA button works correctly
-  - Responsive on mobile email clients
-  - Unsubscribe link functional
-  - Branding consistent with app
-
-**6.2.2: Implement Cron Job for Daily Prompt Scheduling**
-- Use **node-cron** for scheduling (already configured in `per_minute_cron.ts`)
-- Create cron job that runs every minute: `cron.schedule('* * * * *', handler)`
-- In job handler:
-  - Query users with active schedules matching current time (in their timezone)
-  - For each matched user:
-    - Fetch daily prompt
-    - Publish `userReminderTaskDef` event via pg-tbus
-- Prevent duplicate scheduling using idempotency keys: `${userId}:${date}`
-- **Acceptance Criteria:**
-  - Cron job runs reliably every minute
-  - Correctly converts timezones
-  - Events published at scheduled time (±1 min)
-  - No duplicate event publishing (idempotency)
-  - Events published atomically (no ghost notifications)
-  - Scales to 1000+ users
-
-**6.2.3: Implement Event-Driven Notification Sending**
-- Notification service already subscribes to events via `reminderNotificationJournalEntryHandler`
-- Extend handler to process `userReminderTaskDef` events:
-  - Check user notification preferences
-  - Send notification via SuprSend
-  - Mark event as processed
-  - Log successful sends and errors
-- Handle rate limits and retries via pg-tbus config (already set: retryLimit: 3)
-- **Acceptance Criteria:**
-  - Event subscription working
-  - Notifications sent when events published
-  - User preferences respected
-  - Failed sends retried with backoff
-  - Event marked processed after successful send
-  - Errors logged but don't crash service
-
-**6.2.4: Test Event-Driven Notifications End-to-End**
-- Test event publishing from cron job
-- Test event processing by notification service
-- Test timezone conversions
-- Test notification delivery at scheduled times
-- Test unsubscribe functionality
-- Test notification preferences
-- Monitor delivery rates
-- **Acceptance Criteria:**
-  - Events published correctly from cron
-  - Events processed by notification service
-  - Notifications sent at correct times across timezones
-  - Delivery rates >95%
-  - Unsubscribe works correctly
-  - Preferences respected
-  - Event-driven flow works reliably
-
----
-
-### Phase 6: Capacitor Mobile App 📲
-
-**Priority:** CRITICAL - Native mobile experience (do AFTER email notifications)
-
-#### Epic 6.1: Capacitor Setup & Configuration
-
-**Issues:**
-
-**6.1.1: Initialize Capacitor Project**
-- Install Capacitor CLI
-- Initialize Capacitor in apps/frontend
-- Configure capacitor.config.ts
-- Add iOS and Android platforms
-- Sync web assets to native projects
-- Test basic app launch in simulators
-- **Acceptance Criteria:**
-  - Capacitor initialized
-  - iOS and Android folders created
-  - App launches in simulators
-  - Web assets sync correctly
-
-**6.1.2: Configure Android Build**
-- Install Android Studio
-- Configure Gradle build
-- Set up app signing (debug and release)
-- Configure app permissions (notifications, internet)
-- Update app icon and splash screen
-- Build debug APK
-- Test on emulator and physical device
-- **Acceptance Criteria:**
-  - Android Studio opens project
-  - Debug build succeeds
-  - APK installs on emulator
-  - App icon and splash correct
-
-**6.1.3: Configure iOS Build**
-- Install Xcode
-- Configure iOS project settings
-- Set up code signing (development)
-- Configure app permissions (notifications, internet)
-- Update app icon and launch screen
-- Build to iOS simulator
-- Test on simulator and physical device
-- **Acceptance Criteria:**
-  - Xcode opens project
-  - Simulator build succeeds
-  - App runs on iOS simulator
-  - App icon and launch screen correct
-
-**6.1.4: Create App Icons & Splash Screens**
-- Design app icon (1024x1024)
-- Generate all required sizes
-- Design splash screen
-- Use capacitor-assets to generate
-- Update Android and iOS projects
-- **Acceptance Criteria:**
-  - Icon looks good at all sizes
-  - Splash screen displays on launch
-  - Branding consistent
-  - No placeholder icons remain
-
-**6.1.5: Test on Physical Devices**
-- Build release APK for Android
-- Build to connected iPhone for iOS
-- Install and test all features (auth, entries)
-- Check performance
-- Verify PWA features work in native app
-- **Acceptance Criteria:**
-  - App installs successfully on Android phone
-  - App installs successfully on iOS phone
-  - All features work
-  - Performance acceptable
-  - No crashes
-
----
-
-### Phase 7: Push Notification Setup 🔔
-
-**Priority:** HIGH - Native push notifications (do AFTER Capacitor)
-
-#### Epic 7.1: Push Notification Infrastructure
-
-**Issues:**
-
-**7.1.1: Set up Firebase Cloud Messaging (Android)**
-- Create Firebase project
-- Add Android app to Firebase
-- Download and configure google-services.json
-- Install Firebase SDK
-- Configure FCM in Android project
-- Generate server key for backend
-- Test token registration
-- **Acceptance Criteria:**
-  - Firebase project configured
-  - Android app registered
-  - FCM tokens generated
-  - Backend can send test notifications
-  - Tokens stored in database
-
-**7.1.2: Configure Apple Push Notification Service (iOS)**
-- Create Apple Developer account (if needed)
-- Create APNs certificate/key
-- Configure Push Notification capability in Xcode
-- Upload APNs key to Firebase (for unified FCM)
-- Test token registration on iOS
-- **Acceptance Criteria:**
-  - APNs configured
-  - iOS app registered for push
-  - Push tokens generated
-  - Backend can send test notifications
-  - Tokens stored in database
-
-**7.1.3: Integrate Capacitor Push Notifications Plugin**
-- Install @capacitor/push-notifications
-- Request notification permissions (iOS/Android)
-- Register for push notifications
-- Store device tokens in database (linked to userId)
-- Handle token refresh
-- Create oRPC endpoints for token management
-- **Acceptance Criteria:**
-  - Plugin installed and configured
-  - Permissions requested on app launch
-  - Tokens stored in database
-  - Token refresh handled
-  - Endpoints for token CRUD operations
-
-**7.1.4: Implement Push Notification Service in Notifications Module**
-- Extend centralized notification module with push provider
-- Implement FCM integration (unified for iOS + Android)
-- Create notification payload builder
-- Handle notification delivery (foreground/background)
-- Implement notification click handlers
-- Add push notification to queue system
-- **Acceptance Criteria:**
-  - Push provider integrated into module
-  - Can send push notifications via FCM
-  - Notifications delivered to iOS and Android
-  - Click handlers open app correctly
-  - Queue system handles async sending
-
-**7.1.5: Implement Event-Driven Push Notifications**
-- Update notification service to handle push notifications
-- Subscribe to `notification.scheduled` events
-- On event received:
-  - Check user notification preferences
-  - If push enabled, send push notification via FCM
-  - Support multi-channel (email + push) from same event
-  - Mark event as processed after all channels sent
-- Handle notification failures gracefully
-- Log push notification events
-- Test delivery on physical devices
-- **Acceptance Criteria:**
-  - Notification service sends to multiple channels from one event
-  - User preferences respected (email only, push only, both, none)
-  - Push notifications delivered reliably
-  - Tapping notification opens app to entry form
-  - Works in background and foreground
-  - Multi-channel delivery tracked in logs
-  - Event marked processed only after all channels complete
-
----
-
-### Phase 8: Mobile CI/CD & DevOps 🚀
-
-**Priority:** HIGH - Automated mobile deployment (do AFTER push notifications)
-
-#### Epic 8.1: Mobile CI/CD Pipeline
-
-**Issues:**
-
-**8.1.1: Set up Mobile CI/CD (Android & iOS)**
-- Create GitHub Actions workflow for mobile builds
-- Configure Android build pipeline:
-  - Set up Java/Gradle environment
-  - Build APK/AAB for release
-  - Sign with release keystore (stored in GitHub secrets)
-  - Upload to Google Play Console (internal testing track)
-- Configure iOS build pipeline:
-  - Set up Xcode environment on macOS runner
-  - Build IPA for release
-  - Sign with distribution certificate
-  - Upload to TestFlight
-- Automate version bumping (semantic versioning)
-- Generate changelogs from commits
-- **Acceptance Criteria:**
-  - Android builds automatically on release tags
-  - iOS builds automatically on release tags
-  - Signed builds uploaded to stores
-  - Version numbers auto-incremented
-  - Changelogs generated
-  - Build status visible in GitHub
-
-**8.1.2: Set up Sentry Releases for Mobile Apps**
-- Install Sentry CLI in mobile CI workflow
-- Create Sentry releases for mobile builds
-- Upload source maps for React Native/Capacitor
-- Configure release tracking for mobile error correlation
-- Associate commits to mobile releases
-- **Acceptance Criteria:**
-  - Mobile Sentry releases created automatically
-  - Source maps uploaded for mobile builds
-  - Mobile errors linked to specific releases
-  - Release versions match app versions
-  - Production mobile errors traceable to exact code
-
----
-
-### Phase 9: Payments & Subscriptions 💳
-
-**Priority:** CRITICAL - Revenue generation (after mobile CI/CD)
-
-#### Epic 9.1: Stripe Integration for Web [$5/month, $50/year]
-
-**Issues:**
-
-**9.1.1: Set up Stripe Account & Products**
-- Create Stripe account
-- Create subscription products:
-  - Monthly: $5/month
-  - Yearly: $50/year
-- Configure pricing in Stripe dashboard
-- Set up test mode
-- **Acceptance Criteria:**
-  - Stripe account configured
-  - Products created with correct pricing
-  - Test mode enabled
-
-**9.1.2: Update Subscription Schema**
-- Update database schema for subscriptions
-- Add tier enum (FREE, PREMIUM)
-- Add status enum (ACTIVE, EXPIRED, CANCELED, TRIAL)
-- Add provider enum (STRIPE, GOOGLE_PLAY, APPLE_IAP)
-- Store expiresAt, startedAt, external subscription ID
-- Create middleware to check subscription status
-- **Acceptance Criteria:**
-  - Schema supports multiple providers
-  - Status tracking works
-  - Middleware blocks premium features for free users
-
-**9.1.3: Implement Stripe Checkout Flow**
-- Install Stripe SDK
-- Create checkout session endpoint (oRPC)
-- Build checkout page with Stripe Elements
-- Handle successful payment callback
-- Update user subscription in database
-- Send confirmation email
-- **Acceptance Criteria:**
-  - Checkout flow works end-to-end
-  - Successful payments create subscription
-  - User upgraded to PREMIUM tier
-  - Test mode transactions succeed
-
-**9.1.4: Implement Stripe Webhooks**
-- Create webhook endpoint
-- Verify Stripe signatures
-- Handle events: checkout.session.completed, customer.subscription.updated, customer.subscription.deleted
-- Update database on each event
-- Log all webhook events
-- **Acceptance Criteria:**
-  - Webhooks verified securely
-  - Subscription status updated automatically
-  - Cancellations handled
-  - Webhook logs for debugging
-
----
-
-## V1: POST-MVP FEATURES
-
-### Phase 13: Search Implementation 🔍
-
-**Priority:** MEDIUM - User-requested feature
-
-#### Epic 13.1: Backend Search Implementation
-
-**Issues:**
-
-**13.1.1: Implement pg_textsearch with Trigram & BM25 Search**
-- Create `journalEntries.search` oRPC endpoint
-- Use pg_textsearch library (open-sourced) for advanced text search with trigram similarity and BM25 ranking
-- Combine trigram similarity for fuzzy matching and BM25 for keyword relevance scoring
-- Accept filters: keyword, dateFrom, dateTo, limit, offset
-- Filter by userId (user can only search their entries)
-- Return matching entries with highlighted snippets
-- Order by relevance (BM25 score) or date
-- Add database indexes for trigram and BM25 performance
-- **Acceptance Criteria:**
-  - Search returns relevant results
-  - Date range filtering works
-  - Pagination implemented
-  - Query performance <500ms
-  - Only user's entries returned
-  - Full-text search indexes created
-
-**13.1.2: Build Search UI**
-- Create search page with search bar
-- Add date range picker (from/to dates)
-- Display results in list format
-- Highlight matching keywords
-- Show "no results" state
-- Add clear filters button
-- **Acceptance Criteria:**
-  - Search bar easy to use
-  - Date pickers functional
-  - Results update on filter change
-  - Keywords highlighted
-  - Responsive on mobile
-
----
-
-### Phase 14: Gamification System 🏆
-
-**Priority:** MEDIUM - Increase engagement and retention
-
-#### Epic 14.1: Streaks & Badges Implementation
-
-**Issues:**
-
-**11.1.1: Create Streak & Badge Tables**
-- Create `UserStreak` table (userId, currentStreak, longestStreak, lastEntryDate)
-- Create `Badge` table (id, name, description, iconUrl, milestoneValue)
-- Create `UserBadge` junction table (userId, badgeId, awardedAt)
-- Seed badges (7-day, 30-day, 100-day, 365-day streaks)
-- Add migrations
-- **Acceptance Criteria:**
-  - Tables created with proper schema
-  - Foreign keys configured
-  - Badges seeded with data
-  - Indexes on userId
-
-**11.1.2: Implement Streak Calculation**
-- Create background job (or hook on entry creation)
-- Calculate if entry extends current streak
-- Reset streak if >24h gap (timezone-aware)
-- Update currentStreak and longestStreak
-- Handle edge cases (multiple entries same day, timezone changes)
-- Test streak logic thoroughly
-- **Acceptance Criteria:**
-  - Streak increments on consecutive days
-  - Streak resets after missed day
-  - Timezone-aware calculations
-  - Multiple entries same day don't duplicate count
-
-**11.1.3: Implement Badge Award Logic**
-- Define badge metadata (names, descriptions, icons)
-- Create or find badge icons/images
-- Check if user qualifies for badges after each entry
-- Award badges automatically
-  - 7-day streak badge
-  - 30-day streak badge
-  - 100-day streak badge
-  - 365-day streak badge
-  - First entry badge
-- Prevent duplicate awards
-- **Acceptance Criteria:**
-  - At least 5 badge types defined
-  - Icons visually appealing
-  - Awards triggered correctly
-  - No duplicate awards
-
-**11.1.4: Build Gamification oRPC Endpoints**
-- `gamification.getStreak` - Get user's current streak
-- `gamification.getBadges` - Get user's earned badges
-- Include streak in user profile response
-- **Acceptance Criteria:**
-  - Endpoints return accurate data
-  - Fast queries (<100ms)
-  - User can only see their own streaks
-  - Leaderboard optional for MVP
-
-**11.1.5: Design Streak UI Component**
-- Create streak display component
-- Show current streak number prominently
-- Display flame/fire icon (🔥)
-- Show longest streak
-- Add motivational message
-- Animate streak increment
-- Display in dashboard
-- **Acceptance Criteria:**
-  - Visually appealing design
-  - Current streak prominent
-  - Animation on streak increase
-  - Responsive on mobile
-
----
-
-### Phase 12: Advanced Features ✨
-
-**Priority:** MEDIUM - Premium features & polish
-
-#### Epic 12.1: Cloud Sync & Data Export
-
-**Issues:**
-
-**12.1.1: Implement Cloud Backup (Premium)**
-- Set up S3 or Cloudflare R2 for storage
-- Create backup API endpoint (premium users only)
-- Encrypt journal data before upload (AES-256)
-- Schedule automatic backups (daily)
-- Add manual backup trigger
-- Implement restore functionality
-- **Acceptance Criteria:**
-  - Premium users can backup
-  - Free users blocked
-  - Data encrypted
-  - Automatic backups work
-  - Restore tested and works
-
-**12.1.2: Add Data Export (GDPR Compliance)**
-- Create export endpoint
-- Support JSON format (all user data)
-- Support CSV format (entries only)
-- Include prompts in export
-- Add download button in settings
-- Generate export asynchronously for large datasets
-- **Acceptance Criteria:**
-  - Export includes all user data
-  - JSON format valid
-  - CSV opens in Excel/Google Sheets
-  - Download works
-  - GDPR compliant
-
-**12.1.3: Implement Account Deletion (GDPR)**
-- Create account deletion endpoint
-- Delete all user data (cascade)
-- Remove from Stripe, Sentry, etc.
-- Send confirmation email
-- Add 30-day grace period (optional)
-- Log deletions for compliance
-- **Acceptance Criteria:**
-  - All user data deleted
-  - Third-party data removed
-  - Confirmation sent
-  - Irreversible after grace period
-  - GDPR compliant
-
----
-
-## V2: SCALING & POLISH
-
-### Phase 13: Advertising for Free Tier 📢
-
-**Priority:** MEDIUM - Monetize free users
-
-#### Epic 14.1: Ad Integration
-
-**Issues:**
-
-**14.1.1: Select & Set Up Ad Provider**
-- Choose between Google AdSense (web) + AdMob (mobile) OR alternatives
-- Create accounts
-- Get approval for app
-- Create ad units
-- **Acceptance Criteria:**
-  - Provider selected
-  - Account created
-  - App approved for ads
-  - Ad units created
-
-**14.1.2: Integrate Ads into Web App**
-- Install AdSense SDK
-- Create ad components
-- Place ads between entries (non-intrusive)
-- Test ad display
-- Handle ad blockers gracefully
-- Ensure no ads for premium users
-- **Acceptance Criteria:**
-  - Ads display on web
-  - Placement non-intrusive
-  - Premium users see no ads
-  - Ad blockers handled
-
-**14.1.3: Integrate AdMob for Mobile**
-- Install AdMob plugin (Capacitor)
-- Configure Android ad units
-- Configure iOS ad units
-- Place banner or interstitial ads
-- Test on devices
-- Ensure no ads for premium users
-- **Acceptance Criteria:**
-  - Ads display on Android
-  - Ads display on iOS
-  - Placement appropriate
-  - Premium users see no ads
-
-**14.1.4: Implement Ad Compliance**
-- Add GDPR consent for ads (EU users)
-- Update privacy policy
-- Test ad content appropriateness
-- Monitor for policy violations
-- **Acceptance Criteria:**
-  - Ads compliant with policies
-  - GDPR consent obtained
-  - Privacy policy updated
-  - No policy violations
-
----
-
-### Phase 15: Performance Optimization ⚡
-
-**Priority:** MEDIUM - Scale to 10,000+ users
-
-#### Epic 15.1: Performance & Scalability
-
-**Issues:**
-
-**15.1.1: Add Database Indexes**
-- Analyze slow queries (use pg_stat_statements)
-- Add indexes on:
-  - journal_entries(authorUserId, createdAt)
-  - users(email)
-  - subscriptions(userId, status)
-  - user_schedules(userId, isActive)
-- Add composite indexes where needed
-- Test query performance improvement
-- **Acceptance Criteria:**
-  - Slow queries identified
-  - Indexes added
-  - Queries 10x faster
-  - No over-indexing
-
-**15.1.2: Set up CDN for Static Assets**
-- Configure Cloudflare CDN
-- Upload static assets (images, fonts, icons)
-- Configure cache headers
-- Update asset URLs to use CDN
-- Test asset delivery
-- Monitor cache hit rates
-- **Acceptance Criteria:**
-  - CDN configured
-  - Assets served from CDN
-  - Page load 50% faster
-  - Cache headers correct
-
-**15.1.3: Implement Redis for Caching**
-- Install Redis
-- Install ioredis
-- Cache user sessions
-- Cache prompts (1 hour TTL)
-- Cache user streaks (5 min TTL)
-- Implement cache invalidation
-- **Acceptance Criteria:**
-  - Redis configured
-  - Sessions in Redis
-  - API responses cached
-  - Cache invalidation works
-  - Reduces database load by 60%
-
-**15.1.4: Optimize Frontend Bundle & Loading Strategy**
-- Analyze bundle size (vite-bundle-analyzer)
-- Implement code splitting for faster initial loads
-- **Critical:** Ensure all chunks/files are downloaded the first time rather than waiting for them to be called (aggressive pre-fetching)
-- Lazy load routes with smart pre-fetching
-- Optimize images (WebP, lazy loading)
-- Tree-shake unused code
-- **Acceptance Criteria:**
-  - Bundle size reduced by 40%
-  - Initial load time <2s
-  - All critical chunks pre-fetched
-  - Lighthouse score >90
-
-#### Epic 15.2: Robust Persistence with SQLite-WASM & OPFS 💾
-
-**15.2.1: Implement TinyBase + SQLite-WASM + OPFS**
-- Replace JSON-based persistence with `@sqlite.org/sqlite-wasm`
-- Use Origin Private File System (OPFS) for the "VFS" (Virtual File System)
-- Initialize TinyBase with `createSqliteWasmPersister`
-- **Example Implementation:**
-  ```javascript
-  const sqlite3 = await sqlite3InitModule();
-  const db = new sqlite3.oo1.OpfsDb('/my_tinybase_db.sqlite3');
-  const persister = createSqliteWasmPersister(store, sqlite3, db);
-  await persister.load();
-  await persister.startAutoSave();
-  ```
-- **Acceptance Criteria:**
-  - ACID compliant local storage
-  - Improved performance (row-level writes vs full file re-write)
-  - Data corruption resistance
-
-**15.2.2: Implement Durability Requests (Persistent Storage)**
-- Implement `navigator.storage.persist()` request during app initialization
-- Handle permission grant/denial gracefully
-- **Acceptance Criteria:**
-  - OS does not delete database under disk pressure (if granted)
-  - Storage marked as 'Persistent' in logs
-
-**15.2.3: Configure Security Headers (COOP/COEP)**
-- Update server configuration to send:
-  - `Cross-Origin-Opener-Policy: same-origin`
-  - `Cross-Origin-Embedder-Policy: require-corp`
-- **Acceptance Criteria:**
-  - `SharedArrayBuffer` is enabled in the browser
-  - SQLite can talk to the disk via OPFS
-
-#### Epic 15.3: Partial Data Replication 🔄
-
-**15.3.1: Implement Last-N Entries Replication**
-- Modify sync logic to only replicate the last 100-200 entries for offline support
-- Implement server-side filtering and pagination for primary querying
-- Ensure the local store handles "limited view" gracefully
-- **Acceptance Criteria:**
-  - Reduced local storage footprint
-  - Faster initial sync
-  - Consistent behavior when querying beyond local limits (requires internet)
-
-**15.1.5: Migrate to Kafka (If Needed for Scale)**
-- Evaluate if Kafka is needed (only if >10k users and high event throughput)
-- Set up managed Kafka cluster (e.g., Confluent Cloud, AWS MSK)
-- Replace pg-tbus calls with Kafka client (kafkajs)
-- Keep same event names and payload structures
-- Update subscribers to use Kafka consumer API
-- Set up monitoring and alerting
-- Perform load testing
-- **Acceptance Criteria:**
-  - Kafka cluster running
-  - Event publishers migrated to Kafka
-  - Event subscribers migrated to Kafka consumers
-  - Minimal business logic changes (pg-tbus designed for easy migration)
-  - Event throughput handles production load
-  - Monitoring dashboards operational
-
----
-
-## Success Metrics
-
-### MVP Launch (V0 - Current Status)
-- [x] Users can sign in with Google (Better Auth)
-- [x] Users can create journal entries (form & list view)
-- [x] App installable as PWA (Vite PWA, service worker, install prompts)
-- [x] Event-driven architecture (pg-tbus, cron jobs, notifications)
-- [ ] Native mobile apps (Android + iOS) via Capacitor ⏳ Phase 7
-- [ ] Users receive notifications with prompts ⏳ Phase 6 (SuprSend configured)
-- [ ] Premium subscriptions live ($5/month, $50/year via Stripe) ⏳ Phase 9
-- [x] 80% test coverage on backend (Vitest), E2E on frontend (Playwright)
-- [x] CI/CD pipeline operational (GitHub Actions, Coolify)
-- [x] Error monitoring & RUM active (Sentry, OpenTelemetry)
-- [x] Coolify deployment automated
-
-### Post-MVP (V1 Complete)
-- [ ] Offline-first app (free offline-only, paid cloud sync)
-- [ ] Search functionality implemented
-- [ ] Gamification system (streaks & badges)
-- [ ] Cloud sync & data export for premium users
-- [ ] 1000+ registered users
-- [ ] 40% Day 7 retention
-- [ ] 5% free → premium conversion
-
-### V2 Goals
-- [ ] Ads displayed to free users
-- [ ] 10,000+ registered users
-- [ ] 99.9% uptime
-- [ ] <2s average page load time
-- [ ] Profitable (revenue > costs)
-
----
-
-## Technical Stack Summary
-
-### Backend
-- **Runtime:** Node.js 22
-- **Framework:** oRPC (HTTP server)
-- **ORM:** Orchid ORM
-- **Database:** PostgreSQL
-- **Auth:** Better Auth (Google OAuth)
-- **Validation:** Zod
-- **Logging:** Pino
-- **Monitoring:** Sentry, OpenTelemetry
-- **Event Bus:** pg-tbus (Transactional Outbox Pattern) - built for easy Kafka migration
-- **Architecture:** Event-driven with Transactional Outbox Pattern
-- **Cron Jobs:** node-cron (scheduling)
-- **Notifications:** SuprSend (transactional notifications), FCM/APNs (push - future)
-- **Cron Jobs:** node-cron (per-minute scheduling with mutex)
-- **Webhooks:** pg-tbus tasks with retry logic and audit logging
-- **Payments:** Stripe, Google Play Billing, Apple IAP
-- **Testing:** Vitest
-
-### Frontend
-- **Framework:** React 19
-- **Router:** React Router 7
-- **State:** TanStack Query (React Query)
-- **UI:** Material UI (MUI)
-- **Forms:** React Hook Form + Zod
-- **PWA:** Vite PWA Plugin (Workbox)
-- **Mobile:** Capacitor (iOS + Android)
-- **Testing:** Vitest + React Testing Library
-- **Monitoring:** Sentry RUM
-
-### DevOps
-- **CI/CD:** GitHub Actions
-- **Deployment:** Coolify
-- **Code Quality:** Biome (lint + format), Commitlint, Husky
-- **Monorepo:** Turborepo + Yarn Workspaces
-
----
-
-## Event-Driven Architecture
-
-### Overview
-
-The application uses an **event-driven architecture** to decouple services and enable scalable, asynchronous operations. Events are the source of truth for side effects like notifications, analytics, and third-party integrations.
-
-### 📚 Key References & Best Practices
-
-**IMPORTANT:** Use **pg-tbus** for transactional event publishing with PostgreSQL.
-
-**Reference Articles:**
-1. **Type-Safe Event-Driven with PubSub & PostgreSQL**
-   - Link: https://dev.to/encore/building-type-safe-event-driven-applications-in-typescript-using-pubsub-cron-jobs-and-postgresql-50jc
-   - Key Takeaways: Type-safe event definitions, PostgreSQL as event store, structured logging
-
-2. **Scalable Event-Driven Node.js Services**
-   - Link: https://itnext.io/how-to-create-simple-and-scalable-event-driven-nodejs-services-14e9dee75a74
-   - Key Takeaways: Message patterns, error handling, retry strategies, monitoring
-
-**Library Choice: pg-tbus**
-- **pg-tbus** - Transactional Outbox Pattern for PostgreSQL
-  - ✅ Built for **events**, not jobs (unlike pg-boss)
-  - ✅ **Atomic event publishing**: Publish events in same transaction as business data
-  - ✅ **Transactional integrity**: No ghost notifications if transaction fails
-  - ✅ **Multiple subscribers**: Many services can listen to one event (like Kafka)
-  - ✅ **Outbox pattern**: Industry-standard approach for event-driven systems
-  - ✅ **Easy Kafka migration**: API similar to message brokers
-  - ✅ No additional infrastructure (uses existing PostgreSQL)
-  - ✅ Auto-creates outbox tables
-  - ✅ Built-in polling and relay (no custom polling needed)
+**Background Sync Process:**
+```typescript
+// SyncManager drains queue
+async function drainPendingEntries() {
+  const pending = await getPendingEntries('pending')
   
-**Why NOT pg-boss:**
-- pg-boss is for "jobs" (background tasks), not "events" (integration events)
-- Harder to achieve transactional integrity
-- One job = One worker (not pub/sub model)
-- Clunky to migrate to Kafka later
+  for (const entry of pending) {
+    try {
+      // Mark as in_progress
+      await updatePendingEntry(entry.pendingEntryId, { status: 'in_progress' })
+      
+      // Send to server via oRPC
+      const result = await orpcClient.leads.create(entry.data)
+      
+      // Update local record with remote ID
+      await updateLead(entry.entityId, {
+        remoteLeadId: result.leadId,
+        syncStatus: 'synced',
+      })
+      
+      // Mark as completed
+      await updatePendingEntry(entry.pendingEntryId, { status: 'completed' })
+    } catch (error) {
+      // Increment retry count
+      const retryCount = entry.retryCount + 1
+      
+      if (retryCount >= 5) {
+        // Mark as failed after max retries
+        await updatePendingEntry(entry.pendingEntryId, {
+          status: 'failed',
+          errorMessage: error.message,
+          retryCount,
+        })
+      } else {
+        // Exponential backoff: retry after 2^retryCount seconds
+        await updatePendingEntry(entry.pendingEntryId, {
+          status: 'pending',
+          retryCount,
+          retryAfter: Date.now() + Math.pow(2, retryCount) * 1000,
+        })
+      }
+    }
+  }
+}
+```
 
-### MVP Implementation (Transactional Outbox Pattern with pg-tbus)
+### 5.4 Real-Time Sync (SSE)
 
-For MVP, use **pg-tbus** library for transactional event publishing:
+Server pushes changes to clients via Server-Sent Events:
 
-**Why pg-tbus?**
-- ✅ **Transactional Outbox Pattern**: Industry-standard for event-driven systems
-- ✅ **Atomic publishing**: Events published in SAME transaction as business data
-- ✅ **No ghost notifications**: Transaction rollback = event not sent
-- ✅ **Pub/Sub model**: Multiple subscribers per event (like Kafka)
-- ✅ Built for events, not jobs
-- ✅ No additional infrastructure (uses PostgreSQL)
-- ✅ Auto-creates outbox tables
-- ✅ Built-in polling and relay (no custom code needed)
-- ✅ **Easy Kafka migration**: API similar to message brokers
+```typescript
+// Backend: SSE endpoint
+export const syncRouter = {
+  subscribe: rpcProtectedProcedure
+    .input(z.object({ lastSyncAt: z.number() }))
+    .subscription(async function*({ input, ctx }) {
+      const userId = ctx.user.userId
+      
+      // Yield initial data
+      yield await getChangesSince(userId, input.lastSyncAt)
+      
+      // Subscribe to changes
+      for await (const change of syncService.subscribe(userId)) {
+        yield change
+      }
+    }),
+}
 
-**Tables (created automatically by pg-tbus):**
-- `tbus_outbox` - Outbox for pending events
-- `tbus_inbox` - Inbox for consumed events (idempotency)
-- `tbus_subscriptions` - Event subscriptions
+// Frontend: Subscribe to changes
+useEffect(() => {
+  const eventSource = new EventSource(
+    `${API_URL}/sync?token=${accessToken}`
+  )
+  
+  eventSource.onmessage = (event) => {
+    const change = JSON.parse(event.data)
+    // Apply change to local store
+    worker.applyRemoteChange(change)
+  }
+  
+  return () => eventSource.close()
+}, [])
+```
 
-**Components:**
-- **Event Publishers**: Core modules (auth, journal-entries, subscriptions) publish events using `tbus.publish()`
-- **Event Subscribers**: Services (notifications, analytics) subscribe using `tbus.subscribe()`
-- **Outbox Relay**: pg-tbus auto-polls outbox and delivers events to subscribers
-- **Type Safety**: Zod schemas for event payload validation
-- **Transactional Integrity**: Events published within database transactions
+### 5.5 Conflict Resolution
 
-### Core Events
+**Strategy: Last Write Wins with Conflict Detection**
 
-| Event Type | Payload | Subscribers |
-|------------|---------|-------------|
-| `user.created` | `{ userId, email, createdAt }` | notifications (welcome email) |
-| `user.deleted` | `{ userId, deletedAt }` | notifications, cleanup services |
-| `journal_entry.created` | `{ entryId, userId, createdAt }` | gamification (streak tracking) |
-| `schedule.updated` | `{ userId, schedule }` | notification scheduler |
-| `subscription.updated` | `{ userId, tier, status }` | notifications (confirmation), access control |
-| `notification.scheduled` | `{ userId, type, channel, payload }` | notifications (email/push sender) |
+```typescript
+async function applyRemoteChange(change) {
+  const localRecord = await getLocalRecord(change.entityId)
+  
+  if (!localRecord) {
+    // No local record, just apply
+    await createLocalRecord(change.data)
+    return
+  }
+  
+  if (localRecord.updatedAt > change.data.updatedAt) {
+    // Local is newer - keep local, but mark conflict
+    await markConflict(change.entityId, 'local_newer')
+    return
+  }
+  
+  if (localRecord.pendingEntryId) {
+    // Has pending local changes - complex conflict
+    await markConflict(change.entityId, 'both_modified')
+    return
+  }
+  
+  // Apply remote change
+  await updateLocalRecord(change.entityId, change.data)
+}
+```
 
-### Example Code (Using pg-tbus)
+---
 
-**Installing pg-tbus:**
+## 6. Teams Feature
+
+> **Note:** Teams is an incremental addition to the base application. It extends the lead capture functionality to support multi-user collaboration.
+
+### 6.1 Feature Overview
+
+Teams enables exhibitors to collaborate on lead capture. Multiple booth staff can capture leads under a shared team account with:
+- Centralized billing (per-member pricing)
+- Role-based access control
+- Shared lead visibility
+- Subscription management
+
+### 6.2 User Roles & Permissions
+
+| Action | Owner | Admin | User |
+|--------|-------|-------|------|
+| **Team Management** ||||
+| Create team | ✓ | ✗ | ✗ |
+| Add members | ✓ | ✓ | ✗ |
+| Leave team | ✗ | ✓ | ✓ |
+| Remove members | ✓ | ✓ (except Owner) | ✗ |
+| Change member roles | ✓ | ✓ (promote to Admin only) | ✗ |
+| Transfer ownership | ✓ | ✗ | ✗ |
+| Delete team | ✓ | ✗ | ✗ |
+| **Workspace** ||||
+| Switch between teams | ✓ | ✓ | ✓ |
+| **Subscriptions** ||||
+| Purchase subscription | ✓ | ✗ | ✗ |
+| View subscription status | ✓ | ✓ | ✓ |
+| Select members for plan | ✓ | ✗ | ✗ |
+| **Lead Capture** ||||
+| Capture leads (with subscription) | ✓ | ✓ | ✓ |
+| Capture leads (no subscription) | ✓ | ✓ | ✓ (local only) |
+| View personal leads | ✓ | ✓ | ✓ |
+| View all team leads | ✓ | ✓ | ✗ |
+| Edit any team lead | ✓ | ✓ | ✗ |
+| Delete leads | ✓ | ✓ | Own leads only |
+| Export leads | ✓ | ✓ | ✗ |
+
+### 6.3 Core Team Features
+
+#### Team Management
+
+**Create Team:**
+1. User clicks "Create Team" in workspace switcher
+2. Enter team name (3-50 chars, unique per owner)
+3. Optional: Upload team logo
+4. System creates team with user as Owner
+5. Auto-switch to team workspace
+
+**Add Team Member:**
+1. Owner/Admin goes to Team Settings → Members
+2. Click "Add Member"
+3. Enter email address
+4. Select role (Admin or User)
+5. Member immediately added to roster
+
+**Auto-join Logic:**
+- Existing user: Team appears in workspace switcher immediately
+- New user: Team appears upon signup with that email
+- No invitation acceptance required
+
+#### Workspace Switching
+
+```
+┌─────────────────────────────┐
+│  🏢 [Active Workspace] ▼   │
+├─────────────────────────────┤
+│  📋 Personal                │
+│  ─────────────────────      │
+│  🏢 Acme Corp              │  ← Current
+│     Owner · Active         │
+│  🏢 TechStart Inc          │
+│     Admin · Expires in 5d  │
+│  ─────────────────────      │
+│  ➕ Create New Team         │
+└─────────────────────────────┘
+```
+
+**Behavior:**
+- Click to switch workspaces
+- Role shown inline
+- Expiration warnings for subscriptions
+- Badge for pending items
+
+#### Team Subscriptions
+
+**Plans:**
+
+| Plan | Duration | Price | Best For |
+|------|----------|-------|----------|
+| Trade Fair | 5 days | ₹1,000/member | Single event |
+| Monthly | 30 days | ₹2,000/member | Multiple events |
+| Yearly | 365 days | ₹10,000/member | Regular exhibitors |
+
+**Member Selection:**
+- Owner selects members at purchase time
+- Checkboxes next to each member
+- Per-member pricing (e.g., 3 members × ₹1,000 = ₹3,000)
+- Only selected members can sync to cloud
+
+**Multiple Subscriptions:**
+- Teams can have overlapping subscriptions
+- Longest active subscription determines expiration
+- All subscriptions tracked separately
+
+#### Lead Capture in Teams
+
+**Capture Flow:**
+1. User initiates lead capture (same as personal)
+2. Lead ALWAYS saved locally first
+3. Immediately visible in user's workspace
+4. **Sync behavior:**
+   - If active subscription AND user selected: Auto-sync to cloud
+   - If no subscription OR user not selected: Local only
+   - When subscription activates: Pending leads sync automatically
+
+**Lead Visibility:**
+- **Personal Workspace**: Own leads only
+- **Team Workspace (User)**: Own leads + all team leads (view-only)
+- **Team Workspace (Admin/Owner)**: All team leads (full edit)
+
+**Team Leads Page (Admin/Owner):**
+- Grid/list view of all leads
+- Filters: Captured by, Date range, Tags
+- Bulk export
+- Statistics: Total leads, by member
+
+### 6.4 Pending Leads
+
+When users capture leads without active subscription:
+
+**Storage:**
+- Local TinyBase only (never synced)
+- Same schema as regular leads
+- Photos as base64
+- Unlimited storage
+
+**Sync on Activation:**
+1. Subscription becomes active
+2. System detects pending leads
+3. Shows: "You have 5 pending leads to sync"
+4. User clicks "Sync Now"
+5. Batch upload to server
+6. Clear from pending queue
+
+**Offline Capture:**
+- Same as pending lead flow
+- Marked with `isOffline: true`
+- Auto-syncs when online + subscription active
+
+---
+
+## 7. Database Schema
+
+### 7.1 Base Tables (Orchid ORM)
+
+#### Users Table
+
+```typescript
+// modules/users/users.table.ts
+import { BaseTable } from '../../db/base_table'
+
+export class UserTable extends BaseTable {
+  readonly table = 'users'
+  
+  columns = this.setColumns((t) => ({
+    userId: t.name('user_id').ulid().primaryKey(),
+    email: t.string().unique(),
+    fullName: t.name('full_name').string().nullable(),
+    avatarUrl: t.name('avatar_url').string().nullable(),
+    phone: t.string().nullable(),
+    company: t.string().nullable(),
+    jobTitle: t.name('job_title').string().nullable(),
+    timezone: t.string().default('Asia/Kolkata'),
+    ...t.timestamps(),
+  }))
+}
+```
+
+#### Leads Table
+
+```typescript
+// modules/leads/leads.table.ts
+export class LeadTable extends BaseTable {
+  readonly table = 'leads'
+  
+  columns = this.setColumns((t) => ({
+    leadId: t.name('lead_id').ulid().primaryKey(),
+    
+    // Workspace context
+    workspaceType: t.name('workspace_type').enum('personal', 'team').default('personal'),
+    teamId: t.name('team_id').ulid().nullable().foreignKey('teams', 'team_id'),
+    
+    // Contact info
+    contactName: t.name('contact_name').string(),
+    companyName: t.name('company_name').string().nullable(),
+    jobTitle: t.name('job_title').string().nullable(),
+    email: t.string().nullable(),
+    phone: t.string().nullable(),
+    website: t.string().nullable(),
+    address: t.text().nullable(),
+    
+    // Content
+    notes: t.text().nullable(),
+    voiceNoteUrl: t.name('voice_note_url').string().nullable(),
+    voiceNoteTranscript: t.name('voice_note_transcript').text().nullable(),
+    cardImages: t.name('card_images').array(t.string()).default([]),
+    
+    // Metadata
+    capturedByUserId: t.name('captured_by_user_id').ulid().foreignKey('users', 'user_id'),
+    isTeamLead: t.name('is_team_lead').boolean().default(false),
+    
+    // Soft delete (for sync compatibility)
+    deletedAt: t.name('deleted_at').timestampNumber().nullable(),
+    deletedBy: t.name('deleted_by').ulid().nullable().foreignKey('users', 'user_id'),
+    
+    ...t.timestamps(),
+  }))
+  
+  relations = {
+    capturedBy: this.belongsTo(() => UserTable, {
+      columns: ['capturedByUserId'],
+      references: ['userId'],
+    }),
+    team: this.belongsTo(() => TeamTable, {
+      columns: ['teamId'],
+      references: ['teamId'],
+    }),
+    tags: this.hasAndBelongsToMany(() => TagTable, {
+      columns: ['leadId'],
+      references: ['tagId'],
+    }),
+  }
+}
+```
+
+#### Tags Table
+
+```typescript
+// modules/tags/tags.table.ts
+export class TagTable extends BaseTable {
+  readonly table = 'tags'
+  
+  columns = this.setColumns((t) => ({
+    tagId: t.name('tag_id').ulid().primaryKey(),
+    workspaceType: t.name('workspace_type').enum('personal', 'team').default('personal'),
+    teamId: t.name('team_id').ulid().nullable().foreignKey('teams', 'team_id'),
+    name: t.string(),
+    color: t.string().default('#3B82F6'),
+    createdByUserId: t.name('created_by_user_id').ulid().foreignKey('users', 'user_id'),
+    ...t.timestamps(),
+  }))
+  
+  relations = {
+    createdBy: this.belongsTo(() => UserTable, {
+      columns: ['createdByUserId'],
+      references: ['userId'],
+    }),
+  }
+}
+
+// Junction table for lead-tags
+export class LeadTagTable extends BaseTable {
+  readonly table = 'lead_tags'
+  
+  columns = this.setColumns((t) => ({
+    leadTagId: t.name('lead_tag_id').ulid().primaryKey(),
+    leadId: t.name('lead_id').ulid().foreignKey('leads', 'lead_id'),
+    tagId: t.name('tag_id').ulid().foreignKey('tags', 'tag_id'),
+    ...t.timestamps(),
+  }))
+}
+```
+
+#### Attachments Table
+
+```typescript
+// modules/attachments/attachments.table.ts
+export class AttachmentTable extends BaseTable {
+  readonly table = 'attachments'
+  
+  columns = this.setColumns((t) => ({
+    attachmentId: t.name('attachment_id').ulid().primaryKey(),
+    leadId: t.name('lead_id').ulid().foreignKey('leads', 'lead_id'),
+    filename: t.string(),
+    fileType: t.name('file_type').string(),
+    fileSize: t.name('file_size').integer(), // bytes
+    storagePath: t.name('storage_path').string(),
+    createdByUserId: t.name('created_by_user_id').ulid().foreignKey('users', 'user_id'),
+    ...t.timestamps(),
+  }))
+  
+  relations = {
+    lead: this.belongsTo(() => LeadTable, {
+      columns: ['leadId'],
+      references: ['leadId'],
+    }),
+  }
+}
+```
+
+### 7.2 Teams Tables
+
+#### Teams Table
+
+```typescript
+// modules/teams/teams.table.ts
+export class TeamTable extends BaseTable {
+  readonly table = 'teams'
+  
+  columns = this.setColumns((t) => ({
+    teamId: t.name('team_id').ulid().primaryKey(),
+    name: t.string().check(t.sql`char_length(name) >= 3 AND char_length(name) <= 50`),
+    slug: t.string().unique(),
+    logoUrl: t.name('logo_url').string().nullable(),
+    createdByUserId: t.name('created_by_user_id').ulid().foreignKey('users', 'user_id'),
+    isActive: t.name('is_active').boolean().default(true),
+    metadata: t.json().default({}),
+    ...t.timestamps(),
+  }))
+  
+  relations = {
+    createdBy: this.belongsTo(() => UserTable, {
+      columns: ['createdByUserId'],
+      references: ['userId'],
+    }),
+    members: this.hasMany(() => TeamMemberTable, {
+      columns: ['teamId'],
+      references: ['teamId'],
+    }),
+    subscriptions: this.hasMany(() => SubscriptionTable, {
+      columns: ['teamId'],
+      references: ['teamId'],
+    }),
+  }
+}
+```
+
+#### Team Members Table
+
+```typescript
+// modules/teams/team_members.table.ts
+export class TeamMemberTable extends BaseTable {
+  readonly table = 'team_members'
+  
+  columns = this.setColumns((t) => ({
+    teamMemberId: t.name('team_member_id').ulid().primaryKey(),
+    teamId: t.name('team_id').ulid().foreignKey('teams', 'team_id'),
+    userId: t.name('user_id').ulid().nullable().foreignKey('users', 'user_id'),
+    email: t.string(), // For auto-join before user exists
+    role: t.enum('owner', 'admin', 'user').default('user'),
+    addedByUserId: t.name('added_by_user_id').ulid().foreignKey('users', 'user_id'),
+    removedAt: t.name('removed_at').timestampNumber().nullable(),
+    removedByUserId: t.name('removed_by_user_id').ulid().nullable().foreignKey('users', 'user_id'),
+    ...t.timestamps(),
+  }))
+  
+  relations = {
+    team: this.belongsTo(() => TeamTable, {
+      columns: ['teamId'],
+      references: ['teamId'],
+    }),
+    user: this.belongsTo(() => UserTable, {
+      columns: ['userId'],
+      references: ['userId'],
+    }),
+  }
+}
+```
+
+#### Subscriptions Table
+
+```typescript
+// modules/subscriptions/subscriptions.table.ts
+export class SubscriptionTable extends BaseTable {
+  readonly table = 'subscriptions'
+  
+  columns = this.setColumns((t) => ({
+    subscriptionId: t.name('subscription_id').ulid().primaryKey(),
+    teamId: t.name('team_id').ulid().foreignKey('teams', 'team_id'),
+    plan: t.enum('trade_fair', 'monthly', 'yearly'),
+    pricePerMember: t.name('price_per_member').integer(), // in paise
+    selectedMemberIds: t.name('selected_member_ids').array(t.ulid()),
+    startDate: t.name('start_date').timestampNumber(),
+    endDate: t.name('end_date').timestampNumber(),
+    isActive: t.name('is_active').boolean().default(true),
+    paymentId: t.name('payment_id').string().nullable(),
+    paymentStatus: t.name('payment_status').enum('pending', 'completed', 'failed', 'refunded').default('completed'),
+    createdByUserId: t.name('created_by_user_id').ulid().foreignKey('users', 'user_id'),
+    ...t.timestamps(),
+  }))
+  
+  relations = {
+    team: this.belongsTo(() => TeamTable, {
+      columns: ['teamId'],
+      references: ['teamId'],
+    }),
+  }
+}
+```
+
+### 7.3 Database Indexes
+
+```typescript
+// Add to respective table files or migration
+
+// Leads indexes
+CREATE INDEX idx_leads_workspace ON leads(workspace_type, team_id);
+CREATE INDEX idx_leads_captured_by ON leads(captured_by_user_id);
+CREATE INDEX idx_leads_team_created ON leads(team_id, created_at DESC);
+CREATE INDEX idx_leads_active ON leads(deleted_at) WHERE deleted_at IS NULL;
+
+// Team members indexes
+CREATE INDEX idx_team_members_team ON team_members(team_id, removed_at) WHERE removed_at IS NULL;
+CREATE INDEX idx_team_members_user ON team_members(user_id, removed_at) WHERE removed_at IS NULL;
+
+// Subscriptions indexes
+CREATE INDEX idx_subscriptions_team_active ON subscriptions(team_id, is_active, end_date);
+```
+
+### 7.4 Sync Hooks
+
+Database hooks to push changes to sync service:
+
+```typescript
+// modules/leads/leads.table.ts
+export class LeadTable extends BaseTable {
+  // ... columns definition ...
+  
+  afterCreate = [
+    async (data, q) => {
+      await syncService.broadcastChange({
+        entityType: 'lead',
+        operation: 'create',
+        data,
+      })
+    }
+  ]
+  
+  afterUpdate = [
+    async (data, q) => {
+      await syncService.broadcastChange({
+        entityType: 'lead',
+        operation: 'update',
+        data,
+      })
+    }
+  ]
+}
+```
+
+---
+
+## 8. API Specifications
+
+### 8.1 oRPC Router Structure
+
+```typescript
+// routers/user_app.router.ts
+export const userAppRouter = {
+  // Auth
+  auth: authRouter,
+  
+  // Leads
+  leads: leadsRouter,
+  
+  // Tags
+  tags: tagsRouter,
+  
+  // Teams
+  teams: teamsRouter,
+  teamMembers: teamMembersRouter,
+  
+  // Subscriptions
+  subscriptions: subscriptionsRouter,
+  
+  // Sync
+  sync: syncRouter,
+}
+```
+
+### 8.2 Lead Endpoints
+
+#### Create Lead
+
+```typescript
+// modules/leads/leads.router.ts
+export const leadsRouter = {
+  create: rpcProtectedProcedure
+    .input(leadCreateZod)
+    .output(z.object({ leadId: z.string().ulid() }))
+    .mutation(async ({ input, ctx }) => {
+      const leadId = ulid()
+      
+      await db.leads.create({
+        leadId,
+        capturedByUserId: ctx.user.userId,
+        ...input,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      })
+      
+      return { leadId }
+    }),
+  
+  list: rpcProtectedProcedure
+    .input(z.object({
+      workspaceType: z.enum(['personal', 'team']),
+      teamId: z.string().ulid().optional(),
+      cursor: z.string().ulid().optional(),
+      limit: z.number().max(100).default(50),
+    }))
+    .output(z.object({
+      leads: z.array(leadZod),
+      nextCursor: z.string().ulid().optional(),
+    }))
+    .query(async ({ input, ctx }) => {
+      // Check permissions for team workspace
+      if (input.workspaceType === 'team' && input.teamId) {
+        const membership = await db.teamMembers.findBy({
+          teamId: input.teamId,
+          userId: ctx.user.userId,
+          removedAt: null,
+        })
+        
+        if (!membership) {
+          throw new Error('Not a team member')
+        }
+      }
+      
+      const leads = await db.leads
+        .where({
+          workspaceType: input.workspaceType,
+          teamId: input.teamId || null,
+          deletedAt: null,
+        })
+        .order({ createdAt: 'DESC' })
+        .limit(input.limit)
+        .cursor(input.cursor ? { leadId: input.cursor } : undefined)
+      
+      return {
+        leads,
+        nextCursor: leads.length === input.limit 
+          ? leads[leads.length - 1].leadId 
+          : undefined,
+      }
+    }),
+  
+  update: rpcProtectedProcedure
+    .input(z.object({
+      leadId: z.string().ulid(),
+      data: leadUpdateZod,
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const lead = await db.leads.findBy({ leadId: input.leadId })
+      
+      if (!lead) throw new Error('Lead not found')
+      
+      // Check permissions
+      if (lead.capturedByUserId !== ctx.user.userId) {
+        // Must be team admin/owner
+        const membership = await db.teamMembers.findBy({
+          teamId: lead.teamId,
+          userId: ctx.user.userId,
+          role: ['owner', 'admin'],
+          removedAt: null,
+        })
+        
+        if (!membership) {
+          throw new Error('Not authorized')
+        }
+      }
+      
+      await db.leads.findBy({ leadId: input.leadId }).update({
+        ...input.data,
+        updatedAt: Date.now(),
+      })
+      
+      return { success: true }
+    }),
+  
+  delete: rpcProtectedProcedure
+    .input(z.object({ leadId: z.string().ulid() }))
+    .mutation(async ({ input, ctx }) => {
+      const lead = await db.leads.findBy({ leadId: input.leadId })
+      
+      if (!lead) throw new Error('Lead not found')
+      
+      // Soft delete
+      await db.leads.findBy({ leadId: input.leadId }).update({
+        deletedAt: Date.now(),
+        deletedBy: ctx.user.userId,
+      })
+      
+      return { success: true }
+    }),
+}
+```
+
+### 8.3 Team Endpoints
+
+#### Create Team
+
+```typescript
+// modules/teams/teams.router.ts
+export const teamsRouter = {
+  create: rpcProtectedProcedure
+    .input(z.object({
+      name: z.string().min(3).max(50),
+      logoUrl: z.string().url().optional(),
+    }))
+    .output(z.object({
+      team: teamZod,
+      membership: teamMemberZod,
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const teamId = ulid()
+      const membershipId = ulid()
+      
+      // Generate slug
+      const slug = `${slugify(input.name)}-${teamId.slice(-6)}`
+      
+      const team = await db.teams.create({
+        teamId,
+        name: input.name,
+        slug,
+        logoUrl: input.logoUrl,
+        createdByUserId: ctx.user.userId,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      })
+      
+      const membership = await db.teamMembers.create({
+        teamMemberId: membershipId,
+        teamId,
+        userId: ctx.user.userId,
+        email: ctx.user.email,
+        role: 'owner',
+        addedByUserId: ctx.user.userId,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      })
+      
+      return { team, membership }
+    }),
+  
+  get: rpcProtectedProcedure
+    .input(z.object({ teamId: z.string().ulid() }))
+    .output(z.object({
+      team: teamZod,
+      myRole: z.enum(['owner', 'admin', 'user']),
+      members: z.array(teamMemberWithUserZod),
+      subscription: subscriptionStatusZod.optional(),
+      stats: z.object({
+        totalLeads: z.number(),
+        leadsThisMonth: z.number(),
+        memberCount: z.number(),
+      }),
+    }))
+    .query(async ({ input, ctx }) => {
+      const membership = await db.teamMembers.findBy({
+        teamId: input.teamId,
+        userId: ctx.user.userId,
+        removedAt: null,
+      })
+      
+      if (!membership) throw new Error('Not a team member')
+      
+      const team = await db.teams.findBy({ teamId: input.teamId })
+      const members = await db.teamMembers
+        .where({ teamId: input.teamId, removedAt: null })
+        .join('user')
+      
+      const subscription = await getActiveSubscription(input.teamId)
+      
+      return {
+        team,
+        myRole: membership.role,
+        members,
+        subscription,
+        stats: await getTeamStats(input.teamId),
+      }
+    }),
+}
+```
+
+#### Add Team Member
+
+```typescript
+// modules/teams/team_members.router.ts
+export const teamMembersRouter = {
+  add: rpcProtectedProcedure
+    .input(z.object({
+      teamId: z.string().ulid(),
+      email: z.string().email(),
+      role: z.enum(['admin', 'user']),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      // Check if user is owner/admin
+      const membership = await db.teamMembers.findBy({
+        teamId: input.teamId,
+        userId: ctx.user.userId,
+        role: ['owner', 'admin'],
+        removedAt: null,
+      })
+      
+      if (!membership) throw new Error('Not authorized')
+      
+      // Check if email already in team
+      const existing = await db.teamMembers.findBy({
+        teamId: input.teamId,
+        email: input.email,
+        removedAt: null,
+      })
+      
+      if (existing) throw new Error('Member already in team')
+      
+      // Find user by email (if exists)
+      const user = await db.users.findBy({ email: input.email })
+      
+      await db.teamMembers.create({
+        teamMemberId: ulid(),
+        teamId: input.teamId,
+        userId: user?.userId || null,
+        email: input.email,
+        role: input.role,
+        addedByUserId: ctx.user.userId,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      })
+      
+      return { success: true }
+    }),
+  
+  remove: rpcProtectedProcedure
+    .input(z.object({
+      teamId: z.string().ulid(),
+      teamMemberId: z.string().ulid(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      // Check permissions
+      const myMembership = await db.teamMembers.findBy({
+        teamId: input.teamId,
+        userId: ctx.user.userId,
+        removedAt: null,
+      })
+      
+      const targetMember = await db.teamMembers.findBy({
+        teamMemberId: input.teamMemberId,
+      })
+      
+      if (!targetMember) throw new Error('Member not found')
+      
+      // Owner can remove anyone except themselves
+      if (myMembership.role === 'owner') {
+        if (targetMember.userId === ctx.user.userId) {
+          throw new Error('Owner cannot leave. Transfer ownership first.')
+        }
+      }
+      // Admin can only remove users
+      else if (myMembership.role === 'admin') {
+        if (targetMember.role !== 'user') {
+          throw new Error('Admins can only remove users')
+        }
+      }
+      else {
+        throw new Error('Not authorized')
+      }
+      
+      // Soft delete
+      await db.teamMembers.findBy({ teamMemberId: input.teamMemberId }).update({
+        removedAt: Date.now(),
+        removedByUserId: ctx.user.userId,
+      })
+      
+      return { success: true }
+    }),
+}
+```
+
+### 8.4 Subscription Endpoints
+
+#### Create Subscription
+
+```typescript
+// modules/subscriptions/subscriptions.router.ts
+export const subscriptionsRouter = {
+  create: rpcProtectedProcedure
+    .input(z.object({
+      teamId: z.string().ulid(),
+      plan: z.enum(['trade_fair', 'monthly', 'yearly']),
+      selectedMemberIds: z.array(z.string().ulid()),
+      paymentId: z.string(),
+      paymentSignature: z.string(),
+    }))
+    .output(z.object({
+      subscription: subscriptionZod,
+      syncedLeads: z.number(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      // Verify user is owner
+      const membership = await db.teamMembers.findBy({
+        teamId: input.teamId,
+        userId: ctx.user.userId,
+        role: 'owner',
+        removedAt: null,
+      })
+      
+      if (!membership) throw new Error('Only owner can purchase subscriptions')
+      
+      // Verify all selected members are active
+      const activeMembers = await db.teamMembers
+        .where({
+          teamId: input.teamId,
+          removedAt: null,
+        })
+        .pluck('userId')
+      
+      const invalidMembers = input.selectedMemberIds.filter(
+        id => !activeMembers.includes(id)
+      )
+      
+      if (invalidMembers.length > 0) {
+        throw new Error('Some selected members are no longer in the team')
+      }
+      
+      // Verify Razorpay payment
+      const isValid = await verifyRazorpayPayment(
+        input.paymentId,
+        input.paymentSignature
+      )
+      
+      if (!isValid) throw new Error('Invalid payment')
+      
+      // Calculate dates
+      const startDate = Date.now()
+      const endDate = calculateEndDate(startDate, input.plan)
+      
+      const subscription = await db.subscriptions.create({
+        subscriptionId: ulid(),
+        teamId: input.teamId,
+        plan: input.plan,
+        pricePerMember: getPlanPrice(input.plan),
+        selectedMemberIds: input.selectedMemberIds,
+        startDate,
+        endDate,
+        isActive: true,
+        paymentId: input.paymentId,
+        paymentStatus: 'completed',
+        createdByUserId: ctx.user.userId,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      })
+      
+      // Sync any pending leads
+      const syncedLeads = await syncPendingLeads(input.teamId, ctx.user.userId)
+      
+      return { subscription, syncedLeads }
+    }),
+  
+  getStatus: rpcProtectedProcedure
+    .input(z.object({ teamId: z.string().ulid() }))
+    .output(subscriptionStatusZod)
+    .query(async ({ input, ctx }) => {
+      const membership = await db.teamMembers.findBy({
+        teamId: input.teamId,
+        userId: ctx.user.userId,
+        removedAt: null,
+      })
+      
+      if (!membership) throw new Error('Not a team member')
+      
+      return await getSubscriptionStatus(input.teamId, ctx.user.userId)
+    }),
+}
+```
+
+### 8.5 Sync Endpoints
+
+#### Sync Pending Leads
+
+```typescript
+// modules/sync/sync.router.ts
+export const syncRouter = {
+  // Server-Sent Events subscription
+  subscribe: rpcProtectedProcedure
+    .input(z.object({ lastSyncAt: z.number() }))
+    .subscription(async function*({ input, ctx }) {
+      // Send initial changes
+      yield await getChangesSince(ctx.user.userId, input.lastSyncAt)
+      
+      // Subscribe to real-time changes
+      for await (const change of syncService.subscribe(ctx.user.userId)) {
+        yield change
+      }
+    }),
+  
+  // Manual sync endpoint (fallback)
+  syncLeads: rpcProtectedProcedure
+    .input(z.object({
+      teamId: z.string().ulid().optional(),
+      leads: z.array(pendingLeadZod),
+    }))
+    .output(z.object({
+      synced: z.number(),
+      failed: z.number(),
+      results: z.array(z.object({
+        pendingId: z.string(),
+        status: z.enum(['success', 'failed']),
+        leadId: z.string().ulid().optional(),
+        error: z.string().optional(),
+      })),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      // Check subscription if team context
+      if (input.teamId) {
+        const isSubscribed = await isUserSubscribed(ctx.user.userId, input.teamId)
+        if (!isSubscribed) {
+          throw new Error('No active subscription')
+        }
+      }
+      
+      const results = []
+      let synced = 0
+      let failed = 0
+      
+      for (const pendingLead of input.leads) {
+        try {
+          const leadId = await createLeadFromPending(pendingLead, ctx.user.userId)
+          results.push({
+            pendingId: pendingLead.pendingId,
+            status: 'success',
+            leadId,
+          })
+          synced++
+        } catch (error) {
+          results.push({
+            pendingId: pendingLead.pendingId,
+            status: 'failed',
+            error: error.message,
+          })
+          failed++
+        }
+      }
+      
+      return { synced, failed, results }
+    }),
+}
+```
+
+---
+
+## 9. Implementation Phases
+
+### Phase 1: Monorepo Setup (Days 1-3)
+
+**Infrastructure:**
+- [ ] Initialize Turborepo with Yarn workspaces
+- [ ] Configure Biome (tabs, 100 chars, double quotes)
+- [ ] Set up shared packages structure
+- [ ] Configure TypeScript configs
+- [ ] Set up Docker Compose (PostgreSQL)
+
+**Deliverables:**
+- Working monorepo structure
+- Build pipeline configured
+- Code quality tools active
+
+### Phase 2: Backend Foundation (Days 4-8)
+
+**Database:**
+- [ ] Configure Orchid ORM
+- [ ] Create base tables (users, leads, tags)
+- [ ] Set up migrations system
+- [ ] Create pg-tbus event schema
+
+**API:**
+- [ ] Set up oRPC server
+- [ ] Configure Better Auth
+- [ ] Create base procedures (public, protected, sensitive)
+- [ ] Implement health check endpoint
+
+**Events:**
+- [ ] Set up pg-tbus
+- [ ] Create event handlers structure
+- [ ] Implement sync service
+
+**Deliverables:**
+- Database schema deployed
+- Auth endpoints working
+- Base API structure ready
+
+### Phase 3: Frontend Foundation (Days 9-13)
+
+**Setup:**
+- [ ] Initialize React + Vite app
+- [ ] Configure MUI v7 theme
+- [ ] Set up React Router 7
+- [ ] Configure PWA (Vite PWA plugin)
+
+**Data Worker:**
+- [ ] Create Web Worker infrastructure
+- [ ] Implement TinyBase schema
+- [ ] Build StorageEngine (IndexedDB)
+- [ ] Create SyncManager
+- [ ] Implement ConnectivityService
+
+**State Management:**
+- [ ] Set up Zustand stores
+- [ ] Create worker hooks (useWorkerQuery, useWorkerMutation)
+- [ ] Implement optimistic updates
+
+**Deliverables:**
+- Data Worker functional
+- Local storage working
+- Worker hooks ready
+
+### Phase 4: Core Lead Features (Days 14-20)
+
+**Lead Capture:**
+- [ ] Build lead capture form
+- [ ] Implement camera integration
+- [ ] Create image compression utility
+- [ ] Build voice recorder
+
+**Lead Management:**
+- [ ] Create lead list view (virtual scrolling)
+- [ ] Build lead detail page
+- [ ] Implement lead editing
+- [ ] Create tag management
+
+**Backend:**
+- [ ] Implement leads router
+- [ ] Create tags router
+- [ ] Add sync hooks to tables
+
+**Deliverables:**
+- Capture leads locally
+- View and edit leads
+- Tags working
+
+### Phase 5: Sync & Real-Time (Days 21-26)
+
+**Sync Implementation:**
+- [ ] Complete SyncManager drain logic
+- [ ] Implement exponential backoff
+- [ ] Build conflict resolution UI
+- [ ] Add retry mechanisms
+
+**Real-Time:**
+- [ ] Implement SSE endpoint
+- [ ] Subscribe to changes in Data Worker
+- [ ] Handle remote updates
+
+**Testing:**
+- [ ] Test offline scenarios
+- [ ] Test conflict resolution
+- [ ] Test reconnection
+
+**Deliverables:**
+- Automatic sync working
+- Real-time updates functional
+- Conflict resolution ready
+
+### Phase 6: Teams Foundation (Days 27-32)
+
+**Database:**
+- [ ] Create teams table
+- [ ] Create team_members table
+- [ ] Update leads table for team support
+
+**Backend:**
+- [ ] Implement teams router
+- [ ] Create team members router
+- [ ] Add permission checks
+
+**Frontend:**
+- [ ] Build workspace switcher
+- [ ] Create team creation flow
+- [ ] Implement member management
+
+**Deliverables:**
+- Create teams
+- Switch workspaces
+- Add/remove members
+
+### Phase 7: Subscriptions (Days 33-38)
+
+**Backend:**
+- [ ] Create subscriptions table
+- [ ] Implement subscriptions router
+- [ ] Add Razorpay integration
+- [ ] Create webhook handlers
+
+**Frontend:**
+- [ ] Build subscription UI
+- [ ] Implement plan selection
+- [ ] Create member selection
+- [ ] Add status indicators
+
+**Sync Logic:**
+- [ ] Implement subscription checks
+- [ ] Create pending leads system
+- [ ] Build sync on activation
+
+**Deliverables:**
+- Purchase subscriptions
+- Per-member pricing
+- Pending leads sync
+
+### Phase 8: Team Lead Management (Days 39-43)
+
+**Visibility:**
+- [ ] Workspace-aware lead loading
+- [ ] Permission-based views
+- [ ] Team leads page (Admin/Owner)
+
+**Features:**
+- [ ] Bulk export
+- [ ] Statistics dashboard
+- [ ] Lead filtering by member
+
+**Testing:**
+- [ ] Test role permissions
+- [ ] Test subscription gating
+- [ ] Test team switching
+
+**Deliverables:**
+- Team lead visibility
+- Export functionality
+- Complete team features
+
+### Phase 9: Polish & Production (Days 44-50)
+
+**UI/UX:**
+- [ ] Mobile responsiveness
+- [ ] Loading states
+- [ ] Error handling
+- [ ] Empty states
+
+**Performance:**
+- [ ] Image optimization
+- [ ] Code splitting
+- [ ] Bundle analysis
+
+**Testing:**
+- [ ] E2E tests with Playwright
+- [ ] Unit tests with Vitest
+- [ ] Mobile testing (Capacitor)
+
+**Production:**
+- [ ] Production database setup
+- [ ] Environment configuration
+- [ ] Monitoring (Sentry)
+- [ ] SSL & security
+
+**Deliverables:**
+- Production-ready app
+- Test suite passing
+- Documentation complete
+
+### Total Timeline: 50 Days
+
+---
+
+## 10. Edge Cases & Error Handling
+
+### 10.1 Offline Scenarios
+
+#### Network Intermittent During Capture
+**Behavior:**
+1. Detect offline via ConnectivityService
+2. Save to TinyBase only
+3. Create pending_entry
+4. Show: "Saved offline. Will sync when connected."
+5. Badge on sync indicator
+
+#### Sync Fails After Max Retries
+**Behavior:**
+1. Mark as failed after 5 attempts
+2. Show notification with retry button
+3. Option to export unsynced data
+4. Contact support link
+
+#### Conflict Detected
+**Behavior:**
+1. Show conflict resolution modal
+2. Display both versions side-by-side
+3. Options: Use server / Use local / Merge manually
+4. Default to server if no response in 30s
+
+### 10.2 Team Scenarios
+
+#### Owner Tries to Leave Team
+**Behavior:**
+- Disable leave button
+- Show: "Transfer ownership before leaving"
+- Link to ownership transfer flow
+
+#### Last Admin Demotes Themselves
+**Behavior:**
+- Validation error: "Team must have at least one Admin"
+- Suggest promoting another member
+
+#### Member Removed While Active
+**Behavior:**
+- Immediate redirect to personal workspace
+- Toast: "You've been removed from [Team Name]"
+- Clear local team data
+
+#### Subscription Expires Mid-Session
+**Behavior:**
+- Real-time check every 5 minutes
+- Banner: "Subscription expired"
+- New captures saved locally only
+- Existing leads remain accessible
+
+### 10.3 Data Integrity
+
+#### Duplicate Lead Detection
+**Strategy:**
+- Match on email + phone
+- Show: "Possible duplicate detected"
+- Options: Merge / Create new / View existing
+
+#### Database Connection Lost
+**Behavior:**
+- User-friendly error message
+- No technical details exposed
+- Auto-retry where safe
+- Manual retry button
+
+### 10.4 File Handling
+
+#### Image Too Large
+**Behavior:**
+1. Client-side compression (WebP)
+2. If still > 5MB: Error
+3. Suggest reducing quality
+
+#### Invalid File Type
+**Behavior:**
+- Block immediately
+- Show: "Supported: JPG, PNG, WebP"
+- Filter file picker
+
+### 10.5 Error Codes
+
+| Code | Scenario | Message |
+|------|----------|---------|
+| `AUTH_001` | Invalid credentials | "Invalid email or password" |
+| `AUTH_002` | Session expired | "Please sign in again" |
+| `LEAD_001` | Duplicate | "This lead may already exist" |
+| `LEAD_002` | Validation | "Please check required fields" |
+| `SYNC_001` | Sync failed | "Some leads failed to sync. Retry?" |
+| `SYNC_002` | Conflict | "This lead was modified elsewhere" |
+| `TEAM_001` | Duplicate name | "You already have a team with this name" |
+| `TEAM_002` | Unauthorized | "You don't have permission" |
+| `TEAM_003` | Owner leave | "Transfer ownership first" |
+| `SUB_001` | No subscription | "No active subscription" |
+| `SUB_002` | Payment failed | "Payment failed. Try again." |
+| `FILE_001` | Too large | "File too large. Max 5MB." |
+| `FILE_002` | Invalid type | "Use JPG, PNG, or WebP" |
+
+---
+
+## Appendix A: Environment Variables
+
 ```bash
-yarn add pg-tbus
+# Database
+DATABASE_URL=postgresql://user:pass@localhost:5432/expowiz
+DATABASE_URL_TEST=postgresql://user:pass@localhost:5432/expowiz_test
+
+# Better Auth
+BETTER_AUTH_SECRET=your-secret-key
+BETTER_AUTH_URL=http://localhost:3000
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+
+# Razorpay
+RAZORPAY_KEY_ID=rzp_test_xxx
+RAZORPAY_KEY_SECRET=your-secret
+RAZORPAY_WEBHOOK_SECRET=your-webhook-secret
+
+# Frontend
+VITE_API_URL=http://localhost:3000
+VITE_APP_NAME=Expowiz
+VITE_ENABLE_OFFLINE_SYNC=true
+
+# Sentry (optional)
+SENTRY_DSN=your-sentry-dsn
+
+# Features
+ENABLE_TEAMS=true
+ENABLE_SUBSCRIPTIONS=true
 ```
-
-**Setting up pg-tbus:**
-```typescript
-// apps/backend/src/modules/events/tbus.ts
-import { createTbus } from 'pg-tbus';
-import { db } from '../../db/config';
-
-export const tbus = createTbus({
-  db: db, // OrchidORM database instance
-  schema: 'public' // or your schema name
-});
-
-// Start the outbox relay (polls for events and delivers to subscribers)
-await tbus.start();
-```
-
-**Publishing Events (Transactionally):**
-```typescript
-// In auth module after user signup - ATOMIC with database transaction
-import { db } from '../../db/config';
-import { tbus } from '../events/tbus';
-import { UserCreatedEvent } from '../events/event_types';
-
-// Everything in ONE transaction
-await db.transaction(async (tx) => {
-  // 1. Save user to database
-  const user = await tx.users.create({
-    email: 'user@example.com',
-    name: 'John Doe'
-  });
-  
-  // 2. Publish event in SAME transaction
-  await tbus.publish('user.created', {
-    userId: user.id,
-    email: user.email,
-    createdAt: new Date()
-  }, { tx }); // Pass transaction to ensure atomicity
-  
-  // If transaction fails, BOTH user creation AND event are rolled back
-  // No ghost notifications!
-});
-```
-
-**Subscribing to Events:**
-```typescript
-// In notification module
-import { tbus } from '../events/tbus';
-import { UserCreatedEvent } from '../events/event_types';
-
-// Multiple subscribers can listen to same event
-await tbus.subscribe<UserCreatedEvent>('user.created', async (event) => {
-  await sendWelcomeEmail(event.payload.email);
-});
-
-// Another subscriber for analytics
-await tbus.subscribe<UserCreatedEvent>('user.created', async (event) => {
-  await trackUserSignup(event.payload.userId);
-});
-```
-
-### Future Migration to Kafka (When Needed)
-
-**pg-tbus is built for easy Kafka migration:**
-
-When you reach scale (10k+ users, high event throughput), migrate to Kafka by:
-1. Swap pg-tbus with Kafka client (kafkajs)
-2. Keep same event names and payloads
-3. Update subscribers to use Kafka consumer API
-
-**Why pg-tbus makes migration easy:**
-- Subscription model matches Kafka (pub/sub, multiple subscribers)
-- Event patterns are message-broker-like
-- Business logic stays unchanged
-- Only swap the "driver"
-
-**No detailed migration planning needed now** - pg-tbus design ensures minimal refactoring when the time comes.
-
-### Design Principles (Transactional Outbox Pattern)
-
-1. **Transactional Integrity** - ALWAYS publish events within database transactions (using pg-tbus)
-2. **No Ghost Notifications** - If transaction fails, event is NOT published (atomic guarantee)
-3. **Type Safety First** - Use TypeScript + Zod for event payload validation
-4. **Events are immutable** - Never modify published events
-5. **At-least-once delivery** - Events may be processed multiple times (idempotency required)
-6. **Async by default** - Event relay delivers events asynchronously to subscribers
-7. **Event versioning** - Include schema version in payload for backwards compatibility
-8. **Structured logging** - Log event ID, type, timestamp, processing time for tracing
-9. **Idempotency keys** - Use unique keys (e.g., `${eventType}:${resourceId}`) to prevent duplicate processing
-10. **Pub/Sub model** - Multiple subscribers can listen to same event (like Kafka)
 
 ---
 
-## Technical Debt & Future Enhancements
+## Appendix B: Monorepo Structure
 
-### Known Limitations (OK for MVP)
-- No Redis initially (sessions in PostgreSQL - migrate in V2)
-- pg-tbus event bus (migrate to Kafka when scaling beyond 10k users)
-- Basic conflict resolution for offline sync (backend wins)
-- Simple daily prompt rotation (no ML personalization)
-
-### Future Enhancements (V3+)
-- AI-powered prompt personalization (based on user's writing)
-- Voice journaling (speech-to-text)
-- Rich text editor (formatting, images)
-- Multiple journals/categories
-- Social features (share entries with friends, prompts marketplace)
-- Export to PDF with beautiful formatting
-- Desktop apps (Tauri)
-- Integrations (Notion, Obsidian, Day One)
-- Analytics dashboard for users (word count, sentiment analysis)
-- Habit tracking integration
-- Mood tracking
-- Journaling templates
+```
+expowiz/
+├── apps/
+│   ├── frontend/              # React + Vite app
+│   │   ├── src/
+│   │   │   ├── modules/       # Feature modules
+│   │   │   │   ├── auth/
+│   │   │   │   ├── leads/
+│   │   │   │   ├── tags/
+│   │   │   │   ├── teams/
+│   │   │   │   └── subscriptions/
+│   │   │   ├── worker/        # Data Worker
+│   │   │   │   ├── data.worker.ts
+│   │   │   │   ├── services/
+│   │   │   │   └── stores/
+│   │   │   ├── hooks/         # Custom hooks
+│   │   │   ├── stores/        # Zustand stores
+│   │   │   └── App.tsx
+│   │   └── package.json
+│   │
+│   └── backend/               # Node.js + oRPC
+│       ├── src/
+│       │   ├── modules/       # Feature modules
+│       │   │   ├── auth/
+│       │   │   ├── leads/
+│       │   │   ├── tags/
+│       │   │   ├── teams/
+│       │   │   ├── subscriptions/
+│       │   │   └── sync/
+│       │   ├── routers/       # oRPC routers
+│       │   ├── events/        # pg-tbus events
+│       │   ├── db/           # Database config
+│       │   └── server.ts
+│       └── package.json
+│
+├── packages/
+│   ├── zod-schemas/          # Shared Zod schemas
+│   ├── ui-mui/              # MUI components
+│   └── typescript-config/   # Shared TS configs
+│
+├── turbo.json               # Turborepo config
+├── biome.json              # Code formatting
+├── docker-compose.yml      # Local services
+└── package.json
+```
 
 ---
 
-## Development Guidelines
+## Appendix C: Key Commands
 
-### Code Style (Enforced by Biome)
-- **Formatting:** Tabs (NOT spaces), 100 char line width, double quotes
-- **Types:** NO `any` or `as unknown` - use strict TypeScript
-- **Imports:** Direct imports (NO barrel exports/index files)
-- **Naming:**
-  - camelCase for code
-  - snake_case for database tables/columns
-  - Descriptive IDs (`userId` not `id`, `authorUserId` not `authorId`)
-- **Error Handling:** Throw standard errors - centralized error formatter converts to HTTP responses
+```bash
+# Development
+yarn dev                    # Start all apps
+yarn dev --filter frontend  # Start frontend only
+yarn dev --filter backend   # Start backend only
 
-### Git Workflow
-- **Branches:** `main` (production), `develop` (staging), `feat/*`, `fix/*`, `chore/*`
-- **Commits:** Conventional commits (feat, fix, docs, style, refactor, test, chore)
-- **PRs:** Require CI passing, 1+ approval, no merge conflicts
+# Database
+yarn db g <name>           # Generate migration
+yarn db up                 # Apply migrations
+yarn db down               # Rollback migration
+yarn test:db:setup         # Setup test database
 
-### Testing Requirements
-- **Backend:** >80% coverage on routers and critical logic
-- **Frontend:** >70% coverage on components and pages
-- **All PRs:** Must include tests for new features
+# Code Quality
+yarn lint                  # Run Biome linter
+yarn format               # Format code
+yarn check-types          # TypeScript check
+
+# Build
+yarn build                # Build all workspaces
+yarn build --filter frontend
+
+# Testing
+yarn test                 # Run all tests
+yarn test --filter backend
+yarn e2e                  # Run Playwright tests
+```
 
 ---
 
-**Last Updated:** 2026-01-01
-**Next Review:** After V0 completion
+**Document Status:** Complete - Aligned with Repository Architecture  
+**Version:** 3.0  
+**Last Updated:** February 6, 2026

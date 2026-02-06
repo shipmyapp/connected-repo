@@ -1,6 +1,10 @@
 # @connected-repo/zod-schemas
 
+**Expowiz Validation Schemas**
+
 Shared Zod validation schemas for backend/frontend consistency
+
+Defines schemas for leads, teams, subscriptions, and other Expowiz entities.
 
 ## Purpose
 - Entity schemas with structured pattern
