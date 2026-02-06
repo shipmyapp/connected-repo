@@ -1693,21 +1693,22 @@ export const syncRouter = {
 ### Phase 4: Core Lead Features (Days 14-20)
 
 **Lead Capture:**
-- [ ] Build lead capture form
+- [x] Build lead capture form
 - [ ] Implement camera integration
 - [ ] Create image compression utility
 - [ ] Build voice recorder
 
 **Lead Management:**
-- [ ] Create lead list view (virtual scrolling)
+- [x] Create lead list view (card/table toggle with pagination)
 - [ ] Build lead detail page
 - [ ] Implement lead editing
 - [ ] Create tag management
 
 **Backend:**
-- [ ] Implement leads router
+- [x] Implement leads router (getAll, getById, create, delete)
+- [x] Create leads table with sync hooks (afterCreateCommit, afterUpdateCommit, afterDeleteCommit)
 - [ ] Create tags router
-- [ ] Add sync hooks to tables
+- [ ] Add voice notes and attachments support
 
 **Deliverables:**
 - Capture leads locally

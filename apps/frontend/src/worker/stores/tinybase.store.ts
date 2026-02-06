@@ -8,8 +8,33 @@ import { createStore, type Store } from 'tinybase';
 
 export function createDataStore(): Store {
   return createStore()
-    // ── Journal Entries ───────────────────────────────────────────
+    // ── Leads ──────────────────────────────────────────────────
     .setTablesSchema({
+      leads: {
+        leadId: { type: 'string' },
+        contactName: { type: 'string' },
+        companyName: { type: 'string', default: '' },
+        _isNull_companyName: { type: 'boolean', default: true },
+        jobTitle: { type: 'string', default: '' },
+        _isNull_jobTitle: { type: 'boolean', default: true },
+        email: { type: 'string', default: '' },
+        _isNull_email: { type: 'boolean', default: true },
+        phone: { type: 'string', default: '' },
+        _isNull_phone: { type: 'boolean', default: true },
+        website: { type: 'string', default: '' },
+        _isNull_website: { type: 'boolean', default: true },
+        address: { type: 'string', default: '' },
+        _isNull_address: { type: 'boolean', default: true },
+        notes: { type: 'string', default: '' },
+        _isNull_notes: { type: 'boolean', default: true },
+        capturedByUserId: { type: 'string' },
+        teamId: { type: 'string', default: '' },
+        _isNull_teamId: { type: 'boolean', default: true },
+        createdAt: { type: 'number' },
+        updatedAt: { type: 'number' },
+        _isPending: { type: 'boolean', default: false },
+      },
+      // ── Journal Entries ───────────────────────────────────────────
       journalEntries: {
         journalEntryId: { type: 'string' },
         content: { type: 'string' },

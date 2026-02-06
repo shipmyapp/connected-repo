@@ -5,6 +5,10 @@ export interface EntityOperationMap {
     query: 'getAll' | 'getById';
     mutation: 'create' | 'delete';
   };
+  leads: {
+    query: 'getAll' | 'getById';
+    mutation: 'create' | 'delete';
+  };
   prompts: {
     query: 'getRandomActive' | 'getAllActive';
     mutation: never;
