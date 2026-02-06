@@ -1692,6 +1692,8 @@ export const syncRouter = {
 
 ### Phase 4: Core Lead Features (Days 14-20)
 
+> **Migration Note:** Application transformed from OneQ (journaling) to ExpoWiz (lead capture). Removed journal-entries and prompts modules. Database migration `0003_drop_oneq_tables.ts` drops old tables.
+
 **Lead Capture:**
 - [x] Build lead capture form
 - [ ] Implement camera integration
@@ -1707,6 +1709,7 @@ export const syncRouter = {
 **Backend:**
 - [x] Implement leads router (getAll, getById, create, delete)
 - [x] Create leads table with sync hooks (afterCreateCommit, afterUpdateCommit, afterDeleteCommit)
+- [x] Migration: Drop journal_entries and prompts tables
 - [ ] Create tags router
 - [ ] Add voice notes and attachments support
 

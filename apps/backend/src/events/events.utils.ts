@@ -1,5 +1,4 @@
-import { subscriptionAlertWebhookTaskDef, userCreatedEventDef, userReminderTaskDef } from "@backend/events/events.schema";
-import { reminderNotificationJournalEntryHandler } from "@backend/modules/journal-entries/notifications/reminder.notifications.journal_entries";
+import { subscriptionAlertWebhookTaskDef, userCreatedEventDef } from "@backend/events/events.schema";
 import { userCreatedNotificationHandler } from "@backend/modules/users/notifications/user_created.notifications.user";
 import { subscriptionAlertWebhookHandler } from "@backend/modules/webhook_calls/handlers/subscription_alert_webhook.handler";
 import { logger } from "@backend/utils/logger.utils";
@@ -32,12 +31,6 @@ export const startEventBus = async () => {
 				task_name: "user.created",
 				eventDef: userCreatedEventDef,
 				handler: userCreatedNotificationHandler,
-			})
-		);
-		tbus.registerTask(
-			createTaskHandler({
-				taskDef: userReminderTaskDef,
-				handler: reminderNotificationJournalEntryHandler,
 			})
 		);
 		tbus.registerTask(

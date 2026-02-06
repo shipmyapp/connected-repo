@@ -1,12 +1,8 @@
 import { EventPublisher } from '@orpc/server';
-import type { JournalEntrySelectAll } from '@connected-repo/zod-schemas/journal_entry.zod';
 import type { LeadSelectAll } from '@connected-repo/zod-schemas/leads.zod';
-import type { PromptSelectAll } from '@connected-repo/zod-schemas/prompt.zod';
 
 export type SyncPayload = 
-  | { type: 'journalEntries'; userId: string; data: JournalEntrySelectAll[]; operation: 'create' | 'update' | 'delete' }
   | { type: 'leads'; userId: string; data: LeadSelectAll[]; operation: 'create' | 'update' | 'delete' }
-  | { type: 'prompts'; data: PromptSelectAll[]; operation: 'create' | 'update' | 'delete' }
   | { type: 'heartbeat' };
 
 export class SyncService {

@@ -1,6 +1,4 @@
-import { journalEntriesRouter } from '@backend/modules/journal-entries/journal-entries.router'
 import { leadsRouter } from '@backend/modules/leads/leads.router'
-import { promptsRouter } from '@backend/modules/prompts/prompts.router'
 import { rpcPublicProcedure } from '@backend/procedures/public.procedure'
 import { usersRouter } from '@backend/routers/user_app/users.user_app.router'
 import { syncRouter } from '@backend/modules/sync/sync.router'
@@ -24,9 +22,7 @@ const healthCheck = rpcPublicProcedure
 export const userAppRouter = {
 	health: healthCheck,
 	users: usersRouter,
-	journalEntries: journalEntriesRouter,
 	leads: leadsRouter,
-	prompts: promptsRouter,
 	sync: syncRouter,
 };
 

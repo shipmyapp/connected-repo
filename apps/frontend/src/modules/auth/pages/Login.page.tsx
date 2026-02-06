@@ -161,7 +161,7 @@ export const LoginPage = () => {
 											fontSize: { xs: "1.1rem", sm: "1.25rem" },
 										}}
 									>
-										Scheduled Prompt & Journal
+										Capture Leads Effortlessly
 									</Typography>
 									<Typography
 										variant="body1"
@@ -173,7 +173,7 @@ export const LoginPage = () => {
 											mx: "auto",
 										}}
 									>
-										A simple way to journal and reflect on your day with timely, thought-provoking prompts
+										The ultimate companion for trade shows. Capture, manage, and sync leads in real-time.
 									</Typography>
 								</Box>
 
@@ -266,9 +266,9 @@ export const LoginPage = () => {
 								{/* Feature Highlights */}
 								<Box sx={{ mt: 4, pt: 4, borderTop: "1px solid", borderColor: "divider", width: "100%" }}>
 									<Stack spacing={2}>
-										<FeatureItem icon="📝" text="Daily thought-provoking prompts" />
-										<FeatureItem icon="⏰" text="Scheduled notifications at your chosen time" />
-										<FeatureItem icon="🔍" text="Simple search to revisit past reflections" />
+										<FeatureItem icon="📱" text="Seamless offline lead capture" />
+										<FeatureItem icon="⚡" text="Real-time sync across all devices" />
+										<FeatureItem icon="🤝" text="Team collaboration and analytics" />
 									</Stack>
 								</Box>
 

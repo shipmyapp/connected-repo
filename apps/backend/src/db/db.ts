@@ -3,10 +3,8 @@ import { AccountTable } from "@backend/modules/auth/tables/account.auth.table";
 import { SessionTable } from "@backend/modules/auth/tables/session.auth.table";
 import { VerificationTable } from "@backend/modules/auth/tables/verification.auth.table";
 import { PgTbusTaskLogTable } from "@backend/modules/events/tables/pg_tbus_task_log.table";
-import { JournalEntryTable } from "@backend/modules/journal-entries/tables/journal_entries.table";
 import { LeadTable } from "@backend/modules/leads/tables/leads.table";
 import { ApiProductRequestLogTable } from "@backend/modules/logs/tables/api_product_request_logs.table";
-import { PromptTable } from "@backend/modules/prompts/tables/prompts.table";
 import { SubscriptionTable } from "@backend/modules/subscriptions/tables/subscriptions.table";
 import { TeamTable } from "@backend/modules/teams/tables/teams.table";
 import { UserTable } from "@backend/modules/users/tables/users.table";
@@ -20,9 +18,7 @@ export const db = orchidORM(
 	},
 	{
 		users: UserTable,
-		journalEntries: JournalEntryTable,
 		leads: LeadTable,
-		prompts: PromptTable,
 		sessions: SessionTable,
 		accounts: AccountTable,
 		verifications: VerificationTable,

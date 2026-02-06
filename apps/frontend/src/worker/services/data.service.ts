@@ -20,16 +20,9 @@ export class DataService {
     options: { sortBy?: string; descending?: boolean; limit?: number; offset?: number } = {}
   ): Promise<{ data: T; source: 'server' | 'cache'; total?: number }> {
     // Entities managed by SyncManager (Real-time + Delta)
-    const isSyncManaged = entity === 'prompts' || entity === 'journalEntries';
+    const isSyncManaged = entity === 'leads';
 
     if (isSyncManaged) {
-      if (entity === 'prompts' && operation === 'getRandomActive') {
-        const cachedData = this.storage.getAll(entity);
-        if (cachedData.length === 0) throw new Error('No prompts available in cache.');
-        const randomIndex = Math.floor(Math.random() * cachedData.length);
-        return { data: cachedData[randomIndex] as unknown as T, source: 'cache' };
-      }
-
       const idFieldName = this.getIdFieldName(entity);
       
       let data: any;
@@ -261,8 +254,7 @@ export class DataService {
 
   private getIdFieldName(entity: EntityName): string {
     switch (entity) {
-      case 'journalEntries': return 'journalEntryId';
-      case 'prompts': return 'promptId';
+      case 'leads': return 'leadId';
       // Add other entities here
       default: return 'id';
     }

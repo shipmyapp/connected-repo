@@ -66,7 +66,7 @@ export class SyncManager {
       if (!lastSyncTimestamp) {
         console.log(`[SyncManager] No syncMeta found. Scanning tables for latest updatedAt...`);
         let latestUpdate = 0;
-        const tables: EntityName[] = ['journalEntries', 'prompts'];
+        const tables: EntityName[] = ['leads'];
         for (const table of tables) {
           const rows = this._storage.getAll(table);
           for (const row of rows) {
@@ -84,31 +84,19 @@ export class SyncManager {
       
       const delta = await (this._orpc.sync as any).getDelta({ since: lastSyncTimestamp });
       console.log(`[SyncManager] Delta received:`, {
-        journalEntries: delta.journalEntries?.length ?? 0,
-        prompts: delta.prompts?.length ?? 0,
+        leads: delta.leads?.length ?? 0,
         newTimestamp: delta.timestamp
       });
       
       this._storage.transaction(() => {
-        // Update journalEntries
-        if (delta.journalEntries) {
-          for (const entry of delta.journalEntries) {
-            if (entry.deletedAt) {
-              console.log(`[SyncManager] Deleting soft-deleted journal entry: ${entry.journalEntryId}`);
-              this._storage.delRow('journalEntries', entry.journalEntryId);
+        // Update leads
+        if (delta.leads) {
+          for (const lead of delta.leads) {
+            if (lead.deletedAt) {
+              console.log(`[SyncManager] Deleting soft-deleted lead: ${lead.leadId}`);
+              this._storage.delRow('leads', lead.leadId);
             } else {
-              this._storage.setRow('journalEntries', entry.journalEntryId, entry);
-            }
-          }
-        }
-        // Update prompts
-        if (delta.prompts) {
-          for (const prompt of delta.prompts) {
-            if (prompt.deletedAt) {
-              console.log(`[SyncManager] Deleting soft-deleted prompt: ${prompt.promptId}`);
-              this._storage.delRow('prompts', prompt.promptId.toString());
-            } else {
-              this._storage.setRow('prompts', prompt.promptId.toString(), prompt);
+              this._storage.setRow('leads', lead.leadId, lead);
             }
           }
         }
@@ -341,8 +329,7 @@ export class SyncManager {
 
   private getIdFieldName(entity: string): string {
     switch (entity) {
-      case 'journalEntries': return 'journalEntryId';
-      case 'prompts': return 'promptId';
+      case 'leads': return 'leadId';
       default: return 'id';
     }
   }

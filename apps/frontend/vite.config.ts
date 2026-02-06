@@ -43,8 +43,8 @@ export default defineConfig(({ mode }) => {
 					}
 					: {}),
 				manifest: {
-					name: "OneQ",
-					short_name: "OneQ",
+					name: "ExpoWiz",
+					short_name: "ExpoWiz",
 					start_url: "/",
 					display: "standalone",
 					background_color: "#ffffff",

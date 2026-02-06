@@ -57,7 +57,7 @@ export const DesktopNavbar = () => {
 							letterSpacing: -0.5,
 						}}
 					>
-						OneQ
+						ExpoWiz
 					</Typography>
 					<SyncStatusIndicator />
 				</Box>

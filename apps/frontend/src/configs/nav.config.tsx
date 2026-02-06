@@ -26,14 +26,14 @@ export const navItems: NavItem[] = [
 		mobileIcon: <HomeIcon />, // Different icon for mobile
 	},
 	{
-		label: "Journal Entries",
-		path: "/journal-entries",
+		label: "Leads",
+		path: "/leads",
 		desktopIcon: <ListIcon fontSize="small" />,
 		mobileIcon: <ListIcon />,
 	},
 	{
-		label: "New Entry",
-		path: "/journal-entries/new",
+		label: "Capture Lead",
+		path: "/leads/new",
 		desktopIcon: <PostAddIcon fontSize="small" />,
 		mobileIcon: <PostAddIcon />,
 	},

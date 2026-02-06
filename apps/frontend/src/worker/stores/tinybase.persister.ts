@@ -1,7 +1,7 @@
 import type { Store } from 'tinybase';
 import { createIndexedDbPersister } from 'tinybase/persisters/persister-indexed-db';
 
-const DB_NAME = 'oneq-data-store';
+const DB_NAME = 'expowiz-data-store';
 
 /**
  * Creates an IndexedDB persister for the TinyBase store and starts

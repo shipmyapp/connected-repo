@@ -1,19 +1,11 @@
 // ── Entity & Operation Maps ─────────────────────────────────────────
 
-export interface EntityOperationMap {
-  journalEntries: {
-    query: 'getAll' | 'getById';
-    mutation: 'create' | 'delete';
-  };
+export type EntityOperationMap = {
   leads: {
     query: 'getAll' | 'getById';
     mutation: 'create' | 'delete';
   };
-  prompts: {
-    query: 'getRandomActive' | 'getAllActive';
-    mutation: never;
-  };
-}
+};
 
 export type EntityName = keyof EntityOperationMap;
 

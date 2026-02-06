@@ -77,7 +77,7 @@ export const MobileNavbar = () => {
 								letterSpacing: -0.5,
 							}}
 						>
-							OneQ
+							ExpoWiz
 						</Typography>
 						<SyncStatusIndicator />
 					</Box>

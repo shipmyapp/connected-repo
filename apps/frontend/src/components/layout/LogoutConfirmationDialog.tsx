@@ -53,9 +53,9 @@ export const LogoutConfirmationDialog = ({
         <DialogContentText>
           {pendingCount > 0 ? (
             <>
-              You have <strong>{pendingCount}</strong> unsynced journal entries. 
+              You have <strong>{pendingCount}</strong> unsynced leads. 
               <br /><br />
-              Logging out will <strong>permanently delete</strong> these entries from your local device. 
+              Logging out will <strong>permanently delete</strong> these leads from your local device. 
               Are you absolutely sure you want to proceed?
             </>
           ) : (

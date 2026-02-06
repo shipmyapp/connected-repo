@@ -1,4 +1,3 @@
-import { scheduleJournalEntryReminders } from "@backend/modules/journal-entries/services/schedule_reminders.journal_entries.service";
 import { logger } from '@backend/utils/logger.utils';
 import * as cron from 'node-cron';
 
@@ -22,8 +21,7 @@ export const perMinuteCronJobs: cron.ScheduledTask = cron.schedule(
 		try {
 			logger.info('Running scheduled per-minute cron jobs...');
 
-			// Schedule journal entry reminders for users
-			await scheduleJournalEntryReminders();
+			// Placeholder for future cron jobs
 
 			logger.info(
 				"Cron job completed successfully",

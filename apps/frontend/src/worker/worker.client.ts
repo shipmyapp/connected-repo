@@ -227,6 +227,7 @@ class DataWorkerClient {
     const msg: any = {
       type: 'sync-update',
       payload,
+      correlationId: `bg-sync-${crypto.randomUUID()}`,
     };
     if (!this._initialized) {
       console.log('[DataWorkerClient] Worker not initialized, queuing sync-update');
@@ -241,6 +242,7 @@ class DataWorkerClient {
     const msg: any = {
       type: 'relay-event',
       payload: { event, payload },
+      correlationId: `bg-event-${crypto.randomUUID()}`,
     };
     if (!this._initialized) {
       console.log(`[DataWorkerClient] Worker not initialized, queuing relay-event: ${event}`);
@@ -261,9 +263,19 @@ class DataWorkerClient {
   private async _rpc<T>(
     message: WorkerRequestPayload,
   ): Promise<{ data: T; meta: { source: 'server' | 'cache'; total?: number } }> {
-    if (!this._worker || !this._initialized) {
-      console.error('[DataWorkerClient] Cannot execute RPC - Worker not initialized');
-      throw new Error('Worker not initialized');
+    if (!this._worker) {
+      console.error('[DataWorkerClient] Cannot execute RPC - Worker not created');
+      throw new Error('Worker not created');
+    }
+
+    if (!this._initialized) {
+      if (this._initPromise) {
+        console.log(`[DataWorkerClient] RPC ${message.type} delayed - waiting for initialization...`);
+        await this._initPromise;
+      } else {
+        console.error('[DataWorkerClient] Cannot execute RPC - Worker not initialized');
+        throw new Error('Worker not initialized');
+      }
     }
 
     const correlationId = crypto.randomUUID();

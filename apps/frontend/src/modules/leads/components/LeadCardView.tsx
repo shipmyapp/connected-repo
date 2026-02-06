@@ -8,7 +8,7 @@ import EmailIcon from "@mui/icons-material/Email";
 import PhoneIcon from "@mui/icons-material/Phone";
 
 interface LeadCardViewProps {
-	entries: LeadSelectAll[];
+	entries: (LeadSelectAll & { _isPending?: boolean })[];
 	onEntryClick: (leadId: string) => void;
 }
 
