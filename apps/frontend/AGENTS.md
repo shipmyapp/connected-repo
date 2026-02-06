@@ -159,6 +159,37 @@ await signout("clear-cache");
 const lastLogin = getLastLogin();
 ```
 
+## Offline Database (PGlite)
+
+**Pattern:** Embedded PostgreSQL in browser via Web Worker with IndexedDB persistence
+
+**Stack:**
+- `@electric-sql/pglite` - Embedded PostgreSQL WASM
+- `comlink` - Web Worker RPC proxy
+- `idb://` protocol - IndexedDB persistence
+
+**Files:**
+- `src/worker/db/db.worker.ts` - Web Worker entry, exposes DBManager via Comlink
+- `src/worker/db/db.manager.ts` - PGlite initialization and schema management
+- `src/worker/db/db.proxy.ts` - Singleton proxy with lazy init
+- `src/worker/db/db.demo.ts` - Verification demo
+
+**Usage:**
+```typescript
+import { getDBProxy } from '@frontend/worker/db/db.proxy';
+
+const db = await getDBProxy();
+const entries = await db.query('SELECT * FROM journal_entries WHERE author_user_id = $1', [userId]);
+await db.query('INSERT INTO journal_entries (journal_entry_id, content, author_user_id) VALUES ($1, $2, $3)', [id, content, userId]);
+```
+
+**Vite Config:**
+```typescript
+worker: { format: 'es', plugins: () => [react()] },
+optimizeDeps: { exclude: ['@electric-sql/pglite'] },
+build: { target: 'esnext' }
+```
+
 ## oRPC Client
 ```typescript
 import { orpc } from '@/utils/orpc.client'

@@ -3,6 +3,7 @@
 	"dependencies": {
 		"@connected-repo/ui-mui": "*",
 		"@connected-repo/zod-schemas": "*",
+		"@electric-sql/pglite": "^0.3.15",
 		"@emotion/react": "^11.14.0",
 		"@emotion/styled": "^11.14.1",
 		"@hookform/resolvers": "^5.2.2",

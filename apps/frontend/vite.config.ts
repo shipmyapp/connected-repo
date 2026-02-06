@@ -97,7 +97,17 @@ export default defineConfig(({ mode }) => {
 				'@backend': path.resolve(__dirname, '../backend/src'),
 			},
 		},
+		worker: {
+			format: 'es',
+			plugins: () => [
+				react(),
+			],
+		},
+		optimizeDeps: {
+			exclude: ['@electric-sql/pglite'],
+		},
 		build: {
+			target: 'esnext',
 			rollupOptions: {
 				output: {
 					manualChunks: {
@@ -106,12 +116,6 @@ export default defineConfig(({ mode }) => {
 						// mui: ['@mui/material'],
 						// zod: ['zod'], // '@connected-repo/zod-schemas'],
 					},
-					// manualChunks(id) {
-					//   if (id.includes('zod')) {
-					//     console.log('Creating separate chunk for zod-schemas:', id);
-					//     return 'zod-schemas';
-					//   }
-					// }
 				},
 			},
 			sourcemap: true,
