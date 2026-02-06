@@ -2,6 +2,7 @@ import { journalEntriesRouter } from '@backend/modules/journal-entries/journal-e
 import { promptsRouter } from '@backend/modules/prompts/prompts.router'
 import { rpcPublicProcedure } from '@backend/procedures/public.procedure'
 import { usersRouter } from '@backend/routers/user_app/users.user_app.router'
+import { syncRouter } from '@backend/modules/sync/sync.router'
 import type { InferRouterInputs, InferRouterOutputs, RouterClient } from '@orpc/server'
 
 // Phase 1: Basic health check and testing endpoints
@@ -24,6 +25,7 @@ export const userAppRouter = {
 	users: usersRouter,
 	journalEntries: journalEntriesRouter,
 	prompts: promptsRouter,
+	sync: syncRouter,
 };
 
 export type UserAppRouter = RouterClient<typeof userAppRouter>;
