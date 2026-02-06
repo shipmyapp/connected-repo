@@ -51,7 +51,7 @@ Building a **Scheduled Prompt & Journal** app with:
 12. **Push Notifications (P0):** FCM/APNs setup and event-driven push notifications
 13. **Mobile CI/CD (P0):** GitHub Actions for Android/iOS builds and store uploads
 14. **Payments & Subscriptions (P0):** Stripe integration ($5/month, $50/year)
-15. **Offline-First (V1):** Make app offline-first, free version offline-only, paid gets cloud sync
+15. **Offline-First (V1):** ~~Make app offline-first, free version offline-only, paid gets cloud sync~~ 🔄 PARTIAL - Auth caching implemented, full IndexedDB data sync pending
 16. **Search Functionality (V1):** Backend search implementation
 17. **Gamification (V1):** Streaks and badges system (event-driven)
 

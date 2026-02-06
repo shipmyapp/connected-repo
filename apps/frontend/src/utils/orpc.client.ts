@@ -1,5 +1,4 @@
 import { env } from "@frontend/configs/env.config";
-import { authClient } from "@frontend/utils/auth.client";
 import { createORPCClient, onError } from '@orpc/client';
 import { RPCLink } from '@orpc/client/fetch';
 import { SimpleCsrfProtectionLinkPlugin } from '@orpc/client/plugins';
@@ -73,4 +72,3 @@ export type UserAppBackendInputs = UserAppRouterInputs;
  * @public
  */
 export type UserAppBackendOutputs = UserAppRouterOutputs;
-

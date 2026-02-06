@@ -135,6 +135,30 @@ return (
 - **URL state**: React Router params
 - **Local state**: useState/useReducer
 
+## Offline Auth Caching
+
+**Pattern:** Auth session is cached in localStorage for offline fallback
+
+**Files:**
+- `src/utils/auth.persistence.ts` - localStorage cache utilities (saveAuthCache, getAuthCache, clearAuthCache, saveLastLogin, getLastLogin)
+- `src/utils/auth.loader.ts` - Falls back to cached session when offline/server unreachable
+- `src/utils/signout.utils.ts` - Clears cache on logout with "clear-cache" mode
+
+**Usage:**
+```typescript
+// Save session after successful auth
+saveAuthCache(session.user);
+
+// Get cached session (returns null if not cached)
+const cached = getAuthCache();
+
+// Clear on intentional logout
+await signout("clear-cache");
+
+// Get last logged-in user info for UI
+const lastLogin = getLastLogin();
+```
+
 ## oRPC Client
 ```typescript
 import { orpc } from '@/utils/orpc.client'

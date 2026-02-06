@@ -1,7 +1,13 @@
 import { getSWProxy } from "@frontend/sw/proxy.sw";
 import { authClient } from "./auth.client";
+import { clearAuthCache } from "./auth.persistence";
 
-export const signout = async () => {
+export const signout = async (mode?: "clear-cache") => {
+    if (mode === "clear-cache") {
+        // Clear local auth cache first
+        clearAuthCache();
+    }
+
     // Stop SSE monitoring on auth error
     getSWProxy()
         .then((sw) => sw.stopMonitoring())
