@@ -13,6 +13,7 @@
 		"@orpc/tanstack-query": "^1.12.1",
 		"@sentry/react": "^10.32.1",
 		"@tanstack/react-query": "^5.90.5",
+		"axios": "^1.13.4",
 		"better-auth": "^1.4.6",
 		"comlink": "^4.4.2",
 		"material-react-table": "^3.2.1",

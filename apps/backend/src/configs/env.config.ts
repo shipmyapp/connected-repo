@@ -65,6 +65,12 @@ const envSchema = z.object({
 	VITE_SENTRY_ENV: zString.optional(),
 	VITE_API_URL: z.url(),
 	WEBAPP_URL: z.url(),
+	S3_ENDPOINT: z.url(),
+	S3_REGION: zString.min(1),
+	S3_ACCESS_KEY_ID: zString.min(1),
+	S3_SECRET_ACCESS_KEY: zString.min(1),
+	S3_BUCKET_NAME: zString.min(1),
+	S3_PUBLIC_URL: z.preprocess((val) => (val === "" ? undefined : val), z.url().optional()),
 });
 
 // ----------------------------------------
