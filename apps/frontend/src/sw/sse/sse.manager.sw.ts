@@ -12,6 +12,8 @@ export class SSEManager {
     private heartbeatTimer: number | null = null;
     private HEARTBEAT_TIMEOUT = 15000; // 15s
     private isMonitoring = false;
+    private retryAbortController: AbortController | null = null;
+    private retryCount = 0;
 
     private updateStatus(status: SSEStatus) {
         if (this.currentStatus !== status) {
@@ -53,13 +55,24 @@ export class SSEManager {
         if (this.abortController) {
             this.abortController.abort(); // Immediately break the current fetch/stream
         }
+        if (this.retryAbortController) {
+            this.retryAbortController.abort();
+        }
         this.updateStatus('disconnected');
+    }
+
+    public async reconnect() {
+        console.info('[SSE] Manual reconnection triggered');
+        this.retryCount = 0; // Reset backoff
+        if (this.retryAbortController) {
+            this.retryAbortController.abort(); // Break the current delay sleep
+        }
     }
 
     public async startMonitoring(apiUrl: string) {
         if (this.isMonitoring) return; // Prevent multiple loops
         this.isMonitoring = true;
-        let retryCount = 0;
+        this.retryCount = 0;
         
         const link = new RPCLink({
             url: `${apiUrl}/user-app`,
@@ -76,6 +89,7 @@ export class SSEManager {
                 const stream = await orpc.sync.heartbeatSync({}, { signal: this.abortController.signal });
                 this.updateStatus('connected');
                 this.resetHeartbeatWatchdog();
+                this.retryCount = 0; // Reset on successful connection
 
                 for await (const event of stream) {
                     console.debug(`[SSE] Received event type: ${event.type}`);
@@ -88,8 +102,6 @@ export class SSEManager {
                     }
                     // Handle other events...
                 }
-
-                retryCount = 0;
             } catch (err: unknown) {
                 if (err instanceof Error && err.name === 'AbortError') {
                     continue;
@@ -106,16 +118,33 @@ export class SSEManager {
 
                 if(this.isMonitoring) {
                     // Exponential backoff: 1s, 2s, 4s, 8s... up to 30s
-                    const backoff = Math.min(30000, Math.pow(2, retryCount) * 1000);
+                    const backoff = Math.min(30000, Math.pow(2, this.retryCount) * 1000);
                     
                     // Jitter: adds or subtracts up to 20% of the wait time randomly
                     const jitter = backoff * 0.2 * Math.random();
                     const delay = backoff + jitter;
 
-                    console.log(`[SSE] Retrying in ${Math.round(delay)}ms...`);
+                    console.log(`[SSE] Retrying in ${Math.round(delay)}ms (Attempt ${this.retryCount + 1})...`);
                     
-                    await new Promise(res => setTimeout(res, delay));
-                    retryCount++;
+                    this.retryAbortController = new AbortController();
+                    try {
+                        await new Promise((resolve, reject) => {
+                            const timer = setTimeout(resolve, delay);
+                            this.retryAbortController?.signal.addEventListener('abort', () => {
+                                clearTimeout(timer);
+                                reject(new Error('RetryAborted'));
+                            });
+                        });
+                    } catch (e) {
+                        if (e instanceof Error && e.message === 'RetryAborted') {
+                            console.info('[SSE] Retry delay aborted for immediate reconnection');
+                        } else {
+                            throw e; // Re-throw other errors
+                        }
+                    } finally {
+                        this.retryAbortController = null;
+                        this.retryCount++;
+                    }
                 }
             }
         }

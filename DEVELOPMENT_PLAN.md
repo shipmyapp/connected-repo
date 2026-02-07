@@ -51,7 +51,7 @@ Building a **Scheduled Prompt & Journal** app with:
 12. **Push Notifications (P0):** FCM/APNs setup and event-driven push notifications
 13. **Mobile CI/CD (P0):** GitHub Actions for Android/iOS builds and store uploads
 14. **Payments & Subscriptions (P0):** Stripe integration ($5/month, $50/year)
-15. **Offline-First (V1):** ~~Make app offline-first, free version offline-only, paid gets cloud sync~~ 🔄 PARTIAL - Auth caching implemented, full IndexedDB data sync pending
+15. **Offline-First (V1):** ~~Make app offline-first, free version offline-only, paid gets cloud sync~~ 🔄 PARTIAL - IndexedDB infrastructure implemented with Dexie.js, unified AppWorker for background processing, offline/online indicators with reconnect functionality. Sync queue and auto-save pending.
 16. **Search Functionality (V1):** Backend search implementation
 17. **Gamification (V1):** Streaks and badges system (event-driven)
 
@@ -853,21 +853,24 @@ cron.schedule('* * * * *', async () => {
 
 **Issues:**
 
-**10.1.1: Implement IndexedDB for Offline Storage**
-- Install Dexie.js for IndexedDB management
-- Create IndexedDB schema for journal entries, prompts, user data
-- Implement offline CRUD operations for journal entries
-- Store entry drafts locally (auto-save as user types)
-- Implement data synchronization queue
-- Handle conflict resolution (local changes take precedence)
-- Show offline/online indicators
+**10.1.1: Implement IndexedDB for Offline Storage** ✅ PARTIALLY COMPLETED
+- ✅ Install Dexie.js for IndexedDB management - Dexie 4.3.0 added
+- ✅ Create IndexedDB schema for journal entries, prompts, user data - Schema v1 with 4 tables (journalEntries, prompts, pendingSyncJournalEntries, files)
+- ✅ Implement offline CRUD operations for journal entries - JournalEntriesDBManager with upsert/getAll methods
+- ⏳ Store entry drafts locally (auto-save as user types) - Pending: Not yet implemented
+- ⏳ Implement data synchronization queue - Pending: Schema created (PendingSyncJournalEntry) but queue processing not wired
+- ⏳ Handle conflict resolution (local changes take precedence) - Pending: No conflict resolution logic yet
+- ✅ Show offline/online indicators - Enhanced OfflineBanner with reconnect button and SSE status
+- ✅ Created unified AppWorker consolidating CDN + DB operations via Comlink
+- ✅ Added MediaUploadService for image compression and CDN uploads in worker
+- ✅ Created database architecture documentation (AGENTS.md)
 - **Acceptance Criteria:**
-  - IndexedDB initialized and working
-  - Journal entries stored offline
-  - Drafts auto-saved
-  - Sync queue implemented
-  - Offline/online status indicators
-  - Conflicts resolved gracefully
+  - ✅ IndexedDB initialized and working
+  - ✅ Journal entries stored offline
+  - ⏳ Drafts auto-saved - Not yet implemented
+  - ⏳ Sync queue implemented - Schema ready but processing pending
+  - ✅ Offline/online status indicators
+  - ⏳ Conflicts resolved gracefully - Not yet implemented
 
 **10.1.2: Free vs Paid Tier Logic**
 - Implement tier checking middleware

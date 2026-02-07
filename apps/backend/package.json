@@ -3,7 +3,7 @@
 	"dependencies": {
 		"@aws-sdk/client-s3": "^3.985.0",
 		"@aws-sdk/s3-request-presigner": "^3.985.0",
-		"@better-auth/core": "^1.4.6",
+		"@better-auth/core": "^1.4.18",
 		"@connected-repo/zod-schemas": "*",
 		"@opentelemetry/api": "^1.9.0",
 		"@opentelemetry/exporter-trace-otlp-http": "^0.208.0",

@@ -12,7 +12,7 @@ import { IconButton } from "@connected-repo/ui-mui/navigation/IconButton";
 import { RhfSubmitButton } from "@connected-repo/ui-mui/rhf-form/RhfSubmitButton";
 import { RhfTextField } from "@connected-repo/ui-mui/rhf-form/RhfTextField";
 import { useRhfForm } from "@connected-repo/ui-mui/rhf-form/useRhfForm";
-import { type JournalEntryCreateInput, journalEntryCreateInputZod } from "@connected-repo/zod-schemas/journal_entry.zod";
+import { PendingSyncJournalEntry, pendingSyncJournalEntryZod } from "@connected-repo/zod-schemas/journal_entry.zod";
 import { orpc, orpcFetch } from "@frontend/utils/orpc.client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
@@ -20,6 +20,7 @@ import EditNoteIcon from "@mui/icons-material/EditNote";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { ulid } from "ulid";
 
 type WritingMode = "prompted" | "free";
 
@@ -36,7 +37,7 @@ export function CreateJournalEntryForm() {
 	} = useQuery(orpc.prompts.getRandomActive.queryOptions());
 
 	// Form setup with Zod validation and RHF
-	const { formMethods, RhfFormProvider } = useRhfForm<JournalEntryCreateInput>({
+	const {formMethods, RhfFormProvider } = useRhfForm<PendingSyncJournalEntry>({
 		onSubmit: async (data) => {
 			// Set prompt to null if in free writing mode
 			const submitData = {
@@ -54,10 +55,16 @@ export function CreateJournalEntryForm() {
 			}
 		},
 		formConfig: {
-			resolver: zodResolver(journalEntryCreateInputZod),
+			// @ts-expect-error
+			resolver: zodResolver(pendingSyncJournalEntryZod),
 			defaultValues: {
 				prompt: null,
 				content: undefined,
+				attachmentFileIds: [],
+				journalEntryId: ulid(),
+				status: "file-upload-pending",
+				errorCount: 0,
+				createdAt: new Date().getTime()
 			},
 		},
 	});
