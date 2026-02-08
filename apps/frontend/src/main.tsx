@@ -14,19 +14,17 @@ import * as Sentry from "@sentry/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { registerSW } from 'virtual:pwa-register';
 
 // Register service worker for PWA functionality
-if ('serviceWorker' in navigator) {
-	window.addEventListener('load', () => {
-		navigator.serviceWorker.register('/sw.js')
-			.then((registration) => {
-				console.log('SW registered: ', registration);
-			})
-			.catch((registrationError) => {
-				console.log('SW registration failed: ', registrationError);
-			});
-	});
-}
+registerSW({
+  onRegistered(r: ServiceWorkerRegistration | undefined) {
+    console.info('SW registered: ', r);
+  },
+  onRegisterError(error: unknown) {
+    console.error('SW registration failed: ', error);
+  },
+});
 
 // Defensive mounting: ensure the root element exists and create the root
 // only once. This pattern is compatible with React 18/19 root API and is

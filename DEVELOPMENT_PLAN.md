@@ -51,7 +51,7 @@ Building a **Scheduled Prompt & Journal** app with:
 12. **Push Notifications (P0):** FCM/APNs setup and event-driven push notifications
 13. **Mobile CI/CD (P0):** GitHub Actions for Android/iOS builds and store uploads
 14. **Payments & Subscriptions (P0):** Stripe integration ($5/month, $50/year)
-15. **Offline-First (V1):** Make app offline-first, free version offline-only, paid gets cloud sync
+15. **Offline-First (V1):** ~~Make app offline-first, free version offline-only, paid gets cloud sync~~ 🔄 PARTIAL - Auth caching + PGlite IndexedDB foundation implemented, cloud sync pending
 16. **Search Functionality (V1):** Backend search implementation
 17. **Gamification (V1):** Streaks and badges system (event-driven)
 
@@ -296,17 +296,22 @@ Building a **Scheduled Prompt & Journal** app with:
 - **Manifest:** Complete web app manifest with icons (192x192, 512x512, maskable, apple-touch-icon), theme colors, display modes
 - **Install Prompts:** Platform-specific prompts for iOS and Android with dismiss functionality
 - **Update Prompts:** Service worker update detection with user notification
-- **Offline Blocker:** `OfflineBlocker.tsx` component that blocks UI when connection is lost
+- **Connectivity Monitoring:** SSE-based live connectivity with heartbeat (15s interval), status badges, and offline banners
 - **State Management:** Zustand store (`usePwaInstall.store.ts`) manages installation state
 
 **Files:**
 - `apps/frontend/vite.config.ts` - PWA configuration
-- `apps/frontend/src/sw.ts` - Service worker
+- `apps/frontend/src/sw/sw.ts` - Service worker (moved to sw/ folder)
+- `apps/frontend/src/sw/sse/sse.manager.sw.ts` - SSE connection manager in service worker
+- `apps/frontend/src/sw/sse/useConnectivity.sse.sw.ts` - React hook for connectivity state
+- `apps/frontend/src/sw/sse/OfflineBanner.sse.sw.tsx` - Offline status banner component
+- `apps/frontend/src/sw/sse/StatusBadge.sse.sw.tsx` - SSE status indicator badge
+- `apps/frontend/src/sw/proxy.sw.ts` - Comlink proxy for SW communication
 - `apps/frontend/src/components/pwa/install_prompt.pwa.tsx` - Install prompts
 - `apps/frontend/src/components/pwa/update_prompt.pwa.tsx` - Update prompts
-- `apps/frontend/src/components/OfflineBlocker.tsx` - Offline UI blocker
 - `apps/frontend/src/stores/usePwaInstall.store.ts` - Installation state
-- `apps/frontend/src/hooks/usePwaInstall.ts` - Install hook
+- `apps/frontend/src/sw/usePwaInstall.sw.ts` - Install hook (moved to sw/ folder)
+- `apps/backend/src/modules/sync/` - Backend sync module with heartbeat SSE
 
 ---
 

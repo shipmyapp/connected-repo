@@ -9,8 +9,7 @@
 import { LoadingSpinner } from "@connected-repo/ui-mui/components/LoadingSpinner";
 import { ThemeContextProvider, useThemeMode } from "@connected-repo/ui-mui/theme/ThemeContext";
 import { ErrorFallback } from "@frontend/components/error_fallback";
-import { OfflineBlocker } from "@frontend/components/OfflineBlocker";
-import { usePWAInstall } from "@frontend/hooks/usePwaInstall";
+import { usePWAInstall } from "@frontend/sw/usePwaInstall.sw";
 import { router } from "@frontend/router";
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -63,9 +62,7 @@ function App() {
 							scope.setTag("level", "top-level");
 						}}
 					>
-						<OfflineBlocker>
-							<RouterProvider router={router} />
-						</OfflineBlocker>
+						<RouterProvider router={router} />
 						<ToastProvider />
 					</ErrorBoundary>
 				</Suspense>

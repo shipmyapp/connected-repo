@@ -4,6 +4,7 @@ import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { AppBar } from "@connected-repo/ui-mui/navigation/AppBar";
 import { Toolbar } from "@connected-repo/ui-mui/navigation/Toolbar";
 import { navItems } from "@frontend/configs/nav.config";
+import { SSEStatusBadge } from "@frontend/sw/sse/StatusBadge.sse.sw";
 import { useLocation, useNavigate } from "react-router";
 import { UserProfileMenu } from "./UserProfileMenu";
 
@@ -58,6 +59,7 @@ export const DesktopNavbar = () => {
 					>
 						OneQ
 					</Typography>
+					<SSEStatusBadge />
 				</Box>
 
 				{/* Navigation Links */}

@@ -12,7 +12,9 @@ import { IconButton } from "@connected-repo/ui-mui/navigation/IconButton";
 import { Menu } from "@connected-repo/ui-mui/navigation/Menu";
 import { useThemeMode } from "@connected-repo/ui-mui/theme/ThemeContext";
 import type { SessionInfo } from "@frontend/contexts/UserContext";
+import { getSWProxy } from "@frontend/sw/proxy.sw";
 import { authClient } from "@frontend/utils/auth.client";
+import { signout } from "@frontend/utils/signout.utils";
 import { useState } from "react";
 import { useLoaderData, useNavigate } from "react-router";
 
@@ -40,18 +42,10 @@ export const UserProfileMenu = ({
 	const { mode, toggleTheme } = useThemeMode();
 	const isDarkMode = mode === "dark";
 
-	const handleLogout = () => {
+	const handleLogout = async () => {
 		handleClose();
-		authClient.signOut()
-			.then(() => {
-				// Redirect to login after successful logout
-				navigate("/auth/login");
-			})
-			.catch((error) => {
-				console.error("Logout failed:", error);
-				// Still redirect to login even if mutation fails
-				navigate("/auth/login");
-			});
+		// Clear cache when user logs out intentionally
+		await signout("clear-cache");
 	};
 
 	const handleOpen = (event: React.MouseEvent<HTMLElement>) => {

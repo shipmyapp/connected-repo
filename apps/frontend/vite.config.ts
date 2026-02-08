@@ -25,10 +25,11 @@ export default defineConfig(({ mode }) => {
 			}),
 			VitePWA({
 				strategies: "injectManifest",
-				srcDir: "src",
-				filename: "sw.ts",
+				srcDir: "src/sw",
+				filename: "sw.js",
 				registerType: "prompt",
 				injectManifest: {
+					swSrc: "src/sw/sw.ts",
 					globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
 				},
 				workbox: {
@@ -96,7 +97,17 @@ export default defineConfig(({ mode }) => {
 				'@backend': path.resolve(__dirname, '../backend/src'),
 			},
 		},
+		worker: {
+			format: 'es',
+			plugins: () => [
+				react(),
+			],
+		},
+		optimizeDeps: {
+			exclude: ['@electric-sql/pglite'],
+		},
 		build: {
+			target: 'esnext',
 			rollupOptions: {
 				output: {
 					manualChunks: {
@@ -105,12 +116,6 @@ export default defineConfig(({ mode }) => {
 						// mui: ['@mui/material'],
 						// zod: ['zod'], // '@connected-repo/zod-schemas'],
 					},
-					// manualChunks(id) {
-					//   if (id.includes('zod')) {
-					//     console.log('Creating separate chunk for zod-schemas:', id);
-					//     return 'zod-schemas';
-					//   }
-					// }
 				},
 			},
 			sourcemap: true,

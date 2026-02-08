@@ -3,6 +3,7 @@ import { useThemeMode } from "@connected-repo/ui-mui/theme/ThemeContext";
 import { PwaInstallPrompt } from "@frontend/components/pwa/install_prompt.pwa";
 import { PwaUpdatePrompt } from "@frontend/components/pwa/update_prompt.pwa";
 import type { SessionInfo } from "@frontend/contexts/UserContext";
+import { OfflineBanner } from "@frontend/sw/sse/OfflineBanner.sse.sw";
 import { useMediaQuery } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import { useEffect } from "react";
@@ -44,6 +45,7 @@ export const AppLayout = () => {
 			}}
 		>
 			{isMobile ? <MobileNavbar /> : <DesktopNavbar />}
+			<OfflineBanner />
 
 			{/* Main content area */}
 			<Box

@@ -24,7 +24,7 @@ export function calculateSubscriptionParams(sku: ApiProductSku, quantity: number
 	}
 
 	return {
-		maxRequests: product.unit_size * quantity,
-		validityDays: product.validity_days,
+		maxRequests: product.unitSize * quantity,
+		validityDays: product.validityDays,
 	};
 }

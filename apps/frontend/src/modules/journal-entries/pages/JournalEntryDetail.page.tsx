@@ -18,6 +18,10 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 
+// Run PGlite demo to verify persistence
+import { runDBDemo } from "@frontend/worker/db/db.demo";
+runDBDemo();
+
 export default function JournalEntryDetailPage() {
 	const navigate = useNavigate();
 	const { entryId } = useParams<{ entryId: string }>();
@@ -277,4 +281,4 @@ export default function JournalEntryDetailPage() {
 			</Dialog>
 		</Container>
 	);
-}
+};

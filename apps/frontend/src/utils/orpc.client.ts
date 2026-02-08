@@ -1,11 +1,11 @@
 import { env } from "@frontend/configs/env.config";
-import { authClient } from "@frontend/utils/auth.client";
 import { createORPCClient, onError } from '@orpc/client';
 import { RPCLink } from '@orpc/client/fetch';
 import { SimpleCsrfProtectionLinkPlugin } from '@orpc/client/plugins';
 import { createTanstackQueryUtils } from '@orpc/tanstack-query';
 import { toast } from "react-toastify";
 import type { UserAppRouter, UserAppRouterInputs, UserAppRouterOutputs } from "../../../backend/src/routers/user_app/user_app.router";
+import { signout } from "./signout.utils";
 
 interface ClientContext {
   something?: string
@@ -52,25 +52,7 @@ const link = new RPCLink<ClientContext>({
       // This prevents redirecting during initial load race conditions
       if (isAuthError) {
         toast.error("Your session has expired. Please log in again.", { autoClose: 3000 });
-        // Sign out and redirect to login
-        try {
-          await authClient.signOut({
-            fetchOptions: {
-              onSuccess: () => {
-                window.location.href = "/auth/login";
-              },
-              onError: (ctx) => {
-                console.error("Logout error:", ctx.error);
-                // Force redirect even if logout fails
-                window.location.href = "/auth/login";
-              }
-            }
-          });
-        } catch (logoutError) {
-          console.error("Failed to logout:", logoutError);
-          // Force redirect even if logout fails
-          window.location.href = "/auth/login";
-        }
+        await signout();
       }
     })
   ],
@@ -90,4 +72,3 @@ export type UserAppBackendInputs = UserAppRouterInputs;
  * @public
  */
 export type UserAppBackendOutputs = UserAppRouterOutputs;
-

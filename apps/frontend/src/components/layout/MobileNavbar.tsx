@@ -6,8 +6,9 @@ import { BottomNavigation } from "@connected-repo/ui-mui/navigation/BottomNaviga
 import { BottomNavigationAction } from "@connected-repo/ui-mui/navigation/BottomNavigationAction";
 import { Toolbar } from "@connected-repo/ui-mui/navigation/Toolbar";
 import { navItems } from "@frontend/configs/nav.config";
+import { SSEStatusBadge } from "@frontend/sw/sse/StatusBadge.sse.sw";
 import { useLocation, useNavigate } from "react-router";
-import { UserProfileMenu } from "./UserProfileMenu";
+import { UserProfileMenu } from "@frontend/components/layout/UserProfileMenu";
 
 export const MobileNavbar = () => {
 	const navigate = useNavigate();
@@ -65,6 +66,7 @@ export const MobileNavbar = () => {
 							display: "flex",
 							alignItems: "center",
 							cursor: "pointer",
+							gap: 1
 						}}
 					>
 						<Typography
@@ -78,6 +80,7 @@ export const MobileNavbar = () => {
 						>
 							OneQ
 						</Typography>
+						<SSEStatusBadge />
 					</Box>
 
 					{/* User Avatar - triggers menu */}
