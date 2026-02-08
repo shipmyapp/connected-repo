@@ -8,6 +8,7 @@ import { Toolbar } from "@connected-repo/ui-mui/navigation/Toolbar";
 import { navItems } from "@frontend/configs/nav.config";
 import { useLocation, useNavigate } from "react-router";
 import { UserProfileMenu } from "./UserProfileMenu";
+import { SyncStatusIndicator } from "./SyncStatusIndicator";
 
 export const MobileNavbar = () => {
 	const navigate = useNavigate();
@@ -78,6 +79,7 @@ export const MobileNavbar = () => {
 						>
 							OneQ
 						</Typography>
+						<SyncStatusIndicator />
 					</Box>
 
 					{/* User Avatar - triggers menu */}

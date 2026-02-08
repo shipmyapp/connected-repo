@@ -45,15 +45,18 @@ Building a **Scheduled Prompt & Journal** app with:
 6. ~~**Notification Infrastructure (P0):** SuprSend setup, event-driven notifications~~ ✅ COMPLETED
 7. ~~**Cron Jobs (P0):** Per-minute cron with pg-tbus task scheduling~~ ✅ COMPLETED
 8. ~~**Webhook Processing (P0):** Subscription alerts with retry logic~~ ✅ COMPLETED
-9. **User Schedules (P0):** Schedule management for timed notifications
-10. **Email Notifications (P0):** Event-driven daily prompt emails (after user schedules)
-11. **Capacitor Setup (P0):** iOS/Android native app configuration
-12. **Push Notifications (P0):** FCM/APNs setup and event-driven push notifications
-13. **Mobile CI/CD (P0):** GitHub Actions for Android/iOS builds and store uploads
-14. **Payments & Subscriptions (P0):** Stripe integration ($5/month, $50/year)
-15. **Offline-First (V1):** Make app offline-first, free version offline-only, paid gets cloud sync
-16. **Search Functionality (V1):** Backend search implementation
-17. **Gamification (V1):** Streaks and badges system (event-driven)
+9. ~~**Data Worker & Offline-First (P0):** TinyBase Worker for offline-first functionality~~ ✅ COMPLETED
+10. **User Schedules (P0):** Schedule management for timed notifications
+11. **Email Notifications (P0):** Event-driven daily prompt emails (after user schedules)
+12. **Capacitor Setup (P0):** iOS/Android native app configuration
+13. **Push Notifications (P0):** FCM/APNs setup and event-driven push notifications
+14. **Mobile CI/CD (P0):** GitHub Actions for Android/iOS builds and store uploads
+15. **Performance Optimization (P0):** Code splitting & pre-caching for faster loads. Ensure all files are downloaded the first time rather than waiting to be called.
+16. **Partial Replication (P0):** Limit offline support to the last 100-200 entries. Primary querying happens with filters and pagination from the server only.
+17. **Robust Persistence (P0):** TinyBase + SQLite-WASM + OPFS implementation with durability requests (Persistent Storage) and security headers (COOP/COEP).
+18. **Payments & Subscriptions (P0):** Stripe integration ($5/month, $50/year)
+19. **Search Functionality (V1):** Backend search implementation
+20. **Gamification (V1):** Streaks and badges system (event-driven)
 
 ---
 
@@ -388,7 +391,66 @@ cron.schedule('* * * * *', async () => {
 
 ---
 
-### Phase 6: User Schedules & Advanced Notifications 📅
+### Phase 6: Data Worker & Offline-First Implementation 📱 ✅ COMPLETED
+
+**Status:** ✅ COMPLETED - TinyBase Worker for offline-first functionality
+
+**Implementation Summary:**
+
+#### Epic 6.1: Data Worker Architecture
+- **TinyBase Worker:** `apps/frontend/src/worker/worker.ts` - Web Worker for local data management
+- **Client Wrapper:** `apps/frontend/src/worker/worker.client.ts` - Promise-based API for Worker communication
+- **Type Definitions:** `apps/frontend/src/worker/worker.types.ts` - Type-safe Worker interface
+- **Features:**
+  - Server-first data fetching with local cache fallback
+  - Pending operations queue for offline mode
+  - Automatic sync when connection restored
+  - Event-driven status updates (connectivity, sync progress, auth expiry)
+  - SQLite-like storage via TinyBase
+
+#### Epic 6.2: Worker Integration & Hooks
+- **Worker Hooks:** `apps/frontend/src/hooks/` directory
+  - `useDataWorker.ts` - Initialize and manage Worker lifecycle
+  - `useWorkerQuery.ts` - Drop-in replacement for TanStack Query reads
+  - `useWorkerMutation.ts` - Drop-in replacement for TanStack Query mutations
+  - `useWorkerStatus.ts` - Connectivity and sync status via useSyncExternalStore
+  - `usePendingEntries.ts` - Query pending offline operations
+  - `useWorkerSync.ts` - Sync management and force sync functionality
+
+#### Epic 6.3: UI Components & Integration
+- **Sync Components:** 
+  - `SyncProgress.tsx` - Visual sync indicator with progress tracking
+  - `SyncStatusIndicator*.tsx` - Multiple status indicator variants
+  - `OfflineBanner.tsx` - Non-blocking offline status banner (replaced OfflineBlocker)
+- **Journal Entries Integration:**
+  - Updated CreateJournalEntryForm to use Worker mutations
+  - Updated JournalEntries page to show pending/synced entries separately
+  - Added sync controls and real-time status updates
+- **App Integration:**
+  - Early Worker initialization in main.tsx
+  - Auth expiry handling via Worker events in App.tsx
+
+#### Epic 6.4: Architecture Benefits
+- **Offline-First:** App continues working without internet connection
+- **Progressive Enhancement:** Free users get offline-only, premium gets cloud sync
+- **Event-Driven:** Real-time updates via Worker push events
+- **Type Safety:** Full TypeScript coverage with Zod validation
+- **Performance:** Local cache reduces server requests
+- **Atomic Operations:** Queue ensures data consistency
+- **Documentation:** See [SYNC_ARCHITECTURE.md](./docs/SYNC_ARCHITECTURE.md) for a deep-dive.
+
+**Files Created/Modified:**
+- `apps/frontend/package.json` - Added tinybase dependency
+- `apps/frontend/src/worker/` - Worker implementation (3 files)
+- `apps/frontend/src/hooks/` - Worker hooks (6 files)
+- `apps/frontend/src/components/` - Sync and status components (5 files)
+- `apps/frontend/src/modules/journal-entries/` - Updated for Worker integration
+- `apps/frontend/src/App.tsx` - Worker initialization and auth handling
+- `apps/frontend/src/main.tsx` - Early Worker setup
+
+---
+
+### Phase 7: User Schedules & Advanced Notifications 📅
 
 **Priority:** HIGH - Schedule management for timed notifications
 
@@ -840,78 +902,15 @@ cron.schedule('* * * * *', async () => {
 
 ## V1: POST-MVP FEATURES
 
-### Phase 10: Offline-First Implementation 📱
-
-**Priority:** HIGH - Make app work offline, free version offline-only, paid gets cloud sync
-
-#### Epic 10.1: Offline-First Architecture
-
-**Issues:**
-
-**10.1.1: Implement IndexedDB for Offline Storage**
-- Install Dexie.js for IndexedDB management
-- Create IndexedDB schema for journal entries, prompts, user data
-- Implement offline CRUD operations for journal entries
-- Store entry drafts locally (auto-save as user types)
-- Implement data synchronization queue
-- Handle conflict resolution (local changes take precedence)
-- Show offline/online indicators
-- **Acceptance Criteria:**
-  - IndexedDB initialized and working
-  - Journal entries stored offline
-  - Drafts auto-saved
-  - Sync queue implemented
-  - Offline/online status indicators
-  - Conflicts resolved gracefully
-
-**10.1.2: Free vs Paid Tier Logic**
-- Implement tier checking middleware
-- Free tier: offline-only, no cloud sync
-- Premium tier: cloud sync enabled
-- Show upgrade prompts for cloud features
-- Implement data export for free users (GDPR compliance)
-- **Acceptance Criteria:**
-  - Free users blocked from cloud features
-  - Premium users can sync data
-  - Upgrade prompts shown appropriately
-  - Data export works for free users
-
-**10.1.3: Cloud Sync for Premium Users**
-- Implement background sync when online
-- Queue offline changes for upload
-- Download changes from server
-- Handle merge conflicts (user chooses or last-write-wins)
-- Show sync status and progress
-- Implement manual sync button
-- **Acceptance Criteria:**
-  - Offline changes sync when online
-  - Server changes download automatically
-  - Merge conflicts handled
-  - Sync status visible to user
-  - Manual sync works
-
-**10.1.4: Network-Aware UI**
-- Show offline/online status in UI
-- Disable cloud features when offline
-- Show cached data with "offline" indicators
-- Implement retry mechanisms for failed requests
-- **Acceptance Criteria:**
-  - Network status clearly indicated
-  - Offline features work seamlessly
-  - Retry buttons for failed operations
-  - Cached data clearly marked
-
----
-
-### Phase 11: Search Implementation 🔍
+### Phase 13: Search Implementation 🔍
 
 **Priority:** MEDIUM - User-requested feature
 
-#### Epic 11.1: Backend Search Implementation
+#### Epic 13.1: Backend Search Implementation
 
 **Issues:**
 
-**11.1.1: Implement pg_textsearch with Trigram & BM25 Search**
+**13.1.1: Implement pg_textsearch with Trigram & BM25 Search**
 - Create `journalEntries.search` oRPC endpoint
 - Use pg_textsearch library (open-sourced) for advanced text search with trigram similarity and BM25 ranking
 - Combine trigram similarity for fuzzy matching and BM25 for keyword relevance scoring
@@ -928,7 +927,7 @@ cron.schedule('* * * * *', async () => {
   - Only user's entries returned
   - Full-text search indexes created
 
-**11.1.2: Build Search UI**
+**13.1.2: Build Search UI**
 - Create search page with search bar
 - Add date range picker (from/to dates)
 - Display results in list format
@@ -944,15 +943,15 @@ cron.schedule('* * * * *', async () => {
 
 ---
 
-### Phase 12: Gamification System 🏆
+### Phase 14: Gamification System 🏆
 
 **Priority:** MEDIUM - Increase engagement and retention
 
-#### Epic 12.1: Streaks & Badges Implementation
+#### Epic 14.1: Streaks & Badges Implementation
 
 **Issues:**
 
-**12.1.1: Create Streak & Badge Tables**
+**11.1.1: Create Streak & Badge Tables**
 - Create `UserStreak` table (userId, currentStreak, longestStreak, lastEntryDate)
 - Create `Badge` table (id, name, description, iconUrl, milestoneValue)
 - Create `UserBadge` junction table (userId, badgeId, awardedAt)
@@ -964,7 +963,7 @@ cron.schedule('* * * * *', async () => {
   - Badges seeded with data
   - Indexes on userId
 
-**12.1.2: Implement Streak Calculation**
+**11.1.2: Implement Streak Calculation**
 - Create background job (or hook on entry creation)
 - Calculate if entry extends current streak
 - Reset streak if >24h gap (timezone-aware)
@@ -977,7 +976,7 @@ cron.schedule('* * * * *', async () => {
   - Timezone-aware calculations
   - Multiple entries same day don't duplicate count
 
-**12.1.3: Implement Badge Award Logic**
+**11.1.3: Implement Badge Award Logic**
 - Define badge metadata (names, descriptions, icons)
 - Create or find badge icons/images
 - Check if user qualifies for badges after each entry
@@ -994,7 +993,7 @@ cron.schedule('* * * * *', async () => {
   - Awards triggered correctly
   - No duplicate awards
 
-**12.1.4: Build Gamification oRPC Endpoints**
+**11.1.4: Build Gamification oRPC Endpoints**
 - `gamification.getStreak` - Get user's current streak
 - `gamification.getBadges` - Get user's earned badges
 - Include streak in user profile response
@@ -1004,7 +1003,7 @@ cron.schedule('* * * * *', async () => {
   - User can only see their own streaks
   - Leaderboard optional for MVP
 
-**12.1.5: Design Streak UI Component**
+**11.1.5: Design Streak UI Component**
 - Create streak display component
 - Show current streak number prominently
 - Display flame/fire icon (🔥)
@@ -1020,15 +1019,15 @@ cron.schedule('* * * * *', async () => {
 
 ---
 
-### Phase 13: Advanced Features ✨
+### Phase 12: Advanced Features ✨
 
 **Priority:** MEDIUM - Premium features & polish
 
-#### Epic 13.1: Cloud Sync & Data Export
+#### Epic 12.1: Cloud Sync & Data Export
 
 **Issues:**
 
-**13.1.1: Implement Cloud Backup (Premium)**
+**12.1.1: Implement Cloud Backup (Premium)**
 - Set up S3 or Cloudflare R2 for storage
 - Create backup API endpoint (premium users only)
 - Encrypt journal data before upload (AES-256)
@@ -1042,7 +1041,7 @@ cron.schedule('* * * * *', async () => {
   - Automatic backups work
   - Restore tested and works
 
-**13.1.2: Add Data Export (GDPR Compliance)**
+**12.1.2: Add Data Export (GDPR Compliance)**
 - Create export endpoint
 - Support JSON format (all user data)
 - Support CSV format (entries only)
@@ -1056,7 +1055,7 @@ cron.schedule('* * * * *', async () => {
   - Download works
   - GDPR compliant
 
-**13.1.3: Implement Account Deletion (GDPR)**
+**12.1.3: Implement Account Deletion (GDPR)**
 - Create account deletion endpoint
 - Delete all user data (cascade)
 - Remove from Stripe, Sentry, etc.
@@ -1074,7 +1073,7 @@ cron.schedule('* * * * *', async () => {
 
 ## V2: SCALING & POLISH
 
-### Phase 14: Advertising for Free Tier 📢
+### Phase 13: Advertising for Free Tier 📢
 
 **Priority:** MEDIUM - Monetize free users
 
@@ -1182,17 +1181,63 @@ cron.schedule('* * * * *', async () => {
   - Cache invalidation works
   - Reduces database load by 60%
 
-**15.1.4: Optimize Frontend Bundle**
+**15.1.4: Optimize Frontend Bundle & Loading Strategy**
 - Analyze bundle size (vite-bundle-analyzer)
-- Implement code splitting
-- Lazy load routes
+- Implement code splitting for faster initial loads
+- **Critical:** Ensure all chunks/files are downloaded the first time rather than waiting for them to be called (aggressive pre-fetching)
+- Lazy load routes with smart pre-fetching
 - Optimize images (WebP, lazy loading)
 - Tree-shake unused code
 - **Acceptance Criteria:**
   - Bundle size reduced by 40%
   - Initial load time <2s
-  - Lazy loading works
+  - All critical chunks pre-fetched
   - Lighthouse score >90
+
+#### Epic 15.2: Robust Persistence with SQLite-WASM & OPFS 💾
+
+**15.2.1: Implement TinyBase + SQLite-WASM + OPFS**
+- Replace JSON-based persistence with `@sqlite.org/sqlite-wasm`
+- Use Origin Private File System (OPFS) for the "VFS" (Virtual File System)
+- Initialize TinyBase with `createSqliteWasmPersister`
+- **Example Implementation:**
+  ```javascript
+  const sqlite3 = await sqlite3InitModule();
+  const db = new sqlite3.oo1.OpfsDb('/my_tinybase_db.sqlite3');
+  const persister = createSqliteWasmPersister(store, sqlite3, db);
+  await persister.load();
+  await persister.startAutoSave();
+  ```
+- **Acceptance Criteria:**
+  - ACID compliant local storage
+  - Improved performance (row-level writes vs full file re-write)
+  - Data corruption resistance
+
+**15.2.2: Implement Durability Requests (Persistent Storage)**
+- Implement `navigator.storage.persist()` request during app initialization
+- Handle permission grant/denial gracefully
+- **Acceptance Criteria:**
+  - OS does not delete database under disk pressure (if granted)
+  - Storage marked as 'Persistent' in logs
+
+**15.2.3: Configure Security Headers (COOP/COEP)**
+- Update server configuration to send:
+  - `Cross-Origin-Opener-Policy: same-origin`
+  - `Cross-Origin-Embedder-Policy: require-corp`
+- **Acceptance Criteria:**
+  - `SharedArrayBuffer` is enabled in the browser
+  - SQLite can talk to the disk via OPFS
+
+#### Epic 15.3: Partial Data Replication 🔄
+
+**15.3.1: Implement Last-N Entries Replication**
+- Modify sync logic to only replicate the last 100-200 entries for offline support
+- Implement server-side filtering and pagination for primary querying
+- Ensure the local store handles "limited view" gracefully
+- **Acceptance Criteria:**
+  - Reduced local storage footprint
+  - Faster initial sync
+  - Consistent behavior when querying beyond local limits (requires internet)
 
 **15.1.5: Migrate to Kafka (If Needed for Scale)**
 - Evaluate if Kafka is needed (only if >10k users and high event throughput)

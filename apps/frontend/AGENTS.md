@@ -232,6 +232,51 @@ return isMobile ? <MobileView /> : <DesktopView />
 - Access: `import.meta.env.VITE_API_URL`
 - Validation: `envValidationVitePlugin` in vite.config.ts
 
+## Offline-First & Data Sync (CRITICAL)
+
+This project uses a **Data Worker** and **TinyBase** for offline-first capabilities. UI components should rarely fetch directly from the server.
+
+### Core Concepts:
+- **Data Worker**: Processes all storage and sync logic in a background thread.
+- **TinyBase**: Local reactive store with persistence to IndexedDB.
+- **Worker Hooks**: Bridging Main Thread with Data Worker.
+
+### Key Hooks:
+- `useWorkerQuery`: Read data from local store (replaces `useQuery` for cached data).
+- `useWorkerMutation`: Store mutation in `pending_entries` and trigger sync.
+- `useWorkerStatus`: Get connectivity and sync progress.
+- `usePendingEntries`: Monitor the sync queue.
+
+### Worker Messaging Pattern:
+The main thread and worker communicate via a message-response protocol:
+```typescript
+// Main Thread
+const result = await workerClient.request({
+  type: 'query',
+  entity: 'journalEntries',
+  operation: 'getAll'
+});
+
+// Worker (DataService)
+this.handleRequest(req) => {
+  const data = this.store.getTable(req.entity);
+  return { success: true, data };
+}
+```
+
+### Push Events (Worker → Main):
+The worker pushes unsolicited status updates:
+- `connectivity-change`: Internet status toggled.
+- `sync-progress`: Drain queue progress update.
+- `table-changed`: Local table updated (triggers hook re-renders).
+
+### Best Practices:
+1.  **Optimistic UI**: Update local store immediately in worker, let `SyncManager` handle the background server update.
+2.  **Table Listeners**: Hooks use `useSyncExternalStore` to listen for `table-changed` events for real-time reactivity.
+3.  **Error Handling**: Mutations in the worker use exponential backoff for automatic retries.
+
+---
+
 ## Key Takeaways
 1. React 19: use(), useTransition, Suspense - minimize useEffect
 2. NO `any` or `as unknown`
@@ -242,5 +287,5 @@ return isMobile ? <MobileView /> : <DesktopView />
 7. Beautiful design: Tasteful, smooth, delightful
 8. Responsive: ALWAYS mobile, tablet, desktop
 9. Forms: React Hook Form + Zod + RHF components
-10. State: Server (oRPC/Query), Global (Zustand), Forms (RHF), URL (Router), Local (useState)
-11. PWA: Service worker, install prompts, offline support
+10. State: Server (Worker/Query), Global (Zustand), Forms (RHF), URL (Router), Local (useState)
+11. PWA & Offline: Service worker, Install prompts, TinyBase sync engine

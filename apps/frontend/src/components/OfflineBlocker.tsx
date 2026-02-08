@@ -6,243 +6,153 @@
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  */
-import { env } from "@frontend/configs/env.config";
+import { authClient } from "@frontend/utils/auth.client";
+import { useIsOnline, useSseStatus } from "@frontend/hooks/useWorkerStatus";
+import { dataWorkerClient } from "@frontend/worker/worker.client";
 import Alert from "@mui/material/Alert";
-import AlertTitle from "@mui/material/AlertTitle";
-import Box from "@mui/material/Box";
-import CircularProgress from "@mui/material/CircularProgress";
 import Slide from "@mui/material/Slide";
-import Typography from "@mui/material/Typography";
-import { useCallback, useEffect, useRef, useState } from "react";
+import Box from "@mui/material/Box";
+import IconButton from "@mui/material/IconButton";
+import RefreshIcon from "@mui/icons-material/Refresh";
+import { useEffect, useRef, useState } from "react";
 
-const HEALTH_CHECK_INTERVAL = 30000; // 30 seconds
-const HEALTH_CHECK_TIMEOUT = 5000; // 5 seconds
+/**
+ * How long the connection must be "bad" before the banner appears.
+ * Prevents flicker on flaky networks.
+ */
+const SHOW_DELAY_MS = 2_000;
 
-// Reliable endpoint to verify actual internet connectivity (not our server)
-const INTERNET_CHECK_URL = "https://www.google.com/generate_204";
+/**
+ * Standard MUI AppBar heights for layout offset
+ */
+const APP_BAR_HEIGHT_MOBILE = 56;
+const APP_BAR_HEIGHT_DESKTOP = 64;
 
-type ConnectionStatus = "checking" | "no-internet" | "internet-only" | "connected";
+/** Display banner behind the AppBar but above most other content */
+const BANNER_Z_INDEX_OFFSET = -1;
 
-interface OfflineBlockerProps {
-	children: React.ReactNode;
-}
+/**
+ * Non-blocking offline banner. Shown below the header (fixed position)
+ * when the device is offline or the server is unreachable.
+ */
+export function OfflineBanner() {
+	const { data: session, isPending: isSessionPending } = authClient.useSession();
+	const isOnline = useIsOnline();
+	const sseStatus = useSseStatus();
 
-export function OfflineBlocker({ children }: OfflineBlockerProps) {
-	const [hasNetworkInterface, setHasNetworkInterface] = useState(() => navigator.onLine);
-	const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("checking");
-	const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+	const isHealthy = isOnline && sseStatus === 'connected';
 
-	const isAppReady = connectionStatus === "connected";
+	// Track whether the banner should be visible
+	const [visible, setVisible] = useState(false);
+	// Whether the user manually dismissed it
+	const [dismissed, setDismissed] = useState(false);
 
-	// Listen for online/offline events (network interface only)
+	const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	// Track the previous healthy state to detect transitions
+	const prevHealthyRef = useRef(isHealthy);
+
 	useEffect(() => {
-		const handleOnline = () => setHasNetworkInterface(true);
-		const handleOffline = () => setHasNetworkInterface(false);
+		// When connectivity recovers, reset dismissed and visibility state
+		if (isHealthy) {
+			if (!prevHealthyRef.current) {
+				console.log("[OfflineBanner] Connectivity recovered. Clearing banner.");
+				setDismissed(false);
+				setVisible(false);
+				if (timerRef.current) {
+					clearTimeout(timerRef.current);
+					timerRef.current = null;
+				}
+				dataWorkerClient.forceSync();
+			}
+		} else {
+			// When connectivity is bad, start the delay timer if not already visible/dismissed
+			if (!visible && !dismissed && !timerRef.current) {
+				console.log(`[OfflineBanner] Connectivity bad (Online=${isOnline}, SSE=${sseStatus}). Starting ${SHOW_DELAY_MS}ms notification timer.`);
+				timerRef.current = setTimeout(() => {
+					setVisible(true);
+					timerRef.current = null;
+				}, SHOW_DELAY_MS);
+			}
+		}
 
-		window.addEventListener("online", handleOnline);
-		window.addEventListener("offline", handleOffline);
+		prevHealthyRef.current = isHealthy;
 
 		return () => {
-			window.removeEventListener("online", handleOnline);
-			window.removeEventListener("offline", handleOffline);
-		};
-	}, []);
-
-	// Check both internet connectivity and backend health
-	const checkConnection = useCallback(async () => {
-		if (!hasNetworkInterface) {
-			setConnectionStatus("no-internet");
-			return;
-		}
-
-		setConnectionStatus("checking");
-
-		// First, verify actual internet connectivity
-		let hasInternet = false;
-		try {
-			const internetController = new AbortController();
-			const internetTimeoutId = setTimeout(
-				() => internetController.abort(),
-				HEALTH_CHECK_TIMEOUT,
-			);
-
-			// Try to reach a reliable external endpoint
-			await fetch(INTERNET_CHECK_URL, {
-				method: "HEAD",
-				mode: "no-cors",
-				signal: internetController.signal,
-			});
-
-			clearTimeout(internetTimeoutId);
-			hasInternet = true;
-		} catch {
-			hasInternet = false;
-		}
-
-		if (!hasInternet) {
-			setConnectionStatus("no-internet");
-			return;
-		}
-
-		// Internet works, now check our backend
-		try {
-			const backendController = new AbortController();
-			const backendTimeoutId = setTimeout(
-				() => backendController.abort(),
-				HEALTH_CHECK_TIMEOUT,
-			);
-
-			const response = await fetch(`${env.VITE_API_URL}/user-app/health`, {
-				method: "GET",
-				credentials: "include",
-				signal: backendController.signal,
-			});
-
-			clearTimeout(backendTimeoutId);
-
-			if (response.ok) {
-				setConnectionStatus("connected");
-			} else {
-				setConnectionStatus("internet-only");
-			}
-		} catch {
-			setConnectionStatus("internet-only");
-		}
-	}, [hasNetworkInterface]);
-
-	// Periodic connection checks
-	useEffect(() => {
-		checkConnection();
-		intervalRef.current = setInterval(checkConnection, HEALTH_CHECK_INTERVAL);
-
-		return () => {
-			if (intervalRef.current) {
-				clearInterval(intervalRef.current);
+			if (timerRef.current) {
+				clearTimeout(timerRef.current);
+				timerRef.current = null;
 			}
 		};
-	}, [checkConnection]);
+	}, [isHealthy, visible, dismissed]); // Removed syncManager
 
-	// Check immediately when network interface comes back
-	useEffect(() => {
-		if (hasNetworkInterface) {
-			checkConnection();
+	// Nothing to show if healthy, if dismissed, or if the user isn't authenticated.
+	// We don't want to show "Disconnected" when the user is logged out.
+	if (isHealthy || !visible || dismissed || isSessionPending || !session) return null;
+
+	let message = "Disconnected from server. Changes will sync when reconnected.";
+	let severity: 'warning' | 'info' | 'error' = "warning";
+
+	if (!isOnline) {
+		message = "You are offline. Some features may be limited.";
+		severity = "error";
+	} else if (sseStatus === 'connecting') {
+		message = "Connecting to server...";
+		severity = "info";
+	}
+
+	const handleRetry = () => {
+		if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+			console.log("[OfflineBanner] Manually triggering reconnection...");
+			const apiUrl = (window as any).VITE_API_URL || import.meta.env.VITE_API_URL;
+			navigator.serviceWorker.controller.postMessage({
+				type: 'INIT_SYNC',
+				payload: { 
+					apiUrl,
+					forceRestart: true 
+				}
+			});
 		}
-	}, [hasNetworkInterface, checkConnection]);
+	};
 
-	// If app is ready, render children with banner
-	if (isAppReady) {
-		return (
-			<>
-				{children}
-			</>
-		);
-	}
-
-	// Show appropriate blocking message based on status
-	let title = "";
-	let message = "";
-	let showSpinner = false;
-	let severity: "error" | "warning" = "error";
-
-	if (!hasNetworkInterface || connectionStatus === "no-internet") {
-		severity = "error";
-		title = "No Internet Connection";
-		message =
-			"Your device cannot reach the internet. Please check your WiFi or mobile data connection.";
-	} else if (connectionStatus === "checking") {
-		severity = "warning";
-		title = "Checking Connection...";
-		message = "Verifying your internet and server connectivity.";
-		showSpinner = true;
-	} else if (connectionStatus === "internet-only") {
-		severity = "error";
-		title = "Server Unavailable";
-		message =
-			"Our servers are currently unreachable. Please try again later.";
-	}
-
-	// Determine if we show banner (has internet but server down) vs full blocker
-	const showBannerOnly =
-		connectionStatus === "internet-only" || connectionStatus === "checking";
-
-	if (showBannerOnly) {
-		return (
-			<>
-				<Slide direction="down" in={true} mountOnEnter unmountOnExit>
-					<Box
-						sx={{
-							position: "fixed",
-							top: 0,
-							left: 0,
-							right: 0,
-							zIndex: 9999,
-						}}
-					>
-					<Alert
-						severity={severity}
-						sx={{
-							borderRadius: 0,
-							"& .MuiAlert-message": {
-								width: "100%",
-							},
-						}}
-					>
-						<AlertTitle sx={{ fontWeight: 600 }}>
-							{connectionStatus === "checking"
-								? "Checking Connection"
-								: "Server Unavailable"}
-						</AlertTitle>
-						{connectionStatus === "checking"
-							? "Verifying internet and server connectivity..."
-							: "Our servers are unreachable. Some features may not work."}
-					</Alert>
-					</Box>
-				</Slide>
-				{children}
-			</>
-		);
-	}
-
-	// Full blocker when completely offline
 	return (
-		<Box
-			sx={{
-				display: "flex",
-				flexDirection: "column",
-				alignItems: "center",
-				justifyContent: "center",
-				minHeight: "100vh",
-				p: 3,
-				bgcolor: "background.default",
-				textAlign: "center",
-			}}
-		>
-			{showSpinner && (
-				<CircularProgress
-					size={48}
-					sx={{ mb: 3, color: "primary.main" }}
-				/>
-			)}
-			<Typography
-				variant="h5"
+		<Slide direction="down" in mountOnEnter unmountOnExit>
+			<Alert
+				severity={severity}
+				onClose={() => setDismissed(true)}
+				action={
+					severity !== 'info' ? (
+						<Box sx={{ display: 'flex', gap: 1 }}>
+							<IconButton
+								color="inherit"
+								size="small"
+								onClick={handleRetry}
+								title="Retry Connection"
+							>
+								<RefreshIcon fontSize="small" />
+							</IconButton>
+						</Box>
+					) : null
+				}
 				sx={{
-					fontWeight: 600,
-					mb: 2,
-					color: "text.primary",
-				}}
-			>
-				{title}
-			</Typography>
-			<Typography
-				variant="body1"
-				sx={{
-					color: "text.secondary",
-					maxWidth: 400,
-					lineHeight: 1.7,
+					position: "fixed",
+					top: { xs: APP_BAR_HEIGHT_MOBILE, sm: APP_BAR_HEIGHT_DESKTOP },
+					left: 0,
+					right: 0,
+					zIndex: (theme) => theme.zIndex.appBar + BANNER_Z_INDEX_OFFSET,
+					borderRadius: 0,
+					boxShadow: 2,
+					"& .MuiAlert-message": {
+						width: "100%",
+						textAlign: "center",
+					},
+					"& .MuiAlert-action": {
+						alignItems: "center",
+						padding: "0 8px",
+					}
 				}}
 			>
 				{message}
-			</Typography>
-		</Box>
+			</Alert>
+		</Slide>
 	);
 }

@@ -17,6 +17,7 @@ export const BaseTable = createBaseTable({
     ulid: () => t.string(26).default(() => ulid()),
     webhookStatusEnum: () => t.enum("webhook_status_enum", WEBHOOK_STATUS_ENUM),
     pgTbusTaskStatusEnum: () => t.enum("pg_tbus_task_status_enum", PG_TBUS_TASK_STATUS_ENUM),
+    deletedAt: () => t.timestamp().asNumber().nullable(),
 
 		timestamps: () => ({
       createdAt: t.timestamps().createdAt.asNumber(),

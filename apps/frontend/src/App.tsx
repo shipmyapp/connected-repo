@@ -9,13 +9,16 @@
 import { LoadingSpinner } from "@connected-repo/ui-mui/components/LoadingSpinner";
 import { ThemeContextProvider, useThemeMode } from "@connected-repo/ui-mui/theme/ThemeContext";
 import { ErrorFallback } from "@frontend/components/error_fallback";
-import { OfflineBlocker } from "@frontend/components/OfflineBlocker";
+import { OfflineBanner } from "@frontend/components/OfflineBlocker";
+import { useDataWorker } from "@frontend/hooks/useDataWorker";
 import { usePWAInstall } from "@frontend/hooks/usePwaInstall";
+import { useWorkerEvent } from "@frontend/hooks/useWorkerStatus";
 import { router } from "@frontend/router";
+import { authClient } from "@frontend/utils/auth.client";
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { ErrorBoundary } from "@sentry/react";
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import { RouterProvider } from "react-router";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -50,9 +53,28 @@ function ToastProvider() {
 }
 
 function App() {
-
+	console.log('[App] Rendered');
 	usePWAInstall();
-	
+	useDataWorker();
+
+	// Handle auth-expired events from the Worker without re-rendering App
+	useWorkerEvent('auth-expired', (event) => {
+		// Avoid infinite redirect loop if already on login page
+		if (window.location.pathname === '/auth/login') {
+			console.log('[App] Auth expired, but already on login page. Skipping redirect.');
+			return;
+		}
+
+		console.warn('[App] Auth expired event received, redirecting to login.');
+		localStorage.removeItem('connected-repo-session');
+		authClient.signOut({
+			fetchOptions: {
+				onSuccess: () => { window.location.href = '/auth/login'; },
+				onError: () => { window.location.href = '/auth/login'; },
+			},
+		}).catch(() => { window.location.href = '/auth/login'; });
+	});
+
 	return (
 		<LocalizationProvider dateAdapter={AdapterDayjs}>
 			<ThemeContextProvider>
@@ -63,9 +85,8 @@ function App() {
 							scope.setTag("level", "top-level");
 						}}
 					>
-						<OfflineBlocker>
-							<RouterProvider router={router} />
-						</OfflineBlocker>
+						<OfflineBanner />
+						<RouterProvider router={router} />
 						<ToastProvider />
 					</ErrorBoundary>
 				</Suspense>

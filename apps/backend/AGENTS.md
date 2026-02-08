@@ -387,6 +387,43 @@ await tbus.emit(eventDef, payload);
 await tbus.task(webhookTaskDef).send({ subscriptionId, teamId, payload });
 ```
 
+## Real-Time Sync & Soft Deletes
+
+### Sync Service (SSE)
+The backend uses a singleton `syncService` to broadcast data changes to connected clients.
+
+```typescript
+// modules/journal-entries/journal-entries.router.ts
+import { syncService } from '../sync/sync.service';
+
+await db.journalEntries.create(input);
+syncService.push({
+  type: 'journalEntries',
+  operation: 'create',
+  data: result
+});
+```
+
+### Soft Delete Support
+All primary entities should support soft deletes to ensure the local client store can stay in sync without losing references.
+
+- Use the `deletedAt` column.
+- The `SyncManager` on the client looks for `deletedAt` tombstones to remove local records.
+
+### Delta Sync
+Endpoints should support a `since` parameter (timestamp) to allow clients to fetch only what has changed since their last sync.
+
+```typescript
+// modules/sync/sync.router.ts
+export const getDelta = rpcProtectedProcedure
+  .input(z.object({ since: z.union([z.string(), z.number()]).optional() }))
+  .handler(async ({ input }) => {
+     // Fetch records updated after 'since'
+  });
+```
+
+---
+
 ## Best Practices
 - NO `any` or `as unknown`
 - Infer types from Zod
@@ -400,3 +437,4 @@ await tbus.task(webhookTaskDef).send({ subscriptionId, teamId, payload });
 - Make migrations backward compatible
 - Use pg-tbus for async tasks, notifications, webhooks
 - Always log pg-tbus task execution to `pg_tbus_task_log`
+- **Sync**: Push all data-modifying changes to `syncService`.

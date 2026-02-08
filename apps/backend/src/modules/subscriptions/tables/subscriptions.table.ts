@@ -1,7 +1,7 @@
 import { BaseTable } from "@backend/db/base_table";
 import { UserTable } from "@backend/modules/users/tables/users.table";
 
-export class SubscriptionsTable extends BaseTable {
+export class SubscriptionTable extends BaseTable {
   readonly table = "subscriptions";
 
   columns = this.setColumns((t) => ({

@@ -8,6 +8,7 @@ const JournalEntriesRouter = () => {
 		<Routes>
       <Route path="/" element={<JournalEntriesPage />} />
       <Route path="/new" element={<CreateJournalEntryPage />} />
+      <Route path="/pending/:entryId" element={<JournalEntryDetailPage />} />
       <Route path="/:entryId" element={<JournalEntryDetailPage />} />
     </Routes>
 	);

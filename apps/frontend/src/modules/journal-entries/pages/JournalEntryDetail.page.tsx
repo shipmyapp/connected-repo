@@ -13,23 +13,52 @@ import { Card, CardContent } from "@connected-repo/ui-mui/layout/Card";
 import { Container } from "@connected-repo/ui-mui/layout/Container";
 import { Divider } from "@connected-repo/ui-mui/layout/Divider";
 import { Stack } from "@connected-repo/ui-mui/layout/Stack";
-import { orpc } from "@frontend/utils/orpc.client";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { SyncStatusIndicator } from "@frontend/components/SyncStatusIndicatorSimple";
+import { useWorkerMutation } from "@frontend/hooks/useWorkerMutation";
+import { useWorkerQuery } from "@frontend/hooks/useWorkerQuery";
+import { UserAppBackendInputs, UserAppBackendOutputs } from "@frontend/utils/orpc.client";
+
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useNavigate, useParams, useLocation } from "react-router";
+import { usePendingEntry } from "@frontend/hooks/usePendingEntry";
+import { JournalEntry } from "../components/JournalEntryTableView";
 
 export default function JournalEntryDetailPage() {
 	const navigate = useNavigate();
 	const { entryId } = useParams<{ entryId: string }>();
+	const location = useLocation();
+	const isPendingRoute = location.pathname.includes("/pending/");
+
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 	const [confirmationText, setConfirmationText] = useState("");
 	const [deleteError, setDeleteError] = useState<string | null>(null);
 
-	const { data: journalEntry, isLoading, error } = useQuery(
-		orpc.journalEntries.getById.queryOptions({ input: { journalEntryId: entryId || "" }})
-	);
+	const { data: journalEntry, isLoading: isSyncedLoading, error: syncedError } = useWorkerQuery<UserAppBackendOutputs['journalEntries']['getById'] | null>({
+		entity: 'journalEntries',
+		operation: 'getById',
+		payload: { journalEntryId: entryId || '' },
+		tanstackOptions: {
+			enabled: !isPendingRoute && !!entryId,
+		}
+	});
 
-	const deleteMutation = useMutation(orpc.journalEntries.delete.mutationOptions());
+	const { data: pendingEntry, isLoading: isPendingLoading } = usePendingEntry<JournalEntry>({
+		entity: 'journalEntries',
+		id: entryId || '',
+		tanstackOptions: {
+			enabled: isPendingRoute && !!entryId,
+		}
+	});
+
+	const displayEntry = isPendingRoute ? pendingEntry : journalEntry?.data;
+	const isLoading = isPendingRoute ? isPendingLoading : isSyncedLoading;
+	const error = isPendingRoute ? null : syncedError;
+
+	const deleteMutation = useWorkerMutation<{ success: boolean }, UserAppBackendInputs['journalEntries']['delete']>({
+		entity: 'journalEntries',
+		operation: 'delete',
+		invalidateKeys: [['journalEntries', 'getAll']],
+	});
 
 	const handleDeleteClick = () => {
 		setDeleteDialogOpen(true);
@@ -39,7 +68,9 @@ export default function JournalEntryDetailPage() {
 
 	const handleDeleteConfirm = async () => {
 		if (confirmationText.toLowerCase() !== "delete") {
-			setDeleteError('Please type "DELETE" to confirm');
+			setDeleteError(
+				'Please type "DELETE" to confirm'
+			);
 			return;
 		}
 
@@ -78,10 +109,12 @@ export default function JournalEntryDetailPage() {
 		);
 	}
 
-	if (!journalEntry) {
+	if (!displayEntry) {
 		return (
 			<Container maxWidth="lg" sx={{ py: 4 }}>
-				<Alert severity="error">Journal entry not found</Alert>
+				<Alert severity="error">
+					{isPendingRoute ? "Pending journal entry not found" : "Journal entry not found"}
+				</Alert>
 			</Container>
 		);
 	}
@@ -103,6 +136,11 @@ export default function JournalEntryDetailPage() {
 			>
 				Back to Journal Entries
 			</Button>
+
+			{/* Sync Status */}
+			<Box sx={{ mb: 3 }}>
+				<SyncStatusIndicator isPending={isPendingRoute || false} size="small" />
+			</Box>
 
 			{/* Main Card */}
 			<Card
@@ -129,30 +167,32 @@ export default function JournalEntryDetailPage() {
 						<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
 							<CalendarTodayIcon sx={{ fontSize: 20, color: "text.secondary" }} />
 							<Typography variant="body2" color="text.secondary">
-								{formatDate(journalEntry.createdAt)}
+								{formatDate(displayEntry.createdAt)}
 							</Typography>
 						</Box>
-						<Button
-							variant="outlined"
-							color="error"
-							startIcon={<DeleteIcon />}
-							onClick={handleDeleteClick}
-							sx={{
-								transition: "all 0.2s ease-in-out",
-								"&:hover": {
-									transform: "translateY(-2px)",
-									boxShadow: 2,
-								},
-							}}
-						>
-							Delete Entry
-						</Button>
+						{!isPendingRoute && (
+							<Button
+								variant="outlined"
+								color="error"
+								startIcon={<DeleteIcon />}
+								onClick={handleDeleteClick}
+								sx={{
+									transition: "all 0.2s ease-in-out",
+									"&:hover": {
+										transform: "translateY(-2px)",
+										boxShadow: 2,
+									},
+								}}
+							>
+								Delete Entry
+							</Button>
+						)}
 					</Stack>
 
 					<Divider sx={{ mb: 4 }} />
 
 					{/* Prompt Section */}
-					{journalEntry.prompt && (
+					{displayEntry.prompt && (
 						<Box sx={{ mb: 4 }}>
 							<Typography
 								variant="overline"
@@ -175,15 +215,15 @@ export default function JournalEntryDetailPage() {
 									borderRadius: 1,
 								}}
 							>
-								<Typography
-									variant="body1"
-									sx={{
-										fontStyle: "italic",
-										color: "text.primary",
-										lineHeight: 1.7,
-									}}
-								>
-									{journalEntry.prompt}
+									<Typography
+										variant="body1"
+										sx={{
+											fontStyle: "italic",
+											color: "text.primary",
+											lineHeight: 1.7,
+										}}
+									>
+									{displayEntry.prompt}
 								</Typography>
 							</Box>
 						</Box>
@@ -212,7 +252,7 @@ export default function JournalEntryDetailPage() {
 								fontSize: "1.05rem",
 							}}
 						>
-							{journalEntry.content}
+							{displayEntry.content}
 						</Typography>
 					</Box>
 				</CardContent>
@@ -277,4 +317,4 @@ export default function JournalEntryDetailPage() {
 			</Dialog>
 		</Container>
 	);
-}
+};

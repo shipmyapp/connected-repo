@@ -4,9 +4,9 @@ import { SessionTable } from "@backend/modules/auth/tables/session.auth.table";
 import { VerificationTable } from "@backend/modules/auth/tables/verification.auth.table";
 import { PgTbusTaskLogTable } from "@backend/modules/events/tables/pg_tbus_task_log.table";
 import { JournalEntryTable } from "@backend/modules/journal-entries/tables/journal_entries.table";
-import { ApiProductRequestLogsTable } from "@backend/modules/logs/tables/api_product_request_logs.table";
-import { PromptsTable } from "@backend/modules/prompts/tables/prompts.table";
-import { SubscriptionsTable } from "@backend/modules/subscriptions/tables/subscriptions.table";
+import { ApiProductRequestLogTable } from "@backend/modules/logs/tables/api_product_request_logs.table";
+import { PromptTable } from "@backend/modules/prompts/tables/prompts.table";
+import { SubscriptionTable } from "@backend/modules/subscriptions/tables/subscriptions.table";
 import { TeamTable } from "@backend/modules/teams/tables/teams.table";
 import { UserTable } from "@backend/modules/users/tables/users.table";
 import { orchidORM } from "orchid-orm/node-postgres";
@@ -20,13 +20,13 @@ export const db = orchidORM(
 	{
 		users: UserTable,
 		journalEntries: JournalEntryTable,
-		prompts: PromptsTable,
+		prompts: PromptTable,
 		sessions: SessionTable,
 		accounts: AccountTable,
 		verifications: VerificationTable,
-		subscriptions: SubscriptionsTable,
+		subscriptions: SubscriptionTable,
 		teams: TeamTable,
-		apiProductRequestLogs: ApiProductRequestLogsTable,
+		apiProductRequestLogs: ApiProductRequestLogTable,
 		pgTbusTaskLogs: PgTbusTaskLogTable,
 	},
 );

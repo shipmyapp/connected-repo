@@ -5,7 +5,7 @@ import type { MRT_ColumnDef } from "material-react-table";
 import { useCallback, useMemo } from "react";
 import type { z } from "zod";
 
-type JournalEntry = z.infer<typeof journalEntrySelectAllZod>;
+export type JournalEntry = z.infer<typeof journalEntrySelectAllZod>;
 
 interface JournalEntryTableViewProps {
 	entries: JournalEntry[];

@@ -9,18 +9,21 @@ import { Paper } from "@connected-repo/ui-mui/layout/Paper";
 import { Stack } from "@connected-repo/ui-mui/layout/Stack";
 import { userCreateFixture } from "@connected-repo/zod-schemas/user.fixture";
 import { env, isTest } from "@frontend/configs/env.config";
-import { authClient } from "@frontend/utils/auth.client";
+import { authClient, authClientGetSession } from "@frontend/utils/auth.client";
+import { dataWorkerClient } from "@frontend/worker/worker.client";
 import * as Sentry from "@sentry/react";
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 
 export const LoginPage = () => {
+	const navigate = useNavigate();
 	const [isLoading, setIsLoading] = useState(false);
 	const [showContent] = useState(true);
 	const [searchParams] = useSearchParams();
 	const error = searchParams.get("error");
+	const [lastUserEmail, setLastUserEmail] = useState<string | null>(null);
 
-	// Track OAuth errors in Sentry when they occur
+	// Track OAuth errors and Fetch Last User hint from TinyBase
 	useEffect(() => {
 		if (error) {
 			const errorMessage = decodeURIComponent(error);
@@ -40,6 +43,19 @@ export const LoginPage = () => {
 				},
 			});
 		}
+
+		const fetchLastUser = async () => {
+			try {
+				await dataWorkerClient.initialize(env.VITE_API_URL);
+				const meta = await dataWorkerClient.getSyncMeta();
+				if (meta?.userEmail) {
+					setLastUserEmail(meta.userEmail);
+				}
+			} catch (err) {
+				console.error("Failed to fetch sync meta for login hint:", err);
+			}
+		};
+		fetchLastUser();
 	}, [error]);
 
    const handleGoogleLogin = async () => {
@@ -78,7 +94,6 @@ export const LoginPage = () => {
 					provider: 'google',
 					callbackURL,
 					errorCallbackURL: `${env.VITE_USER_APP_URL}/auth/error`,
-					// newUserCallbackURL: "/welcome",
 				}, {
 					throw: true,
 				});
@@ -235,6 +250,17 @@ export const LoginPage = () => {
 											<span>{isLoading ? "Connecting..." : "Continue with Google"}</span>
 										</Box>
 									</Button>
+									
+									{lastUserEmail && (
+										<Typography 
+											variant="caption" 
+											display="block" 
+											textAlign="center" 
+											sx={{ mt: 1.5, color: "text.secondary" }}
+										>
+											Last logged in as: <strong>{lastUserEmail}</strong>
+										</Typography>
+									)}
 								</Box>
 
 								{/* Feature Highlights */}
