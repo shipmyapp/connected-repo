@@ -4,7 +4,7 @@ export class FilesDBManager {
   /**
    * Stores a file blob in IndexedDB.
    */
-  async storeFile(fileId: string, pendingSyncId: string, blob: Blob, fileName: string) {
+  async upsert(fileId: string, pendingSyncId: string, blob: Blob, fileName: string) {
     await db.files.put({
       fileId,
       pendingSyncId,
@@ -22,15 +22,15 @@ export class FilesDBManager {
   /**
    * Retrieves a file from storage.
    */
-  async getFile(fileId: string) {
-    return await db.files.get(fileId);
+  get(fileId: string) {
+    return db.files.get(fileId);
   }
 
   /**
    * Retrieves all files linked to a specific pending sync entry.
    */
-  async getFilesByPendingSyncId(pendingSyncId: string) {
-    return await db.files.where("pendingSyncId").equals(pendingSyncId).toArray();
+  getFilesByPendingSyncId(pendingSyncId: string) {
+    return db.files.where("pendingSyncId").equals(pendingSyncId).toArray();
   }
 
   /**

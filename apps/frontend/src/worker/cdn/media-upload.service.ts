@@ -1,6 +1,6 @@
+import imageCompression from "browser-image-compression";
 import { filesDb } from "../db/files.db";
 import { CDNManager } from "./cdn.manager";
-import imageCompression from "browser-image-compression";
 
 export interface ProcessedUploadResult {
   success: boolean;
@@ -16,7 +16,7 @@ export class MediaUploadService {
    * Retrieves a file from IndexedDB and converts it to a standard File object.
    */
   private async getStoredFile(fileId: string): Promise<File | null> {
-    const storedFile = await filesDb.getFile(fileId);
+    const storedFile = await filesDb.get(fileId);
     if (!storedFile) return null;
 
     return new File([storedFile.blob], storedFile.fileName, {
@@ -64,6 +64,8 @@ export class MediaUploadService {
       const filesToUpload: File[] = [originalFile];
       
       const thumbnailFile = await this.compressImage(originalFile);
+      // TODO: Implement thumbnail for pdf files
+      // TODO: Implement thumbail for videos
       if (thumbnailFile) {
         filesToUpload.push(thumbnailFile);
       }

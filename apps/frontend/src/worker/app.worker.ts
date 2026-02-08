@@ -5,19 +5,23 @@ import { journalEntriesDb } from "../modules/journal-entries/worker/journal-entr
 import { promptsDb } from "../modules/prompts/worker/prompts.db";
 import { CDNManager } from "./cdn/cdn.manager";
 import { mediaUploadService } from "./cdn/media-upload.service";
+import { pendingSyncJournalEntriesDb } from "./db/pending-sync-journal-entries.db";
 
-// Unified worker API combining all background services
+// Unified worker API - Flattened for better Comlink proxy support
 const appWorkerApi = {
-  // Database Manager API (formerly GlobalDBManager)
-  db,
-  files: filesDb,
+  // Core DB
+  db: Comlink.proxy(db),
+  filesDb: Comlink.proxy(filesDb),
   subscribe,
-  journal: journalEntriesDb,
-  prompts: promptsDb,
 
-  // CDN Manager API (formerly CDNWorkerAPI)
-  cdn: new CDNManager(),
-  media: mediaUploadService,
+  // Domain Managers
+  journalEntriesDb: Comlink.proxy(journalEntriesDb),
+  pendingSyncJournalEntriesDb: Comlink.proxy(pendingSyncJournalEntriesDb),
+  promptsDb: Comlink.proxy(promptsDb),
+
+  // CDN & Media
+  cdn: Comlink.proxy(new CDNManager()),
+  media: Comlink.proxy(mediaUploadService),
 };
 
 export type AppWorkerAPI = typeof appWorkerApi;

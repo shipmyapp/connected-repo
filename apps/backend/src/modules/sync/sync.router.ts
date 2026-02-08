@@ -1,92 +1,184 @@
 import { rpcProtectedProcedure } from "@backend/procedures/protected.procedure";
 import { eventIterator } from "@orpc/server";
 import { z } from "zod";
-import { heartbeatSyncService } from "./heartbeat.sync.service";
+import { type DeltaOutput, deltaOutputZod, syncPayloadZod, syncService } from "./sync.service";
+import { db } from "@backend/db/db";
 
-/**
- * getDelta: Performs an incremental sync (delta sync) between server and client.
- * 
- * OVERLAP SYNC STRATEGY:
- * To handle the "Transaction Gap" (where some transactions commit late with an 
- * older timestamp), we don't just query 'updatedAt > since'. Instead, we 
- * provide a safety overlap.
- * 
- * 1. Time Buffer: We go back at least 30 seconds from the requested 'since'.
- * 2. Count Buffer: We ensure at least the last 20 records are included, even 
- *    if they are older than the time buffer.
- * 3. Idempotency: The frontend uses setRow (UPSERT), so receiving the same 
- *    records multiple times is perfectly safe.
- * 4. Soft Deletes: We use .all() to include 'tombstones' (deletedAt IS NOT NULL) 
- *    so the frontend knows to delete them locally.
- */
-// export const getDelta = rpcProtectedProcedure
-// 	.input(getDeltaInput)
-// 	.handler(async ({ input: { since }, context: { user } }) => {
-		
-//         const thirtySecondsAgo = since.getTime() - 30000;
+const heartbeatSyncInput = z.object({
+	lastSyncTimestamps: z.record(z.string(), z.number()).optional(),
+});
 
-//         // --- Journal Entries Overlap Logic ---
-//         // 1. Get the 20th record's updatedAt to ensure we overlap by at least 20 records
-//         const twentiethJE = await db.journalEntries
-//             .select('updatedAt')
-//             .where({ authorUserId: user.id })
-//             .order({ updatedAt: 'DESC' })
-//             .limit(20)
-//             .includeDeleted()
-//             .then(res => res?.[res.length - 1]);
+// Combine Delta events with Real-time Sync events
+const heartbeatSyncOutput = z.discriminatedUnion("type", [
+    deltaOutputZod,
+    ...syncPayloadZod.options,
+]);
 
-//         const jeFloor = new Date(Math.min(
-//             thirtySecondsAgo, 
-//             twentiethJE?.updatedAt ?? thirtySecondsAgo
-//         ));
+async function* getDeltaForTable(
+	tableName: "journalEntries" | "prompts",
+	userId: string,
+	since: number,
+	signal?: AbortSignal,
+): AsyncGenerator<DeltaOutput> {
+	try {
+		const thirtySecondsAgo = since - 30000;
+		const chunkSize = 100;
+		let currentFloor = thirtySecondsAgo;
 
-//         const journalEntries = await db.journalEntries
-// 			.where({ 
-// 				authorUserId: user.id,
-//                 updatedAt: { gte: jeFloor }
-// 			})
-// 			.select("*")
-//             .order({ updatedAt: 'DESC' })
-//             .includeDeleted();
+		// 1. Determine the absolute overlap floor (Time-based vs. Count-based)
+		if (tableName === "journalEntries") {
+			const twentiethJE = await db.journalEntries
+				.select("updatedAt")
+				.where({ authorUserId: userId })
+				.order({ updatedAt: "DESC" })
+				.limit(20)
+				.includeDeleted()
+				.then((res) => res?.[res.length - 1]);
 
-//         // --- Prompts Overlap Logic ---
-//         const twentiethPrompt = await db.prompts
-//             .where({ isActive: true })
-//             .order({ updatedAt: 'DESC' })
-//             .limit(20)
-//             .select('updatedAt')
-//             .includeDeleted()
-//             .then(res => res?.[res.length - 1]);
+			const twentiethTime = twentiethJE?.updatedAt;
+			currentFloor = Math.min(thirtySecondsAgo, twentiethTime ?? thirtySecondsAgo);
+		} else if (tableName === "prompts") {
+			const twentiethPrompt = await db.prompts
+				.order({ updatedAt: "DESC" })
+				.limit(20)
+				.select("updatedAt")
+				.includeDeleted()
+				.then((res) => res?.[res.length - 1]);
 
-//         const promptFloor = new Date(Math.min(
-//             thirtySecondsAgo, 
-//             twentiethPrompt?.updatedAt ?? thirtySecondsAgo
-//         ));
+			const twentiethTime = twentiethPrompt?.updatedAt;
+			currentFloor = Math.min(thirtySecondsAgo, twentiethTime ?? thirtySecondsAgo);
+		}
 
-// 		const prompts = await db.prompts
-// 			.where({ 
-// 				isActive: true,
-//                 updatedAt: { gte: promptFloor }
-// 			})
-// 			.select("*")
-//             .order({ updatedAt: 'DESC' })
-//             .includeDeleted();
+		// 2. Cursor-based pagination for the delta
+		let hasMore = true;
+		let cursorTimestamp = new Date(currentFloor);
+		let cursorId: string | number | null = null;
 
-// 		return {
-// 			journalEntries,
-// 			prompts,
-// 			timestamp: new Date().toISOString()
-// 		};
-// 	});
+		while (hasMore) {
+			if (signal?.aborted) break;
+			let data: any[] = [];
+
+			if (tableName === "journalEntries") {
+				const query = db.journalEntries
+					.where({ authorUserId: userId })
+					.select("*")
+					.order({ updatedAt: "ASC", journalEntryId: "ASC" })
+					.limit(chunkSize)
+					.includeDeleted();
+
+				if (cursorId === null) {
+					data = await query.where({ updatedAt: { gte: cursorTimestamp } });
+				} else {
+					data = await query.where({
+						OR: [
+							{ updatedAt: { gt: cursorTimestamp } },
+							{ updatedAt: cursorTimestamp, journalEntryId: { gt: cursorId as string } },
+						],
+					});
+				}
+			} else {
+				const query = db.prompts
+					.select("*")
+					.order({ updatedAt: "ASC", promptId: "ASC" })
+					.limit(chunkSize)
+					.includeDeleted();
+
+				if (cursorId === null) {
+					data = await query.where({ updatedAt: { gte: cursorTimestamp } });
+				} else {
+					data = await query.where({
+						OR: [
+							{ updatedAt: { gt: cursorTimestamp } },
+							{ updatedAt: cursorTimestamp, promptId: { gt: cursorId as number } },
+						],
+					});
+				}
+			}
+
+			if (data.length === 0) {
+				hasMore = false;
+				yield {
+					type: "delta",
+					table: tableName,
+					data: [],
+					isLastChunk: true,
+				};
+				break;
+			}
+
+			// Update cursor for next batch
+			const lastItem = data[data.length - 1];
+			cursorTimestamp = lastItem.updatedAt;
+			cursorId = tableName === "journalEntries" ? lastItem.journalEntryId : lastItem.promptId;
+			hasMore = data.length === chunkSize;
+
+			yield {
+				type: "delta",
+				table: tableName,
+				data,
+				isLastChunk: !hasMore,
+			};
+		}
+	} catch (error) {
+		console.error(`[SyncRouter] Delta sync failed for table ${tableName}:`, error);
+		yield {
+			type: "delta",
+			table: tableName,
+			data: [],
+			isLastChunk: true,
+			error: error instanceof Error ? error.message : "Unknown database error during delta sync",
+		};
+	}
+}
 
 export const heartbeatSync = rpcProtectedProcedure
-    .output(eventIterator(z.object({ type: z.literal("heartbeat") })))
-    .handler(async function* ({ signal }) {
-        for await (const payload of heartbeatSyncService.subscribe(signal)) {
-            yield payload;
-        }
-    });
+	.input(heartbeatSyncInput)
+	.output(eventIterator(heartbeatSyncOutput))
+	.handler(async function* ({ input: { lastSyncTimestamps }, context: { user }, signal }) {
+
+		// --- 1. Deliver Deltas (Delta-on-Connect) ---
+		if (lastSyncTimestamps) {
+			const tables = ["journalEntries", "prompts"] as const;
+			let hasDeltaError = false;
+
+			for (const tableName of tables) {
+				for await (const chunk of getDeltaForTable(
+					tableName,
+					user.id,
+					lastSyncTimestamps[tableName] ?? 0,
+					signal,
+				)) {
+					yield chunk;
+					if (chunk.error) {
+						hasDeltaError = true;
+						break;
+					}
+				}
+				if (hasDeltaError) break;
+			}
+
+			if (hasDeltaError) {
+				console.warn(`[SyncRouter] Aborting heartbeatSync for user ${user.id} due to delta error.`);
+				return;
+			}
+		}
+
+		// --- 2. Start Live Subscription after deltas are sent ---
+		// This ensures that there are no gaps in the data. If partial data was sent earlier and 
+		// the connection was lost, the client can request the missing data on next connection.
+		// If live change is sent in between the updatedAt of live-change will allow gaps in existing data.
+		const liveIterator = syncService.subscribe(signal);
+
+		// --- 3. Start Live Monitoring (Buffered Events First) ---
+			for await (const payload of liveIterator) {
+				// Real-time filtering for data privacy:
+				// Only yield if it belongs to this user OR if it's public (null userId)
+				if (payload.userId === user.id || payload.userId === null) {
+						yield payload;
+				}
+			}
+	});
 
 export const syncRouter = {
-    heartbeatSync,
+	heartbeatSync,
 };
