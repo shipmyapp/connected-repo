@@ -30,6 +30,11 @@ export class JournalEntriesDBManager {
     notifySubscribers("journalEntries");
   }
 
+  async delete(id: string) {
+    await db.journalEntries.delete(id);
+    notifySubscribers("journalEntries");
+  }
+
   async getById(id: string) {
     return await db.journalEntries.get(id);
   }
@@ -38,10 +43,18 @@ export class JournalEntriesDBManager {
     return db.journalEntries.orderBy("createdAt").reverse().toArray();
   }
 
+  getPaginated(offset: number, limit: number) {
+    return db.journalEntries.orderBy("createdAt").reverse().offset(offset).limit(limit).toArray();
+  }
+
   async getLatestUpdatedAt() {
     const latest = await db.journalEntries.orderBy("updatedAt").last();
     console.debug(`[JournalEntriesDBManager] Latest updatedAt: ${latest?.updatedAt}`);
     return latest;
+  }
+
+  async count() {
+    return await db.journalEntries.count();
   }
 }
 

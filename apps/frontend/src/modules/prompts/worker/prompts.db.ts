@@ -21,6 +21,17 @@ export class PromptsDBManager {
     return db.prompts.toArray();
   }
 
+  async getRandomActive() {
+    const all = await db.prompts.toArray();
+    const active = all.filter(p => !p.deletedAt);
+    
+    if (active.length === 0) {
+      console.warn(`[PromptsDB] No active prompts found. Total: ${all.length}`);
+      return null;
+    }
+    return active[Math.floor(Math.random() * active.length)];
+  }
+
   getLatestUpdatedAt() {
     return db.prompts.orderBy("updatedAt").reverse().first();
   }

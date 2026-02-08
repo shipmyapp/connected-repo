@@ -199,6 +199,15 @@ export class SSEManager {
         }
     }
 
+    public async refresh() {
+        if (this.currentStatus === 'connecting') {
+            console.warn('[SSE] Already connecting, refresh ignored');
+            return;
+        }
+        console.info('[SSE] Manual refresh triggered - aborting current connection to fetch deltas');
+        this.abortController?.abort();
+    }
+
     public async startMonitoring(apiUrl: string) {
         if (this.isMonitoring) return;
         this.isMonitoring = true;

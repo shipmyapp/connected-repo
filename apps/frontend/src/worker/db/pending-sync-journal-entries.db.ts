@@ -16,6 +16,10 @@ export class PendingSyncJournalEntriesDBManager {
     return await db.pendingSyncJournalEntries.orderBy("createdAt").reverse().toArray();
   }
 
+  async getPaginated(offset: number, limit: number) {
+    return await db.pendingSyncJournalEntries.orderBy("createdAt").reverse().offset(offset).limit(limit).toArray();
+  }
+
   async count() {
     return await db.pendingSyncJournalEntries.count();
   }
