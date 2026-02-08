@@ -46,10 +46,12 @@ export class AppDatabase extends Dexie {
 export const db = new AppDatabase();
 
 // --- Generic Subscription System ---
-const dbUpdatesChannel = new BroadcastChannel("db-updates");
-const subscribers: Set<(table: string) => void> = new Set();
+export type AppDbTable = keyof Omit<AppDatabase, keyof Dexie | "version" | "on" | "open" | "close" | "table" | "transaction" | "vip" | "backendDb" | "use" | "observable" | "cloud" | "collection" | "delete" | "exists" | "idbdb" | "isOpen" | "name" | "on" | "open" | "options" | "tables" | "verno">;
 
-export const notifySubscribers = (table: string) => {
+const dbUpdatesChannel = new BroadcastChannel("db-updates");
+const subscribers: Set<(table: AppDbTable) => void> = new Set();
+
+export const notifySubscribers = (table: AppDbTable) => {
   // Notify local subscribers (same context)
   for (const callback of subscribers) {
     callback(table);
@@ -58,7 +60,7 @@ export const notifySubscribers = (table: string) => {
   dbUpdatesChannel.postMessage({ table });
 };
 
-export const subscribe = (callback: (table: string) => void) => {
+export const subscribe = (callback: (table: AppDbTable) => void) => {
   subscribers.add(callback);
   return () => subscribers.delete(callback);
 };

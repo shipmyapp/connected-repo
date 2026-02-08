@@ -3,20 +3,23 @@ import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
 import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { Card, CardContent } from "@connected-repo/ui-mui/layout/Card";
 import { JournalEntrySelectAll } from "@connected-repo/zod-schemas/journal_entry.zod";
+import React from "react";
+import AttachFileIcon from "@mui/icons-material/AttachFile";
 
 interface JournalEntryCardViewProps {
-	entries: JournalEntrySelectAll[];
+	entries: (JournalEntrySelectAll | any)[];
 	onEntryClick: (entryId: string) => void;
+	renderExtra?: (entry: any) => React.ReactNode;
 }
 
-export function JournalEntryCardView({ entries, onEntryClick }: JournalEntryCardViewProps) {
+export function JournalEntryCardView({ entries, onEntryClick, renderExtra }: JournalEntryCardViewProps) {
 	const truncateContent = (content: string, maxLength = 100) => {
 		if (content.length <= maxLength) return content;
 		return `${content.substring(0, maxLength)}...`;
 	};
 
 	const formatDate = (date: number | string | Date) => {
-		return new Date(date).toLocaleDateString("en-US", {
+		return new Date(date).toLocaleDateString(undefined, {
 			year: "numeric",
 			month: "short",
 			day: "numeric",
@@ -66,8 +69,7 @@ export function JournalEntryCardView({ entries, onEntryClick }: JournalEntryCard
 						}}
 					>
 						<CardContent sx={{ flexGrow: 1, display: "flex", flexDirection: "column", p: { xs: 2, sm: 2.5, lg: 3 } }}>
-							{/* Prompt Section */}
-							<Box sx={{ mb: 2 }}>
+							<Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1, width: '100%' }}>
 								<Chip
 									label={entry.prompt || "Journal Entry"}
 									color="primary"
@@ -75,9 +77,20 @@ export function JournalEntryCardView({ entries, onEntryClick }: JournalEntryCard
 									sx={{
 										fontWeight: 600,
 										fontSize: "0.75rem",
-										mb: 1.5,
+										flexShrink: 1,
+										overflow: 'hidden',
+										'& .MuiChip-label': {
+											textOverflow: 'ellipsis',
+											overflow: 'hidden',
+											whiteSpace: 'nowrap',
+										}
 									}}
 								/>
+								{renderExtra && (
+									<Box sx={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+										{renderExtra(entry)}
+									</Box>
+								)}
 							</Box>
 
 							{/* Content Preview */}
@@ -108,9 +121,19 @@ export function JournalEntryCardView({ entries, onEntryClick }: JournalEntryCard
 									borderColor: "divider",
 								}}
 							>
-								<Typography variant="caption" color="text.secondary" fontWeight={500}>
-									{formatDate(entry.createdAt)}
-								</Typography>
+								<Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+									<Typography variant="caption" color="text.secondary" fontWeight={500}>
+										{formatDate(entry.createdAt)}
+									</Typography>
+									{(entry.attachmentUrls?.length > 0 || entry.attachmentFileIds?.length > 0) && (
+										<Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3, color: 'text.secondary' }}>
+											<AttachFileIcon sx={{ fontSize: 14, transform: 'rotate(45deg)' }} />
+											<Typography variant="caption" fontWeight={600}>
+												{ (entry.attachmentUrls?.length || 0) + (entry.attachmentFileIds?.length || 0) }
+											</Typography>
+										</Box>
+									)}
+								</Box>
 								<Typography
 									variant="caption"
 									color="primary.main"

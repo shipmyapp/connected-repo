@@ -14,13 +14,11 @@ import { RhfSubmitButton } from "@connected-repo/ui-mui/rhf-form/RhfSubmitButton
 import { RhfTextField } from "@connected-repo/ui-mui/rhf-form/RhfTextField";
 import { useRhfForm } from "@connected-repo/ui-mui/rhf-form/useRhfForm";
 import { PendingSyncJournalEntry, pendingSyncJournalEntryZod } from "@connected-repo/zod-schemas/journal_entry.zod";
-import { orpc } from "@frontend/utils/orpc.tanstack.client";
 import { getAppProxy } from "@frontend/worker/app.proxy";
 import { zodResolver } from "@hookform/resolvers/zod";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import EditNoteIcon from "@mui/icons-material/EditNote";
 import RefreshIcon from "@mui/icons-material/Refresh";
-import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ulid } from "ulid";
 
@@ -62,13 +60,42 @@ export function CreateJournalEntryForm() {
 	}, []);
 
 
-	// Fetch random prompt
-	const {
-		data: randomPrompt,
-		isLoading: promptLoading,
-		error: promptError,
-		refetch: refetchPrompt,
-	} = useQuery(orpc.prompts.getRandomActive.queryOptions());
+	const [randomPrompt, setRandomPrompt] = useState<any>(null);
+	const [promptLoading, setPromptLoading] = useState(false);
+	const hasPromptValue = useRef(false);
+
+	// Initial pick on mount or when data arriving
+	useEffect(() => {
+		const pickInitial = async () => {
+			if (hasPromptValue.current) return;
+			setPromptLoading(true);
+			try {
+				const p = await getAppProxy().promptsDb.getRandomActive();
+				if (p) {
+					setRandomPrompt(p);
+					hasPromptValue.current = true;
+				}
+			} finally {
+				setPromptLoading(false);
+			}
+		};
+
+		pickInitial();
+
+		// Listen for data arriving if we started with nothing
+		const channel = new BroadcastChannel("db-updates");
+		const handleMessage = (e: MessageEvent) => {
+			if (e.data?.table === "prompts" && !hasPromptValue.current) {
+				pickInitial();
+			}
+		};
+
+		channel.addEventListener("message", handleMessage);
+		return () => {
+			channel.removeEventListener("message", handleMessage);
+			channel.close();
+		};
+	}, []);
 
 	// Form setup with Zod validation and RHF
 	const {formMethods, RhfFormProvider } = useRhfForm<PendingSyncJournalEntry>({
@@ -105,9 +132,15 @@ export function CreateJournalEntryForm() {
 				attachments.forEach((a) => URL.revokeObjectURL(a.previewUrl));
 				setAttachments([]);
 				
+				// Pick a new prompt for next entry
+				if (writingMode === "prompted") {
+					const next = await getAppProxy().promptsDb.getRandomActive();
+					if (next) setRandomPrompt(next);
+				}
+
 				formMethods.reset({
 					journalEntryId: ulid(),
-					prompt: writingMode === "prompted" ? randomPrompt?.text ?? null : null,
+					prompt: null, // Will be set by effect
 					content: "",
 					attachmentFileIds: [],
 					status: "file-upload-pending",
@@ -117,10 +150,6 @@ export function CreateJournalEntryForm() {
 
 				setSuccess("Journal entry created successfully!");
 				
-				if (writingMode === "prompted") {
-					refetchPrompt();
-				}
-
 				setTimeout(() => setSuccess(""), 5000);
 			} catch (error) {
 				console.error("[CreateJournalEntryForm] Writing to local-db failed:", error);
@@ -161,8 +190,9 @@ export function CreateJournalEntryForm() {
 		}
 	}, [writingMode, formMethods, randomPrompt]);
 
-	const handleRefreshPrompt = () => {
-		refetchPrompt();
+	const handleRefreshPrompt = async () => {
+		const next = await getAppProxy().promptsDb.getRandomActive();
+		if (next) setRandomPrompt(next);
 	};
 
 	const handleModeChange = (_event: React.MouseEvent<HTMLElement>, newMode: WritingMode | null) => {
@@ -332,18 +362,6 @@ export function CreateJournalEntryForm() {
 							>
 								<LoadingSpinner size={24} />
 							</Box>
-						) : promptError ? (
-							<Typography
-								color="error"
-								sx={{
-									fontStyle: "italic",
-									textAlign: "center",
-									py: 2,
-									fontSize: "0.9rem",
-								}}
-							>
-								Unable to load prompt. Please try again.
-							</Typography>
 						) : (
 							<Box>
 								<Typography
@@ -357,7 +375,7 @@ export function CreateJournalEntryForm() {
 										px: 1,
 									}}
 								>
-									"{randomPrompt?.text}"
+									{randomPrompt?.text ? `"${randomPrompt.text}"` : "Initializing your prompt..."}
 								</Typography>
 								{randomPrompt?.category && (
 									<Box sx={{ mt: 2, display: "flex", justifyContent: "flex-end" }}>

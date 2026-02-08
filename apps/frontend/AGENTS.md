@@ -258,6 +258,20 @@ return isMobile ? <MobileView /> : <DesktopView />
 - **Memoize** expensive calculations
 - **React Query** caching & stale-while-revalidate
 
+## Offline Constraints (CRITICAL)
+
+**Mutations for Synced Data:**
+- **Prohibited Offline**: Editing or deleting entries that have already been synced to the server (`journalEntries` table) is strictly PROHIBITED while offline.
+- **Single Source of Truth**: Synced entries must be modified via the server (oRPC) to ensure backend consistency and trigger proper sync deltas for other devices.
+- **UI Treatment**:
+    - Explicitly disable Edit/Delete actions for synced entries when the application is offline.
+    - Show informative tooltips explaining that these actions require an active connection.
+    - Use server-side mutations for these actions, NOT local DB manager methods directly.
+
+**Mutations for Pending Data:**
+- **Allowed Offline**: Deleting entries that are still in the local sync queue (`pendingSyncJournalEntries` table) is ALLOWED while offline.
+- **Local Consistency**: Use the local database manager to remove these entries and their associated files.
+
 ## Environment
 - Prefix: `VITE_`
 - Access: `import.meta.env.VITE_API_URL`
