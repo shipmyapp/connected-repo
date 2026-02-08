@@ -51,7 +51,7 @@ Building a **Scheduled Prompt & Journal** app with:
 12. **Push Notifications (P0):** FCM/APNs setup and event-driven push notifications
 13. **Mobile CI/CD (P0):** GitHub Actions for Android/iOS builds and store uploads
 14. **Payments & Subscriptions (P0):** Stripe integration ($5/month, $50/year)
-15. **Offline-First (V1):** ✅ COMPLETED - IndexedDB with Dexie.js, file attachments with offline storage, sync orchestrator for media uploads, unified AppWorker with CDN/DB operations, offline/online indicators with SSE-based sync.
+15. **Offline-First (V1):** ✅ COMPLETED - IndexedDB with Dexie.js, file attachments with offline storage, sync orchestrator for media uploads, unified AppWorker with CDN/DB operations, offline/online indicators with SSE-based sync, Orchid ORM sync hooks for real-time delta push.
 16. **Search Functionality (V1):** Backend search implementation
 17. **Gamification (V1):** Streaks and badges system (event-driven)
 
@@ -866,6 +866,12 @@ cron.schedule('* * * * *', async () => {
 - ✅ SyncOrchestrator coordinates file uploads (thumbnail -> CDN) then backend entry sync
 - ✅ BroadcastChannel for cross-context DB change notifications
 - ✅ Worker-safe oRPC client split (orpc.client.ts for workers, orpc.tanstack.client.ts for UI)
+- ✅ **Reactive local DB hooks** - useLocalDb, useLocalDbItem, useLocalDbValue for UI reactivity
+- ✅ **Pagination support** - getPaginated methods for journalEntries and pendingSyncJournalEntries tables
+- ✅ **Split entry detail pages** - Separate SyncedJournalEntryDetailPage and PendingSyncJournalEntryDetailPage with different capabilities
+- ✅ **Offline constraints documentation** - AGENTS.md updated with rules for synced vs pending data mutations
+- ✅ **Prompt offline support** - CreateJournalEntryForm fetches prompts from local DB with BroadcastChannel updates
+- ✅ **Enhanced list views** - Card and table views with sync status indicators, attachment counts, error badges
 - **Acceptance Criteria:**
   - ✅ IndexedDB initialized and working
   - ✅ Journal entries stored offline with file attachments
@@ -873,6 +879,9 @@ cron.schedule('* * * * *', async () => {
   - ✅ Sync queue orchestrates media uploads before backend sync
   - ✅ Offline/online status indicators with granular error states
   - ✅ Conflicts resolved via soft delete + timestamp-based sync
+  - ✅ UI reacts to local DB changes via custom hooks
+  - ✅ Pagination for large datasets
+  - ✅ Clear offline/online mutation constraints enforced
 
 **10.1.2: Free vs Paid Tier Logic**
 - Implement tier checking middleware
@@ -1238,7 +1247,7 @@ cron.schedule('* * * * *', async () => {
 - [x] Coolify deployment automated
 
 ### Post-MVP (V1 Complete)
-- [ ] Offline-first app (free offline-only, paid cloud sync)
+- [x] Offline-first app (free offline-only, paid cloud sync) - Core implementation complete with reactive hooks, pagination, and offline constraints
 - [ ] Search functionality implemented
 - [ ] Gamification system (streaks & badges)
 - [ ] Cloud sync & data export for premium users

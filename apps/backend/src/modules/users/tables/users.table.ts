@@ -19,7 +19,7 @@ export class UserTable extends BaseTable {
 		...t.timestamps(),
 	}));
 
-	init(orm: Db) {
+	init() {
 		this.afterCreate(["email", "id", "name"], async (users, queryCtx) => {
 			// Publish the user.created event for each new user (with Orchid query context)
 			await Promise.all(

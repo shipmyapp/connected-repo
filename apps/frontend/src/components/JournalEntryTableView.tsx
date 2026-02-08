@@ -3,6 +3,9 @@ import { MaterialReactTable } from "@connected-repo/ui-mui/mrt/MaterialReactTabl
 import { JournalEntrySelectAll } from "@connected-repo/zod-schemas/journal_entry.zod";
 import type { MRT_ColumnDef } from "material-react-table";
 import { useCallback, useMemo } from "react";
+import { Tooltip } from "@mui/material";
+import ErrorIcon from "@mui/icons-material/Error";
+import AttachFileIcon from "@mui/icons-material/AttachFile";
 
 interface JournalEntryTableViewProps {
 	entries: JournalEntrySelectAll[];
@@ -19,7 +22,7 @@ export function JournalEntryTableView({ entries, onEntryClick }: JournalEntryTab
 
 	const formatDate = useCallback(
 		(date: number | string | Date) => {
-			return new Date(date).toLocaleDateString("en-US", {
+			return new Date(date).toLocaleDateString(undefined, {
 				year: "numeric",
 				month: "short",
 				day: "numeric",
@@ -35,14 +38,16 @@ export function JournalEntryTableView({ entries, onEntryClick }: JournalEntryTab
 				accessorKey: "prompt",
 				header: "Prompt",
 				size: 200,
-				// Cell: ({ cell }) => (
-				// 	<Chip
-				// 		label={cell.getValue<string>() || "Journal Entry"}
-				// 		color="primary"
-				// 		size="small"
-				// 		sx={{ fontWeight: 600 }}
-				// 	/>
-				// ),
+				Cell: ({ row, cell }) => (
+					<Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+						{cell.getValue<string>() || "Journal Entry"}
+						{(row.original as any).status && (['file-upload-failed', 'sync-failed'].includes((row.original as any).status)) && (
+							<Tooltip title={(row.original as any).error || "Sync failed"}>
+								<ErrorIcon color="error" sx={{ fontSize: 18 }} />
+							</Tooltip>
+						)}
+					</Box>
+				),
 			},
 			{
 				accessorKey: "content",
@@ -64,10 +69,26 @@ export function JournalEntryTableView({ entries, onEntryClick }: JournalEntryTab
 				accessorKey: "createdAt",
 				header: "Date",
 				size: 180,
-				Cell: ({ cell }) => formatDate(cell.getValue<number>()),
+				Cell: ({ row, cell }) => (
+					<Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+						<Box component="span">
+							{formatDate(cell.getValue<number>())}
+						</Box>
+						{((row.original as any).attachmentUrls?.length > 0 || (row.original as any).attachmentFileIds?.length > 0) && (
+							<Tooltip title={`${((row.original as any).attachmentUrls?.length || 0) + ((row.original as any).attachmentFileIds?.length || 0)} attachments`}>
+								<Box sx={{ display: 'flex', alignItems: 'center', color: 'text.secondary', ml: 1 }}>
+									<AttachFileIcon sx={{ fontSize: 16, transform: 'rotate(45deg)' }} />
+									<Box component="span" sx={{ fontSize: '0.75rem', fontWeight: 600 }}>
+										{((row.original as any).attachmentUrls?.length || 0) + ((row.original as any).attachmentFileIds?.length || 0)}
+									</Box>
+								</Box>
+							</Tooltip>
+						)}
+					</Box>
+				),
 			},
 		],
-		[formatDate, truncateContent],
+		[formatDate],
 	);
 
 	return (

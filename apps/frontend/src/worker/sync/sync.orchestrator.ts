@@ -24,6 +24,14 @@ export class SyncOrchestrator {
     this.start();
   }
 
+  public getProcessingStatus() {
+    return this.isProcessing;
+  }
+
+  private isOnline(): boolean {
+    return typeof navigator !== 'undefined' && navigator.onLine;
+  }
+
   public start() {
     if (this.interval) return;
     console.info("[SyncOrchestrator] Started background sync loop");
@@ -44,11 +52,17 @@ export class SyncOrchestrator {
   /**
    * Main orchestration loop.
    */
-  public async processQueue() {
+  public async processQueue(force: boolean = false) {
     if (this.isProcessing) {
       console.debug("[SyncOrchestrator] ProcessQueue skipped: already processing.");
       return;
     }
+
+    if (!this.isOnline() && !force) {
+      console.debug("[SyncOrchestrator] ProcessQueue skipped: offline.");
+      return;
+    }
+
     this.isProcessing = true;
 
     try {
@@ -68,8 +82,8 @@ export class SyncOrchestrator {
         }
         
         try {
-          console.group(`[Entry: ${entry.journalEntryId}] Status: ${entry.status}`);
-          await this.orchestrateEntry(entry);
+          console.group(`[Entry: ${entry.journalEntryId}] Status: ${entry.status} (Force: ${force})`);
+          await this.orchestrateEntry(entry, force);
           console.groupEnd();
         } catch (err) {
           console.error(`[SyncOrchestrator] Error orchestrating entry ${entry.journalEntryId}:`, err);
@@ -84,7 +98,7 @@ export class SyncOrchestrator {
     }
   }
 
-  private async orchestrateEntry(entry: PendingSyncJournalEntry) {
+  private async orchestrateEntry(entry: PendingSyncJournalEntry, force: boolean) {
     const files = await filesDb.getFilesByPendingSyncId(entry.journalEntryId);
     console.debug(`[SyncOrchestrator] Found ${files.length} associated files for entry ${entry.journalEntryId}.`);
     
@@ -103,13 +117,13 @@ export class SyncOrchestrator {
 
       // Phase A: Thumbnail Generation (if applicable)
       const needsThumbnail = file.mimeType.startsWith("image/");
-      const thumbnailFailed = file.thumbnailStatus === 'failed' && (file.errorCount ?? 0) >= 3;
+      const thumbnailFailed = !force && file.thumbnailStatus === 'failed' && (file.errorCount ?? 0) >= 3;
       const thumbnailReady = !needsThumbnail || file.thumbnailStatus === 'completed' || thumbnailFailed;
 
       if (!thumbnailReady) {
         allMediaFinalized = false;
-        console.info(`[SyncOrchestrator] Thumbnail for ${fileId} not ready (Status: ${file.thumbnailStatus}).`);
-        if (file.thumbnailStatus !== 'in-progress') {
+        console.info(`[SyncOrchestrator] Thumbnail for ${fileId} not ready (Status: ${file.thumbnailStatus}, Force: ${force}).`);
+        if (file.thumbnailStatus !== 'in-progress' || force) {
           await mediaUploadService.generateAndStoreThumbnail(fileId);
         }
         attachmentUrls.push(null);
@@ -117,13 +131,13 @@ export class SyncOrchestrator {
       }
 
       // Phase B: CDN Upload
-      const uploadFailed = file.status === 'failed' && (file.errorCount ?? 0) >= 5;
+      const uploadFailed = !force && file.status === 'failed' && (file.errorCount ?? 0) >= 5;
       const uploadReady = file.status === 'completed' || uploadFailed;
 
       if (!uploadReady) {
         allMediaFinalized = false;
-        console.info(`[SyncOrchestrator] Media ${fileId} not ready (Status: ${file.status}).`);
-        if (file.status !== 'in-progress') {
+        console.info(`[SyncOrchestrator] Media ${fileId} not ready (Status: ${file.status}, Force: ${force}).`);
+        if (file.status !== 'in-progress' || force) {
           await mediaUploadService.uploadMediaPair(fileId);
         }
         attachmentUrls.push(null);
@@ -150,7 +164,7 @@ export class SyncOrchestrator {
         console.error(`[SyncOrchestrator] Entry ${entry.journalEntryId} has failed attachments. Aborting sync.`);
         await pendingSyncJournalEntriesDb.updateStatus(entry.journalEntryId, 'file-upload-failed', "One or more attachments failed to upload.");
       } else {
-        await this.performBackendSync(entry, validAttachmentUrls);
+        await this.performBackendSync(entry, validAttachmentUrls, force);
       }
     } else {
       // Update entry status if it's not already in an informative state
@@ -165,9 +179,9 @@ export class SyncOrchestrator {
     }
   }
 
-  private async performBackendSync(entry: PendingSyncJournalEntry, attachmentUrls: [string, string][]) {
+  private async performBackendSync(entry: PendingSyncJournalEntry, attachmentUrls: [string, string][], force: boolean) {
     // Avoid redundant calls while one is in flight in this session
-    if (this.inFlightSyncs.has(entry.journalEntryId)) {
+    if (!force && this.inFlightSyncs.has(entry.journalEntryId)) {
         console.debug(`[SyncOrchestrator] Backend sync already in flight for ${entry.journalEntryId}, skipping.`);
         return;
     }

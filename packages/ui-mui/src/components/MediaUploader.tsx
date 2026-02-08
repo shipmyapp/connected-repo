@@ -116,6 +116,7 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
               borderRadius: 3,
               overflow: 'hidden',
               position: 'relative',
+              bgcolor: alpha(theme.palette.action.hover, 0.4),
               border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
               transition: 'transform 0.2s',
               '&:hover': {
@@ -130,7 +131,7 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
               sx={{
                 width: '100%',
                 height: '100%',
-                objectFit: 'cover',
+                objectFit: 'contain',
               }}
             />
           </Paper>

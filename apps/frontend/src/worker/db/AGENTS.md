@@ -53,3 +53,12 @@
   - `thumbnailBlob?: Blob | null` - compressed thumbnail
   - `thumbnailStatus` - thumbnail generation state
   - `errorCount` - retry counter for failed operations
+
+### 6. Deletion & Sync Integrity (CRITICAL)
+
+* **Synced Entries (`journalEntries`)**:
+    - **UI Rule**: DO NOT call `journalEntriesDb.delete()` from the frontend UI for synced entries. These deletions must happen on the backend via oRPC to ensure all devices receive the deletion event.
+    - **Worker Use only**: The local `delete()` method in `JournalEntriesDBManager` is reserved for the sync engine to purge local cache after a server confirmation or a full sync refresh.
+
+* **Pending Entries (`pendingSyncJournalEntries`)**:
+    - **Local Rule**: `pendingSyncJournalEntriesDb.delete()` is the correct way to cancel a pending sync. It safely removes the entry and all associated local files/blobs.
