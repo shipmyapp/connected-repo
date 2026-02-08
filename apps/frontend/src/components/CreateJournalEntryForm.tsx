@@ -1,5 +1,6 @@
 import { ContentCard } from "@connected-repo/ui-mui/components/ContentCard";
 import { LoadingSpinner } from "@connected-repo/ui-mui/components/LoadingSpinner";
+import { MediaUploader, type MediaFile } from "@connected-repo/ui-mui/components/MediaUploader";
 import { SuccessAlert } from "@connected-repo/ui-mui/components/SuccessAlert";
 import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
 import { Collapse } from "@connected-repo/ui-mui/feedback/Collapse";
@@ -13,14 +14,14 @@ import { RhfSubmitButton } from "@connected-repo/ui-mui/rhf-form/RhfSubmitButton
 import { RhfTextField } from "@connected-repo/ui-mui/rhf-form/RhfTextField";
 import { useRhfForm } from "@connected-repo/ui-mui/rhf-form/useRhfForm";
 import { PendingSyncJournalEntry, pendingSyncJournalEntryZod } from "@connected-repo/zod-schemas/journal_entry.zod";
-import { orpc } from "@frontend/utils/orpc.client";
+import { orpc } from "@frontend/utils/orpc.tanstack.client";
 import { getAppProxy } from "@frontend/worker/app.proxy";
 import { zodResolver } from "@hookform/resolvers/zod";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import EditNoteIcon from "@mui/icons-material/EditNote";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ulid } from "ulid";
 
 type WritingMode = "prompted" | "free";
@@ -28,6 +29,38 @@ type WritingMode = "prompted" | "free";
 export function CreateJournalEntryForm() {
 	const [success, setSuccess] = useState("");
 	const [writingMode, setWritingMode] = useState<WritingMode>("prompted");
+	const [attachments, setAttachments] = useState<MediaFile[]>([]);
+	const attachmentsRef = useRef<MediaFile[]>([]);
+
+	// Cleanup effect to revoke all URLs only on unmount
+	useEffect(() => {
+		return () => {
+			attachmentsRef.current.forEach((a) => URL.revokeObjectURL(a.previewUrl));
+		};
+	}, []);
+
+	// Keep ref in sync for the cleanup effect closure
+	useEffect(() => {
+		attachmentsRef.current = attachments;
+	}, [attachments]);
+
+	const handleAddFiles = useCallback((newFiles: File[]) => {
+		const mediaFiles: MediaFile[] = newFiles.map((file) => ({
+			id: ulid(),
+			file,
+			previewUrl: URL.createObjectURL(file),
+		}));
+		setAttachments((prev) => [...prev, ...mediaFiles]);
+	}, []);
+
+	const handleRemoveFile = useCallback((id: string) => {
+		setAttachments((prev) => {
+			const fileToRemove = prev.find((f) => f.id === id);
+			if (fileToRemove) URL.revokeObjectURL(fileToRemove.previewUrl);
+			return prev.filter((f) => f.id !== id);
+		});
+	}, []);
+
 
 	// Fetch random prompt
 	const {
@@ -41,20 +74,47 @@ export function CreateJournalEntryForm() {
 	const {formMethods, RhfFormProvider } = useRhfForm<PendingSyncJournalEntry>({
 		onSubmit: async (data) => {
 			const app = getAppProxy();
+			const entryId = data.journalEntryId;
 			
-			// 1. Prepare data
+			// 1. Prepare and persist files
+			const fileIds = attachments.map((a) => a.id);
+			for (const attachment of attachments) {
+				await app.filesDb.upsert(
+					attachment.id,
+					entryId,
+					attachment.file,
+					attachment.file.name
+				);
+			}
+
+			// 2. Prepare entry data
 			const submitData: PendingSyncJournalEntry = {
 				...data,
+				attachmentFileIds: fileIds,
 				prompt: writingMode === "free" ? null : data.prompt,
 				promptId: writingMode === "free" ? null : randomPrompt?.promptId ?? null,
 				createdAt: Date.now(),
-				status: writingMode === "free" ? "syncing" : data.status, // or consistent status
+				status: fileIds.length > 0 ? "file-upload-pending" : "file-upload-completed",
+				errorCount: 0,
 			};
 
 			try {
 				await app.pendingSyncJournalEntriesDb.add(submitData);
 
-				formMethods.reset();
+				// Cleanup state
+				attachments.forEach((a) => URL.revokeObjectURL(a.previewUrl));
+				setAttachments([]);
+				
+				formMethods.reset({
+					journalEntryId: ulid(),
+					prompt: writingMode === "prompted" ? randomPrompt?.text ?? null : null,
+					content: "",
+					attachmentFileIds: [],
+					status: "file-upload-pending",
+					errorCount: 0,
+					createdAt: Date.now()
+				});
+
 				setSuccess("Journal entry created successfully!");
 				
 				if (writingMode === "prompted") {
@@ -341,6 +401,13 @@ export function CreateJournalEntryForm() {
 							: "Express yourself freely without any prompts or constraints"
 						}
 						sx={{ mb: 0 }}
+					/>
+
+					<MediaUploader
+						files={attachments}
+						onAddFiles={handleAddFiles}
+						onRemoveFile={handleRemoveFile}
+						maxFiles={5}
 					/>
 
 					<RhfSubmitButton

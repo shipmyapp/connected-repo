@@ -28,8 +28,8 @@ export class MediaUploadService {
    * Compresses an image file, returning a thumbnail version.
    * Returns null if compression fails or if file is not an image.
    */
-  private async compressImage(file: File): Promise<File | null> {
-    if (!file.type.startsWith("image/")) return null;
+  private async compressImage(file: File): Promise<File> {
+    if (!file.type.startsWith("image/")) throw new Error("File is not an image");
 
     try {
       const options = {
@@ -45,57 +45,114 @@ export class MediaUploadService {
       });
     } catch (error) {
       console.warn("[MediaUploadService] Image compression failed:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Helper to increment error count and update status
+   */
+  private async handleError(fileId: string, error: unknown, type: 'thumbnail' | 'upload') {
+    const file = await filesDb.get(fileId);
+    if (!file) return;
+
+    const newErrorCount = (file.errorCount ?? 0) + 1;
+    const errorMsg = error instanceof Error ? error.message : String(error);
+
+    const update: any = {
+      error: errorMsg,
+      errorCount: newErrorCount,
+    };
+
+    if (type === 'thumbnail') {
+      update.thumbnailStatus = 'failed';
+    } else {
+      update.status = 'failed';
+    }
+
+    await filesDb.update(fileId, update);
+    console.warn(`[MediaUploadService] ${type} failed for ${fileId} (Count: ${newErrorCount}):`, errorMsg);
+  }
+
+  /**
+   * Generates a thumbnail for a given file and stores it in FilesDB.
+   */
+  async generateAndStoreThumbnail(fileId: string): Promise<void> {
+    const file = await filesDb.get(fileId);
+    if (!file || !file.mimeType.startsWith("image/") || file.thumbnailStatus === 'completed') {
+      if (file && !file.mimeType.startsWith("image/")) {
+        await filesDb.update(fileId, { thumbnailStatus: 'completed' });
+      }
+      return;
+    }
+
+    try {
+      await filesDb.update(fileId, { thumbnailStatus: 'in-progress' });
+      const originalFile = new File([file.blob], file.fileName, { type: file.mimeType });
+      // TODO: Implement thumbnail for pdf files
+      // TODO: Implement thumbail for videos
+      const thumbnailFile = await this.compressImage(originalFile);
+      
+      await filesDb.update(fileId, {
+        thumbnailBlob: thumbnailFile,
+        thumbnailStatus: 'completed'
+      });
+      console.debug(`[MediaUploadService] Generated thumbnail for ${fileId}`);
+    } catch (error) {
+      await this.handleError(fileId, error, 'thumbnail');
+    }
+  }
+
+  /**
+   * Uploads both original and thumbnail to CDN.
+   * Returns a tuple [originalUrl, thumbnailUrl].
+   */
+  async uploadMediaPair(fileId: string): Promise<[string, string] | null> {
+    const file = await filesDb.get(fileId);
+    if (!file) return null;
+
+    if (file.cdnUrls) return file.cdnUrls;
+
+    const filesToUpload: File[] = [];
+    const originalFile = new File([file.blob], file.fileName, { type: file.mimeType });
+    filesToUpload.push(originalFile);
+
+    if (file.thumbnailBlob) {
+      const thumbnailFile = new File([file.thumbnailBlob], `thumb_${file.fileName}`, { type: file.thumbnailBlob.type });
+      filesToUpload.push(thumbnailFile);
+    }
+
+    try {
+      await filesDb.update(fileId, { status: 'in-progress' });
+      const results = await this.cdnManager.uploadFiles(filesToUpload, "media");
+      
+      const originalResult = results[0];
+      const thumbnailResult = results[1] || originalResult; // Fallback to original if no thumbnail exists
+
+      if (originalResult?.success) {
+        const cdnUrls: [string, string] = [originalResult.url, (thumbnailResult?.success ? thumbnailResult.url : originalResult.url)];
+        await filesDb.update(fileId, {
+          cdnUrls,
+          status: 'completed'
+        });
+        return cdnUrls;
+      } else {
+        throw new Error(originalResult?.error || "Upload failed");
+      }
+    } catch (error) {
+      await this.handleError(fileId, error, 'upload');
       return null;
     }
   }
 
   /**
    * Orchestrates the full process: Retrieve -> Optional Compress -> Batch Upload.
+   * Kept for backward compatibility.
    */
   async processAndUploadById(fileId: string): Promise<ProcessedUploadResult> {
-    try {
-      // 1. Get the original file
-      const originalFile = await this.getStoredFile(fileId);
-      if (!originalFile) {
-        return { success: false, originalUrl: "", thumbnailUrl: "", error: "File not found" };
-      }
-
-      // 2. Prepare files for batch upload
-      const filesToUpload: File[] = [originalFile];
-      
-      const thumbnailFile = await this.compressImage(originalFile);
-      // TODO: Implement thumbnail for pdf files
-      // TODO: Implement thumbail for videos
-      if (thumbnailFile) {
-        filesToUpload.push(thumbnailFile);
-      }
-
-      // 3. Batch upload to CDN
-      const uploadResults = await this.cdnManager.uploadFiles(filesToUpload, "media");
-
-      // 4. Map results to URLs
-      const originalResult = uploadResults[0];
-      const thumbnailResult = uploadResults[1] || originalResult; // Fallback to original if no thumbnail was uploaded
-
-      if (!originalResult?.success) {
-        return {
-          success: false,
-          originalUrl: "",
-          thumbnailUrl: "",
-          error: originalResult?.error || "Upload failed",
-        };
-      }
-
-      return {
-        success: true,
-        originalUrl: originalResult.url,
-        thumbnailUrl: thumbnailResult?.success ? thumbnailResult.url : originalResult.url,
-      };
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : "Media processing aborted";
-      console.error("[MediaUploadService] Critical failure:", error);
-      return { success: false, originalUrl: "", thumbnailUrl: "", error: errorMsg };
-    }
+    const urls = await this.uploadMediaPair(fileId);
+    if (!urls) return { success: false, originalUrl: "", thumbnailUrl: "", error: "Upload failed" };
+    return { success: true, originalUrl: urls[0], thumbnailUrl: urls[1] };
   }
 }
 

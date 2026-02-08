@@ -4,24 +4,39 @@ import type { SSEManager } from './sse/sse.manager.sw';
 let proxy: Comlink.Remote<SSEManager> | null = null;
 const waiters = new Set<(p: Comlink.Remote<SSEManager>) => void>();
 
-async function init() {
-	await navigator.serviceWorker.ready;
-	if (!navigator.serviceWorker.controller) {
-		// Reject pending waiters if controller is not available
-		console.warn('[SW Proxy] No service worker controller available');
-		return;
-	}
+async function waitForController() {
+	if (navigator.serviceWorker.controller) return navigator.serviceWorker.controller;
+	return new Promise<ServiceWorker>((resolve) => {
+		navigator.serviceWorker.addEventListener('controllerchange', () => {
+			if (navigator.serviceWorker.controller) resolve(navigator.serviceWorker.controller);
+		}, { once: true });
+	});
+}
 
-	const channel = new MessageChannel();
-	navigator.serviceWorker.controller.postMessage({ type: 'CAN_HAS_COMLINK' }, [channel.port2]);
-	proxy = Comlink.wrap<SSEManager>(channel.port1);
-	
-	waiters.forEach(cb => { cb(proxy!); });
-	waiters.clear();
+async function init() {
+	try {
+		await navigator.serviceWorker.ready;
+		
+		// Wait for the controller to be available (handles the activation race)
+		const controller = await waitForController();
+		
+		if (!controller) {
+			console.warn('[SW Proxy] No service worker controller available after waiting');
+			return;
+		}
+
+		const channel = new MessageChannel();
+		controller.postMessage({ type: 'CAN_HAS_COMLINK' }, [channel.port2]);
+		proxy = Comlink.wrap<SSEManager>(channel.port1);
+		
+		waiters.forEach(cb => { cb(proxy!); });
+		waiters.clear();
+	} catch (err) {
+		console.error('[SW Proxy] Initialization failed:', err);
+	}
 }
 
 if (typeof window !== 'undefined') {
-	navigator.serviceWorker.addEventListener('controllerchange', init);
 	init();
 }
 

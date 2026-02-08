@@ -21,7 +21,7 @@ export class PromptsDBManager {
     return db.prompts.toArray();
   }
 
-  async getLatestUpdatedAt() {
+  getLatestUpdatedAt() {
     return db.prompts.orderBy("updatedAt").reverse().first();
   }
 }

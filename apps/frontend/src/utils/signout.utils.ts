@@ -18,18 +18,24 @@ export const signout = async (mode?: "clear-cache") => {
         await authClient.signOut({
         fetchOptions: {
             onSuccess: () => {
-            window.location.href = "/auth/login";
+              if (typeof window !== 'undefined') {
+                window.location.href = "/auth/login";
+              }
             },
             onError: (ctx) => {
-            console.error("Logout error:", ctx.error);
-            // Force redirect even if logout fails
-            window.location.href = "/auth/login";
+              console.error("Logout error:", ctx.error);
+              if (typeof window !== 'undefined') {
+                // Force redirect even if logout fails
+                window.location.href = "/auth/login";
+              }
             }
         }
         });
     } catch (logoutError) {
         console.error("Failed to logout:", logoutError);
-        // Force redirect even if logout fails
-        window.location.href = "/auth/login";
+        if (typeof window !== 'undefined') {
+          // Force redirect even if logout fails
+          window.location.href = "/auth/login";
+        }
     }
 }

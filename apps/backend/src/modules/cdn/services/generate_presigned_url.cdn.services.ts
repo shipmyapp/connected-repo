@@ -24,6 +24,7 @@ export const generatePresignedUrlService = async (input: z.infer<typeof generate
       Bucket: env.S3_BUCKET_NAME,
       Key: key,
       ContentType: input.contentType,
+      ACL: 'public-read',
     });
 
     const signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 900 });

@@ -51,7 +51,7 @@ Building a **Scheduled Prompt & Journal** app with:
 12. **Push Notifications (P0):** FCM/APNs setup and event-driven push notifications
 13. **Mobile CI/CD (P0):** GitHub Actions for Android/iOS builds and store uploads
 14. **Payments & Subscriptions (P0):** Stripe integration ($5/month, $50/year)
-15. **Offline-First (V1):** ~~Make app offline-first, free version offline-only, paid gets cloud sync~~ 🔄 PARTIAL - IndexedDB infrastructure implemented with Dexie.js, unified AppWorker for background processing, offline/online indicators with reconnect functionality. Sync queue and auto-save pending.
+15. **Offline-First (V1):** ✅ COMPLETED - IndexedDB with Dexie.js, file attachments with offline storage, sync orchestrator for media uploads, unified AppWorker with CDN/DB operations, offline/online indicators with SSE-based sync.
 16. **Search Functionality (V1):** Backend search implementation
 17. **Gamification (V1):** Streaks and badges system (event-driven)
 
@@ -855,21 +855,22 @@ cron.schedule('* * * * *', async () => {
 
 **10.1.1: Implement IndexedDB for Offline Storage** ✅ COMPLETED
 - ✅ Install Dexie.js for IndexedDB management - Dexie 4.3.0 added
-- ✅ Create IndexedDB schema for journal entries, prompts, user data - Schema v1 with 4 tables (journalEntries, prompts, pendingSyncJournalEntries, files) + updatedAt indexes for sync
-- ✅ Implement offline CRUD operations for journal entries - JournalEntriesDBManager with upsert/getAll/bulkUpsert/bulkDelete methods + pendingSyncJournalEntriesDb for queue
-- ✅ Store entry drafts locally - CreateJournalEntryForm now saves to pendingSyncJournalEntriesDb with local error handling
-- ✅ Implement data synchronization queue - Delta sync with overlap protection (30s time buffer + 20 count buffer), cursor-based pagination, SSE real-time sync
-- ✅ Handle conflict resolution - Server-side soft delete with deletedAt, client receives tombstones via sync, last-write-wins via updatedAt timestamps
-- ✅ Show offline/online indicators - Enhanced connectivity status with sync-complete, sync-error, auth-error, connection-error states
-- ✅ Created unified AppWorker consolidating CDN + DB operations via Comlink
-- ✅ Added MediaUploadService for image compression and CDN uploads in worker
-- ✅ Created database architecture documentation (AGENTS.md)
-- ✅ Real-time sync architecture - Delta-on-Connect pattern with SSE, heartbeat (15s), exponential backoff with jitter
+- ✅ Create IndexedDB schema for journal entries, prompts, user data - Schema v1 with 4 tables + schema v2 migration with file metadata fields
+- ✅ Implement offline CRUD operations for journal entries - JournalEntriesDBManager with transaction support
+- ✅ Store entry drafts locally - CreateJournalEntryForm saves to pendingSyncJournalEntriesDb with file attachments
+- ✅ Implement data synchronization queue - Delta sync + SyncOrchestrator for sequential media upload + backend sync
+- ✅ Handle conflict resolution - Server-side soft delete with deletedAt, last-write-wins via updatedAt timestamps
+- ✅ Show offline/online indicators - Enhanced connectivity status with sync-complete, sync-error, auth-error states
+- ✅ Created unified AppWorker consolidating CDN + DB + Sync operations via Comlink
+- ✅ Added MediaUploadService with thumbnail generation and CDN uploads
+- ✅ SyncOrchestrator coordinates file uploads (thumbnail -> CDN) then backend entry sync
+- ✅ BroadcastChannel for cross-context DB change notifications
+- ✅ Worker-safe oRPC client split (orpc.client.ts for workers, orpc.tanstack.client.ts for UI)
 - **Acceptance Criteria:**
   - ✅ IndexedDB initialized and working
-  - ✅ Journal entries stored offline
-  - ✅ Drafts auto-saved to pending sync queue
-  - ✅ Sync queue implemented with delta sync + real-time updates
+  - ✅ Journal entries stored offline with file attachments
+  - ✅ Drafts auto-saved to pending sync queue with file metadata
+  - ✅ Sync queue orchestrates media uploads before backend sync
   - ✅ Offline/online status indicators with granular error states
   - ✅ Conflicts resolved via soft delete + timestamp-based sync
 

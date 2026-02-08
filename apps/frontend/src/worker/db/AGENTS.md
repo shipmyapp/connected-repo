@@ -33,7 +33,23 @@
 
 
 
-### 5. Sync State (Stage 4 Readiness)
+### 5. Sync State & File Attachments
 
-* **Status Field:** Every record should have a `status` enum:
-* `'syncing' | 'synced' | 'sync-failed' | 'file-upload-pending'` | etc...
+* **Status Fields:**
+  - Journal entries: `'file-upload-pending' | 'file-upload-completed' | 'synced' | 'failed'`
+  - Files: `'pending' | 'in-progress' | 'completed' | 'failed'`
+  - Thumbnails: `'pending' | 'in-progress' | 'completed' | 'failed'`
+
+* **SyncOrchestrator Flow:**
+  1. Thumbnail generation for images (if needed)
+  2. CDN upload for original + thumbnail
+  3. Backend entry sync with attachment URLs
+  4. Error tracking with retry limits (3 for thumbnails, 5 for uploads)
+
+* **Cross-Context Communication:** BroadcastChannel("db-updates") notifies SSE manager in Service Worker when pending entries change
+
+* **File Schema (v2):**
+  - `cdnUrls?: [string, string] | null` - [originalUrl, thumbnailUrl]
+  - `thumbnailBlob?: Blob | null` - compressed thumbnail
+  - `thumbnailStatus` - thumbnail generation state
+  - `errorCount` - retry counter for failed operations

@@ -41,7 +41,14 @@ self.addEventListener('activate', (event) => {
 });
 
 try {
-  registerRoute(new NavigationRoute(createHandlerBoundToURL('./index.html')));
+  // Use index.html without leading slash as it's the standard key in the precache manifest
+  // In development, this might fail because the manifest is handled differently by Vite.
+  registerRoute(new NavigationRoute(createHandlerBoundToURL('index.html')));
 } catch (err) {
-  console.warn('[SW] NavigationRoute registration failed:', err);
+  if (!isDev) {
+    console.warn('[SW] NavigationRoute registration failed:', err);
+  } else {
+    // In dev, we expect this might fail if precaching isn't fully active
+    console.debug('[SW] NavigationRoute skipped in dev mode (standard behavior).');
+  }
 }
