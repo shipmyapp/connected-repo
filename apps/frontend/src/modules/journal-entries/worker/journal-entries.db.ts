@@ -1,46 +1,31 @@
-import { JournalEntrySelectAll, journalEntrySelectAllZod, pendingSyncJournalEntryZod, type PendingSyncJournalEntry } from "@connected-repo/zod-schemas/journal_entry.zod";
+import { JournalEntrySelectAll, journalEntrySelectAllZod } from "@connected-repo/zod-schemas/journal_entry.zod";
+import { pendingSyncJournalEntriesDb } from "@frontend/worker/db/pending-sync-journal-entries.db";
 import { db, notifySubscribers } from "../../../worker/db/db.manager";
-import { filesDb } from "../../../worker/db/files.db";
 
 export class JournalEntriesDBManager {
-  async upsertJournalEntry(entry: JournalEntrySelectAll) {
+  async upsert(entry: JournalEntrySelectAll) {
     await db.journalEntries.put(journalEntrySelectAllZod.parse(entry));
     // When upserting a synced entry, check if it was previously a pending entry and remove it
-    await this.removePendingSyncEntry(entry.journalEntryId);
+    await pendingSyncJournalEntriesDb.delete(entry.journalEntryId);
     notifySubscribers("journalEntries");
   }
 
-  async getAllJournalEntries() {
-    return await db.journalEntries.orderBy("createdAt").reverse().toArray();
+  async bulkUpsert(entries: JournalEntrySelectAll[]) {
+    await db.journalEntries.bulkPut(entries);
+    notifySubscribers("journalEntries");
   }
 
-  async addPendingSyncEntry(entry: PendingSyncJournalEntry) {
-    await db.pendingSyncJournalEntries.add(pendingSyncJournalEntryZod.parse(entry));
-    notifySubscribers("pendingSyncJournalEntries");
+  async bulkDelete(journalEntryIds: string[]) {
+    await db.journalEntries.bulkDelete(journalEntryIds);
+    notifySubscribers("journalEntries");
   }
 
-  async getPendingSyncEntries() {
-    return await db.pendingSyncJournalEntries.orderBy("createdAt").toArray();
+  getAll() {
+    return db.journalEntries.orderBy("createdAt").reverse().toArray();
   }
 
-  async removePendingSyncEntry(id: string) {
-    await db.pendingSyncJournalEntries.delete(id);
-    // Also remove associated files via central filesDb
-    await filesDb.deleteFilesByPendingSyncId(id);
-    notifySubscribers("pendingSyncJournalEntries");
-  }
-
-  // File methods now delegated to centralized filesDb
-  async storeFile(fileId: string, pendingSyncId: string, blob: Blob, fileName: string) {
-    return await filesDb.storeFile(fileId, pendingSyncId, blob, fileName);
-  }
-
-  async getFile(fileId: string) {
-    return await filesDb.getFile(fileId);
-  }
-
-  async getFilesForPendingSyncEntry(pendingSyncId: string) {
-    return await filesDb.getFilesByPendingSyncId(pendingSyncId);
+  getLatestUpdatedAt() {
+    return db.journalEntries.orderBy("updatedAt").reverse().first();
   }
 }
 

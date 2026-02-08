@@ -9,8 +9,13 @@ export class PromptsTable extends BaseTable {
 		text: t.string(500),
 		category: t.string(100).nullable(),
 		tags: t.array(t.string()).nullable(),
-		isActive: t.boolean().default(true),
+		deletedAt: t.timestampNumber().nullable(),
 
 		...t.timestamps(),
-	}));
+	}),
+	(t) => [
+		t.index([{column: "updatedAt", order: "DESC"}]),
+	]);
+
+	readonly softDelete = true;
 }

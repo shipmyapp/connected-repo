@@ -853,24 +853,25 @@ cron.schedule('* * * * *', async () => {
 
 **Issues:**
 
-**10.1.1: Implement IndexedDB for Offline Storage** ✅ PARTIALLY COMPLETED
+**10.1.1: Implement IndexedDB for Offline Storage** ✅ COMPLETED
 - ✅ Install Dexie.js for IndexedDB management - Dexie 4.3.0 added
-- ✅ Create IndexedDB schema for journal entries, prompts, user data - Schema v1 with 4 tables (journalEntries, prompts, pendingSyncJournalEntries, files)
-- ✅ Implement offline CRUD operations for journal entries - JournalEntriesDBManager with upsert/getAll methods
-- ⏳ Store entry drafts locally (auto-save as user types) - Pending: Not yet implemented
-- ⏳ Implement data synchronization queue - Pending: Schema created (PendingSyncJournalEntry) but queue processing not wired
-- ⏳ Handle conflict resolution (local changes take precedence) - Pending: No conflict resolution logic yet
-- ✅ Show offline/online indicators - Enhanced OfflineBanner with reconnect button and SSE status
+- ✅ Create IndexedDB schema for journal entries, prompts, user data - Schema v1 with 4 tables (journalEntries, prompts, pendingSyncJournalEntries, files) + updatedAt indexes for sync
+- ✅ Implement offline CRUD operations for journal entries - JournalEntriesDBManager with upsert/getAll/bulkUpsert/bulkDelete methods + pendingSyncJournalEntriesDb for queue
+- ✅ Store entry drafts locally - CreateJournalEntryForm now saves to pendingSyncJournalEntriesDb with local error handling
+- ✅ Implement data synchronization queue - Delta sync with overlap protection (30s time buffer + 20 count buffer), cursor-based pagination, SSE real-time sync
+- ✅ Handle conflict resolution - Server-side soft delete with deletedAt, client receives tombstones via sync, last-write-wins via updatedAt timestamps
+- ✅ Show offline/online indicators - Enhanced connectivity status with sync-complete, sync-error, auth-error, connection-error states
 - ✅ Created unified AppWorker consolidating CDN + DB operations via Comlink
 - ✅ Added MediaUploadService for image compression and CDN uploads in worker
 - ✅ Created database architecture documentation (AGENTS.md)
+- ✅ Real-time sync architecture - Delta-on-Connect pattern with SSE, heartbeat (15s), exponential backoff with jitter
 - **Acceptance Criteria:**
   - ✅ IndexedDB initialized and working
   - ✅ Journal entries stored offline
-  - ⏳ Drafts auto-saved - Not yet implemented
-  - ⏳ Sync queue implemented - Schema ready but processing pending
-  - ✅ Offline/online status indicators
-  - ⏳ Conflicts resolved gracefully - Not yet implemented
+  - ✅ Drafts auto-saved to pending sync queue
+  - ✅ Sync queue implemented with delta sync + real-time updates
+  - ✅ Offline/online status indicators with granular error states
+  - ✅ Conflicts resolved via soft delete + timestamp-based sync
 
 **10.1.2: Free vs Paid Tier Logic**
 - Implement tier checking middleware

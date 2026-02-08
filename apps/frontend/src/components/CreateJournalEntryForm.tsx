@@ -13,7 +13,8 @@ import { RhfSubmitButton } from "@connected-repo/ui-mui/rhf-form/RhfSubmitButton
 import { RhfTextField } from "@connected-repo/ui-mui/rhf-form/RhfTextField";
 import { useRhfForm } from "@connected-repo/ui-mui/rhf-form/useRhfForm";
 import { PendingSyncJournalEntry, pendingSyncJournalEntryZod } from "@connected-repo/zod-schemas/journal_entry.zod";
-import { orpc, orpcFetch } from "@frontend/utils/orpc.client";
+import { orpc } from "@frontend/utils/orpc.client";
+import { getAppProxy } from "@frontend/worker/app.proxy";
 import { zodResolver } from "@hookform/resolvers/zod";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import EditNoteIcon from "@mui/icons-material/EditNote";
@@ -39,20 +40,40 @@ export function CreateJournalEntryForm() {
 	// Form setup with Zod validation and RHF
 	const {formMethods, RhfFormProvider } = useRhfForm<PendingSyncJournalEntry>({
 		onSubmit: async (data) => {
-			// Set prompt to null if in free writing mode
-			const submitData = {
+			const app = getAppProxy();
+			
+			// 1. Prepare data
+			const submitData: PendingSyncJournalEntry = {
 				...data,
 				prompt: writingMode === "free" ? null : data.prompt,
-				promptId: writingMode === "free"? null : randomPrompt?.promptId ?? null
+				promptId: writingMode === "free" ? null : randomPrompt?.promptId ?? null,
+				createdAt: Date.now(),
+				status: writingMode === "free" ? "syncing" : data.status, // or consistent status
 			};
-			await orpcFetch.journalEntries.create(submitData);
-			formMethods.reset();
-			setSuccess("Journal entry created successfully!");
-			setTimeout(() => setSuccess(""), 3000);
-			// Get a new prompt after successful submission if in prompted mode
-			if (writingMode === "prompted") {
-				refetchPrompt();
-			}
+
+			try {
+				await app.pendingSyncJournalEntriesDb.add(submitData);
+
+				formMethods.reset();
+				setSuccess("Journal entry created successfully!");
+				
+				if (writingMode === "prompted") {
+					refetchPrompt();
+				}
+
+				setTimeout(() => setSuccess(""), 5000);
+			} catch (error) {
+				console.error("[CreateJournalEntryForm] Writing to local-db failed:", error);
+				formMethods.setError(
+					"root.unexpected",
+					{
+						type: "local-database",
+						message: error instanceof Error
+							? error.message
+							: "Unknown error when saving data to local-b"
+					}
+				)
+			} 
 		},
 		formConfig: {
 			// @ts-expect-error

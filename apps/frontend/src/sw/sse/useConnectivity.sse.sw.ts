@@ -2,11 +2,10 @@ import { env } from "@frontend/configs/env.config";
 import { getSWProxy } from '@frontend/sw/proxy.sw';
 import * as Comlink from 'comlink';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-
-export type SSEStatus = 'connected' | 'disconnected' | 'connecting';
+import { SSEStatus } from "./sse.manager.sw";
 
 type DetailedStatus = {
-	code: 'NO_WIFI' | 'NO_INTERNET' | 'SERVER_DOWN' | 'RECONNECTING' | 'LIVE_SYNC_DOWN' | 'OK';
+	code: 'NO_WIFI' | 'NO_INTERNET' | 'SERVER_DOWN' | 'RECONNECTING' | 'LIVE_SYNC_DOWN' | 'DATA_SYNCING' | 'OK' | 'AUTH_ERROR' | 'SYNC_FAILURE';
 	title: string;
 	message: string | null;
 }
@@ -122,8 +121,12 @@ export function useConnectivity() {
         if (!isInternetReachable) return { code: 'NO_INTERNET', title: "No Internet", message: "Connected to Wi-Fi, but no internet access." };
         if (!isServerReachable) return { code: 'SERVER_DOWN', title: "Server Offline", message: "Our backend is currently unreachable." };
         if (sseStatus === 'connecting') return { code: 'RECONNECTING', title: "Connecting", message: "Syncing live data..." };
+        if (sseStatus === 'auth-error') return { code: 'AUTH_ERROR', title: "Session Expired", message: "Please log in again." };
+        if (sseStatus === 'sync-error') return { code: 'SYNC_FAILURE', title: "Sync Issue", message: "Delta sync failed. Retrying..." };
+        if (sseStatus === 'connection-error') return { code: 'SERVER_DOWN', title: "Sync Down", message: "Connection lost. Reconnecting..." };
         if (sseStatus === 'disconnected') return { code: 'LIVE_SYNC_DOWN', title: "Sync Paused", message: "Live updates are currently disconnected." };
-        return { code: 'OK', title: "Connected", message: null };
+        if (sseStatus === 'sync-complete') return { code: 'OK', title: "Connected", message: null };
+        return { code: 'DATA_SYNCING', title: "Syncing", message: "Syncing data..." };
     }, [hasNetworkInterface, isInternetReachable, isServerReachable, sseStatus]);
 
 	const reconnect = useCallback(async () => {

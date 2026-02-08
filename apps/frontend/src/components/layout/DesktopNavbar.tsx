@@ -41,6 +41,7 @@ export const DesktopNavbar = () => {
 						display: "flex",
 						alignItems: "center",
 						cursor: "pointer",
+						gap: 1,
 						mr: 4,
 						transition: "transform 0.2s ease-in-out",
 						"&:hover": {

@@ -26,9 +26,9 @@ export class AppDatabase extends Dexie {
     super("app_db_v1");
     
     this.version(1).stores({
-      journalEntries: "journalEntryId, createdAt",
-      prompts: "promptId, text",
-      pendingSyncJournalEntries: "journalEntryId, createdAt",
+      journalEntries: "journalEntryId, createdAt, updatedAt",
+      prompts: "promptId, text, updatedAt",
+      pendingSyncJournalEntries: "journalEntryId, createdAt, updatedAt",
       files: "fileId, pendingSyncId, mimeType",
     });
 

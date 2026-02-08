@@ -4,23 +4,31 @@ import { UserTable } from "@backend/modules/users/tables/users.table";
 export class JournalEntryTable extends BaseTable {
 	readonly table = "journal_entries";
 
-	columns = this.setColumns((t) => ({
-		journalEntryId: t.ulid().primaryKey(),
+	columns = this.setColumns((t) => 
+		({
+			journalEntryId: t.ulid().primaryKey(),
 
-		prompt: t.string(500).nullable(),
-		promptId: t.smallint().foreignKey("prompts", "promptId", {
-			onDelete: "SET NULL",
-			onUpdate: "RESTRICT",
-		}).nullable(),
-		content: t.text(),
-		authorUserId: t.uuid().foreignKey("users", "id", {
-			onDelete: "CASCADE",
-			onUpdate: "RESTRICT",
+			prompt: t.string(500).nullable(),
+			promptId: t.smallint().foreignKey("prompts", "promptId", {
+				onDelete: "SET NULL",
+				onUpdate: "RESTRICT",
+			}).nullable(),
+			content: t.text(),
+			authorUserId: t.uuid().foreignKey("users", "id", {
+				onDelete: "CASCADE",
+				onUpdate: "RESTRICT",
+			}),
+			attachmentUrls: t.array(t.array(t.string()).narrowType(t => t<[string, string]>())).default([]),
+			deletedAt: t.timestampNumber().nullable(),
+
+			...t.timestamps(),
 		}),
-		attachmentUrls: t.array(t.array(t.string()).narrowType(t => t<[string, string]>())).default([]),
+		(t) => [
+			t.index(["authorUserId", {column: "updatedAt", order: "DESC"}])
+		]
+	);
 
-		...t.timestamps(),
-	}));
+	readonly softDelete = true;
 
 	relations = {
 		author: this.belongsTo(() => UserTable, {

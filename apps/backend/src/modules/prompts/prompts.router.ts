@@ -1,7 +1,7 @@
 import { db } from "@backend/db/db";
 import { rpcPublicProcedure } from "@backend/procedures/public.procedure";
 import {
-	promptGetActiveZod,
+	promptGetByCategoryZod,
 	promptGetByIdZod,
 } from "@connected-repo/zod-schemas/prompt.zod";
 import { ORPCError } from "@orpc/server";
@@ -9,7 +9,6 @@ import { ORPCError } from "@orpc/server";
 // Get all active prompts
 const getAllActive = rpcPublicProcedure.handler(async () => {
 	const prompts = await db.prompts
-		.where({ isActive: true })
 		.select("*")
 		.order({ createdAt: "DESC" });
 
@@ -35,7 +34,7 @@ const getRandomActive = rpcPublicProcedure.handler(async () => {
 
 		// Get the first active prompt at this offset
 		const prompt = await db.prompts
-			.where({ isActive: true, promptId: { gte: randomIndex } })
+			.where({ promptId: { gte: randomIndex } })
 			.select("*")
 			.limit(1)
 			.take();
@@ -70,10 +69,10 @@ const getById = rpcPublicProcedure
 
 // Get prompts by category (active/inactive)
 const getByCategory = rpcPublicProcedure
-	.input(promptGetActiveZod)
+	.input(promptGetByCategoryZod)
 	.handler(async ({ input }) => {
 		const prompts = await db.prompts
-			.where({ isActive: input.isActive })
+			.where({ category: input.category })
 			.select("*")
 			.order({ createdAt: "DESC" });
 
