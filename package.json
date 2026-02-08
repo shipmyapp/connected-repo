@@ -3,7 +3,7 @@
 	"dependencies": {
 		"@orpc/server": "^1.12.1",
 		"ulid": "^3.0.1",
-		"zod": "^4.1.12"
+		"zod": "^4.3.6"
 	},
 	"description": "Starter Monorepo using Turbo of Nodejs + OrchidORM + oRPC + Reactjs with opentelemetry setup",
 	"devDependencies": {

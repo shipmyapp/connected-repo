@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { type FieldValues, FormProvider, type UseFormReturn } from "react-hook-form";
+import { FieldErrors, type FieldValues, FormProvider, type UseFormReturn } from "react-hook-form";
 import { NumLockAlert } from "../feedback/NumLockAlert";
 import { FormErrorDisplayer, type FormErrorDisplayerProps } from "./FormErrorDisplayer";
 
@@ -12,7 +12,7 @@ export interface RhfFormProviderProps<T extends FieldValues> {
   numLockAlert?: boolean;
   formMethods: UseFormReturn<T>;
   onSubmit: (data: T) => Promise<void>;
-  onInvalid?: (errors: UseFormReturn<T>["formState"]["errors"]) => void;
+  onInvalid?: (errors: FieldErrors<T>) => void;
   onError?: (error: unknown) => void;
   clearRootErrorOnChange?: boolean;
 }

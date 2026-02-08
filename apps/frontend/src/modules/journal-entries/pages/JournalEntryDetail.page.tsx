@@ -57,8 +57,8 @@ export default function JournalEntryDetailPage() {
 		setDeleteError(null);
 	};
 
-	const formatDate = (timestamp: number) => {
-		return new Date(timestamp).toLocaleDateString("en-US", {
+	const formatDate = (date: string | number | Date) => {
+		return new Date(date).toLocaleDateString("en-US", {
 			year: "numeric",
 			month: "long",
 			day: "numeric",

@@ -17,6 +17,7 @@ export class JournalEntryTable extends BaseTable {
 			onDelete: "CASCADE",
 			onUpdate: "RESTRICT",
 		}),
+		attachmentUrls: t.array(t.array(t.string()).narrowType(t => t<[string, string]>())).default([]),
 
 		...t.timestamps(),
 	}));

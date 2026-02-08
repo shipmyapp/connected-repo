@@ -1,14 +1,11 @@
 import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { MaterialReactTable } from "@connected-repo/ui-mui/mrt/MaterialReactTable";
-import type { journalEntrySelectAllZod } from "@connected-repo/zod-schemas/journal_entry.zod";
+import { JournalEntrySelectAll } from "@connected-repo/zod-schemas/journal_entry.zod";
 import type { MRT_ColumnDef } from "material-react-table";
 import { useCallback, useMemo } from "react";
-import type { z } from "zod";
-
-type JournalEntry = z.infer<typeof journalEntrySelectAllZod>;
 
 interface JournalEntryTableViewProps {
-	entries: JournalEntry[];
+	entries: JournalEntrySelectAll[];
 	onEntryClick: (entryId: string) => void;
 }
 
@@ -32,7 +29,7 @@ export function JournalEntryTableView({ entries, onEntryClick }: JournalEntryTab
 		}, []
 	);
 
-	const columns = useMemo<MRT_ColumnDef<JournalEntry>[]>(
+	const columns = useMemo<MRT_ColumnDef<JournalEntrySelectAll>[]>(
 		() => [
 			{
 				accessorKey: "prompt",

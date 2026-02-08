@@ -2,6 +2,7 @@ import { journalEntriesRouter } from '@backend/modules/journal-entries/journal-e
 import { defaultContext } from '@backend/test/setup';
 import { createJournalEntryFixture } from '@connected-repo/zod-schemas/journal_entry.fixture';
 import { createRouterClient, type RouterClient } from '@orpc/server';
+import { ulid } from 'ulid';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 
@@ -58,7 +59,7 @@ describe('Journal Entries Endpoints', () => {
 		});
 
 		it('should create a journal entry without prompt', async () => {
-			const result = await defaultClient.create({ content: dummyEntry.content });
+			const result = await defaultClient.create({ content: dummyEntry.content, journalEntryId: ulid() });
 
 			expect(result).toBeDefined();
 			expect(result.content).toBe(dummyEntry.content);
