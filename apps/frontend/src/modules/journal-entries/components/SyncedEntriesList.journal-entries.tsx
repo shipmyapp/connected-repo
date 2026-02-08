@@ -1,12 +1,11 @@
 import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
 import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { Pagination } from "@connected-repo/ui-mui/navigation/Pagination";
-import { Accordion, AccordionSummary, AccordionDetails } from "@mui/material";
+import { Collapse, IconButton, Tooltip, keyframes } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import RefreshIcon from "@mui/icons-material/Refresh";
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router";
-import { keyframes } from "@mui/material";
 import { JournalEntryCardView } from "@frontend/components/JournalEntryCardView";
 import { JournalEntryTableView } from "@frontend/components/JournalEntryTableView";
 import { getAppProxy } from "@frontend/worker/app.proxy";
@@ -14,8 +13,8 @@ import { getSWProxy } from "@frontend/sw/proxy.sw";
 import { useLocalDb } from "@frontend/worker/db/hooks/useLocalDb";
 import { ViewMode } from "../pages/JournalEntries.page";
 import { useConnectivity } from "@frontend/sw/sse/useConnectivity.sse.sw";
-import { Tooltip } from "@mui/material";
 import { useLocalDbValue } from "@frontend/worker/db/hooks/useLocalDbValue";
+import { Stack } from "@connected-repo/ui-mui/layout/Stack";
 
 const spin = keyframes`
   from { transform: rotate(0deg); }
@@ -28,6 +27,7 @@ export function SyncedEntriesList({ viewMode }: { viewMode: ViewMode }) {
 	const navigate = useNavigate();
 	const [currentPage, setCurrentPage] = useState(1);
 	const [isRefreshing, setIsRefreshing] = useState(false);
+	const [isExpanded, setIsExpanded] = useState(true);
 	const { isServerReachable, sseStatus } = useConnectivity();
 
 	// Reactive data from local DB with pagination
@@ -65,60 +65,73 @@ export function SyncedEntriesList({ viewMode }: { viewMode: ViewMode }) {
 	const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
 	return (
-		<Accordion disableGutters defaultExpanded sx={{ borderRadius: 2, overflow: 'hidden', border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
-			<AccordionSummary 
-				expandIcon={<ExpandMoreIcon />}
+		<Box sx={{ width: '100%' }}>
+			<Box 
 				sx={{ 
-					flexDirection: 'row-reverse',
-					'& .MuiAccordionSummary-expandIconWrapper': { mr: 1 },
-					'& .MuiAccordionSummary-content': { 
-						display: 'flex', 
-						justifyContent: 'space-between', 
-						alignItems: 'center',
-						width: '100%',
-						m: '12px 0 !important'
+					display: 'flex', 
+					justifyContent: 'space-between', 
+					alignItems: 'center',
+					width: '100%',
+					mb: 1,
+					cursor: 'pointer',
+					userSelect: 'none',
+					'&:hover .MuiIconButton-root': {
+						bgcolor: 'action.hover'
 					}
 				}}
+				onClick={() => setIsExpanded(!isExpanded)}
 			>
-				<Typography variant="h6" sx={{ fontWeight: 600 }}>Synced Entries ({totalCount})</Typography>
+				<Stack direction="row" spacing={1.5} alignItems="center">
+					<IconButton 
+						size="small" 
+						sx={{ 
+							transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)',
+							transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+							bgcolor: 'transparent'
+						}}
+					>
+						<ExpandMoreIcon fontSize="small" />
+					</IconButton>
+					<Typography variant="h5" sx={{ fontWeight: 700, letterSpacing: '-0.01em' }}>
+						Synced Entries
+						<Box component="span" sx={{ ml: 1.5, color: 'text.secondary', fontWeight: 500, fontSize: '0.9rem' }}>
+							({totalCount})
+						</Box>
+					</Typography>
+				</Stack>
 				
 				<Tooltip title={getRefreshTooltip()}>
-					<Box 
-						component="span"
+					<IconButton 
+						size="small"
 						onClick={(e) => { e.stopPropagation(); handleRefreshDeltas(); }}
+						disabled={!canRefresh}
 						sx={{ 
-							display: 'flex', 
-							alignItems: 'center', 
-							justifyContent: 'center',
-							width: 32,
-							height: 32,
-							borderRadius: '50%',
-							cursor: canRefresh ? 'pointer' : 'default',
 							transition: 'all 0.2s',
 							color: !canRefresh ? 'text.disabled' : 'inherit',
-							'&:hover': canRefresh ? { bgcolor: 'action.hover' } : {},
+							'&:hover': { bgcolor: 'action.hover' },
 							filter: !isServerReachable ? 'grayscale(1)' : 'none'
 						}}
 					>
-						<RefreshIcon sx={{ fontSize: 18, animation: isRefreshingState ? `${spin} 1s linear infinite` : 'none' }} />
-					</Box>
+						<RefreshIcon sx={{ fontSize: 20, animation: isRefreshingState ? `${spin} 1s linear infinite` : 'none' }} />
+					</IconButton>
 				</Tooltip>
-			</AccordionSummary>
-			<AccordionDetails>
-				<Box>
+			</Box>
+
+			<Collapse in={isExpanded} timeout="auto" unmountOnExit>
+				<Box sx={{ pt: 1 }}>
 					{viewMode === "card" ? (
 						<JournalEntryCardView 
 							entries={entries} 
-							onEntryClick={(entryId) => navigate(`/journal-entries/synced/${entryId}`)}
+							onEntryClick={(entryId: string) => navigate(`/journal-entries/synced/${entryId}`)}
 						/>
 					) : (
 						<JournalEntryTableView 
 							entries={entries as any} 
-							onEntryClick={(entryId) => navigate(`/journal-entries/synced/${entryId}`)}
+							onEntryClick={(entryId: string) => navigate(`/journal-entries/synced/${entryId}`)}
 						/>
 					)}
 					{totalPages > 1 && (
-						<Box sx={{ display: "flex", justifyContent: "center", mt: 5 }}>
+						<Box sx={{ display: "flex", justifyContent: "center", mt: 6, mb: 2 }}>
 							<Pagination
 								count={totalPages}
 								page={currentPage}
@@ -131,7 +144,7 @@ export function SyncedEntriesList({ viewMode }: { viewMode: ViewMode }) {
 						</Box>
 					)}
 				</Box>
-			</AccordionDetails>
-		</Accordion>
+			</Collapse>
+		</Box>
 	);
 }

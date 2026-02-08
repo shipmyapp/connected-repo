@@ -47,27 +47,47 @@ export default function JournalEntriesPage() {
 	}
 
 	return (
-		<Container maxWidth="xl" sx={{ py: { xs: 3, md: 5 } }}>
+		<Container maxWidth="xl" sx={{ p: 0 }}>
 			{/* Header Section */}
-			<Box sx={{ mb: 4, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 3 }}>
+			<Box sx={{ mb: 3, display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 3 }}>
 				<Box>
-					<Typography variant="h3" component="h1" sx={{ fontSize: { xs: "2rem", md: "2.5rem" }, fontWeight: 700, mb: 1 }}>
+					<Typography variant="h2" component="h1" sx={{ fontSize: { xs: "1.75rem", md: "2.25rem" }, fontWeight: 800, mb: 0.5, letterSpacing: '-0.02em' }}>
 						My Journal
 					</Typography>
-					<Typography variant="body2" color="text.secondary">
+					<Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
 						{totalCount} entries in total
 					</Typography>
 				</Box>
 
-				<Stack direction="row" spacing={2} alignItems="center">
-					<ToggleButtonGroup value={viewMode} exclusive onChange={handleViewModeChange}>
-						<ToggleButton value="card"><GridViewIcon sx={{ fontSize: 20 }} /></ToggleButton>
-						<ToggleButton value="table"><TableRowsIcon sx={{ fontSize: 20 }} /></ToggleButton>
+				<Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 0.5 }}>
+					<ToggleButtonGroup 
+						value={viewMode} 
+						exclusive 
+						onChange={handleViewModeChange}
+						size="small"
+						sx={{ 
+							bgcolor: 'background.paper',
+							borderRadius: 2,
+							'& .MuiToggleButton-root': {
+								border: 'none',
+								borderRadius: 2,
+								mx: 0.25,
+								my: 0.25,
+								px: 1,
+								'&.Mui-selected': {
+									bgcolor: 'action.selected',
+									color: 'primary.main',
+								}
+							}
+						}}
+					>
+						<ToggleButton value="card"><GridViewIcon sx={{ fontSize: 18 }} /></ToggleButton>
+						<ToggleButton value="table"><TableRowsIcon sx={{ fontSize: 18 }} /></ToggleButton>
 					</ToggleButtonGroup>
 				</Stack>
 			</Box>
 
-			<Stack spacing={3}>
+			<Stack spacing={2}>
 				<PendingSyncList 
 					viewMode={viewMode} 
 				/>
@@ -75,10 +95,6 @@ export default function JournalEntriesPage() {
 					viewMode={viewMode} 
 				/>
 			</Stack>
-
-			<style>{`
-				@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-			`}</style>
 		</Container>
 	);
 }

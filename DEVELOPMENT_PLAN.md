@@ -51,7 +51,7 @@ Building a **Scheduled Prompt & Journal** app with:
 12. **Push Notifications (P0):** FCM/APNs setup and event-driven push notifications
 13. **Mobile CI/CD (P0):** GitHub Actions for Android/iOS builds and store uploads
 14. **Payments & Subscriptions (P0):** Stripe integration ($5/month, $50/year)
-15. **Offline-First (V1):** ✅ COMPLETED - IndexedDB with Dexie.js, file attachments with offline storage, sync orchestrator for media uploads, unified AppWorker with CDN/DB operations, offline/online indicators with SSE-based sync.
+15. **Offline-First (V1):** ✅ COMPLETED - IndexedDB with Dexie.js, file attachments with offline storage, sync orchestrator for media uploads, unified AppWorker with CDN/DB operations, offline/online indicators with SSE-based sync, Orchid ORM sync hooks for real-time delta push.
 16. **Search Functionality (V1):** Backend search implementation
 17. **Gamification (V1):** Streaks and badges system (event-driven)
 
