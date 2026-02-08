@@ -1,10 +1,7 @@
 import { journalEntriesDb } from '@frontend/modules/journal-entries/worker/journal-entries.db';
 import { promptsDb } from '@frontend/modules/prompts/worker/prompts.db';
-import { UserAppBackendOutputs } from '@frontend/utils/orpc.client';
-import { createORPCClient } from '@orpc/client';
-import { RPCLink } from '@orpc/client/fetch';
-import { SimpleCsrfProtectionLinkPlugin } from '@orpc/client/plugins';
-import type { UserAppRouter } from "../../../../backend/src/routers/user_app/user_app.router";
+import { pendingSyncJournalEntriesDb } from '@frontend/worker/db/pending-sync-journal-entries.db';
+import { orpcFetch, UserAppBackendOutputs } from '@frontend/utils/orpc.client';
 
 type HeartbeatStream = UserAppBackendOutputs["sync"]["heartbeatSync"];
 
@@ -17,7 +14,7 @@ export class SSEManager {
     private statusListeners = new Set<(status: SSEStatus) => void>();
     private abortController: AbortController | null = null;
     private heartbeatTimer: number | null = null;
-    private HEARTBEAT_TIMEOUT = 15000; // 15s
+    private HEARTBEAT_TIMEOUT = 30000; // 30s
     private isMonitoring = false;
     private retryAbortController: AbortController | null = null;
     private retryCount = 0;
@@ -25,6 +22,25 @@ export class SSEManager {
     // Track initial sync state for tables
     private pendingTables = new Set<string>();
     private erroredTables = new Set<string>();
+
+    constructor() {
+        // Subscribe to database changes (via BroadcastChannel) to handle "syncing" status for local pending entries
+        // This is necessary because DB writes happen in the Web Worker, while this manager lives in the Service Worker.
+        const dbUpdatesChannel = new BroadcastChannel("db-updates");
+        dbUpdatesChannel.onmessage = async (event) => {
+            const { table } = event.data;
+            if (table === 'pendingSyncJournalEntries') {
+                const count = await pendingSyncJournalEntriesDb.count();
+                if (count > 0 && this.currentStatus === 'sync-complete') {
+                    console.info(`[SSE] New pending entries detected (${count}). Reverting to 'connected'.`);
+                    this.updateStatus('connected');
+                } else if (count === 0 && this.currentStatus === 'connected' && this.pendingTables.size === 0) {
+                    console.info(`[SSE] Local queue cleared. Advancing to 'sync-complete'.`);
+                    this.updateStatus('sync-complete');
+                }
+            }
+        };
+    }
 
     private async getLatestTimestamps(): Promise<Record<string, number>> {
         try {
@@ -75,6 +91,14 @@ export class SSEManager {
 
         if (event.type === 'heartbeat') {
             console.debug('[SSE] Heartbeat received');
+            // If we are 'connected' but not yet 'sync-complete', re-check if we can transition
+            if (this.currentStatus === 'connected' && this.pendingTables.size === 0) {
+              const pendingCount = await pendingSyncJournalEntriesDb.count();
+              if (pendingCount === 0 && this.erroredTables.size === 0) {
+                console.info('[SSE] All backend data synced and no more local pending entries. Setting sync-complete.');
+                this.updateStatus('sync-complete');
+              }
+            }
             return;
         }
 
@@ -89,7 +113,8 @@ export class SSEManager {
                 return;
             }
 
-            console.info(`[SSE] Received delta for ${event.table} (${event.data.length} records). isLastChunk: ${event.isLastChunk}`);
+            console.group(`[SSE] Received delta for ${event.table}`);
+            console.debug(`Records: ${event.data.length}, isLastChunk: ${event.isLastChunk}`);
             
             try {
                 if (event.data.length > 0) {
@@ -101,19 +126,26 @@ export class SSEManager {
                 }
 
                 if (event.isLastChunk) {
+                    console.info(`[SSE] Completed delta sync for table: ${event.table}`);
                     this.pendingTables.delete(event.table);
-                    if (this.pendingTables.size === 0 && this.currentStatus === 'connected') {
+                    if (this.pendingTables.size === 0) {
+                        const pendingCount = await pendingSyncJournalEntriesDb.count();
                         if (this.erroredTables.size > 0) {
                             console.warn('[SSE] Initial delta synchronization complete with errors');
                             this.updateStatus('sync-error');
+                        } else if (pendingCount > 0) {
+                            console.info(`[SSE] Backend synced, but ${pendingCount} local entries are still pending. Staying in 'connected' state.`);
+                            this.updateStatus('connected');
                         } else {
-                            console.info('[SSE] Initial delta synchronization complete for all tables');
+                            console.info('[SSE] All tables synchronized successfully and no local pending data.');
                             this.updateStatus('sync-complete');
                         }
                     }
                 }
+                console.groupEnd();
             } catch (err) {
                 console.error(`[SSE] Failed to persist delta for ${event.table}:`, err);
+                console.groupEnd();
                 this.erroredTables.add(event.table);
                 this.updateStatus('sync-error');
                 // Abort connection to force a clean retry and maintain consistency
@@ -124,14 +156,14 @@ export class SSEManager {
 
         // Handle real-time updates
         if (event.type === 'data-change-journalEntries') {
-            console.info(`[SSE] Received real-time update for journalEntries (${event.data.length} records). Operation: ${event.operation}`);
+            console.info(`[SSE] Real-time update [journalEntries]: ${event.operation} (${event.data.length} records)`);
             if (event.operation === 'delete') {
                 await journalEntriesDb.bulkDelete(event.data.map((d: { journalEntryId: string }) => d.journalEntryId));
             } else {
                 await journalEntriesDb.bulkUpsert(event.data);
             }
         } else if (event.type === 'data-change-prompts') {
-            console.info(`[SSE] Received real-time update for prompts (${event.data.length} records). Operation: ${event.operation}`);
+            console.info(`[SSE] Real-time update [prompts]: ${event.operation} (${event.data.length} records)`);
             if (event.operation === 'delete') {
                 await promptsDb.bulkDelete(event.data);
             } else {
@@ -171,13 +203,6 @@ export class SSEManager {
         if (this.isMonitoring) return;
         this.isMonitoring = true;
         this.retryCount = 0;
-        
-        const link = new RPCLink({
-            url: `${apiUrl}/user-app`,
-            fetch: (req, init) => globalThis.fetch(req, { ...init, credentials: 'include' }),
-            plugins: [new SimpleCsrfProtectionLinkPlugin()],
-        });
-        const orpc = createORPCClient<UserAppRouter>(link);
 
         while (this.isMonitoring) {
             this.updateStatus('connecting');
@@ -190,7 +215,7 @@ export class SSEManager {
             try {
                 const lastSyncTimestamps = await this.getLatestTimestamps();
 
-                const stream = await orpc.sync.heartbeatSync({ lastSyncTimestamps }, { signal: this.abortController.signal });
+                const stream = await orpcFetch.sync.heartbeatSync({ lastSyncTimestamps }, { signal: this.abortController.signal });
                 this.updateStatus('connected');
                 this.resetHeartbeatWatchdog();
                 this.retryCount = 0;

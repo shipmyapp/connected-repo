@@ -64,13 +64,13 @@ export function useConnectivity() {
 			await sw.onStatusChange(Comlink.proxy((status) => {
 				if (active) {
 					setSseStatus(status);
-					// If SSE is connected, we can assume server and internet are reachable
-					if (status === 'connected') {
+					// If SSE is connected or sync-complete, we can definitely assume server and internet are reachable
+					if (status === 'connected' || status === 'sync-complete') {
 						setIsInternetReachable(true);
 						setIsServerReachable(true);
 					}
-					// If SSE drops, immediately verify why
-					else if (status === 'disconnected') {
+					// If SSE drops, verify why
+					else if (status === 'disconnected' || status === 'connection-error') {
 						checkActualInternet();
 						checkServerHealth();
 					}
@@ -120,12 +120,18 @@ export function useConnectivity() {
         if (!hasNetworkInterface) return { code: 'NO_WIFI', title: "No Network", message: "Check your Wi-Fi or cables." };
         if (!isInternetReachable) return { code: 'NO_INTERNET', title: "No Internet", message: "Connected to Wi-Fi, but no internet access." };
         if (!isServerReachable) return { code: 'SERVER_DOWN', title: "Server Offline", message: "Our backend is currently unreachable." };
-        if (sseStatus === 'connecting') return { code: 'RECONNECTING', title: "Connecting", message: "Syncing live data..." };
+        
+        // Non-error states (Banners should be hidden or info-only)
+        if (sseStatus === 'sync-complete') return { code: 'OK', title: "Connected", message: null };
+        if (sseStatus === 'connected') return { code: 'OK', title: "Connected", message: "Syncing data..." }; // Treat 'connected' as OK for banner purposes
+        
+        // Error or transitional states
+        if (sseStatus === 'connecting') return { code: 'RECONNECTING', title: "Connecting", message: "Establishing live sync..." };
         if (sseStatus === 'auth-error') return { code: 'AUTH_ERROR', title: "Session Expired", message: "Please log in again." };
         if (sseStatus === 'sync-error') return { code: 'SYNC_FAILURE', title: "Sync Issue", message: "Delta sync failed. Retrying..." };
         if (sseStatus === 'connection-error') return { code: 'SERVER_DOWN', title: "Sync Down", message: "Connection lost. Reconnecting..." };
         if (sseStatus === 'disconnected') return { code: 'LIVE_SYNC_DOWN', title: "Sync Paused", message: "Live updates are currently disconnected." };
-        if (sseStatus === 'sync-complete') return { code: 'OK', title: "Connected", message: null };
+        
         return { code: 'DATA_SYNCING', title: "Syncing", message: "Syncing data..." };
     }, [hasNetworkInterface, isInternetReachable, isServerReachable, sseStatus]);
 

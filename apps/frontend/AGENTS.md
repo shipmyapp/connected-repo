@@ -160,16 +160,23 @@ const lastLogin = getLastLogin();
 ```
 
 ## oRPC Client
+
+**Two Clients (Worker-Safe Pattern):**
+
 ```typescript
-import { orpc } from '@/utils/orpc.client'
+// UI Components (TanStack Query integration)
+import { orpc } from '@/utils/orpc.tanstack.client'
 
-// Query
 const { data, isLoading } = orpc.moduleName.getAll.useQuery()
-
-// Mutation
 const createEntity = orpc.moduleName.create.useMutation()
-await createEntity.mutateAsync({ content: 'Test' })
+
+// Workers/Service Workers (Raw fetch, no React dependencies)
+import { orpcFetch } from '@/utils/orpc.client'
+
+const result = await orpcFetch.moduleName.endpoint({ ... })
 ```
+
+**Key Difference:** `orpc.client.ts` is worker-safe (no window/react-toastify deps), while `orpc.tanstack.client.ts` is for React components only.
 
 ## Design Principles (CRITICAL)
 

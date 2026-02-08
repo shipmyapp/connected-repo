@@ -70,7 +70,7 @@ export class SyncService {
 		// Proactive heartbeat to keep connections alive and allow clients to detect server death.
 		this.intervalId = setInterval(() => {
 			this.push({ type: "heartbeat", userId: null });
-		}, 15000);
+		}, 10000);
 	}
 
 	private stopHeartbeat() {

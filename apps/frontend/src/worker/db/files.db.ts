@@ -1,4 +1,5 @@
 import { db, notifySubscribers } from "./db.manager";
+import type { StoredFile } from "./schema.db.types";
 
 export class FilesDBManager {
   /**
@@ -20,10 +21,25 @@ export class FilesDBManager {
   }
 
   /**
+   * Updates specific fields of a stored file.
+   */
+  async update(fileId: string, updates: Partial<StoredFile>) {
+    await db.files.update(fileId, updates);
+    notifySubscribers("files");
+  }
+
+  /**
    * Retrieves a file from storage.
    */
   get(fileId: string) {
     return db.files.get(fileId);
+  }
+
+  /**
+   * Retrieves all files with a 'pending' status.
+   */
+  async getPendingFiles() {
+    return await db.files.where("status").equals("pending").toArray();
   }
 
   /**
@@ -38,6 +54,11 @@ export class FilesDBManager {
    */
   async deleteFilesByPendingSyncId(pendingSyncId: string) {
     await db.files.where("pendingSyncId").equals(pendingSyncId).delete();
+    notifySubscribers("files");
+  }
+
+  async bulkDeleteFilesByPendingSyncIds(pendingSyncIds: string[]) {
+    await db.files.where("pendingSyncId").anyOf(pendingSyncIds).delete();
     notifySubscribers("files");
   }
 }

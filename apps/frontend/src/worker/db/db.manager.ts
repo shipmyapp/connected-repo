@@ -1,18 +1,7 @@
 import Dexie, { type Table } from "dexie";
 import type { JournalEntrySelectAll, PendingSyncJournalEntry } from "@connected-repo/zod-schemas/journal_entry.zod";
 import type { PromptSelectAll } from "@connected-repo/zod-schemas/prompt.zod";
-
-export interface StoredFile {
-  fileId: string;
-  pendingSyncId: string;
-  blob: Blob;
-  fileName: string;
-  mimeType: string;
-  createdAt: number;
-  status: "pending" | "in-progress" | "completed" | "failed";
-  error?: string;
-  errorCount: number;
-}
+import type { StoredFile } from "./schema.db.types";
 
 // --- Core Database Definition ---
 
@@ -32,6 +21,19 @@ export class AppDatabase extends Dexie {
       files: "fileId, pendingSyncId, mimeType",
     });
 
+    this.version(2).stores({
+      journalEntries: "journalEntryId, createdAt, updatedAt",
+      prompts: "promptId, text, updatedAt",
+      pendingSyncJournalEntries: "journalEntryId, createdAt, updatedAt",
+      files: "fileId, pendingSyncId, mimeType, status, thumbnailStatus",
+    }).upgrade((tx) => {
+      return tx.table("files").toCollection().modify((file: StoredFile) => {
+        file.thumbnailBlob = null;
+        file.thumbnailStatus = 'pending';
+        file.cdnUrls = null;
+      });
+    });
+
     /**
      * Future migrations strategy:
      * this.version(3).stores({ ... new schema ... }).upgrade(async (trans) => {
@@ -44,13 +46,16 @@ export class AppDatabase extends Dexie {
 export const db = new AppDatabase();
 
 // --- Generic Subscription System ---
-
+const dbUpdatesChannel = new BroadcastChannel("db-updates");
 const subscribers: Set<(table: string) => void> = new Set();
 
 export const notifySubscribers = (table: string) => {
+  // Notify local subscribers (same context)
   for (const callback of subscribers) {
     callback(table);
   }
+  // Notify other workers (different context)
+  dbUpdatesChannel.postMessage({ table });
 };
 
 export const subscribe = (callback: (table: string) => void) => {

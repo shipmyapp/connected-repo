@@ -11,6 +11,9 @@ export default defineConfig(({ mode }) => {
 	const env = loadEnv(mode, process.cwd());
 	return {
 		base: "/",
+		worker: {
+			format: "es",
+		},
 		plugins: [
 			envValidationVitePlugin(),
 			react(),

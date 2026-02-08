@@ -11,7 +11,7 @@ import { Pagination } from "@connected-repo/ui-mui/navigation/Pagination";
 import { JournalEntriesEmptyState } from "@frontend/components/JournalEntriesEmptyState";
 import { JournalEntryCardView } from "@frontend/components/JournalEntryCardView";
 import { JournalEntryTableView } from "@frontend/components/JournalEntryTableView";
-import { orpc } from "@frontend/utils/orpc.client";
+import { orpc } from "@frontend/utils/orpc.tanstack.client";
 import { useMediaQuery, useTheme } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
