@@ -1,11 +1,11 @@
 import { BaseTable } from "@backend/db/base_table";
 import { ApiProductSku } from "@connected-repo/zod-schemas/enums.zod";
 
-export class TeamTable extends BaseTable {
-  readonly table = "teams";
+export class TeamApiTable extends BaseTable {
+  readonly table = "teams_api";
 
   columns = this.setColumns((t) => ({
-    teamId: t.uuid().primaryKey().default(t.sql`gen_random_uuid()`),
+    teamApiId: t.uuid().primaryKey().default(t.sql`gen_random_uuid()`),
 
     allowApiSubsCreationForSkus: t.array(t.string().narrowType((t) => t<ApiProductSku>())).default([]),
     allowedDomains: t.array(t.string()),

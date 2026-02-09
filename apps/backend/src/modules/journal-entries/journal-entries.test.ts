@@ -2,6 +2,7 @@ import { journalEntriesRouter } from '@backend/modules/journal-entries/journal-e
 import { defaultContext } from '@backend/test/setup';
 import { createJournalEntryFixture } from '@connected-repo/zod-schemas/journal_entry.fixture';
 import { createRouterClient, type RouterClient } from '@orpc/server';
+import { ulid } from 'ulid';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 
@@ -19,7 +20,7 @@ describe('Journal Entries Endpoints', () => {
 
 	describe('getAll', () => {
 		it('should return empty array when user has no journal entries', async () => {
-			const result = await defaultClient.getAll();
+			const result = await defaultClient.getAll({});
 
 			expect(result).toEqual([]);
 		});
@@ -32,7 +33,7 @@ describe('Journal Entries Endpoints', () => {
 			expect(createResult.content).toBe(dummyEntry.content);
 
 			// Now get all entries
-			const result = await defaultClient.getAll();
+			const result = await defaultClient.getAll({});
 
 			expect(result).toHaveLength(1);
 			expect(result[0]?.content).toBe(dummyEntry.content);
@@ -40,7 +41,7 @@ describe('Journal Entries Endpoints', () => {
 		});
 
 		it('should fail when user is not authenticated', async () => {
-			await expect(unauthClient.getAll()).rejects.toThrow();
+			await expect(unauthClient.getAll({})).rejects.toThrow();
 		});
 	});
 
@@ -58,7 +59,7 @@ describe('Journal Entries Endpoints', () => {
 		});
 
 		it('should create a journal entry without prompt', async () => {
-			const result = await defaultClient.create({ content: dummyEntry.content });
+			const result = await defaultClient.create({ content: dummyEntry.content, journalEntryId: ulid() });
 
 			expect(result).toBeDefined();
 			expect(result.content).toBe(dummyEntry.content);

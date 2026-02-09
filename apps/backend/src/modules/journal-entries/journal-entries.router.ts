@@ -1,4 +1,5 @@
 import { db } from "@backend/db/db";
+import z from "zod";
 import { rpcProtectedProcedure } from "@backend/procedures/protected.procedure";
 import {
 	journalEntryCreateInputZod,
@@ -7,26 +8,36 @@ import {
 	journalEntryGetByUserZod,
 } from "@connected-repo/zod-schemas/journal_entry.zod";
 
-// Get all journal entries for the authenticated user
-const getAll = rpcProtectedProcedure.handler(async ({ context: { user } }) => {
+// Get all journal entries for the authenticated user, optionally filtered by team
+const getAll = rpcProtectedProcedure
+	.input(z.object({ teamId: z.uuid().nullable().optional() }))
+	.handler(async ({ input: { teamId }, context: { user } }) => {
+		const query: any = { authorUserId: user.id };
+		if (teamId !== undefined) {
+			query.teamId = teamId;
+		}
 
-	const journalEntries = await db.journalEntries
-		.select("*", {
-			author: (t) => t.author.selectAll(),
-		})
-		.where({ authorUserId: user.id });
+		const journalEntries = await db.journalEntries
+			.select("*", {
+				author: (t) => t.author.selectAll(),
+			})
+			.where(query);
 
-	return journalEntries;
-});
+		return journalEntries;
+	});
 
 // Get journal entry by ID
 const getById = rpcProtectedProcedure
-	.input(journalEntryGetByIdZod)
-	.handler(async ({ input: { journalEntryId }, context: { user } }) => {
+	.input(journalEntryGetByIdZod.extend({ teamId: z.uuid().nullable().optional() }))
+	.handler(async ({ input: { journalEntryId, teamId }, context: { user } }) => {
+		const query: any = { journalEntryId, authorUserId: user.id };
+		if (teamId !== undefined) {
+			query.teamId = teamId;
+		}
 
 		const journalEntry = await db.journalEntries
 			.find(journalEntryId)
-			.where({ authorUserId: user.id });
+			.where(query);
 
 		return journalEntry;
 	});
@@ -60,9 +71,14 @@ const getByUser = rpcProtectedProcedure
 
 // Delete journal entry
 const deleteEntry = rpcProtectedProcedure
-	.input(journalEntryDeleteZod)
-	.handler(async ({ input: { journalEntryId }, context: { user } }) => {
-		await db.journalEntries.find(journalEntryId).where({ authorUserId: user.id }).delete();
+	.input(journalEntryDeleteZod.extend({ teamId: z.uuid().nullable().optional() }))
+	.handler(async ({ input: { journalEntryId, teamId }, context: { user } }) => {
+		const query: any = { journalEntryId, authorUserId: user.id };
+		if (teamId !== undefined) {
+			query.teamId = teamId;
+		}
+		
+		await db.journalEntries.find(journalEntryId).where(query).delete();
 
 		return { success: true };
 	});

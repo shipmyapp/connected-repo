@@ -1,5 +1,6 @@
 import type { UserSelectAll } from "@connected-repo/zod-schemas/user.zod";
-import { createContext, useOutletContext } from "react-router";
+import { createContext, useContext } from "react";
+import { useOutletContext } from "react-router";
 
 export interface SessionInfo {
 	hasSession: boolean;
@@ -22,7 +23,9 @@ export const userContext = createContext<SessionInfo | null>(null);
  * @throws Error if used outside of authenticated routes
  */
 export function useSessionInfo(): SessionInfo {
-	const sessionInfo = useOutletContext<SessionInfo>();
+	const sessionOutlet = useOutletContext<SessionInfo>();
+	const sessionProvider = useContext(userContext);
+	const sessionInfo = sessionOutlet || sessionProvider;
 	if (!sessionInfo) {
 		throw new Error("useSessionInfo must be used within authenticated routes (under AppLayout)");
 	}

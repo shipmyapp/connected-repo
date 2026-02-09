@@ -11,6 +11,9 @@ export default defineConfig(({ mode }) => {
 	const env = loadEnv(mode, process.cwd());
 	return {
 		base: "/",
+		worker: {
+			format: "es",
+		},
 		plugins: [
 			envValidationVitePlugin(),
 			react(),
@@ -25,10 +28,11 @@ export default defineConfig(({ mode }) => {
 			}),
 			VitePWA({
 				strategies: "injectManifest",
-				srcDir: "src",
-				filename: "sw.ts",
+				srcDir: "src/sw",
+				filename: "sw.js",
 				registerType: "prompt",
 				injectManifest: {
+					swSrc: "src/sw/sw.ts",
 					globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
 				},
 				workbox: {

@@ -1,4 +1,5 @@
 import { GoogleIcon } from "@connected-repo/ui-mui/components/GoogleIcon";
+import { Avatar } from "@connected-repo/ui-mui/data-display/Avatar";
 import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
 import { Alert } from "@connected-repo/ui-mui/feedback/Alert";
 import { Fade } from "@connected-repo/ui-mui/feedback/Fade";
@@ -10,6 +11,7 @@ import { Stack } from "@connected-repo/ui-mui/layout/Stack";
 import { userCreateFixture } from "@connected-repo/zod-schemas/user.fixture";
 import { env, isTest } from "@frontend/configs/env.config";
 import { authClient } from "@frontend/utils/auth.client";
+import { getLastLogin } from "@frontend/utils/auth.persistence";
 import * as Sentry from "@sentry/react";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
@@ -19,6 +21,7 @@ export const LoginPage = () => {
 	const [showContent] = useState(true);
 	const [searchParams] = useSearchParams();
 	const error = searchParams.get("error");
+	const lastLogin = getLastLogin();
 
 	// Track OAuth errors in Sentry when they occur
 	useEffect(() => {
@@ -124,18 +127,7 @@ export const LoginPage = () => {
 							<Stack spacing={4} alignItems="center">
 								{/* Header Section */}
 								<Box sx={{ textAlign: "center" }}>
-									<Typography
-										variant="h3"
-										sx={{
-											fontWeight: 600,
-											color: "text.primary",
-											mb: 2,
-											fontSize: { xs: "2rem", sm: "2.5rem", md: "2.75rem" },
-											letterSpacing: "-1px",
-										}}
-									>
-										Welcome
-									</Typography>
+
 									<Typography
 										variant="h6"
 										sx={{
@@ -184,8 +176,64 @@ export const LoginPage = () => {
 									</Fade>
 								)}
 
+								{/* Welcome message */}
+								<Typography
+									variant="h3"
+									sx={{
+										fontWeight: 600,
+										color: "text.primary",
+										mb: 2,
+										fontSize: { xs: "2rem", sm: "2.5rem", md: "2.75rem" },
+										letterSpacing: "-1px",
+									}}
+								>
+									{lastLogin ? "Welcome back" : "Welcome"}
+								</Typography>
+
+								{lastLogin && (
+									<Stack 
+										direction="row" 
+										spacing={2} 
+										alignItems="center" 
+										justifyContent="center"
+										onClick={handleGoogleLogin}
+										sx={{ 
+											mb: 4, 
+											width: "115%",
+											p: 2, 
+											borderRadius: 2, 
+											bgcolor: 'action.hover',
+											border: '1px solid',
+											borderColor: 'divider',
+											cursor: 'pointer',
+											transition: 'all 0.2s ease-in-out',
+											'&:hover': {
+												bgcolor: 'action.selected',
+												borderColor: 'primary.main',
+												transform: 'translateY(-2px)',
+												boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+											},
+											'&:active': {
+												transform: 'translateY(0)'
+											}
+										}}
+									>
+										<Avatar src={lastLogin.image || undefined} alt={lastLogin.name}>
+											{lastLogin.name[0]}
+										</Avatar>
+										<Box sx={{ textAlign: 'left' }}>
+											<Typography variant="subtitle1" fontWeight={600}>
+												{lastLogin.name}
+											</Typography>
+											<Typography variant="body2" color="text.secondary">
+												{lastLogin.email}
+											</Typography>
+										</Box>
+									</Stack>
+								)}
+
 								{/* Google Sign In Button */}
-								<Box sx={{ width: "100%", maxWidth: 360 }}>
+								<Box sx={{ width: "115%" }}>
 									<Button
 										variant="outlined"
 										fullWidth

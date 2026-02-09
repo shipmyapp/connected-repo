@@ -4,8 +4,12 @@ import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { AppBar } from "@connected-repo/ui-mui/navigation/AppBar";
 import { Toolbar } from "@connected-repo/ui-mui/navigation/Toolbar";
 import { navItems } from "@frontend/configs/nav.config";
+import { SSEStatusBadge } from "@frontend/sw/sse/StatusBadge.sse.sw";
 import { useLocation, useNavigate } from "react-router";
 import { UserProfileMenu } from "./UserProfileMenu";
+import GroupIcon from "@mui/icons-material/Group";
+import TeamSwitcher from "./TeamSwitcher";
+import { useWorkspace } from "@frontend/contexts/WorkspaceContext";
 
 /**
  * DesktopNavbar - Top navigation bar for desktop layout
@@ -19,8 +23,11 @@ import { UserProfileMenu } from "./UserProfileMenu";
 export const DesktopNavbar = () => {
 	const navigate = useNavigate();
 	const location = useLocation();
+	const { activeWorkspace } = useWorkspace();
 
 	const isActive = (path: string) => location.pathname === path;
+
+	const isTeamOwnerAdmin = activeWorkspace.type === 'team' && (activeWorkspace.role === 'Owner' || activeWorkspace.role === 'Admin');
 
 	return (
 		<AppBar
@@ -40,6 +47,7 @@ export const DesktopNavbar = () => {
 						display: "flex",
 						alignItems: "center",
 						cursor: "pointer",
+						gap: 1,
 						mr: 4,
 						transition: "transform 0.2s ease-in-out",
 						"&:hover": {
@@ -58,6 +66,12 @@ export const DesktopNavbar = () => {
 					>
 						OneQ
 					</Typography>
+					<SSEStatusBadge />
+				</Box>
+
+				{/* Workspace Switcher */}
+				<Box sx={{ mr: 2 }}>
+					<TeamSwitcher />
 				</Box>
 
 				{/* Navigation Links */}
@@ -93,6 +107,37 @@ export const DesktopNavbar = () => {
 							{item.label}
 						</Button>
 					))}
+
+					{isTeamOwnerAdmin && (
+						<Button
+							onClick={() => navigate(`/teams/${activeWorkspace.id}`)}
+							startIcon={<GroupIcon fontSize="small" />}
+							sx={{
+								px: 2,
+								py: 1,
+								borderRadius: 2,
+								color: isActive(`/teams/${activeWorkspace.id}`) || location.pathname.startsWith(`/teams/${activeWorkspace.id}/settings`)
+									? "secondary.main"
+									: "text.secondary",
+								bgcolor: isActive(`/teams/${activeWorkspace.id}`) || location.pathname.startsWith(`/teams/${activeWorkspace.id}/settings`)
+									? "secondary.lighter"
+									: "transparent",
+								fontWeight: (isActive(`/teams/${activeWorkspace.id}`) || location.pathname.startsWith(`/teams/${activeWorkspace.id}/settings`)) ? 600 : 500,
+								transition: "all 0.2s ease-in-out",
+								"&:hover": {
+									bgcolor: (isActive(`/teams/${activeWorkspace.id}`) || location.pathname.startsWith(`/teams/${activeWorkspace.id}/settings`))
+										? "secondary.light"
+										: "action.hover",
+									transform: "translateY(-2px)",
+								},
+								"&:active": {
+									transform: "translateY(0)",
+								},
+							}}
+						>
+							Team
+						</Button>
+					)}
 				</Box>
 
 				{/* User Profile Menu */}

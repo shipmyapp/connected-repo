@@ -1,17 +1,7 @@
 # Frontend Agent Guidelines
 
 ## Stack
-React 19, Vite 7 + SWC, React Router 7, TanStack Query + oRPC, React Hook Form, Zustand, Material-UI (via `@connected-repo/ui-mui`), Zod, Better Auth, Sentry, Vite PWA
-
-## Testing
-- **E2E**: Playwright - `yarn test:e2e`, `yarn test:e2e:ui`
-- **Shared State**: Tests share browser state - use conditional logic, check app state before actions
-
-## React 19 Patterns
-- **Actions & useTransition**: Handle async mutations
-- **use() Hook**: Consume promises in render
-- **Suspense**: Data fetching boundaries
-- **Minimize useEffect**: Prefer direct calculations, event handlers, use()
+React 19, Vite 7, React Router 7, TanStack Query + oRPC, React Hook Form, Zustand, Dexie.js (IndexedDB), Material-UI, Better Auth, Sentry, Vite PWA
 
 ## Structure
 ```
@@ -21,148 +11,173 @@ src/
 │       ├── pages/          # Module pages
 │       ├── <module>.router.tsx  # Routes
 │       └── <module>.spec.ts     # E2E tests
-├── components/       # Shared (prefer ui-mui package)
-│   ├── pwa/          # PWA components (install/update prompts, offline blocker)
-│   └── layout/       # Layout components
+├── worker/           # Web Workers (DataWorker + MediaWorker)
+│   ├── db/           # Dexie.js IndexedDB
+│   ├── cdn/          # CDN upload manager
+│   ├── sync/         # Delta sync orchestrator
+│   ├── data.worker.ts
+│   └── media.worker.ts
+├── sw/               # Service Worker (SSE sync)
+├── components/       # Shared (pwa/, layout/)
 ├── utils/           # oRPC client, auth, query client
-├── configs/         # Environment and navigation config
+├── configs/         # Environment config
 ├── router.tsx       # Main routes
 └── main.tsx         # Entry
 ```
 
 ## Module Rules
-- **Self-contained**: Each module has own pages, routes, logic
-- **NO cross-module imports**: Move shared components to `@connected-repo/ui-mui`
-- **Lazy load pages**: `const Page = lazy(() => import('./pages/Page.page'))`
-- **Module router**: Export router from `<module>.router.tsx`
+- Self-contained with own pages, routes, logic
+- NO cross-module imports
+- Lazy load pages: `const Page = lazy(() => import('./pages/Page.page'))`
 
-## Components
-**Naming**:
-- Pages: `PageName.page.tsx` (Login.page.tsx)
-- Components: `ComponentName.tsx`
+## Workers (CRITICAL)
 
-**Use ui-mui Package**:
-```typescript
-import { Button } from '@connected-repo/ui-mui/form/Button'
-import { Card } from '@connected-repo/ui-mui/layout/Card'
-import { RhfTextField } from '@connected-repo/ui-mui/rhf-form/RhfTextField'
+**Two-Worker Architecture via Comlink:**
+
+```
+UI Thread (React)
+  ├─► DataWorker (Dexie DB, Sync, SSE)
+  └─► MediaWorker (CDN uploads, thumbnails, exports)
 ```
 
-## PWA (Progressive Web App)
-
-**Features:**
-- Offline functionality via service worker
-- Install prompts for iOS and Android
-- Update prompts for new versions
-- Offline blocker UI when connection is lost
-
-**Configuration** (`vite.config.ts`):
+**Usage**:
 ```typescript
-import { VitePWA } from 'vite-plugin-pwa';
+// UI Components
+import { getDataProxy } from '@/worker/worker.proxy';
+const data = await getDataProxy().journalEntriesDb.getAll();
 
-VitePWA({
-  strategies: 'injectManifest',
-  srcDir: 'src',
-  filename: 'sw.ts',
-  registerType: 'prompt',
-  injectManifest: {
-    globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-  },
-  workbox: { cleanupOutdatedCaches: true },
-  manifest: {
-    name: 'AppName',
-    short_name: 'AppName',
-    start_url: '/',
-    display: 'standalone',
-    background_color: '#ffffff',
-    theme_color: '#1976d2',
-    icons: [/* 192x192, 512x512, maskable, apple-touch-icon */]
-  }
-})
+// Workers can call each other via setMediaProxy/setDataProxy
 ```
 
-**Service Worker** (`src/sw.ts`):
+**DataWorker**: IndexedDB access, SyncOrchestrator, SSE subscriptions  
+**MediaWorker**: Stateless, image/video/PDF thumbnails, CDN uploads, CSV/PDF exports
+
+## Offline-First Architecture
+
+**Dexie.js Tables**:
+- `journalEntries`: Synced data from server
+- `pendingSyncJournalEntries`: Local changes awaiting sync
+- `files`: Blob storage for attachments
+- `teamsApp`, `teamMembers`: Team data
+
+**Reactive Hooks** (`worker/db/hooks/useLocalDb.ts`):
 ```typescript
-// Custom service worker logic
-self.addEventListener('install', (event) => {
-  // Skip waiting to activate immediately
-  self.skipWaiting();
+const entries = useLocalDb({
+  table: 'journalEntries',
+  filter: (entry) => !entry.deletedAt,
+  sort: { key: 'createdAt', direction: 'desc' }
 });
 ```
 
-**Components:**
-- `PwaInstallPrompt` - Shows install prompt for iOS/Android
-- `PwaUpdatePrompt` - Shows update prompt when new version available
-- `OfflineBlocker` - Blocks UI when connection lost
-
-**Install Hook** (`hooks/usePwaInstall.ts`):
+**Local DB Manager** (`worker/db/journal-entries.db.ts`):
 ```typescript
-import { usePwaInstall } from '@/hooks/usePwaInstall';
-
-const { deferredPrompt, showInstallPrompt } = usePwaInstall();
+export const journalEntriesDb = {
+  async create(input) { /* add to pending queue */ },
+  async delete(id) { /* mark deleted locally */ },
+  async getAll() { /* query IndexedDB */ }
+};
 ```
 
-**Store** (`stores/usePwaInstall.store.ts`):
-```typescript
-import { usePwaInstallStore } from '@/stores/usePwaInstall.store';
+## Delta Sync
 
-const deferredPrompt = usePwaInstallStore((state) => state.deferredInstallationPrompt);
+**Service Worker SSE** (`sw/sse/sse.manager.sw.ts`):
+- Connects on login, disconnects on logout
+- Receives delta chunks on connect
+- Real-time updates via ORM hooks
+- Heartbeat every 10s for connectivity
+
+**Status**: `connecting` | `connected` | `sync-complete` | `sync-error`
+
+## Offline Auth Caching
+
+**Pattern**: Cache session in localStorage for offline fallback
+
+```typescript
+import { saveAuthCache, getAuthCache, clearAuthCache } from '@/utils/auth.persistence';
+
+// Save on successful auth
+saveAuthCache(session.user);
+
+// Clear on logout
+await signout("clear-cache");
 ```
+
+## File Uploads (CDN)
+
+**Presigned URL Pattern** (`worker/cdn/cdn.manager.ts`):
+```typescript
+// 1. Get presigned URLs from backend
+const urls = await orpcFetch.cdn.generateBatchPresignedUrls(files);
+
+// 2. Upload directly to S3
+await axios.put(signedUrl, fileBlob, {
+  headers: { "x-amz-acl": "public-read" },
+  onUploadProgress: (e) => updateProgress(e.loaded / e.total)
+});
+
+// 3. Store blob in IndexedDB for offline
+await filesDb.create({ fileId, blob: fileBlob, status: 'completed' });
+```
+
+**Attachment Schema**: `attachmentUrls: [string, string | "not-available"][]` - [original, thumbnail]
 
 ## Forms (React Hook Form)
+
 ```typescript
-import { useRhfForm } from '@connected-repo/ui-mui/rhf-form/useRhfForm'
-import { RhfTextField } from '@connected-repo/ui-mui/rhf-form/RhfTextField'
-import { zodResolver } from '@hookform/resolvers/zod'
+import { useRhfForm } from '@connected-repo/ui-mui/rhf-form/useRhfForm';
+import { RhfTextField } from '@connected-repo/ui-mui/rhf-form/RhfTextField';
 
 const { formMethods, RhfFormProvider } = useRhfForm({
   onSubmit: async (data) => { /* submit */ },
   formConfig: { resolver: zodResolver(schema) }
-})
+});
 
 return (
   <RhfFormProvider>
-    <RhfTextField name="email" label="Email" type="email" />
+    <RhfTextField name="email" label="Email" />
     <RhfSubmitButton />
   </RhfFormProvider>
-)
+);
 ```
 
-## State Management
-- **Server state**: oRPC + TanStack Query
-- **Global state**: Zustand (theme, user session, PWA state, shared UI state)
-- **Form state**: React Hook Form
-- **URL state**: React Router params
-- **Local state**: useState/useReducer
+## PWA
+
+**Service Worker** (`sw/sw.ts`): Handles SSE sync, offline detection  
+**Components**: `PwaInstallPrompt`, `PwaUpdatePrompt`, `OfflineBlocker`
+
+## Offline Constraints (CRITICAL)
+
+**Prohibited Offline**:
+- Editing/deleting synced entries (`journalEntries` table)
+- Must use server mutations to ensure consistency
+
+**Allowed Offline**:
+- Creating new entries (goes to `pendingSyncJournalEntries`)
+- Deleting pending entries (local queue cleanup)
 
 ## oRPC Client
+
+**Two Clients**:
 ```typescript
-import { orpc } from '@/utils/orpc.client'
+// React components (TanStack Query)
+import { orpc } from '@/utils/orpc.tanstack.client';
+const { data } = orpc.moduleName.getAll.useQuery();
 
-// Query
-const { data, isLoading } = orpc.moduleName.getAll.useQuery()
-
-// Mutation
-const createEntity = orpc.moduleName.create.useMutation()
-await createEntity.mutateAsync({ content: 'Test' })
+// Workers (raw fetch, no React deps)
+import { orpcFetch } from '@/utils/orpc.client';
+const result = await orpcFetch.moduleName.endpoint({ ... });
 ```
 
-## Design Principles (CRITICAL)
+## Design Principles
 
 **Beautiful, Smooth, Delightful**:
 - Tasteful colors, generous spacing, clear typography
 - Smooth transitions (200-300ms)
 - Immediate feedback on actions
-- Elegant loading (skeleton > spinner)
-- Friendly errors, inviting empty states
 
 **Color**:
 ```tsx
-<Box sx={{
-  bgcolor: 'background.paper',
-  color: 'text.primary',
-  borderColor: 'divider',
-}} />
+<Box sx={{ bgcolor: 'background.paper', color: 'text.primary' }} />
 ```
 
 **Spacing** (theme.spacing = 8px):
@@ -170,77 +185,36 @@ await createEntity.mutateAsync({ content: 'Test' })
 sx={{ p: 2, mb: 3, gap: 1.5 }}  // 16px, 24px, 12px
 ```
 
-**Transitions**:
-```tsx
-sx={{
-  transition: 'all 0.2s ease-in-out',
-  '&:hover': { transform: 'translateY(-2px)', boxShadow: 4 }
-}}
-```
-
-**Typography**:
-```tsx
-<Typography variant="h5" fontWeight={600} lineHeight={1.7} />
-```
-
-## Responsive Design (CRITICAL)
+## Responsive (CRITICAL)
 
 **Mobile-First**:
 ```tsx
 <Box sx={{
-  p: 2,                    // Mobile: 16px
-  md: { p: 3 },            // Desktop: 24px
+  p: 2,              // Mobile
+  md: { p: 3 },      // Desktop
   fontSize: { xs: '1rem', md: '0.875rem' }
 }} />
 ```
 
-**Breakpoints**: xs (0), sm (600px), md (900px), lg (1200px), xl (1536px)
-
 **Touch Targets**: Min 44x44px
-```tsx
-<Button sx={{
-  minHeight: 44,
-  padding: { xs: '12px 24px', md: '8px 16px' }
-}} />
+
+## E2E Testing (Playwright)
+
+```bash
+yarn test:e2e          # Run tests
+yarn test:e2e:ui       # UI mode
 ```
 
-**Grid**:
-```tsx
-<Grid container spacing={{ xs: 2, md: 3 }}>
-  <Grid item xs={12} sm={6} md={4}>
-</Grid>
-```
+Tests share browser state - use conditional logic before actions
 
-**Stack**:
-```tsx
-<Stack direction={{ xs: 'column', md: 'row' }} spacing={2} />
-```
-
-**useMediaQuery**:
-```tsx
-const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
-return isMobile ? <MobileView /> : <DesktopView />
-```
-
-## Performance
-- **Lazy load** route-level pages
-- **Memoize** expensive calculations
-- **React Query** caching & stale-while-revalidate
-
-## Environment
-- Prefix: `VITE_`
-- Access: `import.meta.env.VITE_API_URL`
-- Validation: `envValidationVitePlugin` in vite.config.ts
-
-## Key Takeaways
+## Best Practices
 1. React 19: use(), useTransition, Suspense - minimize useEffect
 2. NO `any` or `as unknown`
 3. Modular: Keep modules independent
 4. Lazy load pages
-5. UI components: Use `@connected-repo/ui-mui`
-6. Direct imports: `@connected-repo/ui-mui/form/Button`
-7. Beautiful design: Tasteful, smooth, delightful
-8. Responsive: ALWAYS mobile, tablet, desktop
-9. Forms: React Hook Form + Zod + RHF components
-10. State: Server (oRPC/Query), Global (Zustand), Forms (RHF), URL (Router), Local (useState)
-11. PWA: Service worker, install prompts, offline support
+5. UI: Use `@connected-repo/ui-mui`
+6. Direct imports only
+7. Design: Tasteful, smooth, responsive
+8. Offline: Check constraints before mutations
+9. State: Server (oRPC), Global (Zustand), Forms (RHF)
+10. Workers: DataWorker for DB, MediaWorker for processing

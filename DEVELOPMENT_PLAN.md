@@ -51,7 +51,7 @@ Building a **Scheduled Prompt & Journal** app with:
 12. **Push Notifications (P0):** FCM/APNs setup and event-driven push notifications
 13. **Mobile CI/CD (P0):** GitHub Actions for Android/iOS builds and store uploads
 14. **Payments & Subscriptions (P0):** Stripe integration ($5/month, $50/year)
-15. **Offline-First (V1):** Make app offline-first, free version offline-only, paid gets cloud sync
+15. **Offline-First (V1):** ✅ COMPLETED - IndexedDB with Dexie.js, file attachments with offline storage, sync orchestrator for media uploads, unified AppWorker with CDN/DB operations, offline/online indicators with SSE-based sync, Orchid ORM sync hooks for real-time delta push.
 16. **Search Functionality (V1):** Backend search implementation
 17. **Gamification (V1):** Streaks and badges system (event-driven)
 
@@ -296,17 +296,22 @@ Building a **Scheduled Prompt & Journal** app with:
 - **Manifest:** Complete web app manifest with icons (192x192, 512x512, maskable, apple-touch-icon), theme colors, display modes
 - **Install Prompts:** Platform-specific prompts for iOS and Android with dismiss functionality
 - **Update Prompts:** Service worker update detection with user notification
-- **Offline Blocker:** `OfflineBlocker.tsx` component that blocks UI when connection is lost
+- **Connectivity Monitoring:** SSE-based live connectivity with heartbeat (15s interval), status badges, and offline banners
 - **State Management:** Zustand store (`usePwaInstall.store.ts`) manages installation state
 
 **Files:**
 - `apps/frontend/vite.config.ts` - PWA configuration
-- `apps/frontend/src/sw.ts` - Service worker
+- `apps/frontend/src/sw/sw.ts` - Service worker (moved to sw/ folder)
+- `apps/frontend/src/sw/sse/sse.manager.sw.ts` - SSE connection manager in service worker
+- `apps/frontend/src/sw/sse/useConnectivity.sse.sw.ts` - React hook for connectivity state
+- `apps/frontend/src/sw/sse/OfflineBanner.sse.sw.tsx` - Offline status banner component
+- `apps/frontend/src/sw/sse/StatusBadge.sse.sw.tsx` - SSE status indicator badge
+- `apps/frontend/src/sw/proxy.sw.ts` - Comlink proxy for SW communication
 - `apps/frontend/src/components/pwa/install_prompt.pwa.tsx` - Install prompts
 - `apps/frontend/src/components/pwa/update_prompt.pwa.tsx` - Update prompts
-- `apps/frontend/src/components/OfflineBlocker.tsx` - Offline UI blocker
 - `apps/frontend/src/stores/usePwaInstall.store.ts` - Installation state
-- `apps/frontend/src/hooks/usePwaInstall.ts` - Install hook
+- `apps/frontend/src/sw/usePwaInstall.sw.ts` - Install hook (moved to sw/ folder)
+- `apps/backend/src/modules/sync/` - Backend sync module with heartbeat SSE
 
 ---
 
@@ -848,21 +853,38 @@ cron.schedule('* * * * *', async () => {
 
 **Issues:**
 
-**10.1.1: Implement IndexedDB for Offline Storage**
-- Install Dexie.js for IndexedDB management
-- Create IndexedDB schema for journal entries, prompts, user data
-- Implement offline CRUD operations for journal entries
-- Store entry drafts locally (auto-save as user types)
-- Implement data synchronization queue
-- Handle conflict resolution (local changes take precedence)
-- Show offline/online indicators
+**10.1.1: Implement IndexedDB for Offline Storage** ✅ COMPLETED
+- ✅ Install Dexie.js for IndexedDB management - Dexie 4.3.0 added
+- ✅ Create IndexedDB schema for journal entries, prompts, user data - Schema v1 with 4 tables + schema v2 migration with file metadata fields
+- ✅ Implement offline CRUD operations for journal entries - JournalEntriesDBManager with transaction support
+- ✅ Store entry drafts locally - CreateJournalEntryForm saves to pendingSyncJournalEntriesDb with file attachments
+- ✅ Implement data synchronization queue - Delta sync + SyncOrchestrator for sequential media upload + backend sync
+- ✅ Handle conflict resolution - Server-side soft delete with deletedAt, last-write-wins via updatedAt timestamps
+- ✅ Show offline/online indicators - Enhanced connectivity status with sync-complete, sync-error, auth-error states
+- ✅ Created unified AppWorker consolidating CDN + DB + Sync operations via Comlink
+- ✅ Added MediaUploadService with thumbnail generation and CDN uploads
+- ✅ SyncOrchestrator coordinates file uploads (thumbnail -> CDN) then backend entry sync
+- ✅ BroadcastChannel for cross-context DB change notifications
+- ✅ Worker-safe oRPC client split (orpc.client.ts for workers, orpc.tanstack.client.ts for UI)
+- ✅ **Reactive local DB hooks** - useLocalDb, useLocalDbItem, useLocalDbValue for UI reactivity
+- ✅ **Pagination support** - getPaginated methods for journalEntries and pendingSyncJournalEntries tables
+- ✅ **Split entry detail pages** - Separate SyncedJournalEntryDetailPage and PendingSyncJournalEntryDetailPage with different capabilities
+- ✅ **Offline constraints documentation** - AGENTS.md updated with rules for synced vs pending data mutations
+- ✅ **Prompt offline support** - CreateJournalEntryForm fetches prompts from local DB with BroadcastChannel updates
+- ✅ **Enhanced list views** - Card and table views with sync status indicators, attachment counts, error badges
+- ✅ **Two-worker architecture** - Split AppWorker into DataWorker (DB + sync) and MediaWorker (CPU-intensive tasks) for better performance and domain isolation
+- ✅ **Thumbnail generation for all file types** - PDF (pdfjs-dist), video (mp4box + VideoDecoder), and image thumbnails with fallback to "not-available" for unsupported formats
+- ✅ **File type icons in UI** - PDF, video, image, and generic file icons displayed when thumbnails unavailable
 - **Acceptance Criteria:**
-  - IndexedDB initialized and working
-  - Journal entries stored offline
-  - Drafts auto-saved
-  - Sync queue implemented
-  - Offline/online status indicators
-  - Conflicts resolved gracefully
+  - ✅ IndexedDB initialized and working
+  - ✅ Journal entries stored offline with file attachments
+  - ✅ Drafts auto-saved to pending sync queue with file metadata
+  - ✅ Sync queue orchestrates media uploads before backend sync
+  - ✅ Offline/online status indicators with granular error states
+  - ✅ Conflicts resolved via soft delete + timestamp-based sync
+  - ✅ UI reacts to local DB changes via custom hooks
+  - ✅ Pagination for large datasets
+  - ✅ Clear offline/online mutation constraints enforced
 
 **10.1.2: Free vs Paid Tier Logic**
 - Implement tier checking middleware
@@ -1042,19 +1064,26 @@ cron.schedule('* * * * *', async () => {
   - Automatic backups work
   - Restore tested and works
 
-**13.1.2: Add Data Export (GDPR Compliance)**
-- Create export endpoint
-- Support JSON format (all user data)
-- Support CSV format (entries only)
-- Include prompts in export
-- Add download button in settings
-- Generate export asynchronously for large datasets
+**13.1.2: Add Data Export (GDPR Compliance)** ✅ COMPLETED
+- Export from local IndexedDB (offline-first approach)
+- Support CSV format (all active entries with metadata)
+- Support PDF format (landscape table layout)
+- UI buttons in SyncedEntriesList
+- Processed in MediaWorker for CPU-intensive PDF generation
+- CSV injection protection (formula sanitization)
+- Toast notifications for progress/success/errors
+- **Implementation:**
+  - `ExportService` in MediaWorker (`apps/frontend/src/worker/cdn/export.service.ts`)
+  - Uses pdfmake for PDF generation with vfs fonts
+  - Lazy initialization pattern for pdfMake
+  - Progress logging for large datasets
+  - 60s timeout protection for PDF generation
 - **Acceptance Criteria:**
-  - Export includes all user data
-  - JSON format valid
-  - CSV opens in Excel/Google Sheets
-  - Download works
-  - GDPR compliant
+  - ✅ Export includes all user data from local DB
+  - ✅ CSV opens in Excel/Google Sheets
+  - ✅ PDF renders properly with landscape layout
+  - ✅ Download works
+  - ✅ User feedback via toast notifications
 
 **13.1.3: Implement Account Deletion (GDPR)**
 - Create account deletion endpoint
@@ -1228,7 +1257,7 @@ cron.schedule('* * * * *', async () => {
 - [x] Coolify deployment automated
 
 ### Post-MVP (V1 Complete)
-- [ ] Offline-first app (free offline-only, paid cloud sync)
+- [x] Offline-first app (free offline-only, paid cloud sync) - Core implementation complete with reactive hooks, pagination, and offline constraints
 - [ ] Search functionality implemented
 - [ ] Gamification system (streaks & badges)
 - [ ] Cloud sync & data export for premium users

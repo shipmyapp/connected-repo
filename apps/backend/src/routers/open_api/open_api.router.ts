@@ -4,7 +4,7 @@ import { subscriptionOpenApiRouter } from "@backend/modules/subscriptions/subscr
 import { openApiPublicProcedure } from "@backend/procedures/open_api_public.procedure";
 import { zTimezone } from "@connected-repo/zod-schemas/zod_utils";
 import * as z from "zod";
-import { teamRouter } from "./team.router";
+import { teamApiRouter } from "./team_api.router";
 
 // Health check endpoint for OpenAPI (public - no auth required)
 const healthCheck = openApiPublicProcedure
@@ -46,6 +46,6 @@ export const openApiRouter = {
 	v1: {
 		"journal-entries": journalEntriesOpenApiRouter,
 		subscriptions: subscriptionOpenApiRouter,
-		team: teamRouter,
+		team: teamApiRouter,
 	},
 };

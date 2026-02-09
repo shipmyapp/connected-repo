@@ -12,7 +12,6 @@ export async function seedPrompts() {
 			text: "What three things brought you joy today, no matter how small?",
 			category: "gratitude",
 			tags: ["reflection", "positivity", "daily"],
-			isActive: true,
 		},
 		{
 			text: "Who made a positive impact on your day, and how?",
@@ -193,8 +192,7 @@ export async function seedPrompts() {
 		},
 	];
 
-	// Insert prompts with isActive: true
-	const promptsWithActive = prompts.map(prompt => ({ ...prompt, isActive: true }));
+	const promptsWithActive = prompts.map(prompt => ({ ...prompt }));
 	await db.prompts.createMany(promptsWithActive);
 
 	console.info(`✓ Seeded ${prompts.length} journal prompts`);

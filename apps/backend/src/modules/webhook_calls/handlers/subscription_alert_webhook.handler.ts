@@ -18,11 +18,11 @@ export const subscriptionAlertWebhookHandler = async ({
 	name: string;
 	input: {
 		subscriptionId: string;
-		teamId: string;
+		teamApiId: string;
 		payload: {
 			event: "subscription.usage_alert";
 			subscriptionId: string;
-			teamId: string;
+			teamApiId: string;
 			apiProductSku: string;
 			requestsConsumed: number;
 			maxRequests: number;
@@ -43,7 +43,7 @@ export const subscriptionAlertWebhookHandler = async ({
 		queueName: env.OTEL_SERVICE_NAME,
 		entityType: "subscription",
 		entityId: input.subscriptionId,
-		teamId: input.teamId,
+		teamApiId: input.teamApiId,
 		status: "active",
 		attemptNumber: 0,
 		scheduledAt: null,
@@ -61,7 +61,7 @@ export const subscriptionAlertWebhookHandler = async ({
 
 	try {
 		// Get team webhook configuration
-		const team = await db.teams.find(input.teamId).select(
+		const team = await db.teamsApi.find(input.teamApiId).select(
 			"subscriptionAlertWebhookBearerToken",
 			"subscriptionAlertWebhookUrl"
 		);
@@ -69,7 +69,7 @@ export const subscriptionAlertWebhookHandler = async ({
 		if (!team.subscriptionAlertWebhookUrl) {
 			logger.warn({
 				logId,
-				teamId: input.teamId,
+				teamApiId: input.teamApiId,
 			}, "No webhook URL configured for team, skipping webhook");
 
 			// Update log as completed (no webhook configured is not a failure)
@@ -152,7 +152,7 @@ export const subscriptionAlertWebhookHandler = async ({
 			statusCode,
 			duration,
 			subscriptionId: input.subscriptionId,
-			teamId: input.teamId,
+			teamApiId: input.teamApiId,
 		}, "Webhook failed");
 
 		// Update log with failure

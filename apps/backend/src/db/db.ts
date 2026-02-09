@@ -7,7 +7,9 @@ import { JournalEntryTable } from "@backend/modules/journal-entries/tables/journ
 import { ApiProductRequestLogsTable } from "@backend/modules/logs/tables/api_product_request_logs.table";
 import { PromptsTable } from "@backend/modules/prompts/tables/prompts.table";
 import { SubscriptionsTable } from "@backend/modules/subscriptions/tables/subscriptions.table";
-import { TeamTable } from "@backend/modules/teams/tables/teams.table";
+import { TeamMemberTable } from "@backend/modules/teams/tables/team_members.table";
+import { TeamApiTable } from "@backend/modules/teams/tables/teams_api.table";
+import { TeamAppTable } from "@backend/modules/teams/tables/teams_app.table";
 import { UserTable } from "@backend/modules/users/tables/users.table";
 import { orchidORM } from "orchid-orm/node-postgres";
 
@@ -18,15 +20,23 @@ export const db = orchidORM(
 		log: false,
 	},
 	{
+		// App sync tables
 		users: UserTable,
 		journalEntries: JournalEntryTable,
 		prompts: PromptsTable,
+		teamsApp: TeamAppTable,
+		teamMembers: TeamMemberTable,
+
+		// API only
+
+		teamsApi: TeamApiTable,
+		subscriptions: SubscriptionsTable,
+		apiProductRequestLogs: ApiProductRequestLogsTable,
+
+		// Backend only
 		sessions: SessionTable,
 		accounts: AccountTable,
 		verifications: VerificationTable,
-		subscriptions: SubscriptionsTable,
-		teams: TeamTable,
-		apiProductRequestLogs: ApiProductRequestLogsTable,
 		pgTbusTaskLogs: PgTbusTaskLogTable,
 	},
 );

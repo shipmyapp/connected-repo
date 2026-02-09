@@ -12,10 +12,10 @@ const createSubscription = openApiAuthProcedure
   .output(subscriptionSelectAllZod)
   .handler(async ({ 
     input: { apiProductQuantity, apiProductSku, teamUserReferenceId }, 
-    context: { team } 
+    context: { teamApi } 
   }) => {
     
-    if (!team.allowApiSubsCreationForSkus.includes(apiProductSku)) {
+    if (!teamApi.allowApiSubsCreationForSkus.includes(apiProductSku)) {
       throw new Error("API subscription creation not allowed for this SKU");
     };
 
@@ -27,7 +27,7 @@ const createSubscription = openApiAuthProcedure
       expiresAt: () => sql`NOW() + ${validityDays} * INTERVAL '1 day'`,
       maxRequests,
       requestsConsumed: 0,
-      teamId: team.teamId,
+      teamApiId: teamApi.teamApiId,
       teamUserReferenceId,
     })
   });
@@ -38,12 +38,12 @@ const getActiveSubscriptions = openApiAuthProcedure
   .output(z.array(subscriptionSelectAllZod))
   .handler(async ({ 
     input: { apiProductSku, teamUserReferenceId }, 
-    context: { team } 
+    context: { teamApi } 
   }) => {
     const query = db.subscriptions
       .selectAll()
       .where({
-        teamId: team.teamId,
+        teamApiId: teamApi.teamApiId,
         teamUserReferenceId,
         expiresAt: { gt: sql`NOW()` },
         requestsConsumed: { lt: sql`max_requests` },

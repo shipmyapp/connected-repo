@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo } from "react";
+import { type ReactNode, useCallback } from "react";
 import { type FieldValues, type UseFormProps, useForm } from "react-hook-form";
 import { FormErrorDisplayerProps } from "./FormErrorDisplayer";
 import { RhfFormProvider, type RhfFormProviderProps } from "./RhfFormProvider";
@@ -37,23 +37,22 @@ export const useRhfForm = <T extends FieldValues>({
   });
 
   // Memoize the FormProvider component to prevent unnecessary re-renders
-  const FormProviderComponent = useMemo(
-    () =>
-      ({ children }: { children: ReactNode }) => {
-        return (
-          <RhfFormProvider
-            formMethods={formMethods}
-            onSubmit={onSubmit}
-            errorDisplayer={errorDisplayer}
-            numLockAlert={numLockAlert}
-            onInvalid={onInvalid}
-            onError={onError}
-            clearRootErrorOnChange={clearRootErrorOnChange}
-          >
-            {children}
-          </RhfFormProvider>
-        );
-      },
+  const FormProviderComponent = useCallback(
+    ({ children } : { children: ReactNode }) => {
+      return (
+        <RhfFormProvider
+          formMethods={formMethods}
+          onSubmit={onSubmit}
+          errorDisplayer={errorDisplayer}
+          numLockAlert={numLockAlert}
+          onInvalid={onInvalid}
+          onError={onError}
+          clearRootErrorOnChange={clearRootErrorOnChange}
+        >
+          {children}
+        </RhfFormProvider>
+      );
+    },
     [
       formMethods,
       onSubmit,

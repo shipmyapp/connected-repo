@@ -11,21 +11,21 @@ const createJournalEntryRequest = openApiAuthProcedure
   .input(openapiJournalEntryCreateInputZod)
   .output(apiProductRequestLogSelectAllZod)
   .handler(async ({
-    context: { reqHeaders, team },
+    context: { reqHeaders, teamApi },
     input
   }) => {
     const logEntry = await createRequestLog(
       input,
       reqHeaders,
       "/api/v1/journal-entries/create-request",
-      team.teamId
+      teamApi.teamApiId
     );
 
     const { newLogEntry, subscription } = await checkSubscriptionAndUpdateLog(
       logEntry,
       "journal-entries",
       input.apiProductSku,
-      team.teamId,
+      teamApi.teamApiId,
       input.teamUserReferenceId
     );
 
@@ -35,7 +35,7 @@ const createJournalEntryRequest = openApiAuthProcedure
 
     db.$transaction(async () => {
       const entry = await db.journalEntries.create(input.data);
-      const increment = await incrementSubscriptionUsage(subscription.subscriptionId, team);
+      const increment = await incrementSubscriptionUsage(subscription.subscriptionId, teamApi);
       return Promise.all([entry, increment]);
     })
 
@@ -47,14 +47,14 @@ const createJournalEntryResponse = openApiAuthProcedure
   .input(openapiResponseInputZod)
   .output(openapiJournalEntryCreateResponseOutputZod)
   .handler(async ({
-    context: { team },
+    context: { teamApi },
     input: { requestId }
   }) => {
     return await db.apiProductRequestLogs
       .selectAll()
       .find(requestId)
       .where({
-        teamId: team.teamId,
+        teamApiId: teamApi.teamApiId,
         method: "POST",
       })
       .then(res => 

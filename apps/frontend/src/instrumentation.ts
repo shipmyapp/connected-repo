@@ -22,10 +22,10 @@ Sentry.init({
     // https://docs.sentry.io/platforms/javascript/guides/react/configuration/integrations/react-router/
     Sentry.browserProfilingIntegration(),
     Sentry.browserTracingIntegration(),
-    Sentry.feedbackIntegration({
-      // Additional SDK configuration goes in here, for example:
-      colorScheme: "system",
-    }),
+    // Sentry.feedbackIntegration({
+    //   // Additional SDK configuration goes in here, for example:
+    //   colorScheme: "system",
+    // }),
     Sentry.replayIntegration({
       attachRawBodyFromRequest: true,
       blockAllMedia: false,

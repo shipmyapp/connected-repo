@@ -9,8 +9,8 @@ export const API_PRODUCTS = [
     apiRoute: "journal-entries",
     name: "Save Journal Entry",
     sku: "journal_entry_create",
-    unit_size: 100,
-    validity_days: 30,
+    unitSize: 100,
+    validityDays: 30,
   }
 ]as const;
 export const apiProductSkuEnum = API_PRODUCTS.map(product => product.sku) as ["journal_entry_create"];
@@ -20,6 +20,10 @@ export type ApiProductSku = z.infer<typeof apiProductSkuZod>;
 export const API_REQUEST_METHOD_ENUM = ["GET", "POST", "PUT", "DELETE"] as const;
 export const apiRequestMethodZod = z.enum(API_REQUEST_METHOD_ENUM);
 export type ApiRequestMethod = z.infer<typeof apiRequestMethodZod>;
+
+export const TEAM_MEMBER_ROLE_ENUM = ["Owner", "Admin", "Member"] as const;
+export const teamMemberRoleZod = z.enum(TEAM_MEMBER_ROLE_ENUM);
+export type TeamMemberRole = z.infer<typeof teamMemberRoleZod>;
 
 export const THEME_SETTING_ENUM = ["dark", "light", "system"] as const;
 export const themeSettingZod = z.enum(THEME_SETTING_ENUM);

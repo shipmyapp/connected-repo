@@ -12,11 +12,11 @@ export const checkSubscriptionAndUpdateLog = async (
 	logEntry: ApiProductRequestLog,
 	productRoute: string,
 	productSku: ApiProductSku,
-	teamId: string, 
+	teamApiId: string, 
 	teamUserReferenceId: string, 
 ) => {
 	const subscription = await findActiveSubscription(
-		teamId, 
+		teamApiId, 
 		teamUserReferenceId, 
 		productSku
 	);

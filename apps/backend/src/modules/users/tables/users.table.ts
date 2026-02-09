@@ -1,5 +1,5 @@
 import { BaseTable } from "@backend/db/base_table";
-import type { Db } from "@backend/db/db";
+import { db } from "@backend/db/db";
 import { userCreatedEventDef } from "@backend/events/events.schema";
 import { orchidToTbusQueryAdapter } from "@backend/events/events.utils";
 import { tbus } from "@backend/events/tbus";
@@ -19,15 +19,24 @@ export class UserTable extends BaseTable {
 		...t.timestamps(),
 	}));
 
-	init(orm: Db) {
+	init() {
 		this.afterCreate(["email", "id", "name"], async (users, queryCtx) => {
 			// Publish the user.created event for each new user (with Orchid query context)
 			await Promise.all(
-				users.map(user => {
+				users.map(async (user) => {
+					// 1. Claim any memberships added by email but without userId
+					await db.teamMembers
+						.where({ email: user.email, userId: null })
+						.update({
+							userId: user.id,
+							joinedAt: Date.now(),
+						});
+
+					// 2. Publish event
 					const eventData = {
 						userId: user.id,
 						email: user.email,
-						name: user.name
+						name: user.name,
 					};
 					return tbus.publish(
 						userCreatedEventDef.from(eventData),
@@ -35,6 +44,6 @@ export class UserTable extends BaseTable {
 					);
 				})
 			);
-		})
+		});
 	}
 }

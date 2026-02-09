@@ -3,12 +3,16 @@ import { useThemeMode } from "@connected-repo/ui-mui/theme/ThemeContext";
 import { PwaInstallPrompt } from "@frontend/components/pwa/install_prompt.pwa";
 import { PwaUpdatePrompt } from "@frontend/components/pwa/update_prompt.pwa";
 import type { SessionInfo } from "@frontend/contexts/UserContext";
+import { OfflineBanner } from "@frontend/sw/sse/OfflineBanner.sse.sw";
 import { useMediaQuery } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import { useEffect } from "react";
 import { Outlet, useLoaderData } from "react-router";
 import { DesktopNavbar } from "./DesktopNavbar";
 import { MobileNavbar } from "./MobileNavbar";
+import { WorkspaceProvider } from "@frontend/contexts/WorkspaceContext";
+
+import { userContext } from "@frontend/contexts/UserContext";
 
 /**
  * AppLayout - Main layout wrapper for authenticated pages
@@ -35,30 +39,35 @@ export const AppLayout = () => {
 	}, [sessionInfo.user?.themeSetting, setThemeMode]);
 
 	return (
-		<Box
-			sx={{
-				display: "flex",
-				flexDirection: "column",
-				minHeight: "100vh",
-				bgcolor: "background.default",
-			}}
-		>
-			{isMobile ? <MobileNavbar /> : <DesktopNavbar />}
+		<userContext.Provider value={sessionInfo}>
+			<WorkspaceProvider sessionInfo={sessionInfo}>
+				<Box
+					sx={{
+						display: "flex",
+						flexDirection: "column",
+						minHeight: "100vh",
+						bgcolor: "background.default",
+					}}
+				>
+					{isMobile ? <MobileNavbar /> : <DesktopNavbar />}
+					<OfflineBanner />
 
-			{/* Main content area */}
-			<Box
-				component="main"
-				sx={{
-					flexGrow: 1,
-					pt: { xs: 2, md: 3 },
-					pb: { xs: 10, md: 3 }, // Extra padding bottom on mobile for bottom nav
-					px: { xs: 2, sm: 3, md: 4 },
-				}}
-			>
-				<Outlet context={sessionInfo} />
-				<PwaInstallPrompt />
-				<PwaUpdatePrompt />
-			</Box>
-		</Box>
+					{/* Main content area */}
+					<Box
+						component="main"
+						sx={{
+							flexGrow: 1,
+							pt: { xs: 2, md: 3 },
+							pb: { xs: 10, md: 3 }, // Extra padding bottom on mobile for bottom nav
+							px: { xs: 2, sm: 3, md: 4 },
+						}}
+					>
+						<Outlet context={sessionInfo} />
+						<PwaInstallPrompt />
+						<PwaUpdatePrompt />
+					</Box>
+				</Box>
+			</WorkspaceProvider>
+		</userContext.Provider>
 	);
 };
