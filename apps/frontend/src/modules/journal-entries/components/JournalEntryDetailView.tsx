@@ -14,6 +14,10 @@ import { Divider } from "@connected-repo/ui-mui/layout/Divider";
 import { Stack } from "@connected-repo/ui-mui/layout/Stack";
 import { Tooltip, IconButton, keyframes } from "@mui/material";
 import SyncIcon from "@mui/icons-material/Sync";
+import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
+import VideoFileIcon from "@mui/icons-material/VideoFile";
+import HideImageIcon from "@mui/icons-material/HideImage";
+import FilePresentIcon from "@mui/icons-material/FilePresent";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 
@@ -33,7 +37,7 @@ interface JournalEntryDetailViewProps {
 	isDeleting?: boolean;
 	canDelete?: boolean;
 	deleteDisabledReason?: string | null;
-	attachments?: { url: string; name: string }[];
+	attachments?: { url: string; thumbnailUrl?: string; name: string }[];
 	syncError?: string | null;
 	errorCount?: number;
 	status?: "synced" | "pending" | "syncing" | "sync-failed" | "file-upload-failed" | "file-upload-in-progress" | string;
@@ -118,6 +122,14 @@ export function JournalEntryDetailView({
 	};
 
 	const statusConfig = getStatusConfig(status);
+
+	const getFileIcon = (fileName: string) => {
+		const ext = fileName.split('.').pop()?.toLowerCase();
+		if (ext === 'pdf') return { icon: <PictureAsPdfIcon sx={{ fontSize: 48, color: 'error.main' }} />, label: 'PDF', bgcolor: '#fff5f5' };
+		if (['mp4', 'webm', 'mov', 'quicktime'].includes(ext || '')) return { icon: <VideoFileIcon sx={{ fontSize: 48, color: 'primary.main' }} />, label: 'Video', bgcolor: '#f0f7ff' };
+		if (['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif'].includes(ext || '')) return { icon: <HideImageIcon sx={{ fontSize: 48, color: 'text.disabled' }} />, label: 'Image', bgcolor: '#f5f5f5' };
+		return { icon: <FilePresentIcon sx={{ fontSize: 48, color: 'text.secondary' }} />, label: 'File', bgcolor: '#fafafa' };
+	};
 
 	return (
 		<Box>
@@ -299,17 +311,37 @@ export function JournalEntryDetailView({
 										}}
 										onClick={() => window.open(file.url, "_blank")}
 									>
-										<Box
-											component="img"
-											src={file.url}
-											alt={file.name}
-											sx={{
-												width: "100%",
-												height: "100%",
-												objectFit: "contain",
-												transition: "transform 0.3s ease-in-out",
-											}}
-										/>
+										{file.thumbnailUrl === "not-available" ? (
+											<Box
+												sx={{
+													width: "100%",
+													height: "100%",
+													display: "flex",
+													flexDirection: "column",
+													alignItems: "center",
+													justifyContent: "center",
+													bgcolor: getFileIcon(file.name).bgcolor,
+													gap: 1
+												}}
+											>
+												{getFileIcon(file.name).icon}
+												<Typography variant="caption" color="text.secondary" fontWeight={600}>
+													{getFileIcon(file.name).label}
+												</Typography>
+											</Box>
+										) : (
+											<Box
+												component="img"
+												src={file.thumbnailUrl || file.url}
+												alt={file.name}
+												sx={{
+													width: "100%",
+													height: "100%",
+													objectFit: "contain",
+													transition: "transform 0.3s ease-in-out",
+												}}
+											/>
+										)}
 										<Box
 											className="overlay"
 											sx={{
@@ -328,7 +360,7 @@ export function JournalEntryDetailView({
 											}}
 										>
 											<Typography variant="caption" sx={{ color: "white", textAlign: "center" }}>
-												View Full Image
+												View Full File
 											</Typography>
 										</Box>
 									</Box>

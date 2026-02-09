@@ -11,7 +11,7 @@ import { useNavigate } from "react-router";
 import { JournalEntryCardView } from "@frontend/components/JournalEntryCardView";
 import { JournalEntryTableView } from "@frontend/components/JournalEntryTableView";
 import { Pagination } from "@connected-repo/ui-mui/navigation/Pagination";
-import { getAppProxy } from "@frontend/worker/app.proxy";
+import { getDataProxy } from "@frontend/worker/worker.proxy";
 import { useLocalDb } from "@frontend/worker/db/hooks/useLocalDb";
 import { ViewMode } from "../pages/JournalEntries.page";
 import { useConnectivity } from "@frontend/sw/sse/useConnectivity.sse.sw";
@@ -39,15 +39,15 @@ export function PendingSyncList({ viewMode }: { viewMode: ViewMode }) {
 	
 	// Reactive data from local DB with pagination
 	const { data: entries } = useLocalDb("pendingSyncJournalEntries", () => 
-		getAppProxy().pendingSyncJournalEntriesDb.getPaginated((currentPage - 1) * ITEMS_PER_PAGE, ITEMS_PER_PAGE),
+		getDataProxy().pendingSyncJournalEntriesDb.getPaginated((currentPage - 1) * ITEMS_PER_PAGE, ITEMS_PER_PAGE),
 		[currentPage]
 	);
 
-	const { data: totalCount } = useLocalDbValue("pendingSyncJournalEntries", () => getAppProxy().pendingSyncJournalEntriesDb.count(), 0);
+	const { data: totalCount } = useLocalDbValue("pendingSyncJournalEntries", () => getDataProxy().pendingSyncJournalEntriesDb.count(), 0);
 
 	// Monitor sync processing status
 	useEffect(() => {
-		const app = getAppProxy();
+		const app = getDataProxy();
 		let interval: any;
 		
 		const checkStatus = async () => {
@@ -64,7 +64,7 @@ export function PendingSyncList({ viewMode }: { viewMode: ViewMode }) {
 		if (!isServerReachable || isSyncing || totalCount === 0) return;
 		try {
 			setIsSyncing(true);
-			await getAppProxy().sync.processQueue(true);
+			await getDataProxy().sync.processQueue(true);
 		} catch (err) {
 			console.error("[PendingSyncList] Manual sync failed:", err);
 		} finally {

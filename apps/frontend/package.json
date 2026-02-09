@@ -19,6 +19,8 @@
 		"comlink": "^4.4.2",
 		"dexie": "^4.3.0",
 		"material-react-table": "^3.2.1",
+		"mp4box": "^2.3.0",
+		"pdfjs-dist": "^5.4.624",
 		"react": "^19.2.0",
 		"react-dom": "^19.2.0",
 		"react-hook-form": "^7.71.1",

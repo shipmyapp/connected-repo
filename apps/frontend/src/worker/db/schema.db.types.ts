@@ -10,5 +10,5 @@ export interface StoredFile {
   errorCount: number;
   thumbnailBlob?: Blob | null;
   thumbnailStatus?: 'pending' | 'in-progress' | 'completed' | 'failed';
-  cdnUrls?: [string, string] | null; // [originalUrl, thumbnailUrl]
+  cdnUrls?: [string, "not-available" | string] | null; // [originalUrl, thumbnailUrl]
 }

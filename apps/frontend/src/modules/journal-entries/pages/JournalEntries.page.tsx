@@ -8,7 +8,7 @@ import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { Container } from "@connected-repo/ui-mui/layout/Container";
 import { Stack } from "@connected-repo/ui-mui/layout/Stack";
 import { JournalEntriesEmptyState } from "@frontend/components/JournalEntriesEmptyState";
-import { getAppProxy } from "@frontend/worker/app.proxy";
+import { getDataProxy } from "@frontend/worker/worker.proxy";
 import React, { useState } from "react";
 import { useNavigate } from "react-router";
 import { PendingSyncList } from "../components/PendingSyncList.journal-entries";
@@ -22,8 +22,8 @@ export default function JournalEntriesPage() {
 	const [viewMode, setViewMode] = useState<ViewMode>("card");
 
 	// Reactive counts for total count and empty state check
-	const { data: synchronizedCount, isLoading: syncLoading } = useLocalDbValue("journalEntries", () => getAppProxy().journalEntriesDb.count(), 0);
-	const { data: pendingCount, isLoading: pendingLoading } = useLocalDbValue("pendingSyncJournalEntries", () => getAppProxy().pendingSyncJournalEntriesDb.count(), 0);
+	const { data: synchronizedCount, isLoading: syncLoading } = useLocalDbValue("journalEntries", () => getDataProxy().journalEntriesDb.count(), 0);
+	const { data: pendingCount, isLoading: pendingLoading } = useLocalDbValue("pendingSyncJournalEntries", () => getDataProxy().pendingSyncJournalEntriesDb.count(), 0);
 
 	const isLoading = syncLoading || pendingLoading;
 	const totalCount = synchronizedCount + pendingCount;

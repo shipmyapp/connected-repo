@@ -8,7 +8,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router";
 import { JournalEntryCardView } from "@frontend/components/JournalEntryCardView";
 import { JournalEntryTableView } from "@frontend/components/JournalEntryTableView";
-import { getAppProxy } from "@frontend/worker/app.proxy";
+import { getDataProxy } from "@frontend/worker/worker.proxy";
 import { getSWProxy } from "@frontend/sw/proxy.sw";
 import { useLocalDb } from "@frontend/worker/db/hooks/useLocalDb";
 import { ViewMode } from "../pages/JournalEntries.page";
@@ -32,11 +32,11 @@ export function SyncedEntriesList({ viewMode }: { viewMode: ViewMode }) {
 
 	// Reactive data from local DB with pagination
 	const { data: entries } = useLocalDb("journalEntries", () => 
-		getAppProxy().journalEntriesDb.getPaginated((currentPage - 1) * ITEMS_PER_PAGE, ITEMS_PER_PAGE),
+		getDataProxy().journalEntriesDb.getPaginated((currentPage - 1) * ITEMS_PER_PAGE, ITEMS_PER_PAGE),
 		[currentPage]
 	);
 
-	const { data: totalCount } = useLocalDbValue("journalEntries", () => getAppProxy().journalEntriesDb.count(), 0);
+	const { data: totalCount } = useLocalDbValue("journalEntries", () => getDataProxy().journalEntriesDb.count(), 0);
 
 	const handleRefreshDeltas = async () => {
 		if (!isServerReachable || isRefreshing || sseStatus === 'connecting' || sseStatus === 'connected') return;

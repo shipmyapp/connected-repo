@@ -12,7 +12,7 @@ import { RhfSubmitButton } from "@connected-repo/ui-mui/rhf-form/RhfSubmitButton
 import { RhfTextField } from "@connected-repo/ui-mui/rhf-form/RhfTextField";
 import { useRhfForm } from "@connected-repo/ui-mui/rhf-form/useRhfForm";
 import { PendingSyncJournalEntry, pendingSyncJournalEntryZod } from "@connected-repo/zod-schemas/journal_entry.zod";
-import { getAppProxy } from "@frontend/worker/app.proxy";
+import { getDataProxy } from "@frontend/worker/worker.proxy";
 import { zodResolver } from "@hookform/resolvers/zod";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import EditNoteIcon from "@mui/icons-material/EditNote";
@@ -68,7 +68,7 @@ export function CreateJournalEntryForm() {
 			if (hasPromptValue.current) return;
 			setPromptLoading(true);
 			try {
-				const p = await getAppProxy().promptsDb.getRandomActive();
+				const p = await getDataProxy().promptsDb.getRandomActive();
 				if (p) {
 					setRandomPrompt(p);
 					hasPromptValue.current = true;
@@ -98,7 +98,7 @@ export function CreateJournalEntryForm() {
 	// Form setup with Zod validation and RHF
 	const {formMethods, RhfFormProvider } = useRhfForm<PendingSyncJournalEntry>({
 		onSubmit: async (data) => {
-			const app = getAppProxy();
+			const app = getDataProxy();
 			const entryId = data.journalEntryId;
 			
 			// 1. Prepare and persist files
@@ -132,7 +132,7 @@ export function CreateJournalEntryForm() {
 				
 				// Pick a new prompt for next entry
 				if (writingMode === "prompted") {
-					const next = await getAppProxy().promptsDb.getRandomActive();
+					const next = await getDataProxy().promptsDb.getRandomActive();
 					if (next) setRandomPrompt(next);
 				}
 
@@ -189,7 +189,7 @@ export function CreateJournalEntryForm() {
 	}, [writingMode, formMethods, randomPrompt]);
 
 	const handleRefreshPrompt = async () => {
-		const next = await getAppProxy().promptsDb.getRandomActive();
+		const next = await getDataProxy().promptsDb.getRandomActive();
 		if (next) setRandomPrompt(next);
 	};
 

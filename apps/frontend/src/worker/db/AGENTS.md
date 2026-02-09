@@ -1,10 +1,12 @@
 ## 🛠 Database Architecture Manifest (Dexie.js + Web Worker)
 
-### 1. Threading Model
+### 1. Threading Model & Domain Isolation
 
-* **Dedicated Worker:** The database instance (Dexie) MUST only exist inside the Web Worker.
-* **Comlink Bridge:** All UI-to-DB communication happens via Comlink proxies.
-* **Reactivity:** UI reactivity is handled via a custom `subscribe` method in the Worker that triggers `Comlink.proxy` callbacks in the UI thread when tables change.
+* **Dedicated Data Worker:** The database instance (Dexie) MUST only exist inside the dedicated `DataWorker` (formerly `AppWorker`).
+* **Stateless Media Worker:** CPU-intensive tasks (PDF rendering, video decoding, image compression) and CDN uploads MUST live in a separate `MediaWorker`.
+* **Persistence Rule:** The `MediaWorker` MUST be stateless. It should never access the DB directly. All persistence is orchestrated by the `DataWorker` after receiving results from the `MediaWorker`.
+* **Comlink Bridge:** All UI-to-DB communication happens via `getDataProxy()`. Media tasks use `getMediaProxy()`.
+* **Reactivity:** UI reactivity is handled via a custom `subscribe` method in the `DataWorker` that triggers `Comlink.proxy` callbacks in the UI thread when tables change.
 
 ### 2. Schema Strictness & Nulls
 
@@ -49,7 +51,7 @@
 * **Cross-Context Communication:** BroadcastChannel("db-updates") notifies SSE manager in Service Worker when pending entries change
 
 * **File Schema (v2):**
-  - `cdnUrls?: [string, string] | null` - [originalUrl, thumbnailUrl]
+  - `cdnUrls?: [string, "not-available" | string] | null` - [originalUrl, thumbnailUrl]
   - `thumbnailBlob?: Blob | null` - compressed thumbnail
   - `thumbnailStatus` - thumbnail generation state
   - `errorCount` - retry counter for failed operations
