@@ -872,6 +872,9 @@ cron.schedule('* * * * *', async () => {
 - ✅ **Offline constraints documentation** - AGENTS.md updated with rules for synced vs pending data mutations
 - ✅ **Prompt offline support** - CreateJournalEntryForm fetches prompts from local DB with BroadcastChannel updates
 - ✅ **Enhanced list views** - Card and table views with sync status indicators, attachment counts, error badges
+- ✅ **Two-worker architecture** - Split AppWorker into DataWorker (DB + sync) and MediaWorker (CPU-intensive tasks) for better performance and domain isolation
+- ✅ **Thumbnail generation for all file types** - PDF (pdfjs-dist), video (mp4box + VideoDecoder), and image thumbnails with fallback to "not-available" for unsupported formats
+- ✅ **File type icons in UI** - PDF, video, image, and generic file icons displayed when thumbnails unavailable
 - **Acceptance Criteria:**
   - ✅ IndexedDB initialized and working
   - ✅ Journal entries stored offline with file attachments

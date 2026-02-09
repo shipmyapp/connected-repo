@@ -3,7 +3,7 @@ import { LoadingSpinner } from "@connected-repo/ui-mui/components/LoadingSpinner
 import { Alert } from "@connected-repo/ui-mui/feedback/Alert";
 import { Container } from "@connected-repo/ui-mui/layout/Container";
 import { useLocalDbItem } from "@frontend/worker/db/hooks/useLocalDbItem";
-import { getAppProxy } from "@frontend/worker/app.proxy";
+import { getDataProxy } from "@frontend/worker/worker.proxy";
 import { useState, useEffect } from "react";
 import { useParams } from "react-router";
 import { JournalEntryDetailView } from "../components/JournalEntryDetailView";
@@ -16,29 +16,37 @@ export default function PendingSyncJournalEntryDetailPage() {
 
 	const { data: journalEntry, isLoading: entryLoading, error: entryError } = useLocalDbItem(
 		"pendingSyncJournalEntries",
-		() => getAppProxy().pendingSyncJournalEntriesDb.get(entryId || "")
+		() => getDataProxy().pendingSyncJournalEntriesDb.get(entryId || "")
 	);
 
 	// Fetch local files for the pending sync
 	useEffect(() => {
 		let active = true;
-		const objectUrls: string[] = [];
+		const trackedUrls = new Set<string>();
+
+		const createUrl = (blob: Blob) => {
+			const url = URL.createObjectURL(blob);
+			trackedUrls.add(url);
+			return url;
+		};
 
 		const fetchFiles = async () => {
 			if (!entryId) return;
 			try {
-				const files = await getAppProxy().filesDb.getFilesByPendingSyncId(entryId);
+				const files = await getDataProxy().filesDb.getFilesByPendingSyncId(entryId);
 				if (!active) return;
 				
-				const mappedAttachments = files.map(file => {
-					const url = URL.createObjectURL(file.blob);
-					objectUrls.push(url);
+				const mapped = files.map(file => {
+					const isMedia = file.mimeType.startsWith("image/") || file.mimeType === "application/pdf" || file.mimeType.startsWith("video/");
+					
 					return {
-						url,
+						url: createUrl(file.blob),
+						thumbnailUrl: file.thumbnailBlob ? createUrl(file.thumbnailBlob) : (isMedia ? "not-available" as const : undefined),
 						name: file.fileName
 					};
 				});
-				setAttachments(mappedAttachments);
+				
+				setAttachments(mapped);
 			} catch (err) {
 				console.error("[PendingSyncDetail] Error fetching local files:", err);
 			}
@@ -48,7 +56,7 @@ export default function PendingSyncJournalEntryDetailPage() {
 
 		return () => {
 			active = false;
-			objectUrls.forEach(url => URL.revokeObjectURL(url));
+			trackedUrls.forEach(url => URL.revokeObjectURL(url));
 		};
 	}, [entryId]);
 
@@ -56,7 +64,7 @@ export default function PendingSyncJournalEntryDetailPage() {
 		if (entryId) {
 			try {
 				setIsSyncingState(true);
-				await getAppProxy().sync.processQueue(true);
+				await getDataProxy().sync.processQueue(true);
 			} catch (err) {
 				console.error("[PendingSyncDetail] Error retrying sync:", err);
 			} finally {
@@ -69,7 +77,7 @@ export default function PendingSyncJournalEntryDetailPage() {
 		if (entryId) {
 			setIsDeleting(true);
 			try {
-				await getAppProxy().pendingSyncJournalEntriesDb.delete(entryId);
+				await getDataProxy().pendingSyncJournalEntriesDb.delete(entryId);
 			} finally {
 				setIsDeleting(false);
 			}

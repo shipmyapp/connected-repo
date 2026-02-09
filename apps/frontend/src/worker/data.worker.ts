@@ -1,16 +1,18 @@
 import * as Comlink from "comlink";
-console.info("[AppWorker] Loading consolidated worker...");
+console.info("[DataWorker] Loading dedicated database worker...");
 import { db, subscribe } from "./db/db.manager";
 import { filesDb } from "./db/files.db";
 import { journalEntriesDb } from "../modules/journal-entries/worker/journal-entries.db";
 import { promptsDb } from "../modules/prompts/worker/prompts.db";
-import { CDNManager } from "./cdn/cdn.manager";
-import { mediaUploadService } from "./cdn/media-upload.service";
 import { pendingSyncJournalEntriesDb } from "./db/pending-sync-journal-entries.db";
 import { syncOrchestrator } from "./sync/sync.orchestrator";
+import { setMediaProxyInternal } from "./worker.context";
+import type { MediaWorkerAPI } from "./media.worker";
+
+// No longer defined here, imported from worker.context
 
 // Unified worker API - Flattened for better Comlink proxy support
-const appWorkerApi = {
+const dataWorkerApi = {
   // Core DB
   db: Comlink.proxy(db),
   filesDb: Comlink.proxy(filesDb),
@@ -21,12 +23,19 @@ const appWorkerApi = {
   pendingSyncJournalEntriesDb: Comlink.proxy(pendingSyncJournalEntriesDb),
   promptsDb: Comlink.proxy(promptsDb),
 
-  // CDN & Media
-  cdn: Comlink.proxy(new CDNManager()),
-  media: Comlink.proxy(mediaUploadService),
+  // Orchestrators
   sync: Comlink.proxy(syncOrchestrator),
+
+  // Bridge
+  setMediaProxy(proxy: Comlink.Remote<MediaWorkerAPI>) {
+    setMediaProxyInternal(proxy);
+    console.info("[DataWorker] MediaProxy bridged successfully.");
+  },
 };
 
-export type AppWorkerAPI = typeof appWorkerApi;
+export type DataWorkerAPI = typeof dataWorkerApi;
 
-Comlink.expose(appWorkerApi);
+Comlink.expose(dataWorkerApi);
+
+// Start orchestrator after exposure to ensure all dependencies are ready
+syncOrchestrator.start();

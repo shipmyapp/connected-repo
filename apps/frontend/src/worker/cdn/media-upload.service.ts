@@ -1,11 +1,16 @@
 import imageCompression from "browser-image-compression";
-import { filesDb } from "../db/files.db";
 import { CDNManager } from "./cdn.manager";
+// @ts-ignore - Vite handled URL import for localized worker
+import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
-export interface ProcessedUploadResult {
+export interface MediaProcessingResult {
+  thumbnailFile: File | null;
+  error?: string;
+}
+
+export interface MediaUploadResult {
   success: boolean;
-  originalUrl: string;
-  thumbnailUrl: string;
+  urls: [string, "not-available" | string] | null;
   error?: string;
 }
 
@@ -13,20 +18,7 @@ export class MediaUploadService {
   private cdnManager = new CDNManager();
 
   /**
-   * Retrieves a file from IndexedDB and converts it to a standard File object.
-   */
-  private async getStoredFile(fileId: string): Promise<File | null> {
-    const storedFile = await filesDb.get(fileId);
-    if (!storedFile) return null;
-
-    return new File([storedFile.blob], storedFile.fileName, {
-      type: storedFile.mimeType,
-    });
-  }
-
-  /**
    * Compresses an image file, returning a thumbnail version.
-   * Returns null if compression fails or if file is not an image.
    */
   private async compressImage(file: File): Promise<File> {
     if (!file.type.startsWith("image/")) throw new Error("File is not an image");
@@ -50,109 +42,234 @@ export class MediaUploadService {
   }
 
   /**
-   * Helper to increment error count and update status
+   * Helper to convert an OffscreenCanvas to the best supported blob format.
+   * Prioritizes AVIF -> WebP -> JPEG.
    */
-  private async handleError(fileId: string, error: unknown, type: 'thumbnail' | 'upload') {
-    const file = await filesDb.get(fileId);
-    if (!file) return;
+  private async canvasToBestBlob(canvas: OffscreenCanvas): Promise<{ blob: Blob; extension: string }> {
+    const formats = [
+      { type: 'image/avif', ext: 'avif' },
+      { type: 'image/webp', ext: 'webp' },
+      { type: 'image/jpeg', ext: 'jpg' }
+    ];
 
-    const newErrorCount = (file.errorCount ?? 0) + 1;
-    const errorMsg = error instanceof Error ? error.message : String(error);
-
-    const update: any = {
-      error: errorMsg,
-      errorCount: newErrorCount,
-    };
-
-    if (type === 'thumbnail') {
-      update.thumbnailStatus = 'failed';
-    } else {
-      update.status = 'failed';
-    }
-
-    await filesDb.update(fileId, update);
-    console.warn(`[MediaUploadService] ${type} failed for ${fileId} (Count: ${newErrorCount}):`, errorMsg);
-  }
-
-  /**
-   * Generates a thumbnail for a given file and stores it in FilesDB.
-   */
-  async generateAndStoreThumbnail(fileId: string): Promise<void> {
-    const file = await filesDb.get(fileId);
-    if (!file || !file.mimeType.startsWith("image/") || file.thumbnailStatus === 'completed') {
-      if (file && !file.mimeType.startsWith("image/")) {
-        await filesDb.update(fileId, { thumbnailStatus: 'completed' });
+    for (const format of formats) {
+      try {
+        const blob = await canvas.convertToBlob({ type: format.type, quality: 0.8 });
+        // Some browsers return the requested type even if they don't support it, 
+        // but often with size 0 or very small "invalid" data.
+        if (blob && blob.size > 0 && blob.type === format.type) {
+          return { blob, extension: format.ext };
+        }
+      } catch (e) {
+        // Fall through to next format
       }
-      return;
+    }
+    
+    // Final fallback
+    const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.8 });
+    return { blob, extension: 'jpg' };
+  }
+
+  /**
+   * Generates a thumbnail for a PDF file.
+   */
+  private async generatePdfThumbnail(file: File): Promise<File> {
+    // Dynamically import pdfjs to avoid issues if not needed
+    const pdfjsLib = await import("pdfjs-dist");
+    // Use localized worker asset instead of external CDN
+    pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+
+    const arrayBuffer = await file.arrayBuffer();
+    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+    const pdf = await loadingTask.promise;
+    const page = await pdf.getPage(1);
+    
+    const viewport = page.getViewport({ scale: 0.5 });
+    const canvas = new OffscreenCanvas(viewport.width, viewport.height);
+    const context = canvas.getContext('2d');
+    
+    if (!context) throw new Error("Could not get canvas context");
+
+    await page.render({ 
+      canvasContext: context as any, 
+      canvas: canvas as any,
+      viewport 
+    } as any).promise;
+    
+    const { blob, extension } = await this.canvasToBestBlob(canvas);
+    return new File([blob], `thumb_${file.name}.${extension}`, { type: blob.type });
+  }
+
+  /**
+   * Generates a thumbnail for a video file using WebCodecs.
+   */
+  private async generateVideoThumbnail(file: File): Promise<File> {
+    const MP4Box = await import("mp4box");
+    const mp4box = (MP4Box as any).createFile();
+    
+    const arrayBuffer = await file.arrayBuffer();
+    (arrayBuffer as any).fileStart = 0;
+
+    return new Promise((resolve, reject) => {
+      let videoDecoder: VideoDecoder | null = null;
+      let thumbnailGenerated = false;
+
+      const cleanupAndResolve = (result: File) => {
+        if (videoDecoder) videoDecoder.close();
+        resolve(result);
+      };
+
+      const cleanupAndReject = (error: any) => {
+        if (videoDecoder) videoDecoder.close();
+        reject(error);
+      };
+
+      mp4box.onReady = (info: any) => {
+        try {
+          const videoTrack = info.tracks.find((t: any) => t.video);
+          if (!videoTrack) {
+            return cleanupAndReject(new Error("No video track found"));
+          }
+
+          const config: VideoDecoderConfig = {
+            codec: videoTrack.codec,
+            codedWidth: videoTrack.video.width,
+            codedHeight: videoTrack.video.height,
+            description: videoTrack.description
+          };
+
+          videoDecoder = new VideoDecoder({
+            output: async (frame) => {
+              try {
+                if (thumbnailGenerated) {
+                  frame.close();
+                  return;
+                }
+                thumbnailGenerated = true;
+
+                const canvas = new OffscreenCanvas(frame.displayWidth, frame.displayHeight);
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                  frame.close();
+                  return cleanupAndReject(new Error("Canvas context failed"));
+                }
+
+                ctx.drawImage(frame, 0, 0);
+                frame.close();
+
+                const { blob, extension } = await this.canvasToBestBlob(canvas);
+                cleanupAndResolve(new File([blob], `thumb_${file.name}.${extension}`, { type: blob.type }));
+              } catch (e) {
+                cleanupAndReject(e);
+              }
+            },
+            error: (e) => cleanupAndReject(e)
+          });
+
+          videoDecoder.configure(config);
+          mp4box.setExtractionConfig(videoTrack.id, null, { nb_samples: 1 });
+          mp4box.start();
+        } catch (e) {
+          cleanupAndReject(e);
+        }
+      };
+
+      mp4box.onSamples = (_id: number, _user: any, samples: any[]) => {
+        try {
+          if (!videoDecoder || samples.length === 0) return;
+          
+          const sample = samples[0];
+          videoDecoder.decode(new EncodedVideoChunk({
+            type: sample.is_sync ? 'key' : 'delta',
+            timestamp: sample.cts,
+            duration: sample.duration,
+            data: sample.data
+          }));
+          videoDecoder.flush();
+        } catch (e) {
+          cleanupAndReject(e);
+        }
+      };
+
+      mp4box.onError = (e: any) => cleanupAndReject(new Error(String(e)));
+
+      try {
+        mp4box.appendBuffer(arrayBuffer);
+      } catch (e) {
+        cleanupAndReject(e);
+      }
+    });
+  }
+
+  /**
+   * Statelessly generates a thumbnail for a given file.
+   */
+  async generateThumbnail(file: File): Promise<MediaProcessingResult> {
+    const isImage = file.type.startsWith("image/");
+    const isPdf = file.type === "application/pdf";
+    const isVideo = file.type.startsWith("video/");
+
+    if (!isImage && !isPdf && !isVideo) {
+      return { thumbnailFile: null };
     }
 
     try {
-      await filesDb.update(fileId, { thumbnailStatus: 'in-progress' });
-      const originalFile = new File([file.blob], file.fileName, { type: file.mimeType });
-      // TODO: Implement thumbnail for pdf files
-      // TODO: Implement thumbail for videos
-      const thumbnailFile = await this.compressImage(originalFile);
-      
-      await filesDb.update(fileId, {
-        thumbnailBlob: thumbnailFile,
-        thumbnailStatus: 'completed'
-      });
-      console.debug(`[MediaUploadService] Generated thumbnail for ${fileId}`);
+      let thumbnailFile: File | null = null;
+
+      if (isImage) {
+        thumbnailFile = await this.compressImage(file);
+      } else if (isPdf) {
+        thumbnailFile = await this.generatePdfThumbnail(file);
+      } else if (isVideo) {
+        thumbnailFile = await this.generateVideoThumbnail(file);
+      }
+
+      return { thumbnailFile };
     } catch (error) {
-      await this.handleError(fileId, error, 'thumbnail');
+      return { 
+        thumbnailFile: null, 
+        error: error instanceof Error ? error.message : "Thumbnail generation failed" 
+      };
     }
   }
 
   /**
-   * Uploads both original and thumbnail to CDN.
-   * Returns a tuple [originalUrl, thumbnailUrl].
+   * Performs the actual CDN upload for a pair of files.
    */
-  async uploadMediaPair(fileId: string): Promise<[string, string] | null> {
-    const file = await filesDb.get(fileId);
-    if (!file) return null;
-
-    if (file.cdnUrls) return file.cdnUrls;
-
-    const filesToUpload: File[] = [];
-    const originalFile = new File([file.blob], file.fileName, { type: file.mimeType });
-    filesToUpload.push(originalFile);
-
-    if (file.thumbnailBlob) {
-      const thumbnailFile = new File([file.thumbnailBlob], `thumb_${file.fileName}`, { type: file.thumbnailBlob.type });
-      filesToUpload.push(thumbnailFile);
-    }
+  async uploadMediaPair(original: File, thumbnail?: File): Promise<MediaUploadResult> {
+    const filesToUpload: File[] = [original];
+    if (thumbnail) filesToUpload.push(thumbnail);
 
     try {
-      await filesDb.update(fileId, { status: 'in-progress' });
       const results = await this.cdnManager.uploadFiles(filesToUpload, "media");
       
       const originalResult = results[0];
-      const thumbnailResult = results[1] || originalResult; // Fallback to original if no thumbnail exists
+      const thumbnailResult = results[1];
 
       if (originalResult?.success) {
-        const cdnUrls: [string, string] = [originalResult.url, (thumbnailResult?.success ? thumbnailResult.url : originalResult.url)];
-        await filesDb.update(fileId, {
-          cdnUrls,
-          status: 'completed'
-        });
-        return cdnUrls;
+        let thumbUrl: string | "not-available" = "not-available";
+        
+        if (thumbnailResult?.success) {
+          thumbUrl = thumbnailResult.url;
+        } else if (original.type.startsWith("image/")) {
+          // For images, the original can serve as its own thumbnail if needed
+          thumbUrl = originalResult.url;
+        }
+
+        return { 
+          success: true, 
+          urls: [originalResult.url, thumbUrl]
+        };
       } else {
-        throw new Error(originalResult?.error || "Upload failed");
+        return { success: false, urls: null, error: originalResult?.error || "Upload failed" };
       }
     } catch (error) {
-      await this.handleError(fileId, error, 'upload');
-      return null;
+      return { 
+        success: false, 
+        urls: null, 
+        error: error instanceof Error ? error.message : "Upload failed" 
+      };
     }
-  }
-
-  /**
-   * Orchestrates the full process: Retrieve -> Optional Compress -> Batch Upload.
-   * Kept for backward compatibility.
-   */
-  async processAndUploadById(fileId: string): Promise<ProcessedUploadResult> {
-    const urls = await this.uploadMediaPair(fileId);
-    if (!urls) return { success: false, originalUrl: "", thumbnailUrl: "", error: "Upload failed" };
-    return { success: true, originalUrl: urls[0], thumbnailUrl: urls[1] };
   }
 }
 

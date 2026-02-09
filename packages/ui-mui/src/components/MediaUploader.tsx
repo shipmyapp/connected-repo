@@ -12,7 +12,10 @@ import {
 } from '@mui/material';
 import { 
   AddPhotoAlternateOutlined as AddIcon,
-  Close as CloseIcon
+  Close as CloseIcon,
+  PictureAsPdf as PdfIcon,
+  VideoFile as VideoIcon,
+  FilePresent as FileIcon
 } from '@mui/icons-material';
 
 export interface MediaFile {
@@ -37,13 +40,21 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
   const theme = useTheme();
   
   const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+  const ALLOWED_TYPES = [
+    'image/jpeg', 'image/png', 'image/webp', 'image/gif', 
+    'application/pdf', 
+    'video/mp4', 'video/quicktime', 'video/webm'
+  ];
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       const selectedFiles = Array.from(event.target.files);
       const validFiles = selectedFiles.filter(file => {
-        const isValidType = ALLOWED_TYPES.includes(file.type);
+        const isPdf = file.type === 'application/pdf';
+        const isVideo = file.type.startsWith('video/');
+        const isImage = file.type.startsWith('image/');
+        
+        const isValidType = ALLOWED_TYPES.includes(file.type) || isVideo || isPdf || isImage;
         const isValidSize = file.size <= MAX_FILE_SIZE;
         
         if (!isValidType) {
@@ -124,16 +135,42 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
               }
             }}
           >
-            <Box
-              component="img"
-              src={media.previewUrl}
-              alt="preview"
-              sx={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'contain',
-              }}
-            />
+            {media.file.type.startsWith('image/') ? (
+              <Box
+                component="img"
+                src={media.previewUrl}
+                alt="preview"
+                sx={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'contain',
+                }}
+              />
+            ) : (
+              <Box
+                sx={{
+                  width: '100%',
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  bgcolor: alpha(theme.palette.text.primary, 0.05),
+                  gap: 0.5
+                }}
+              >
+                {media.file.type === 'application/pdf' ? (
+                  <PdfIcon sx={{ fontSize: 32, color: 'error.main' }} />
+                ) : media.file.type.startsWith('video/') ? (
+                  <VideoIcon sx={{ fontSize: 32, color: 'primary.main' }} />
+                ) : (
+                  <FileIcon sx={{ fontSize: 32, color: 'text.secondary' }} />
+                )}
+                <Typography variant="overline" sx={{ fontSize: '0.6rem', fontWeight: 700, opacity: 0.7 }}>
+                  {media.file.type === 'application/pdf' ? 'PDF' : media.file.type.startsWith('video/') ? 'VIDEO' : 'FILE'}
+                </Typography>
+              </Box>
+            )}
           </Paper>
         </Badge>
       ))}
@@ -167,7 +204,7 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
               type="file"
               hidden
               multiple
-              accept="image/*"
+              accept="image/*,application/pdf,video/*"
               onChange={handleFileChange}
             />
             <AddIcon sx={{ fontSize: 32, mb: 0.5, opacity: 0.6 }} />
@@ -192,7 +229,7 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
             No media attached
           </Typography>
           <Typography variant="caption" color="text.disabled" sx={{ display: 'block' }}>
-            Up to {maxFiles} images
+            Images, Videos, or PDFs
           </Typography>
         </Box>
       )}

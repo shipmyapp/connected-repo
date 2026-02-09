@@ -3,7 +3,7 @@ import { LoadingSpinner } from "@connected-repo/ui-mui/components/LoadingSpinner
 import { Alert } from "@connected-repo/ui-mui/feedback/Alert";
 import { Container } from "@connected-repo/ui-mui/layout/Container";
 import { useLocalDbItem } from "@frontend/worker/db/hooks/useLocalDbItem";
-import { getAppProxy } from "@frontend/worker/app.proxy";
+import { getDataProxy } from "@frontend/worker/worker.proxy";
 import { useParams } from "react-router";
 import { JournalEntryDetailView } from "../components/JournalEntryDetailView";
 import { useConnectivity } from "@frontend/sw/sse/useConnectivity.sse.sw";
@@ -16,7 +16,7 @@ export default function SyncedJournalEntryDetailPage() {
 
 	const { data: journalEntry, isLoading, error } = useLocalDbItem(
 		"journalEntries",
-		() => getAppProxy().journalEntriesDb.getById(entryId || "")
+		() => getDataProxy().journalEntriesDb.getById(entryId || "")
 	);
 
 	const deleteMutation = useMutation(orpc.journalEntries.delete.mutationOptions());
