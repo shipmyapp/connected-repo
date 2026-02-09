@@ -60,7 +60,7 @@ export function JournalEntriesEmptyState() {
 			<Button
 				variant="contained"
 				size="large"
-				onClick={() => navigate("/new-journal-entry")}
+				onClick={() => navigate("/journal-entries/new")}
 				sx={{
 					px: 4,
 					py: 1.5,

@@ -27,8 +27,9 @@ const spin = keyframes`
 
 const ITEMS_PER_PAGE = 12;
 
-export function SyncedEntriesList({ viewMode }: { viewMode: ViewMode }) {
-	const teamId = useActiveTeamId();
+export function SyncedEntriesList({ viewMode, teamId: propTeamId, excludeUserId }: { viewMode: ViewMode, teamId?: string | null, excludeUserId?: string }) {
+	const activeTeamId = useActiveTeamId();
+	const teamId = propTeamId !== undefined ? propTeamId : activeTeamId;
 	const navigate = useNavigate();
 	const [currentPage, setCurrentPage] = useState(1);
 	const [isRefreshing, setIsRefreshing] = useState(false);
@@ -37,12 +38,18 @@ export function SyncedEntriesList({ viewMode }: { viewMode: ViewMode }) {
 	const { isServerReachable, sseStatus } = useConnectivity();
 
 	// Reactive data from local DB with pagination
-	const { data: entries = [] } = useLocalDb("journalEntries", () => 
+	const { data: allEntries = [] } = useLocalDb("journalEntries", () => 
 		getDataProxy().journalEntriesDb.getPaginated((currentPage - 1) * ITEMS_PER_PAGE, ITEMS_PER_PAGE, teamId),
 		[currentPage, teamId]
 	);
 
-	const { data: totalCount = 0 } = useLocalDbValue("journalEntries", () => getDataProxy().journalEntriesDb.count(teamId), 0, [teamId]);
+	const entries = excludeUserId ? allEntries.filter(e => e.authorUserId !== excludeUserId) : allEntries;
+
+	const { data: totalCount = 0 } = useLocalDbValue("journalEntries", () => 
+		excludeUserId 
+			? getDataProxy().journalEntriesDb.getAll(teamId).then(list => list.filter(e => e.authorUserId !== excludeUserId).length)
+			: getDataProxy().journalEntriesDb.count(teamId), 
+		0, [teamId, excludeUserId]);
 
 	const handleRefreshDeltas = async () => {
 		if (!isServerReachable || isRefreshing || sseStatus === 'connecting' || sseStatus === 'connected') return;
@@ -201,12 +208,12 @@ export function SyncedEntriesList({ viewMode }: { viewMode: ViewMode }) {
 					{viewMode === "card" ? (
 						<JournalEntryCardView 
 							entries={entries} 
-							onEntryClick={(entryId: string) => navigate(`/journal-entries/synced/${entryId}`)}
+							onEntryClick={(entryId: string) => navigate(teamId ? `/teams/${teamId}/journal-entries/synced/${entryId}` : `/journal-entries/synced/${entryId}`)}
 						/>
 					) : (
 						<JournalEntryTableView 
 							entries={entries as any} 
-							onEntryClick={(entryId: string) => navigate(`/journal-entries/synced/${entryId}`)}
+							onEntryClick={(entryId: string) => navigate(teamId ? `/teams/${teamId}/journal-entries/synced/${entryId}` : `/journal-entries/synced/${entryId}`)}
 						/>
 					)}
 					{totalPages > 1 && (

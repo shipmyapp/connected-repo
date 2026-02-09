@@ -10,10 +10,16 @@ import { SSEStatusBadge } from "@frontend/sw/sse/StatusBadge.sse.sw";
 import { useLocation, useNavigate } from "react-router";
 import { UserProfileMenu } from "@frontend/components/layout/UserProfileMenu";
 import TeamSwitcher from "@frontend/components/layout/TeamSwitcher";
+import GroupIcon from "@mui/icons-material/Group";
+import PersonIcon from "@mui/icons-material/Person";
+import { useWorkspace } from "@frontend/contexts/WorkspaceContext";
 
 export const MobileNavbar = () => {
 	const navigate = useNavigate();
 	const location = useLocation();
+	const { activeWorkspace } = useWorkspace();
+
+	const isTeamOwnerAdmin = activeWorkspace.type === 'team' && (activeWorkspace.role === 'Owner' || activeWorkspace.role === 'Admin');
 
 	// Map paths to bottom nav indices
 	const getBottomNavValue = () => {
@@ -21,15 +27,28 @@ export const MobileNavbar = () => {
 		const navIndex = navItems.findIndex(item => item.path === location.pathname);
 		if (navIndex !== -1) return navIndex;
 
-		// Profile is the last item
-		if (location.pathname === "/profile") return navItems.length;
+		// Team button index
+		if (isTeamOwnerAdmin && (location.pathname === `/teams/${activeWorkspace.id}` || location.pathname.startsWith(`/teams/${activeWorkspace.id}/settings`))) {
+			return navItems.length;
+		}
+
+		// Profile is after Team (if visible) or after navItems
+		const profileIndex = isTeamOwnerAdmin ? navItems.length + 1 : navItems.length;
+		if (location.pathname === "/profile") return profileIndex;
 
 		return 0; // Default to first nav item (Dashboard)
 	};
 
 	const handleBottomNavChange = (_event: React.SyntheticEvent, newValue: number) => {
-		// If profile is clicked (last item), navigate to profile
-		if (newValue === navItems.length) {
+		// If Team is visible, it's at navItems.length
+		if (isTeamOwnerAdmin && newValue === navItems.length) {
+			navigate(`/teams/${activeWorkspace.id}`);
+			return;
+		}
+
+		// Profile index depends on Team visibility
+		const profileIndex = isTeamOwnerAdmin ? navItems.length + 1 : navItems.length;
+		if (newValue === profileIndex) {
 			navigate("/profile");
 			return;
 		}
@@ -140,6 +159,19 @@ export const MobileNavbar = () => {
 							}}
 						/>
 					))}
+
+					{/* Team item if visible */}
+					{isTeamOwnerAdmin && (
+						<BottomNavigationAction
+							label="Team"
+							icon={<GroupIcon />}
+							sx={{
+								"&:hover": {
+									bgcolor: "action.hover",
+								},
+							}}
+						/>
+					)}
 				</BottomNavigation>
 			</Paper>
 		</>
