@@ -1,3 +1,4 @@
+import Dexie from "dexie";
 import { JournalEntrySelectAll, journalEntrySelectAllZod } from "@connected-repo/zod-schemas/journal_entry.zod";
 import { pendingSyncJournalEntriesDb } from "@frontend/worker/db/pending-sync-journal-entries.db";
 import { db, notifySubscribers } from "../../../worker/db/db.manager";
@@ -39,12 +40,36 @@ export class JournalEntriesDBManager {
     return await db.journalEntries.get(id);
   }
 
-  getAll() {
-    return db.journalEntries.orderBy("createdAt").reverse().toArray();
+  async getAll(teamId: string | null = null) {
+    if (teamId) {
+      return await db.journalEntries.where("teamId").equals(teamId).reverse().toArray();
+    }
+    return await db.journalEntries.filter(e => !e.teamId).reverse().toArray();
   }
 
-  getPaginated(offset: number, limit: number) {
-    return db.journalEntries.orderBy("createdAt").reverse().offset(offset).limit(limit).toArray();
+  async getAllUnscoped() {
+    return await db.journalEntries.reverse().toArray();
+  }
+
+  getPaginated(offset: number, limit: number, teamId: string | null = null) {
+    if (teamId) {
+      return db.journalEntries
+        .where("[teamId+createdAt]")
+        .between([teamId, Dexie.minKey], [teamId, Dexie.maxKey])
+        .reverse()
+        .offset(offset)
+        .limit(limit)
+        .toArray();
+    }
+    // For personal space (null teamId)
+    // Using filter and reverse on the whole table is fine for local Dexie scale
+    return db.journalEntries
+      .toCollection()
+      .filter(e => !e.teamId)
+      .reverse()
+      .offset(offset)
+      .limit(limit)
+      .toArray();
   }
 
   async getLatestUpdatedAt() {
@@ -53,8 +78,17 @@ export class JournalEntriesDBManager {
     return latest;
   }
 
-  async count() {
-    return await db.journalEntries.count();
+  async count(teamId: string | null = null) {
+    if (teamId) {
+      return await db.journalEntries.where("teamId").equals(teamId).count();
+    }
+    return await db.journalEntries.filter(e => !e.teamId).count();
+  }
+
+  async wipeByTeamAppId(teamAppId: string) {
+    console.warn(`[JournalEntriesDBManager] Wiping all entries for team ${teamAppId}`);
+    await db.journalEntries.where("teamId").equals(teamAppId).delete();
+    notifySubscribers("journalEntries");
   }
 }
 

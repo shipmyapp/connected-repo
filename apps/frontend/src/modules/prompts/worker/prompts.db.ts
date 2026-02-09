@@ -21,12 +21,15 @@ export class PromptsDBManager {
     return db.prompts.toArray();
   }
 
-  async getRandomActive() {
-    const all = await db.prompts.toArray();
-    const active = all.filter(p => !p.deletedAt);
+  async getRandomActive(teamId: string | null = null) {
+    const query = teamId 
+      ? db.prompts.where("teamId").equals(teamId).and(p => !p.deletedAt)
+      : db.prompts.filter(p => !p.teamId && !p.deletedAt);
+    
+    const active = await query.toArray();
     
     if (active.length === 0) {
-      console.warn(`[PromptsDB] No active prompts found. Total: ${all.length}`);
+      console.warn(`[PromptsDB] No active prompts found for teamId: ${teamId}`);
       return null;
     }
     return active[Math.floor(Math.random() * active.length)];

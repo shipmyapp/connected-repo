@@ -6,6 +6,8 @@ import { syncRouter } from '@backend/modules/sync/sync.router';
 import type { InferRouterInputs, InferRouterOutputs, RouterClient } from '@orpc/server';
 import { cdnRouter } from '@backend/modules/cdn/cdn.user_app.router';
 
+import { teamsAppRouter } from '@backend/modules/teams/teams_app.router';
+
 // Phase 1: Basic health check and testing endpoints
 // Modules will be added in later phases
 
@@ -28,6 +30,7 @@ export const userAppRouter = {
 	prompts: promptsRouter,
 	sync: syncRouter,
 	cdn: cdnRouter,
+	teams: teamsAppRouter,
 };
 
 export type UserAppRouter = RouterClient<typeof userAppRouter>;

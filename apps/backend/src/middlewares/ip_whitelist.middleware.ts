@@ -16,7 +16,7 @@ export const ipWhitelistMiddleware = async ({
 	next: MiddlewareNextFn<unknown> 
 }) => {
 
-	const { allowedIPs } = context.team;
+	const { allowedIPs } = context.teamApi;
 
 	// Check IP whitelist (if configured)
 	if (allowedIPs && allowedIPs.length > 0) {

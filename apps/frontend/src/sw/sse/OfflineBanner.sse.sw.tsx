@@ -6,10 +6,12 @@ import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import Slide from "@mui/material/Slide";
 import { useEffect, useState } from "react";
+import { useSessionInfo } from "@frontend/contexts/UserContext";
 import { useConnectivity } from "./useConnectivity.sse.sw";
 
 export function OfflineBanner() {
-	const { getDetailedStatus: status, reconnect } = useConnectivity();
+	const session = useSessionInfo();
+	const { getDetailedStatus: status, reconnect } = useConnectivity(session.user?.id);
 	const [showDelayed, setShowDelayed] = useState(false);
 	const [isDismissed, setIsDismissed] = useState(false);
 	const [isReconnecting, setIsReconnecting] = useState(false);

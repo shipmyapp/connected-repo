@@ -63,7 +63,7 @@ export class SyncOrchestrator {
     this.isProcessing = true;
 
     try {
-      const entries = await pendingSyncJournalEntriesDb.getAll();
+      const entries = await pendingSyncJournalEntriesDb.getAllUnscoped();
       if (entries.length === 0) {
         console.debug("[SyncOrchestrator] ProcessQueue: No pending entries found.");
         return;
@@ -273,6 +273,7 @@ export class SyncOrchestrator {
         promptId: entry.promptId,
         attachmentUrls: attachmentUrls,
         createdAt: entry.createdAt,
+        teamId: entry.teamId,
       };
 
       console.group("[SyncOrchestrator] oRPC Payload");

@@ -1,37 +1,60 @@
 import { journalEntrySelectAllZod } from "@connected-repo/zod-schemas/journal_entry.zod";
 import { promptSelectAllZod } from "@connected-repo/zod-schemas/prompt.zod";
+import { teamAppMemberSelectAllZod, teamAppSelectAllZod } from "@connected-repo/zod-schemas/team_app.zod";
 import { EventPublisher } from "@orpc/server";
 import { z } from "zod";
 
-export const deltaOutputZod = z.object({
-	type: z.literal("delta"),
-	table: z.enum(["journalEntries", "prompts"]),
-	data: z.array(z.any()),
-	isLastChunk: z.boolean(),
-	error: z.string().optional(),
-});
+const syncToUserAndOptionalTeamAppOwnersAdminsZod = {
+	syncToUserId: z.uuid(),
+	syncToTeamAppIdOwnersAdmins: z.uuid().nullish(),
+	syncToTeamAppIdAllMembers: z.null().optional(),
+};
+
+const syncToUserAndTeamAppOwnersAdminsZod = {
+	syncToUserId: z.uuid(),
+	syncToTeamAppIdOwnersAdmins: z.uuid().nullish(),
+	syncToTeamAppIdAllMembers: z.null().optional(),
+};
+
+const syncToTeamAppIdAllMembersZod = {
+	syncToUserId: z.null().optional(),
+	syncToTeamAppIdOwnersAdmins: z.null().optional(),
+	syncToTeamAppIdAllMembers: z.uuid(),
+};
+
+const syncToAllUsersZod = {
+	syncToUserId: z.null().optional(),
+	syncToTeamAppIdOwnersAdmins: z.null().optional(),
+	syncToTeamAppIdAllMembers: z.null().optional(),
+};
 
 export const syncPayloadZod = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("data-change-journalEntries"),
-    userId: z.string(),
     data: z.array(journalEntrySelectAllZod),
     operation: z.enum(["create", "update", "delete"]),
-  }),
+  }).extend(syncToUserAndOptionalTeamAppOwnersAdminsZod),
+  z.object({
+    type: z.literal("data-change-teamsApp"),
+    data: z.array(teamAppSelectAllZod),
+    operation: z.enum(["create", "update", "delete"]),
+  }).extend(syncToTeamAppIdAllMembersZod),
+  z.object({
+    type: z.literal("data-change-teamMembers"),
+    data: z.array(teamAppMemberSelectAllZod),
+    operation: z.enum(["create", "update", "delete"]),
+  }).extend(syncToUserAndTeamAppOwnersAdminsZod),
   z.object({
     type: z.literal("data-change-prompts"),
-    userId: z.null(),
     data: z.array(promptSelectAllZod),
     operation: z.enum(["create", "update", "delete"]),
-  }),
+  }).extend(syncToAllUsersZod),
   z.object({
     type: z.literal("heartbeat"),
-    userId: z.null(),
-  }),
+  }).extend(syncToAllUsersZod),
 ]);
 
 export type SyncPayload = z.infer<typeof syncPayloadZod>;
-export type DeltaOutput = z.infer<typeof deltaOutputZod>;
 
 export class SyncService {
 	private publisher = new EventPublisher<{
@@ -69,7 +92,7 @@ export class SyncService {
 		
 		// Proactive heartbeat to keep connections alive and allow clients to detect server death.
 		this.intervalId = setInterval(() => {
-			this.push({ type: "heartbeat", userId: null });
+			this.push({ type: "heartbeat" });
 		}, 10000);
 	}
 

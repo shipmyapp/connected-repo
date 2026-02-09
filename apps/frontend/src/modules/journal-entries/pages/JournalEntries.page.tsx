@@ -14,16 +14,18 @@ import { useNavigate } from "react-router";
 import { PendingSyncList } from "../components/PendingSyncList.journal-entries";
 import { SyncedEntriesList } from "../components/SyncedEntriesList.journal-entries";
 import { useLocalDbValue } from "@frontend/worker/db/hooks/useLocalDbValue";
+import { useWorkspace, useActiveTeamId } from "@frontend/contexts/WorkspaceContext";
 
 export type ViewMode = "card" | "table";
 
 export default function JournalEntriesPage() {
 	const navigate = useNavigate();
 	const [viewMode, setViewMode] = useState<ViewMode>("card");
+	const teamId = useActiveTeamId();
 
 	// Reactive counts for total count and empty state check
-	const { data: synchronizedCount, isLoading: syncLoading } = useLocalDbValue("journalEntries", () => getDataProxy().journalEntriesDb.count(), 0);
-	const { data: pendingCount, isLoading: pendingLoading } = useLocalDbValue("pendingSyncJournalEntries", () => getDataProxy().pendingSyncJournalEntriesDb.count(), 0);
+	const { data: synchronizedCount, isLoading: syncLoading } = useLocalDbValue("journalEntries", () => getDataProxy().journalEntriesDb.count(teamId), 0, [teamId]);
+	const { data: pendingCount, isLoading: pendingLoading } = useLocalDbValue("pendingSyncJournalEntries", () => getDataProxy().pendingSyncJournalEntriesDb.count(teamId), 0, [teamId]);
 
 	const isLoading = syncLoading || pendingLoading;
 	const totalCount = synchronizedCount + pendingCount;
@@ -87,7 +89,7 @@ export default function JournalEntriesPage() {
 				</Stack>
 			</Box>
 
-			<Stack spacing={2}>
+			<Stack spacing={2} key={teamId || "personal"}>
 				<PendingSyncList 
 					viewMode={viewMode} 
 				/>

@@ -11,12 +11,17 @@ export class PromptsTable extends BaseTable {
 		text: t.string(500),
 		category: t.string(100).nullable(),
 		tags: t.array(t.string()).nullable(),
+		teamId: t.uuid().foreignKey("teams_app", "teamAppId", {
+			onDelete: "SET NULL",
+			onUpdate: "RESTRICT",
+		}).nullable(),
 		deletedAt: t.timestampNumber().nullable(),
 
 		...t.timestamps(),
 	}),
 	(t) => [
 		t.index([{column: "updatedAt", order: "DESC"}]),
+		t.index(["teamId"]),
 	]);
 
 	readonly softDelete = true;
@@ -25,7 +30,6 @@ export class PromptsTable extends BaseTable {
 		this.afterCreate(promptSelectAllZod.keyof().options, (data) => {
 			syncService.push({
 				type: "data-change-prompts",
-				userId: null,
 				operation: "create",
 				data,
 			});
@@ -33,7 +37,6 @@ export class PromptsTable extends BaseTable {
 		this.afterUpdate(promptSelectAllZod.keyof().options, (data) => {
 			syncService.push({
 				type: "data-change-prompts",
-				userId: null,
 				operation: "update",
 				data,
 			});
@@ -41,7 +44,6 @@ export class PromptsTable extends BaseTable {
 		this.afterDelete(promptSelectAllZod.keyof().options, (data) => {
 			syncService.push({
 				type: "data-change-prompts",
-				userId: null,
 				operation: "delete",
 				data,
 			});

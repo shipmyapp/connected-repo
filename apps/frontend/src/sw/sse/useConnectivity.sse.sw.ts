@@ -12,7 +12,7 @@ type DetailedStatus = {
 
 const HEALTH_CHECK_TIMEOUT = 5000;
 
-export function useConnectivity() {
+export function useConnectivity(userId?: string) {
 	const [sseStatus, setSseStatus] = useState<SSEStatus>('disconnected');
 	const [hasNetworkInterface, setHasNetworkInterface] = useState(navigator.onLine);
 	const [isInternetReachable, setIsInternetReachable] = useState(navigator.onLine);
@@ -53,15 +53,17 @@ export function useConnectivity() {
 	}, []);
 
 	useEffect(() => {
+		if (!userId) return;
 		let active = true;
 
 		// 1. Service Worker Sync
-		getSWProxy().then(async (sw) => {
+		getSWProxy().then(async (proxy) => {
 			if (!active) return;
-			const initialStatus = await sw.getStatus();
+			const sw = proxy as any;
+			const initialStatus = await sw.getStatus() as SSEStatus;
 			setSseStatus(initialStatus);
 
-			await sw.onStatusChange(Comlink.proxy((status) => {
+			await sw.onStatusChange(Comlink.proxy((status: SSEStatus) => {
 				if (active) {
 					setSseStatus(status);
 					// If SSE is connected or sync-complete, we can definitely assume server and internet are reachable
@@ -76,7 +78,7 @@ export function useConnectivity() {
 					}
 				}
 			}));
-			sw.startMonitoring(env.VITE_API_URL).catch((err) => console.error('[Connectivity] Failed to start monitoring:', err));
+			sw.startMonitoring(env.VITE_API_URL, userId).catch((err: unknown) => console.error('[Connectivity] Failed to start monitoring:', err));
 		}).catch(err => {
 			console.error('[Connectivity] Failed to get SW Proxy:', err);
 		});
@@ -109,7 +111,7 @@ export function useConnectivity() {
 			window.removeEventListener('online', handleOnline);
 			window.removeEventListener('offline', handleOffline);
 		};
-	}, [checkActualInternet, checkServerHealth]);
+	}, [userId, checkActualInternet, checkServerHealth]);
 
 
 	/**
@@ -137,7 +139,8 @@ export function useConnectivity() {
 
 	const reconnect = useCallback(async () => {
 		try {
-			const sw = await getSWProxy();
+			const proxy = await getSWProxy();
+			const sw = proxy as any;
 			await sw.reconnect();
 		} catch (err) {
 			console.error('[Connectivity] Failed to trigger reconnect:', err);

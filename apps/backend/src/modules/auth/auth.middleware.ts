@@ -3,6 +3,7 @@ import { transformSessionAndUserData } from '@backend/utils/session.utils';
 import { type MiddlewareNextFn, ORPCError } from '@orpc/server';
 import * as Sentry from '@sentry/node';
 import { auth } from './auth.config';
+import { db } from '@backend/db/db';
 
 export const rpcAuthMiddleware = async ({ 
 	context, 
@@ -33,11 +34,17 @@ export const rpcAuthMiddleware = async ({
 		username: user.name,
 	});
 
+	// Fetch user's team memberships for sync filtering and permissions
+	const teamMembers = await db.teamMembers.where({ userId: user.id }).selectAll();
+
 	return next({
 		context: {
 			...context,
 			session,
-			user,
+			user: {
+				...user,
+				teamMembers,
+			},
 		},
 	});
 };

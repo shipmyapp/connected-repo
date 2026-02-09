@@ -7,12 +7,16 @@ import { getDataProxy } from "@frontend/worker/worker.proxy";
 import { useParams } from "react-router";
 import { JournalEntryDetailView } from "../components/JournalEntryDetailView";
 import { useConnectivity } from "@frontend/sw/sse/useConnectivity.sse.sw";
+import { Box } from "@connected-repo/ui-mui/layout/Box";
+import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
 import { orpc } from "@frontend/utils/orpc.tanstack.client";
 import { useMutation } from "@tanstack/react-query";
+import { useActiveTeamId } from "@frontend/contexts/WorkspaceContext";
 
 export default function SyncedJournalEntryDetailPage() {
 	const { entryId } = useParams<{ entryId: string }>();
 	const { isServerReachable } = useConnectivity();
+	const activeTeamId = useActiveTeamId();
 
 	const { data: journalEntry, isLoading, error } = useLocalDbItem(
 		"journalEntries",
@@ -23,7 +27,7 @@ export default function SyncedJournalEntryDetailPage() {
 
 	const handleDelete = async () => {
 		if (entryId) {
-			await deleteMutation.mutateAsync({ journalEntryId: entryId });
+			await deleteMutation.mutateAsync({ journalEntryId: entryId, teamId: activeTeamId });
 		}
 	};
 
@@ -41,6 +45,27 @@ export default function SyncedJournalEntryDetailPage() {
 		return (
 			<Container maxWidth="lg" sx={{ py: 4 }}>
 				<Alert severity="error">Journal entry not found</Alert>
+			</Container>
+		);
+	}
+
+	// Verify workspace context
+	const entryTeamId = journalEntry.teamId || null;
+	if (entryTeamId !== activeTeamId) {
+		return (
+			<Container maxWidth="lg" sx={{ py: 4 }}>
+				<Alert 
+					severity="warning" 
+					action={
+						<Box sx={{ mt: 1 }}>
+							<Typography variant="body2" sx={{ mb: 1 }}>
+								This entry belongs to a different workspace.
+							</Typography>
+						</Box>
+					}
+				>
+					Workspace Mismatch
+				</Alert>
 			</Container>
 		);
 	}

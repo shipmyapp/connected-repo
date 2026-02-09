@@ -5,9 +5,11 @@ import { filesDb } from "./db/files.db";
 import { journalEntriesDb } from "../modules/journal-entries/worker/journal-entries.db";
 import { promptsDb } from "../modules/prompts/worker/prompts.db";
 import { pendingSyncJournalEntriesDb } from "./db/pending-sync-journal-entries.db";
+import { teamsAppDb } from "./db/teams_app.db";
 import { syncOrchestrator } from "./sync/sync.orchestrator";
 import { setMediaProxyInternal } from "./worker.context";
 import type { MediaWorkerAPI } from "./media.worker";
+import { teamMembersDb } from "./db/team_members.db";
 
 // No longer defined here, imported from worker.context
 
@@ -22,6 +24,8 @@ const dataWorkerApi = {
   journalEntriesDb: Comlink.proxy(journalEntriesDb),
   pendingSyncJournalEntriesDb: Comlink.proxy(pendingSyncJournalEntriesDb),
   promptsDb: Comlink.proxy(promptsDb),
+  teamsAppDb: Comlink.proxy(teamsAppDb),
+  teamMembersDb: Comlink.proxy(teamMembersDb),
 
   // Orchestrators
   sync: Comlink.proxy(syncOrchestrator),

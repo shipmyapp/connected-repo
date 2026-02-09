@@ -1,8 +1,44 @@
+import { db } from "@backend/db/db";
 import { rpcProtectedProcedure } from "@backend/procedures/protected.procedure";
 import { eventIterator } from "@orpc/server";
 import { z } from "zod";
-import { type DeltaOutput, deltaOutputZod, syncPayloadZod, syncService } from "./sync.service";
-import { db } from "@backend/db/db";
+import { syncPayloadZod, syncService } from "./sync.service.js";
+import { syncVisibilityService } from "./sync.visibility.service.js";
+import { teamAppMemberSelectAllZod, teamAppSelectAllZod } from "@connected-repo/zod-schemas/team_app.zod";
+import { promptSelectAllZod } from "@connected-repo/zod-schemas/prompt.zod";
+import { journalEntrySelectAllZod } from "@connected-repo/zod-schemas/journal_entry.zod";
+
+export const deltaOutputZod = z.discriminatedUnion("table", [
+    z.object({
+		type: z.literal("delta"),
+        table: z.enum(["journalEntries"]),
+        data: z.array(journalEntrySelectAllZod),
+        isLastChunk: z.boolean(),
+        error: z.string().optional(),
+    }),
+    z.object({
+		type: z.literal("delta"),
+        table: z.enum(["prompts"]),
+        data: z.array(promptSelectAllZod),
+        isLastChunk: z.boolean(),
+        error: z.string().optional(),
+    }),
+    z.object({
+		type: z.literal("delta"),
+        table: z.enum(["teamsApp"]),
+        data: z.array(teamAppSelectAllZod),
+        isLastChunk: z.boolean(),
+        error: z.string().optional(),
+    }),
+    z.object({
+		type: z.literal("delta"),
+        table: z.enum(["teamMembers"]),
+        data: z.array(teamAppMemberSelectAllZod),
+        isLastChunk: z.boolean(),
+        error: z.string().optional(),
+    })
+]);
+export type DeltaOutput = z.infer<typeof deltaOutputZod>;
 
 const heartbeatSyncInput = z.object({
 	lastSyncTimestamps: z.record(z.string(), z.number()).optional(),
@@ -15,8 +51,10 @@ const heartbeatSyncOutput = z.discriminatedUnion("type", [
 ]);
 
 async function* getDeltaForTable(
-	tableName: "journalEntries" | "prompts",
+	tableName: "journalEntries" | "prompts" | "teamsApp" | "teamMembers",
 	userId: string,
+	userTeamsAppIds: string[],
+	userOwnerAdminTeamAppIds: string[],
 	since: number,
 	signal?: AbortSignal,
 ): AsyncGenerator<DeltaOutput> {
@@ -29,7 +67,10 @@ async function* getDeltaForTable(
 		if (tableName === "journalEntries") {
 			const twentiethJE = await db.journalEntries
 				.select("updatedAt")
-				.where({ authorUserId: userId })
+				.where({ 
+					authorUserId: userId,
+					teamId: { in: userOwnerAdminTeamAppIds }
+				})
 				.order({ updatedAt: "DESC" })
 				.limit(20)
 				.includeDeleted()
@@ -59,12 +100,15 @@ async function* getDeltaForTable(
 			let data: any[] = [];
 
 			if (tableName === "journalEntries") {
-				const query = db.journalEntries
-					.where({ authorUserId: userId })
+				let query = db.journalEntries
+                    .includeDeleted()
+					.where({
+						authorUserId: userId,
+						teamId: { in: userOwnerAdminTeamAppIds }
+					})
 					.select("*")
 					.order({ updatedAt: "ASC", journalEntryId: "ASC" })
-					.limit(chunkSize)
-					.includeDeleted();
+					.limit(chunkSize);
 
 				if (cursorId === null) {
 					data = await query.where({ updatedAt: { gte: cursorTimestamp } });
@@ -76,12 +120,53 @@ async function* getDeltaForTable(
 						],
 					});
 				}
-			} else {
-				const query = db.prompts
+			} else if (tableName === "teamsApp") {
+				let query = db.teamsApp
+                    .includeDeleted()
+                    .where({ teamAppId: { in: userTeamsAppIds } })
+					.select("*")
+					.order({ updatedAt: "ASC", teamAppId: "ASC" })
+					.limit(chunkSize);
+
+				if (cursorId === null) {
+					data = await query.where({ updatedAt: { gte: cursorTimestamp } });
+				} else {
+					data = await query.where({
+						OR: [
+							{ updatedAt: { gt: cursorTimestamp } },
+							{ updatedAt: cursorTimestamp, teamAppId: { gt: cursorId as string } },
+						],
+					});
+				}
+			} else if (tableName === "teamMembers") {
+				let query = db.teamMembers
+                    .includeDeleted()
+                    .where({
+                        OR: [
+                            { teamAppId: { in: userOwnerAdminTeamAppIds } },
+                            { userId }
+                        ]
+                    })
+					.select("*")
+					.order({ updatedAt: "ASC", teamMemberId: "ASC" })
+					.limit(chunkSize);
+
+				if (cursorId === null) {
+					data = await query.where({ updatedAt: { gte: cursorTimestamp } });
+				} else {
+					data = await query.where({
+						OR: [
+							{ updatedAt: { gt: cursorTimestamp } },
+							{ updatedAt: cursorTimestamp, teamMemberId: { gt: cursorId as string } },
+						],
+					});
+				}
+			} else if (tableName === "prompts") {
+				let query = db.prompts
+                    .includeDeleted()
 					.select("*")
 					.order({ updatedAt: "ASC", promptId: "ASC" })
-					.limit(chunkSize)
-					.includeDeleted();
+					.limit(chunkSize);
 
 				if (cursorId === null) {
 					data = await query.where({ updatedAt: { gte: cursorTimestamp } });
@@ -109,7 +194,11 @@ async function* getDeltaForTable(
 			// Update cursor for next batch
 			const lastItem = data[data.length - 1];
 			cursorTimestamp = lastItem.updatedAt;
-			cursorId = tableName === "journalEntries" ? lastItem.journalEntryId : lastItem.promptId;
+            if (tableName === "journalEntries") cursorId = lastItem.journalEntryId;
+            else if (tableName === "teamsApp") cursorId = lastItem.teamAppId;
+            else if (tableName === "teamMembers") cursorId = lastItem.teamMemberId;
+            else if (tableName === "prompts") cursorId = lastItem.promptId;
+
 			hasMore = data.length === chunkSize;
 
 			yield {
@@ -138,13 +227,15 @@ export const heartbeatSync = rpcProtectedProcedure
 
 		// --- 1. Deliver Deltas (Delta-on-Connect) ---
 		if (lastSyncTimestamps) {
-			const tables = ["journalEntries", "prompts"] as const;
+			const tables = ["teamsApp", "teamMembers", "journalEntries", "prompts"] as const;
 			let hasDeltaError = false;
 
 			for (const tableName of tables) {
 				for await (const chunk of getDeltaForTable(
 					tableName,
 					user.id,
+					user.teamMembers.map(m => m.teamAppId),
+					user.teamMembers.filter(m => m.role === "Owner" || m.role === "Admin").map(m => m.teamAppId),
 					lastSyncTimestamps[tableName] ?? 0,
 					signal,
 				)) {
@@ -170,13 +261,63 @@ export const heartbeatSync = rpcProtectedProcedure
 		const liveIterator = syncService.subscribe(signal);
 
 		// --- 3. Start Live Monitoring (Buffered Events First) ---
-			for await (const payload of liveIterator) {
-				// Real-time filtering for data privacy:
-				// Only yield if it belongs to this user OR if it's public (null userId)
-				if (payload.userId === user.id || payload.userId === null) {
-						yield payload;
+		for await (const payload of liveIterator) {
+			// Real-time filtering for data privacy:
+
+			const isTeamOwnerAdminAccess =
+				"syncToTeamAppIdOwnersAdmins" in payload &&
+				payload.syncToTeamAppIdOwnersAdmins &&
+				user.teamMembers.some(
+					(t) =>
+						t.teamAppId === payload.syncToTeamAppIdOwnersAdmins &&
+						(t.role === "Owner" || t.role === "Admin"),
+				);
+
+			const isTeamAllMemberAccess =
+				"syncToTeamAppIdAllMembers" in payload &&
+				payload.syncToTeamAppIdAllMembers &&
+				user.teamMembers.some((t) => t.teamAppId === payload.syncToTeamAppIdAllMembers);
+
+			const isPersonalAccess = "syncToUserId" in payload && payload.syncToUserId === user.id;
+
+			const isGlobalAccess =
+				!("syncToUserId" in payload) ||
+				payload.syncToUserId === null ||
+				payload.syncToUserId === undefined;
+
+			if (isTeamOwnerAdminAccess || isTeamAllMemberAccess || isPersonalAccess || isGlobalAccess) {
+				// Membership Change Check: If any membership change (add, role change, remove)
+				// affects the current user, we yield the payload FIRST so the frontend updates,
+				// and then return to close the connection and force a context refresh.
+				let shouldAbort = false;
+				if (payload.type === "data-change-teamMembers") {
+					const affectsMe = payload.data.some((m) => m.userId === user.id);
+					if (affectsMe) {
+						if (payload.operation === "create" || payload.operation === "delete") {
+							shouldAbort = true;
+						} else if (payload.operation === "update") {
+							const myMembership = payload.data.find((m) => m.userId === user.id);
+							const currentRole = user.teamMembers.find(
+								(t) => t.teamAppId === myMembership?.teamAppId,
+							)?.role;
+							// Abort only in change of role.
+							if (currentRole && myMembership && currentRole !== myMembership.role) {
+								shouldAbort = true;
+							}
+						}
+					}
+				}
+
+				yield payload;
+
+				if (shouldAbort) {
+					console.log(
+						`[SyncRouter] Critical membership change for user ${user.id}. Aborting sync for context refresh.`,
+					);
+					return;
 				}
 			}
+		}
 	});
 
 export const syncRouter = {

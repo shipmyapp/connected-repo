@@ -85,13 +85,13 @@ export async function queryTasksByEntity(entityType: string, entityId: string) {
 
 /**
  * Query tasks for a specific team
- * @param teamId - Team ID
+ * @param teamApiId - Team API ID
  * @param limit - Maximum number of results (default 100)
  */
-export async function queryTasksByTeam(teamId: string, limit: number = 100) {
+export async function queryTasksByTeam(teamApiId: string, limit: number = 100) {
 	return db.pgTbusTaskLogs
 		.selectAll()
-		.where({ teamId })
+		.where({ teamApiId })
 		.order({ createdAt: "DESC" })
 		.limit(limit);
 }

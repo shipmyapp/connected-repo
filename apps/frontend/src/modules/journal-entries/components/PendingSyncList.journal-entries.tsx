@@ -16,6 +16,7 @@ import { useLocalDb } from "@frontend/worker/db/hooks/useLocalDb";
 import { ViewMode } from "../pages/JournalEntries.page";
 import { useConnectivity } from "@frontend/sw/sse/useConnectivity.sse.sw";
 import { useLocalDbValue } from "@frontend/worker/db/hooks/useLocalDbValue";
+import { useActiveTeamId } from "@frontend/contexts/WorkspaceContext";
 
 const bounce = keyframes`
   0%, 20%, 50%, 80%, 100% {transform: translateY(0);}
@@ -31,6 +32,7 @@ const spin = keyframes`
 const ITEMS_PER_PAGE = 12;
 
 export function PendingSyncList({ viewMode }: { viewMode: ViewMode }) {
+	const teamId = useActiveTeamId();
 	const navigate = useNavigate();
 	const [isSyncing, setIsSyncing] = useState(false);
 	const [currentPage, setCurrentPage] = useState(1);
@@ -38,12 +40,12 @@ export function PendingSyncList({ viewMode }: { viewMode: ViewMode }) {
 	const { isServerReachable } = useConnectivity();
 	
 	// Reactive data from local DB with pagination
-	const { data: entries } = useLocalDb("pendingSyncJournalEntries", () => 
-		getDataProxy().pendingSyncJournalEntriesDb.getPaginated((currentPage - 1) * ITEMS_PER_PAGE, ITEMS_PER_PAGE),
-		[currentPage]
+	const { data: entries = [] } = useLocalDb("pendingSyncJournalEntries", () => 
+		getDataProxy().pendingSyncJournalEntriesDb.getPaginated((currentPage - 1) * ITEMS_PER_PAGE, ITEMS_PER_PAGE, teamId),
+		[currentPage, teamId]
 	);
 
-	const { data: totalCount } = useLocalDbValue("pendingSyncJournalEntries", () => getDataProxy().pendingSyncJournalEntriesDb.count(), 0);
+	const { data: totalCount = 0 } = useLocalDbValue("pendingSyncJournalEntries", () => getDataProxy().pendingSyncJournalEntriesDb.count(teamId), 0, [teamId]);
 
 	// Monitor sync processing status
 	useEffect(() => {

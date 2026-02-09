@@ -19,7 +19,7 @@ export class PgTbusTaskLogTable extends BaseTable {
       // Task payload summary (for querying)
       entityType: t.string().nullable(), // e.g., "subscription", "user"
       entityId: t.string().nullable(), // e.g., subscriptionId, userId
-      teamId: t.uuid().nullable(), // For team-scoped tasks
+      teamApiId: t.uuid().nullable(), // For team-scoped tasks
 
       // Execution tracking
       status: t.pgTbusTaskStatusEnum(),
@@ -49,7 +49,7 @@ export class PgTbusTaskLogTable extends BaseTable {
     (t) => [
       t.index(["taskName", "status"]), // Query by task type and status
       t.index(["entityType", "entityId"]), // Query by entity
-      t.index(["teamId", "createdAt"]), // Query team history
+      t.index(["teamApiId", "createdAt"]), // Query team history
       t.index(["tbusTaskId"]), // Correlation with pg-tbus
       t.index(["status", "createdAt"]), // Recent failures/successes
     ]
