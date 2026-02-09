@@ -8,10 +8,22 @@ import { Card } from "@connected-repo/ui-mui/layout/Card";
 import { Container } from "@connected-repo/ui-mui/layout/Container";
 import { Stack } from "@connected-repo/ui-mui/layout/Stack";
 import { useSessionInfo } from "@frontend/contexts/UserContext";
+import { useWorkspace, useActiveTeamId } from "@frontend/contexts/WorkspaceContext";
+import { useLocalDbValue } from "@frontend/worker/db/hooks/useLocalDbValue";
+import { getDataProxy } from "@frontend/worker/worker.proxy";
+import BusinessIcon from "@mui/icons-material/Business";
+import PersonIcon from "@mui/icons-material/Person";
+import { useNavigate } from "react-router";
 
 const DashboardPage = () => {
+	const navigate = useNavigate();
 	// Get user data from session context (provided by AppLayout)
-	const { user, isRegistered } = useSessionInfo();
+	const { user } = useSessionInfo();
+	const { activeWorkspace } = useWorkspace();
+	const teamId = useActiveTeamId();
+
+	// Use local count for the dashboard
+	const { data: entryCount = 0 } = useLocalDbValue("journalEntries", () => getDataProxy().journalEntriesDb.count(teamId), 0, [teamId]);
 
 	return (
 		<Box
@@ -62,6 +74,41 @@ const DashboardPage = () => {
 							</Stack>
 						</Card>
 
+						{/* Workspace Status */}
+						<Card sx={{ p: 3, borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
+							<Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
+								<Stack direction="row" spacing={2} alignItems="center">
+									<Box 
+										sx={{ 
+											p: 1.5, 
+											borderRadius: 2, 
+											bgcolor: activeWorkspace.type === 'team' ? 'primary.main' : 'secondary.main',
+											color: 'white',
+											display: 'flex'
+										}}
+									>
+										{activeWorkspace.type === 'team' ? <BusinessIcon /> : <PersonIcon />}
+									</Box>
+									<Box>
+										<Typography variant="subtitle2" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '0.7rem', fontWeight: 700 }}>
+											Active Workspace
+										</Typography>
+										<Typography variant="h6" fontWeight={600}>
+											{activeWorkspace.name}
+										</Typography>
+									</Box>
+								</Stack>
+								<Box sx={{ textAlign: 'right' }}>
+									<Typography variant="h4" fontWeight={700} color="primary.main">
+										{entryCount}
+									</Typography>
+									<Typography variant="caption" color="text.secondary" fontWeight={600}>
+										Total Entries
+									</Typography>
+								</Box>
+							</Stack>
+						</Card>
+
 						{/* Success Message */}
 						<Fade in timeout={600}>
 							<Alert
@@ -103,15 +150,16 @@ const DashboardPage = () => {
 											boxShadow: 4,
 										},
 									}}
+									onClick={() => navigate(teamId ? `/teams/${teamId}/settings` : "/profile")}
 								>
 									<Typography variant="h6" gutterBottom fontWeight={600}>
-										View Profile
+										{teamId ? "Team Settings" : "View Profile"}
 									</Typography>
 									<Typography variant="body2" color="text.secondary" mb={2}>
-										Manage your account settings and preferences
+										{teamId ? "Manage team members and permissions" : "Manage your account settings and preferences"}
 									</Typography>
 									<Button variant="outlined" size="small">
-										Go to Profile
+										{teamId ? "Manage Team" : "Go to Profile"}
 									</Button>
 								</Card>
 
@@ -129,15 +177,16 @@ const DashboardPage = () => {
 											boxShadow: 4,
 										},
 									}}
+									onClick={() => navigate("/journal-entries")}
 								>
 									<Typography variant="h6" gutterBottom fontWeight={600}>
-										Explore Features
+										Journal Entries
 									</Typography>
 									<Typography variant="body2" color="text.secondary" mb={2}>
-										Discover what you can do with your account
+										View and manage your {teamId ? "team's" : "personal"} entries
 									</Typography>
 									<Button variant="outlined" size="small">
-										Get Started
+										Manage Entries
 									</Button>
 								</Card>
 							</Stack>

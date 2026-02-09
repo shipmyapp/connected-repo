@@ -17,6 +17,7 @@ export const journalEntryOptionalZod = z.object({
 	prompt: zString.max(500).nullable(),
 	promptId: zSmallint(1).nullable(),
 	deletedAt: zTimeEpoch.nullable(),
+	teamId: z.uuid().nullable().default(null),
 });
 
 export const journalEntryCreateInputZod = journalEntryMandatoryZod

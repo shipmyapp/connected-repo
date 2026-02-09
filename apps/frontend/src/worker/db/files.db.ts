@@ -5,7 +5,7 @@ export class FilesDBManager {
   /**
    * Stores a file blob in IndexedDB.
    */
-  async upsert(fileId: string, pendingSyncId: string, blob: Blob, fileName: string) {
+  async upsert(fileId: string, pendingSyncId: string, blob: Blob, fileName: string, teamId: string | null = null) {
     await db.files.put({
       fileId,
       pendingSyncId,
@@ -16,6 +16,7 @@ export class FilesDBManager {
       status: "pending",
       error: "",
       errorCount: 0,
+      teamId,
     });
     notifySubscribers("files");
   }

@@ -12,6 +12,7 @@ import { RhfSubmitButton } from "@connected-repo/ui-mui/rhf-form/RhfSubmitButton
 import { RhfTextField } from "@connected-repo/ui-mui/rhf-form/RhfTextField";
 import { useRhfForm } from "@connected-repo/ui-mui/rhf-form/useRhfForm";
 import { PendingSyncJournalEntry, pendingSyncJournalEntryZod } from "@connected-repo/zod-schemas/journal_entry.zod";
+import { useActiveTeamId } from "@frontend/contexts/WorkspaceContext";
 import { getDataProxy } from "@frontend/worker/worker.proxy";
 import { zodResolver } from "@hookform/resolvers/zod";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
@@ -23,6 +24,7 @@ import { ulid } from "ulid";
 type WritingMode = "prompted" | "free";
 
 export function CreateJournalEntryForm() {
+	const teamId = useActiveTeamId();
 	const [success, setSuccess] = useState("");
 	const [writingMode, setWritingMode] = useState<WritingMode>("prompted");
 	const [attachments, setAttachments] = useState<MediaFile[]>([]);
@@ -68,7 +70,7 @@ export function CreateJournalEntryForm() {
 			if (hasPromptValue.current) return;
 			setPromptLoading(true);
 			try {
-				const p = await getDataProxy().promptsDb.getRandomActive();
+				const p = await getDataProxy().promptsDb.getRandomActive(teamId);
 				if (p) {
 					setRandomPrompt(p);
 					hasPromptValue.current = true;
@@ -93,7 +95,7 @@ export function CreateJournalEntryForm() {
 			channel.removeEventListener("message", handleMessage);
 			channel.close();
 		};
-	}, []);
+	}, [teamId]);
 
 	// Form setup with Zod validation and RHF
 	const {formMethods, RhfFormProvider } = useRhfForm<PendingSyncJournalEntry>({
@@ -108,7 +110,8 @@ export function CreateJournalEntryForm() {
 					attachment.id,
 					entryId,
 					attachment.file,
-					attachment.file.name
+					attachment.file.name,
+					teamId
 				);
 			}
 
@@ -116,6 +119,7 @@ export function CreateJournalEntryForm() {
 			const submitData: PendingSyncJournalEntry = {
 				...data,
 				attachmentFileIds: fileIds,
+				teamId: teamId,
 				prompt: writingMode === "free" ? null : data.prompt,
 				promptId: writingMode === "free" ? null : randomPrompt?.promptId ?? null,
 				createdAt: Date.now(),
@@ -132,7 +136,7 @@ export function CreateJournalEntryForm() {
 				
 				// Pick a new prompt for next entry
 				if (writingMode === "prompted") {
-					const next = await getDataProxy().promptsDb.getRandomActive();
+					const next = await getDataProxy().promptsDb.getRandomActive(teamId);
 					if (next) setRandomPrompt(next);
 				}
 
@@ -141,6 +145,7 @@ export function CreateJournalEntryForm() {
 					prompt: null, // Will be set by effect
 					content: "",
 					attachmentFileIds: [],
+					teamId: teamId,
 					status: "file-upload-pending",
 					errorCount: 0,
 					createdAt: Date.now()
@@ -170,6 +175,7 @@ export function CreateJournalEntryForm() {
 				content: undefined,
 				attachmentFileIds: [],
 				journalEntryId: ulid(),
+				teamId: teamId,
 				status: "file-upload-pending",
 				errorCount: 0,
 				createdAt: new Date().getTime()
@@ -189,7 +195,7 @@ export function CreateJournalEntryForm() {
 	}, [writingMode, formMethods, randomPrompt]);
 
 	const handleRefreshPrompt = async () => {
-		const next = await getDataProxy().promptsDb.getRandomActive();
+		const next = await getDataProxy().promptsDb.getRandomActive(teamId);
 		if (next) setRandomPrompt(next);
 	};
 

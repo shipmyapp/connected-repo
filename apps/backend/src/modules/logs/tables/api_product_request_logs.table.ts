@@ -8,7 +8,7 @@ export class ApiProductRequestLogsTable extends BaseTable {
   columns = this.setColumns(
     (t) => ({
       apiProductRequestId: t.ulid().primaryKey(),
-      teamId: t.uuid(),
+      teamApiId: t.uuid(),
       teamUserReferenceId: t.string(),
       requestBodyText: t.text().nullable(),
       requestBodyJson: t.json<{}>().nullable(),
@@ -22,7 +22,7 @@ export class ApiProductRequestLogsTable extends BaseTable {
       ...t.timestamps(),
     }),
     (t) => t.index([
-      "teamId", 
+      "teamApiId", 
       {column: "createdAt", order: "DESC"}
     ]),
   );

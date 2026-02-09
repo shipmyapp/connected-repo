@@ -21,6 +21,10 @@ export const API_REQUEST_METHOD_ENUM = ["GET", "POST", "PUT", "DELETE"] as const
 export const apiRequestMethodZod = z.enum(API_REQUEST_METHOD_ENUM);
 export type ApiRequestMethod = z.infer<typeof apiRequestMethodZod>;
 
+export const TEAM_MEMBER_ROLE_ENUM = ["Owner", "Admin", "Member"] as const;
+export const teamMemberRoleZod = z.enum(TEAM_MEMBER_ROLE_ENUM);
+export type TeamMemberRole = z.infer<typeof teamMemberRoleZod>;
+
 export const THEME_SETTING_ENUM = ["dark", "light", "system"] as const;
 export const themeSettingZod = z.enum(THEME_SETTING_ENUM);
 export type ThemeSetting = z.infer<typeof themeSettingZod>;

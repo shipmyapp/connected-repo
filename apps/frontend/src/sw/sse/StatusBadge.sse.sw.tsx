@@ -1,9 +1,11 @@
 import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { SSEStatus } from "./sse.manager.sw";
+import { useSessionInfo } from "@frontend/contexts/UserContext";
 import { useConnectivity } from "@frontend/sw/sse/useConnectivity.sse.sw";
 
 export const SSEStatusBadge = () => {
-    const { sseStatus } = useConnectivity();
+    const session = useSessionInfo();
+    const { sseStatus } = useConnectivity(session.user?.id);
 
     const colors: Record<SSEStatus, string> = {
         connected: "success.main",

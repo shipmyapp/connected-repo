@@ -1,55 +1,68 @@
 import { db } from "@backend/db/db";
+import { rpcProtectedProcedure } from "@backend/procedures/protected.procedure";
 import { rpcPublicProcedure } from "@backend/procedures/public.procedure";
+import z from "zod";
 import {
 	promptGetByCategoryZod,
 	promptGetByIdZod,
 } from "@connected-repo/zod-schemas/prompt.zod";
 import { ORPCError } from "@orpc/server";
 
-// Get all active prompts
-const getAllActive = rpcPublicProcedure.handler(async () => {
-	const prompts = await db.prompts
-		.select("*")
-		.order({ createdAt: "DESC" });
+// Get all active prompts, optionally filtered by team
+const getAllActive = rpcProtectedProcedure
+	.input(z.object({ teamId: z.uuid().nullable().optional() }))
+	.handler(async ({ input: { teamId } }) => {
+		const query: any = { deletedAt: null };
+		if (teamId !== undefined) {
+			query.teamId = teamId;
+		}
 
-	return prompts;
-});
+		const prompts = await db.prompts
+			.select("*")
+			.where(query)
+			.order({ createdAt: "DESC" });
 
-// Get a random active prompt
-const getRandomActive = rpcPublicProcedure.handler(async () => {
-	// Get count of active prompts
-	const count = await db.prompts.count();
-	if (count === 0) {
-		throw new ORPCError("NOT_FOUND", {
-			status: 404,
+		return prompts;
+	});
 
-			message: "No active prompts available",
-		});
-	}
+// Get a random active prompt, optionally filtered by team
+const getRandomActive = rpcProtectedProcedure
+	.input(z.object({ teamId: z.uuid().nullable().optional() }))
+	.handler(async ({ input: { teamId } }) => {
+		const query: any = { deletedAt: null };
+		if (teamId !== undefined) {
+			query.teamId = teamId;
+		}
 
-	// Try up to 3 times to get a random prompt
-	for (let attempt = 0; attempt < 3; attempt++) {
-		// Generate random offset between 0 and count-1
+		// Get count of active prompts for this scope
+		const count = await db.prompts.where(query).count();
+		if (count === 0) {
+			throw new ORPCError("NOT_FOUND", {
+				status: 404,
+				message: `No active prompts available for the selected workspace.`,
+			});
+		}
+
+		// Generate random offset
 		const randomIndex = Math.floor(Math.random() * count);
 
-		// Get the first active prompt at this offset
+		// Get the prompt at this offset
 		const prompt = await db.prompts
-			.where({ promptId: { gte: randomIndex } })
+			.where(query)
 			.select("*")
+			.offset(randomIndex)
 			.limit(1)
 			.take();
 
 		if (prompt) {
 			return prompt;
 		}
-	}
 
-	// If all 3 attempts failed, throw error
-	throw new ORPCError("NOT_FOUND", {
-		status: 404,
-		message: "Failed to retrieve a random active prompt after 3 attempts",
+		throw new ORPCError("NOT_FOUND", {
+			status: 404,
+			message: "Failed to retrieve a random active prompt",
+		});
 	});
-});
 
 // Get prompt by ID
 const getById = rpcPublicProcedure
@@ -67,12 +80,17 @@ const getById = rpcPublicProcedure
 		return prompt;
 	});
 
-// Get prompts by category (active/inactive)
-const getByCategory = rpcPublicProcedure
-	.input(promptGetByCategoryZod)
-	.handler(async ({ input }) => {
+// Get prompts by category, optionally filtered by team
+const getByCategory = rpcProtectedProcedure
+	.input(promptGetByCategoryZod.extend({ teamId: z.uuid().nullable().optional() }))
+	.handler(async ({ input: { category, teamId } }) => {
+		const query: any = { category, deletedAt: null };
+		if (teamId !== undefined) {
+			query.teamId = teamId;
+		}
+
 		const prompts = await db.prompts
-			.where({ category: input.category })
+			.where(query)
 			.select("*")
 			.order({ createdAt: "DESC" });
 

@@ -7,6 +7,7 @@ import { navItems } from "@frontend/configs/nav.config";
 import { SSEStatusBadge } from "@frontend/sw/sse/StatusBadge.sse.sw";
 import { useLocation, useNavigate } from "react-router";
 import { UserProfileMenu } from "./UserProfileMenu";
+import TeamSwitcher from "./TeamSwitcher";
 
 /**
  * DesktopNavbar - Top navigation bar for desktop layout
@@ -61,6 +62,11 @@ export const DesktopNavbar = () => {
 						OneQ
 					</Typography>
 					<SSEStatusBadge />
+				</Box>
+
+				{/* Workspace Switcher */}
+				<Box sx={{ mr: 2 }}>
+					<TeamSwitcher />
 				</Box>
 
 				{/* Navigation Links */}

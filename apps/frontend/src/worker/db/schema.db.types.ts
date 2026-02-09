@@ -11,4 +11,5 @@ export interface StoredFile {
   thumbnailBlob?: Blob | null;
   thumbnailStatus?: 'pending' | 'in-progress' | 'completed' | 'failed';
   cdnUrls?: [string, "not-available" | string] | null; // [originalUrl, thumbnailUrl]
+  teamId?: string | null;
 }

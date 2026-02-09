@@ -1064,19 +1064,26 @@ cron.schedule('* * * * *', async () => {
   - Automatic backups work
   - Restore tested and works
 
-**13.1.2: Add Data Export (GDPR Compliance)**
-- Create export endpoint
-- Support JSON format (all user data)
-- Support CSV format (entries only)
-- Include prompts in export
-- Add download button in settings
-- Generate export asynchronously for large datasets
+**13.1.2: Add Data Export (GDPR Compliance)** ✅ COMPLETED
+- Export from local IndexedDB (offline-first approach)
+- Support CSV format (all active entries with metadata)
+- Support PDF format (landscape table layout)
+- UI buttons in SyncedEntriesList
+- Processed in MediaWorker for CPU-intensive PDF generation
+- CSV injection protection (formula sanitization)
+- Toast notifications for progress/success/errors
+- **Implementation:**
+  - `ExportService` in MediaWorker (`apps/frontend/src/worker/cdn/export.service.ts`)
+  - Uses pdfmake for PDF generation with vfs fonts
+  - Lazy initialization pattern for pdfMake
+  - Progress logging for large datasets
+  - 60s timeout protection for PDF generation
 - **Acceptance Criteria:**
-  - Export includes all user data
-  - JSON format valid
-  - CSV opens in Excel/Google Sheets
-  - Download works
-  - GDPR compliant
+  - ✅ Export includes all user data from local DB
+  - ✅ CSV opens in Excel/Google Sheets
+  - ✅ PDF renders properly with landscape layout
+  - ✅ Download works
+  - ✅ User feedback via toast notifications
 
 **13.1.3: Implement Account Deletion (GDPR)**
 - Create account deletion endpoint

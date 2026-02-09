@@ -20,7 +20,7 @@ describe('Journal Entries Endpoints', () => {
 
 	describe('getAll', () => {
 		it('should return empty array when user has no journal entries', async () => {
-			const result = await defaultClient.getAll();
+			const result = await defaultClient.getAll({});
 
 			expect(result).toEqual([]);
 		});
@@ -33,7 +33,7 @@ describe('Journal Entries Endpoints', () => {
 			expect(createResult.content).toBe(dummyEntry.content);
 
 			// Now get all entries
-			const result = await defaultClient.getAll();
+			const result = await defaultClient.getAll({});
 
 			expect(result).toHaveLength(1);
 			expect(result[0]?.content).toBe(dummyEntry.content);
@@ -41,7 +41,7 @@ describe('Journal Entries Endpoints', () => {
 		});
 
 		it('should fail when user is not authenticated', async () => {
-			await expect(unauthClient.getAll()).rejects.toThrow();
+			await expect(unauthClient.getAll({})).rejects.toThrow();
 		});
 	});
 

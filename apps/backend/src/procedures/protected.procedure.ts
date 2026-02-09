@@ -3,12 +3,14 @@ import type { ActiveSessionSelectAll } from "@backend/modules/auth/tables/sessio
 import { type RpcContextWithHeaders, rpcPublicProcedure } from "@backend/procedures/public.procedure";
 import type { UserSelectAll } from "@connected-repo/zod-schemas/user.zod";
 
+import type { TeamAppMemberSelectAll } from "@connected-repo/zod-schemas/team_app.zod";
+
 /**
  * @public
  */
 export interface RpcAuthenticatedContext extends RpcContextWithHeaders {
   session: ActiveSessionSelectAll;
-  user: UserSelectAll;
+  user: UserSelectAll & { teamMembers: TeamAppMemberSelectAll[] };
 }
 
 // Protected procedure - requires authentication

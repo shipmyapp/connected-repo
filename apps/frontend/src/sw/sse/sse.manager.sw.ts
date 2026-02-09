@@ -1,6 +1,7 @@
 import { journalEntriesDb } from '@frontend/modules/journal-entries/worker/journal-entries.db';
 import { promptsDb } from '@frontend/modules/prompts/worker/prompts.db';
 import { pendingSyncJournalEntriesDb } from '@frontend/worker/db/pending-sync-journal-entries.db';
+import { db, wipeTeamData } from '@frontend/worker/db/db.manager';
 import { orpcFetch, UserAppBackendOutputs } from '@frontend/utils/orpc.client';
 
 type HeartbeatStream = UserAppBackendOutputs["sync"]["heartbeatSync"];
@@ -11,6 +12,7 @@ export type SSEStatus = 'connected' | 'disconnected' | 'connecting' | 'sync-comp
 
 export class SSEManager {
     private currentStatus: SSEStatus = 'disconnected';
+    private currentUserId: string | null = null;
     private statusListeners = new Set<(status: SSEStatus) => void>();
     private abortController: AbortController | null = null;
     private heartbeatTimer: number | null = null;
@@ -46,16 +48,22 @@ export class SSEManager {
         try {
             const journalEntry = await journalEntriesDb.getLatestUpdatedAt();
             const prompt = await promptsDb.getLatestUpdatedAt();
+            const teamApp = await db.teamsApp.orderBy("updatedAt").last();
+            const teamMember = await db.teamMembers.orderBy("updatedAt").last();
 
             return {
                 journalEntries: journalEntry?.updatedAt ?? 0,
                 prompts: prompt?.updatedAt ?? 0,
+                teamsApp: teamApp?.updatedAt ?? 0,
+                teamMembers: teamMember?.updatedAt ?? 0,
             };
         } catch (err) {
             console.error('[SSE] Failed to fetch latest timestamps:', err);
             return {
                 journalEntries: 0,
                 prompts: 0,
+                teamsApp: 0,
+                teamMembers: 0,
             };
         }
     }
@@ -122,9 +130,24 @@ export class SSEManager {
                         await journalEntriesDb.bulkUpsert(event.data);
                     } else if (event.table === 'prompts') {
                         await promptsDb.bulkUpsert(event.data);
+                    } else if (event.table === "teamsApp") {
+                        await db.teamsApp.bulkPut(event.data);
+                        // If any team is deleted in delta, wipe its data
+                        for (const team of event.data) {
+                            if (team.deletedAt) {
+                                await wipeTeamData(team.teamAppId);
+                            }
+                        }
+                    } else if (event.table === "teamMembers") {
+                        await db.teamMembers.bulkPut(event.data);
+                        // If my membership is deleted in delta, wipe that team's data
+                        for (const member of event.data) {
+                            if (member.userId === this.currentUserId && member.deletedAt) {
+                                await wipeTeamData(member.teamAppId);
+                            }
+                        }
                     }
                 }
-
                 if (event.isLastChunk) {
                     console.info(`[SSE] Completed delta sync for table: ${event.table}`);
                     this.pendingTables.delete(event.table);
@@ -169,6 +192,31 @@ export class SSEManager {
             } else {
                 await promptsDb.bulkUpsert(event.data);
             }
+        } else if (event.type === "data-change-teamsApp") {
+            console.info(`[SSE] Real-time update [teamsApp]: ${event.operation} (${event.data.length} records)`);
+            if (event.operation === "delete") {
+                for (const team of event.data) {
+                    await wipeTeamData(team.teamAppId);
+                }
+                await db.teamsApp.bulkDelete(event.data.map((t: any) => t.teamAppId));
+            } else {
+                await db.teamsApp.bulkPut(event.data);
+            }
+        } else if (event.type === "data-change-teamMembers") {
+            console.info(`[SSE] Real-time update [teamMembers]: ${event.operation} (${event.data.length} records)`);
+            if (event.operation === "delete") {
+                const affectsMe = event.data.some((m: any) => m.userId === this.currentUserId);
+                if (affectsMe) {
+                    for (const member of event.data) {
+                        if (member.userId === this.currentUserId) {
+                            await wipeTeamData(member.teamAppId);
+                        }
+                    }
+                }
+                await db.teamMembers.bulkDelete(event.data.map((m: any) => m.teamMemberId));
+            } else {
+                await db.teamMembers.bulkPut(event.data);
+            }
         }
     }
 
@@ -208,9 +256,10 @@ export class SSEManager {
         this.abortController?.abort();
     }
 
-    public async startMonitoring(apiUrl: string) {
+    public async startMonitoring(apiUrl: string, userId: string) {
         if (this.isMonitoring) return;
         this.isMonitoring = true;
+        this.currentUserId = userId;
         this.retryCount = 0;
 
         while (this.isMonitoring) {
@@ -218,7 +267,7 @@ export class SSEManager {
             this.abortController = new AbortController();
             
             // Re-initialize pending tables for delta-on-connect
-            this.pendingTables = new Set(['journalEntries', 'prompts']);
+            this.pendingTables = new Set(['journalEntries', 'prompts', 'teamsApp', 'teamMembers']);
             this.erroredTables.clear();
 
             try {
