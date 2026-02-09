@@ -19,6 +19,7 @@ The application uses TWO dedicated web workers to maintain UI responsiveness and
   - Video frame extraction (using `mp4box` and `VideoDecoder`).
   - Image compression (using `browser-image-compression`).
   - CDN uploads (using `Axios`).
+  - Data export (CSV and PDF generation via `ExportService`).
 - **Strict Rule**: Must return processed results (Blobs/URLs) to the caller. It never persists data directly.
 
 ---

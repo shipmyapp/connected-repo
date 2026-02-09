@@ -4,11 +4,14 @@ import { Pagination } from "@connected-repo/ui-mui/navigation/Pagination";
 import { Collapse, IconButton, Tooltip, keyframes } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import FileDownloadIcon from "@mui/icons-material/FileDownload";
+import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import React, { useState } from "react";
 import { useNavigate } from "react-router";
+import { toast } from "react-toastify";
 import { JournalEntryCardView } from "@frontend/components/JournalEntryCardView";
 import { JournalEntryTableView } from "@frontend/components/JournalEntryTableView";
-import { getDataProxy } from "@frontend/worker/worker.proxy";
+import { getDataProxy, getMediaProxy } from "@frontend/worker/worker.proxy";
 import { getSWProxy } from "@frontend/sw/proxy.sw";
 import { useLocalDb } from "@frontend/worker/db/hooks/useLocalDb";
 import { ViewMode } from "../pages/JournalEntries.page";
@@ -27,6 +30,7 @@ export function SyncedEntriesList({ viewMode }: { viewMode: ViewMode }) {
 	const navigate = useNavigate();
 	const [currentPage, setCurrentPage] = useState(1);
 	const [isRefreshing, setIsRefreshing] = useState(false);
+	const [isExporting, setIsExporting] = useState<boolean>(false);
 	const [isExpanded, setIsExpanded] = useState(true);
 	const { isServerReachable, sseStatus } = useConnectivity();
 
@@ -48,6 +52,51 @@ export function SyncedEntriesList({ viewMode }: { viewMode: ViewMode }) {
 			console.error("[SyncedEntriesList] Refresh failed:", err);
 		} finally {
 			setTimeout(() => setIsRefreshing(false), 2000);
+		}
+	};
+
+	const handleExport = async (format: 'csv' | 'pdf') => {
+		if (isExporting) return;
+		const toastId = toast.info(`Preparing ${format.toUpperCase()} export...`, { autoClose: false });
+		
+		try {
+			setIsExporting(true);
+			const allEntries = await getDataProxy().journalEntriesDb.getAll();
+			
+			if (allEntries.length === 0) {
+				toast.update(toastId, { render: "No entries to export", type: 'warning', autoClose: 3000 });
+				setIsExporting(false);
+				return;
+			}
+
+			const mediaProxy = getMediaProxy();
+			
+			let blob: Blob;
+			if (format === 'csv') {
+				blob = await mediaProxy.export.generateCSV(allEntries);
+			} else {
+				blob = await mediaProxy.export.generatePDF(allEntries);
+			}
+			
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = `journal_entries_${new Date().toISOString().split('T')[0]}.${format}`;
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			URL.revokeObjectURL(url);
+			
+			toast.update(toastId, { render: `${format.toUpperCase()} Exported successfully`, type: 'success', autoClose: 3000 });
+		} catch (err) {
+			console.error("[SyncedEntriesList] Export failed:", err);
+			toast.update(toastId, { 
+				render: `Failed to generate ${format.toUpperCase()}. Please check console for details.`, 
+				type: 'error', 
+				autoClose: 5000 
+			});
+		} finally {
+			setIsExporting(false);
 		}
 	};
 
@@ -100,21 +149,49 @@ export function SyncedEntriesList({ viewMode }: { viewMode: ViewMode }) {
 					</Typography>
 				</Stack>
 				
-				<Tooltip title={getRefreshTooltip()}>
-					<IconButton 
-						size="small"
-						onClick={(e) => { e.stopPropagation(); handleRefreshDeltas(); }}
-						disabled={!canRefresh}
-						sx={{ 
-							transition: 'all 0.2s',
-							color: !canRefresh ? 'text.disabled' : 'inherit',
-							'&:hover': { bgcolor: 'action.hover' },
-							filter: !isServerReachable ? 'grayscale(1)' : 'none'
-						}}
-					>
-						<RefreshIcon sx={{ fontSize: 20, animation: isRefreshingState ? `${spin} 1s linear infinite` : 'none' }} />
-					</IconButton>
-				</Tooltip>
+				<Stack direction="row" spacing={0.5} alignItems="center">
+					<Tooltip title={isExporting ? "Exporting..." : "Export to CSV"}>
+						<span>
+							<IconButton 
+								size="small"
+								onClick={(e) => { e.stopPropagation(); handleExport('csv'); }}
+								disabled={isExporting}
+								sx={{ '&:hover': { bgcolor: 'action.hover' } }}
+							>
+								<FileDownloadIcon sx={{ fontSize: 20 }} />
+							</IconButton>
+						</span>
+					</Tooltip>
+
+					<Tooltip title={isExporting ? "Exporting..." : "Export to PDF"}>
+						<span>
+							<IconButton 
+								size="small"
+								onClick={(e) => { e.stopPropagation(); handleExport('pdf'); }}
+								disabled={isExporting}
+								sx={{ '&:hover': { bgcolor: 'action.hover' } }}
+							>
+								<PictureAsPdfIcon sx={{ fontSize: 20, color: isExporting ? 'text.disabled' : 'primary.main' }} />
+							</IconButton>
+						</span>
+					</Tooltip>
+
+					<Tooltip title={getRefreshTooltip()}>
+						<IconButton 
+							size="small"
+							onClick={(e) => { e.stopPropagation(); handleRefreshDeltas(); }}
+							disabled={!canRefresh}
+							sx={{ 
+								transition: 'all 0.2s',
+								color: !canRefresh ? 'text.disabled' : 'inherit',
+								'&:hover': { bgcolor: 'action.hover' },
+								filter: !isServerReachable ? 'grayscale(1)' : 'none'
+							}}
+						>
+							<RefreshIcon sx={{ fontSize: 20, animation: isRefreshingState ? `${spin} 1s linear infinite` : 'none' }} />
+						</IconButton>
+					</Tooltip>
+				</Stack>
 			</Box>
 
 			<Collapse in={isExpanded} timeout="auto" unmountOnExit>
