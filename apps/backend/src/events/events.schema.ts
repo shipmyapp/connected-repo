@@ -24,11 +24,11 @@ export const subscriptionAlertWebhookTaskDef = defineTask({
 	task_name: "subscription.alert_webhook",
 	schema: Type.Object({
 		subscriptionId: Type.String({ pattern: "^[0-9A-Z]{26}$" }),
-		teamId: Type.String({ format: "uuid" }),
+		teamApiId: Type.String({ pattern: "^[0-9A-Z]{26}$" }),
 		payload: Type.Object({
 			event: Type.Literal("subscription.usage_alert"),
 			subscriptionId: Type.String({ pattern: "^[0-9A-Z]{26}$" }),
-			teamId: Type.String({ format: "uuid" }),
+			teamApiId: Type.String({ pattern: "^[0-9A-Z]{26}$" }),
 			apiProductSku: Type.String(),
 			requestsConsumed: Type.Number(),
 			maxRequests: Type.Number(),

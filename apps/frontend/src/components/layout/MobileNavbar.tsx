@@ -9,6 +9,7 @@ import { navItems } from "@frontend/configs/nav.config";
 import { SSEStatusBadge } from "@frontend/sw/sse/StatusBadge.sse.sw";
 import { useLocation, useNavigate } from "react-router";
 import { UserProfileMenu } from "@frontend/components/layout/UserProfileMenu";
+import { TeamSwitcher } from "./TeamSwitcher";
 
 export const MobileNavbar = () => {
 	const navigate = useNavigate();
@@ -82,6 +83,8 @@ export const MobileNavbar = () => {
 						</Typography>
 						<SSEStatusBadge />
 					</Box>
+
+					<TeamSwitcher />
 
 					{/* User Avatar - triggers menu */}
 					<UserProfileMenu />

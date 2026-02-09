@@ -22,9 +22,9 @@ export class AppDatabase extends Dexie {
     });
 
     this.version(2).stores({
-      journalEntries: "journalEntryId, createdAt, updatedAt",
+      journalEntries: "journalEntryId, teamId, createdAt, updatedAt",
       prompts: "promptId, text, updatedAt",
-      pendingSyncJournalEntries: "journalEntryId, createdAt, updatedAt",
+      pendingSyncJournalEntries: "journalEntryId, teamId, createdAt, updatedAt",
       files: "fileId, pendingSyncId, mimeType, status, thumbnailStatus",
     }).upgrade((tx) => {
       return tx.table("files").toCollection().modify((file: StoredFile) => {
@@ -32,6 +32,13 @@ export class AppDatabase extends Dexie {
         file.thumbnailStatus = 'pending';
         file.cdnUrls = null;
       });
+    });
+
+    this.version(3).stores({
+      journalEntries: "journalEntryId, teamId, createdAt, updatedAt, [teamId+createdAt]",
+      prompts: "promptId, text, updatedAt",
+      pendingSyncJournalEntries: "journalEntryId, teamId, createdAt, updatedAt, [teamId+createdAt]",
+      files: "fileId, pendingSyncId, mimeType, status, thumbnailStatus",
     });
 
     /**

@@ -5,8 +5,9 @@ import { AppBar } from "@connected-repo/ui-mui/navigation/AppBar";
 import { Toolbar } from "@connected-repo/ui-mui/navigation/Toolbar";
 import { navItems } from "@frontend/configs/nav.config";
 import { SSEStatusBadge } from "@frontend/sw/sse/StatusBadge.sse.sw";
-import { useLocation, useNavigate } from "react-router";
+import { useNavigate, useLocation } from "react-router";
 import { UserProfileMenu } from "./UserProfileMenu";
+import { TeamSwitcher } from "./TeamSwitcher";
 
 /**
  * DesktopNavbar - Top navigation bar for desktop layout
@@ -62,6 +63,8 @@ export const DesktopNavbar = () => {
 					</Typography>
 					<SSEStatusBadge />
 				</Box>
+
+				<TeamSwitcher />
 
 				{/* Navigation Links */}
 				<Box sx={{ flexGrow: 1, display: "flex", gap: 1 }}>

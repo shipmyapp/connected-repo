@@ -3,22 +3,51 @@ import { syncService } from "@backend/modules/sync/sync.service";
 import { UserTable } from "@backend/modules/users/tables/users.table";
 import { JournalEntrySelectAll, journalEntrySelectAllZod } from "@connected-repo/zod-schemas/journal_entry.zod";
 
-const groupByUserIdAndPush = (operation: "create" | "update" | "delete", entries: JournalEntrySelectAll[] ) => {
+const pushToRelevantUsers = async (operation: "create" | "update" | "delete", entries: JournalEntrySelectAll[]) => {
+	const { db } = await import("../../../db/db.js");
 	const groupedByUserId = new Map<string, JournalEntrySelectAll[]>();
-	for(const entry of entries){
-		if(!groupedByUserId.has(entry.authorUserId)){
-			groupedByUserId.set(entry.authorUserId, []);
+
+	const addEntryForUser = (userId: string, entry: JournalEntrySelectAll) => {
+		if (!groupedByUserId.has(userId)) {
+			groupedByUserId.set(userId, []);
 		}
-		groupedByUserId.get(entry.authorUserId)!.push(entry);
+		groupedByUserId.get(userId)!.push(entry);
+	};
+
+	const teamIds = [...new Set(entries.map((e: any) => e.teamId).filter(Boolean) as string[])];
+	const teamMembersMap = new Map<string, string[]>();
+
+	if (teamIds.length > 0) {
+		const members = await db.teamMembers.where({ teamId: { in: teamIds } }).select("teamId", "userId");
+		for (const member of members) {
+			if (member.userId) {
+				if (!teamMembersMap.has(member.teamId)) {
+					teamMembersMap.set(member.teamId, []);
+				}
+				teamMembersMap.get(member.teamId)!.push(member.userId);
+			}
+		}
 	}
-	
-	for(const [userId, data] of groupedByUserId.entries()){
+
+	for (const entry of entries) {
+		const entryAsAny = entry as any;
+		if (entryAsAny.teamId && teamMembersMap.has(entryAsAny.teamId)) {
+			const members = teamMembersMap.get(entryAsAny.teamId)!;
+			for (const userId of members) {
+				addEntryForUser(userId, entry);
+			}
+		} else {
+			addEntryForUser(entry.authorUserId, entry);
+		}
+	}
+
+	for (const [userId, data] of groupedByUserId.entries()) {
 		syncService.push({
 			data,
 			operation,
-			type: 'data-change-journalEntries',
+			type: "data-change-journalEntries",
 			userId,
-		})
+		});
 	}
 };
 
@@ -39,6 +68,10 @@ export class JournalEntryTable extends BaseTable {
 				onDelete: "CASCADE",
 				onUpdate: "RESTRICT",
 			}),
+			teamId: t.uuid().foreignKey("teams", "teamId", {
+				onDelete: "CASCADE",
+				onUpdate: "RESTRICT",
+			}).nullable(),
 			attachmentUrls: t.array(t.array(t.string()).narrowType(t => t<[string, "not-available" | string]>())).default([]),
 			deletedAt: t.timestampNumber().nullable(),
 
@@ -59,14 +92,14 @@ export class JournalEntryTable extends BaseTable {
 	};
 
 	init() {
-		this.afterCreate( journalEntrySelectAllZod.keyof().options, (entries) => {
-			groupByUserIdAndPush("create", entries);
+		this.afterCreate(journalEntrySelectAllZod.keyof().options, (entries) => {
+			pushToRelevantUsers("create", entries);
 		});
-		this.afterUpdate( journalEntrySelectAllZod.keyof().options, (entries) => {
-			groupByUserIdAndPush("update", entries);
+		this.afterUpdate(journalEntrySelectAllZod.keyof().options, (entries) => {
+			pushToRelevantUsers("update", entries);
 		});
-		this.afterDelete( journalEntrySelectAllZod.keyof().options, (entries) => {
-			groupByUserIdAndPush("delete", entries);
+		this.afterDelete(journalEntrySelectAllZod.keyof().options, (entries) => {
+			pushToRelevantUsers("delete", entries);
 		});
 	}
 }

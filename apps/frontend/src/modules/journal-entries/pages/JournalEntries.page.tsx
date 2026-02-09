@@ -14,16 +14,18 @@ import { useNavigate } from "react-router";
 import { PendingSyncList } from "../components/PendingSyncList.journal-entries";
 import { SyncedEntriesList } from "../components/SyncedEntriesList.journal-entries";
 import { useLocalDbValue } from "@frontend/worker/db/hooks/useLocalDbValue";
+import { useWorkspace } from "@frontend/contexts/WorkspaceContext";
 
 export type ViewMode = "card" | "table";
 
 export default function JournalEntriesPage() {
 	const navigate = useNavigate();
+	const { activeWorkspace } = useWorkspace();
 	const [viewMode, setViewMode] = useState<ViewMode>("card");
 
 	// Reactive counts for total count and empty state check
-	const { data: synchronizedCount, isLoading: syncLoading } = useLocalDbValue("journalEntries", () => getDataProxy().journalEntriesDb.count(), 0);
-	const { data: pendingCount, isLoading: pendingLoading } = useLocalDbValue("pendingSyncJournalEntries", () => getDataProxy().pendingSyncJournalEntriesDb.count(), 0);
+	const { data: synchronizedCount, isLoading: syncLoading } = useLocalDbValue("journalEntries", () => getDataProxy().journalEntriesDb.count(activeWorkspace.id), 0, [activeWorkspace.id]);
+	const { data: pendingCount, isLoading: pendingLoading } = useLocalDbValue("pendingSyncJournalEntries", () => getDataProxy().pendingSyncJournalEntriesDb.count(activeWorkspace.id), 0, [activeWorkspace.id]);
 
 	const isLoading = syncLoading || pendingLoading;
 	const totalCount = synchronizedCount + pendingCount;
@@ -52,7 +54,7 @@ export default function JournalEntriesPage() {
 			<Box sx={{ mb: 3, display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 3 }}>
 				<Box>
 					<Typography variant="h2" component="h1" sx={{ fontSize: { xs: "1.75rem", md: "2.25rem" }, fontWeight: 800, mb: 0.5, letterSpacing: '-0.02em' }}>
-						My Journal
+						{activeWorkspace.type === 'personal' ? 'My Journal' : activeWorkspace.name}
 					</Typography>
 					<Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
 						{totalCount} entries in total
@@ -90,9 +92,11 @@ export default function JournalEntriesPage() {
 			<Stack spacing={2}>
 				<PendingSyncList 
 					viewMode={viewMode} 
+					teamId={activeWorkspace.id}
 				/>
 				<SyncedEntriesList 
 					viewMode={viewMode} 
+					teamId={activeWorkspace.id}
 				/>
 			</Stack>
 		</Container>

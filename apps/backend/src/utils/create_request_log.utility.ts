@@ -10,10 +10,10 @@ export const createRequestLog = async (
 	input: OpenapiRequestInput,
 	reqHeaders: Headers,
 	path: string,
-	teamId: string,
+	teamApiId: string,
 ) => {
 	return await db.apiProductRequestLogs.create({
-		teamId: teamId,
+		teamApiId: teamApiId,
 		teamUserReferenceId: input.teamUserReferenceId,
 		method: "POST",
 		path,

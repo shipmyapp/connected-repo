@@ -12,7 +12,7 @@ export class SubscriptionsTable extends BaseTable {
     apiProductSku: t.apiProductSkuEnum(),
     apiProductQuantity: t.smallint(),
     requestsConsumed: t.integer(),
-    teamId: t.uuid(),
+    teamApiId: t.uuid(),
     teamUserReferenceId: t.string(),
 
     billingInvoiceNumber: t.string().nullable(),
@@ -23,7 +23,7 @@ export class SubscriptionsTable extends BaseTable {
 
     ...t.timestamps(),
     }), 
-    (t) => t.index(['teamId', 'teamUserReferenceId', 'apiProductSku'])
+    (t) => t.index(['teamApiId', 'teamUserReferenceId', 'apiProductSku'])
   );
 
   relations = {

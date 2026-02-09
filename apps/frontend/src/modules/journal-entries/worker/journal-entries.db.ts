@@ -1,6 +1,7 @@
 import { JournalEntrySelectAll, journalEntrySelectAllZod } from "@connected-repo/zod-schemas/journal_entry.zod";
 import { pendingSyncJournalEntriesDb } from "@frontend/worker/db/pending-sync-journal-entries.db";
 import { db, notifySubscribers } from "../../../worker/db/db.manager";
+import Dexie from "dexie";
 
 export class JournalEntriesDBManager {
   async upsert(entry: JournalEntrySelectAll) {
@@ -39,12 +40,20 @@ export class JournalEntriesDBManager {
     return await db.journalEntries.get(id);
   }
 
-  getAll() {
-    return db.journalEntries.orderBy("createdAt").reverse().toArray();
+  async getAll(teamId?: string | null) {
+    const filterId = teamId === "personal" ? null : teamId;
+    if (filterId === undefined) {
+      return await db.journalEntries.orderBy("createdAt").reverse().toArray();
+    }
+    return await db.journalEntries.where("[teamId+createdAt]").between([filterId, Dexie.minKey], [filterId, Dexie.maxKey]).reverse().toArray();
   }
 
-  getPaginated(offset: number, limit: number) {
-    return db.journalEntries.orderBy("createdAt").reverse().offset(offset).limit(limit).toArray();
+  async getPaginated(offset: number, limit: number, teamId?: string | null) {
+    const filterId = teamId === "personal" ? null : teamId;
+    if (filterId === undefined) {
+      return await db.journalEntries.orderBy("createdAt").reverse().offset(offset).limit(limit).toArray();
+    }
+    return await db.journalEntries.where("[teamId+createdAt]").between([filterId, Dexie.minKey], [filterId, Dexie.maxKey]).reverse().offset(offset).limit(limit).toArray();
   }
 
   async getLatestUpdatedAt() {
@@ -53,8 +62,12 @@ export class JournalEntriesDBManager {
     return latest;
   }
 
-  async count() {
-    return await db.journalEntries.count();
+  async count(teamId?: string | null) {
+    const filterId = teamId === "personal" ? null : teamId;
+    if (filterId === undefined) {
+      return await db.journalEntries.count();
+    }
+    return await db.journalEntries.where({ teamId: filterId }).count();
   }
 }
 

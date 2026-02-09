@@ -26,7 +26,7 @@ const spin = keyframes`
 
 const ITEMS_PER_PAGE = 12;
 
-export function SyncedEntriesList({ viewMode }: { viewMode: ViewMode }) {
+export function SyncedEntriesList({ viewMode, teamId }: { viewMode: ViewMode, teamId: string }) {
 	const navigate = useNavigate();
 	const [currentPage, setCurrentPage] = useState(1);
 	const [isRefreshing, setIsRefreshing] = useState(false);
@@ -36,11 +36,11 @@ export function SyncedEntriesList({ viewMode }: { viewMode: ViewMode }) {
 
 	// Reactive data from local DB with pagination
 	const { data: entries } = useLocalDb("journalEntries", () => 
-		getDataProxy().journalEntriesDb.getPaginated((currentPage - 1) * ITEMS_PER_PAGE, ITEMS_PER_PAGE),
-		[currentPage]
+		getDataProxy().journalEntriesDb.getPaginated((currentPage - 1) * ITEMS_PER_PAGE, ITEMS_PER_PAGE, teamId),
+		[currentPage, teamId]
 	);
 
-	const { data: totalCount } = useLocalDbValue("journalEntries", () => getDataProxy().journalEntriesDb.count(), 0);
+	const { data: totalCount } = useLocalDbValue("journalEntries", () => getDataProxy().journalEntriesDb.count(teamId), 0, [teamId]);
 
 	const handleRefreshDeltas = async () => {
 		if (!isServerReachable || isRefreshing || sseStatus === 'connecting' || sseStatus === 'connected') return;
@@ -61,7 +61,7 @@ export function SyncedEntriesList({ viewMode }: { viewMode: ViewMode }) {
 		
 		try {
 			setIsExporting(true);
-			const allEntries = await getDataProxy().journalEntriesDb.getAll();
+			const allEntries = await getDataProxy().journalEntriesDb.getAll(teamId);
 			
 			if (allEntries.length === 0) {
 				toast.update(toastId, { render: "No entries to export", type: 'warning', autoClose: 3000 });

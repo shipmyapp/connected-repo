@@ -27,7 +27,7 @@ const createSubscription = openApiAuthProcedure
       expiresAt: () => sql`NOW() + ${validityDays} * INTERVAL '1 day'`,
       maxRequests,
       requestsConsumed: 0,
-      teamId: team.teamId,
+      teamApiId: team.teamApiId,
       teamUserReferenceId,
     })
   });
@@ -43,7 +43,7 @@ const getActiveSubscriptions = openApiAuthProcedure
     const query = db.subscriptions
       .selectAll()
       .where({
-        teamId: team.teamId,
+        teamApiId: team.teamApiId,
         teamUserReferenceId,
         expiresAt: { gt: sql`NOW()` },
         requestsConsumed: { lt: sql`max_requests` },

@@ -4,7 +4,7 @@ import { subscriptionAlertWebhookTaskDef } from "@backend/events/events.schema";
 import { tbus } from "@backend/events/tbus";
 import { logger } from "@backend/utils/logger.utils";
 import type { ApiProductSku } from "@connected-repo/zod-schemas/enums.zod";
-import type { TeamSelectAll } from "@connected-repo/zod-schemas/team.zod";
+import type { TeamApiSelectAll } from "@connected-repo/zod-schemas/team_api.zod";
 import { subscriptionAlertWebhookPayloadZod } from "@connected-repo/zod-schemas/webhook_call_queue.zod";
 
 const SUBSCRIPTION_USAGE_ALERT_THRESHOLD_PERCENT = 90;
@@ -18,13 +18,13 @@ const SUBSCRIPTION_USAGE_ALERT_THRESHOLD_PERCENT = 90;
 const checkAndScheduleWebhookAt90Percent = async (
   subscription: {
     subscriptionId: string;
-    teamId: string;
+    teamApiId: string;
     requestsConsumed: number;
     maxRequests: number;
     notifiedAt90PercentUse: number | null;
     apiProductSku: ApiProductSku;
   },
-  team: TeamSelectAll,
+  team: TeamApiSelectAll,
 ) => {
   const usagePercent = (subscription.requestsConsumed / subscription.maxRequests) * 100;
 
@@ -40,7 +40,7 @@ const checkAndScheduleWebhookAt90Percent = async (
     const payload = subscriptionAlertWebhookPayloadZod.parse({
       event: "subscription.usage_alert",
       subscriptionId: subscription.subscriptionId,
-      teamId: subscription.teamId,
+      teamApiId: subscription.teamApiId,
       apiProductSku: subscription.apiProductSku,
       requestsConsumed: subscription.requestsConsumed,
       maxRequests: subscription.maxRequests,
@@ -54,7 +54,7 @@ const checkAndScheduleWebhookAt90Percent = async (
     await tbus.send(
       subscriptionAlertWebhookTaskDef.from({
         subscriptionId: subscription.subscriptionId,
-        teamId: subscription.teamId,
+        teamApiId: subscription.teamApiId,
         payload,
       })
     );
@@ -77,7 +77,7 @@ const checkAndScheduleWebhookAt90Percent = async (
  * @param team - The team with webhook configuration
  * @returns Updated subscription with new usage count
  */
-export async function incrementSubscriptionUsage(subscriptionId: string, team: TeamSelectAll) {
+export async function incrementSubscriptionUsage(subscriptionId: string, team: TeamApiSelectAll) {
   // Atomically increment requestsConsumed
   const updatedSubscription = await db.subscriptions
     .selectAll()

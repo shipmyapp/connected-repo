@@ -5,19 +5,28 @@ import {
 	journalEntryDeleteZod,
 	journalEntryGetByIdZod,
 	journalEntryGetByUserZod,
+	journalEntryGetAllInputZod,
 } from "@connected-repo/zod-schemas/journal_entry.zod";
 
-// Get all journal entries for the authenticated user
-const getAll = rpcProtectedProcedure.handler(async ({ context: { user } }) => {
+// Get all journal entries for the authenticated user or team
+const getAll = rpcProtectedProcedure
+	.input(journalEntryGetAllInputZod)
+	.handler(async ({ input, context: { user } }) => {
+		const { teamId } = input;
 
-	const journalEntries = await db.journalEntries
-		.select("*", {
-			author: (t) => t.author.selectAll(),
-		})
-		.where({ authorUserId: user.id });
+		let query = db.journalEntries
+			.select("*", {
+				author: (t) => t.author.selectAll(),
+			});
 
-	return journalEntries;
-});
+		if (teamId) {
+			query = query.where({ teamId });
+		} else {
+			query = query.where({ authorUserId: user.id, teamId: null });
+		}
+
+		return await query;
+	});
 
 // Get journal entry by ID
 const getById = rpcProtectedProcedure

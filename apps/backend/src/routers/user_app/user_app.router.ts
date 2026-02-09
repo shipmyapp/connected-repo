@@ -3,11 +3,9 @@ import { promptsRouter } from '@backend/modules/prompts/prompts.router';
 import { rpcPublicProcedure } from '@backend/procedures/public.procedure';
 import { usersRouter } from '@backend/routers/user_app/users.user_app.router';
 import { syncRouter } from '@backend/modules/sync/sync.router';
+import { teamsRouter } from '@backend/modules/teams/teams.router';
 import type { InferRouterInputs, InferRouterOutputs, RouterClient } from '@orpc/server';
 import { cdnRouter } from '@backend/modules/cdn/cdn.user_app.router';
-
-// Phase 1: Basic health check and testing endpoints
-// Modules will be added in later phases
 
 // Health check endpoint
 const healthCheck = rpcPublicProcedure
@@ -28,6 +26,7 @@ export const userAppRouter = {
 	prompts: promptsRouter,
 	sync: syncRouter,
 	cdn: cdnRouter,
+	teams: teamsRouter,
 };
 
 export type UserAppRouter = RouterClient<typeof userAppRouter>;

@@ -18,14 +18,14 @@ const createJournalEntryRequest = openApiAuthProcedure
       input,
       reqHeaders,
       "/api/v1/journal-entries/create-request",
-      team.teamId
+      team.teamApiId
     );
 
     const { newLogEntry, subscription } = await checkSubscriptionAndUpdateLog(
       logEntry,
       "journal-entries",
       input.apiProductSku,
-      team.teamId,
+      team.teamApiId,
       input.teamUserReferenceId
     );
 
@@ -54,7 +54,7 @@ const createJournalEntryResponse = openApiAuthProcedure
       .selectAll()
       .find(requestId)
       .where({
-        teamId: team.teamId,
+        teamApiId: team.teamApiId,
         method: "POST",
       })
       .then(res => 

@@ -5,21 +5,35 @@ change(async (db) => {
 
   await db.createEnum('api_product_enum', ['journal_entry_create']);
 
+  await db.createEnum('role', ['owner', 'admin', 'user']);
+
   await db.createEnum('api_request_method_enum', ['GET', 'POST', 'PUT', 'DELETE']);
 
   await db.createEnum('api_status_enum', ['AI Error', 'Invalid API route', 'No active subscription', 'Requests exhausted', 'Pending', 'Server Error', 'Success']);
 
   await db.createEnum('pg_tbus_task_status_enum', ['pending', 'active', 'completed', 'failed', 'cancelled']);
 
-  await db.createTable('prompts', (t) => ({
-    promptId: t.smallint().identity().primaryKey(),
-    text: t.string(500),
-    category: t.string(100).nullable(),
-    tags: t.array(t.string()).nullable(),
-    isActive: t.boolean().default(true),
-    createdAt: t.timestamps().createdAt,
-    updatedAt: t.timestamps().updatedAt,
-  }));
+  await db.createTable(
+    'prompts',
+    (t) => ({
+      promptId: t.smallint().identity().primaryKey(),
+      text: t.string(500),
+      category: t.string(100).nullable(),
+      tags: t.array(t.string()).nullable(),
+      deletedAt: t.timestamp().nullable(),
+      createdAt: t.timestamps().createdAt,
+      updatedAt: t.timestamps().updatedAt,
+    }),
+    (t) => 
+      t.index(
+        [
+          {
+            column: 'updatedAt',
+            order: 'DESC',
+          },
+        ]
+      ),
+  );
 
   await db.createTable(
     'sessions',
@@ -86,8 +100,8 @@ change(async (db) => {
     (t) => t.primaryKey(['identifier', 'value']),
   );
 
-  await db.createTable('teams', (t) => ({
-    teamId: t.uuid().primaryKey().default(t.sql`gen_random_uuid()`),
+  await db.createTable('teams_api', (t) => ({
+    teamApiId: t.uuid().primaryKey().default(t.sql`gen_random_uuid()`),
     allowApiSubsCreationForSkus: t.array(t.string()).default([]),
     allowedDomains: t.array(t.string()),
     allowedIPs: t.array(t.string()),
@@ -107,10 +121,10 @@ change(async (db) => {
     email: t.string().unique(),
     emailVerified: t.boolean().default(false),
     name: t.string(),
-    journalReminderTimes: t.array(t.string()),
     image: t.string().nullable(),
     timezone: t.string().default('Etc/UTC'),
     themeSetting: t.enum('theme_setting_enum'),
+    journalReminderTimes: t.array(t.string()).default([]),
     createdAt: t.timestamps().createdAt,
     updatedAt: t.timestamps().updatedAt,
   }));
@@ -124,7 +138,7 @@ change(async (db) => {
       apiProductSku: t.enum('api_product_enum'),
       apiProductQuantity: t.smallint(),
       requestsConsumed: t.integer(),
-      teamId: t.uuid(),
+      teamApiId: t.uuid(),
       teamUserReferenceId: t.string(),
       billingInvoiceNumber: t.string().nullable(),
       billingInvoiceDate: t.timestamp().nullable(),
@@ -134,14 +148,14 @@ change(async (db) => {
       createdAt: t.timestamps().createdAt,
       updatedAt: t.timestamps().updatedAt,
     }),
-    (t) => t.index(['teamId', 'teamUserReferenceId', 'apiProductSku']),
+    (t) => t.index(['teamApiId', 'teamUserReferenceId', 'apiProductSku']),
   );
 
   await db.createTable(
     'api_product_request_logs',
     (t) => ({
       apiProductRequestId: t.string(26).primaryKey(),
-      teamId: t.uuid(),
+      teamApiId: t.uuid(),
       teamUserReferenceId: t.string(),
       requestBodyText: t.text().nullable(),
       requestBodyJson: t.json().nullable(),
@@ -158,7 +172,7 @@ change(async (db) => {
     (t) => 
       t.index(
         [
-          'teamId',
+          'teamApiId',
           {
             column: 'createdAt',
             order: 'DESC',
@@ -166,26 +180,6 @@ change(async (db) => {
         ]
       ),
   );
-});
-
-change(async (db) => {
-  await db.createTable('journal_entries', (t) => ({
-    journalEntryId: t.string(26).primaryKey(),
-    prompt: t.string(500).nullable(),
-    promptId: t.smallint().foreignKey('prompts', 'promptId', {
-      onUpdate: 'RESTRICT',
-      onDelete: 'SET NULL',
-    }).nullable(),
-    content: t.text(),
-    authorUserId: t.uuid().foreignKey('users', 'id', {
-      onUpdate: 'RESTRICT',
-      onDelete: 'CASCADE',
-    }),
-    createdAt: t.timestamps().createdAt,
-    updatedAt: t.timestamps().updatedAt,
-  }));
-
-
 
   await db.createTable(
     'pg_tbus_task_log',
@@ -196,7 +190,7 @@ change(async (db) => {
       queueName: t.string().nullable(),
       entityType: t.string().nullable(),
       entityId: t.string().nullable(),
-      teamId: t.uuid().nullable(),
+      teamApiId: t.uuid().nullable(),
       status: t.enum('pg_tbus_task_status_enum'),
       attemptNumber: t.integer().default(0),
       scheduledAt: t.timestamp().nullable(),
@@ -216,9 +210,84 @@ change(async (db) => {
     (t) => [
       t.index(['taskName', 'status']),
       t.index(['entityType', 'entityId']),
-      t.index(['teamId', 'createdAt']),
+      t.index(['teamApiId', 'createdAt']),
       t.index(['tbusTaskId']),
       t.index(['status', 'createdAt']),
+    ],
+  );
+});
+
+change(async (db) => {
+  await db.createTable('teams', (t) => ({
+    teamId: t.uuid().primaryKey().default(t.sql`gen_random_uuid()`),
+    name: t.string(),
+    logoUrl: t.string().nullable(),
+    createdByUserId: t.uuid().foreignKey('users', 'id', {
+      onUpdate: 'RESTRICT',
+      onDelete: 'CASCADE',
+    }),
+    createdAt: t.timestamps().createdAt,
+    updatedAt: t.timestamps().updatedAt,
+  }));
+});
+
+change(async (db) => {
+  await db.createTable(
+    'journal_entries',
+    (t) => ({
+      journalEntryId: t.string(26).primaryKey(),
+      prompt: t.string(500).nullable(),
+      promptId: t.smallint().foreignKey('prompts', 'promptId', {
+        onUpdate: 'RESTRICT',
+        onDelete: 'SET NULL',
+      }).nullable(),
+      content: t.text(),
+      authorUserId: t.uuid().foreignKey('users', 'id', {
+        onUpdate: 'RESTRICT',
+        onDelete: 'CASCADE',
+      }),
+      teamId: t.uuid().foreignKey('teams', 'teamId', {
+        onUpdate: 'RESTRICT',
+        onDelete: 'CASCADE',
+      }).nullable(),
+      attachmentUrls: t.array(t.array(t.string())).default([]),
+      deletedAt: t.timestamp().nullable(),
+      createdAt: t.timestamps().createdAt,
+      updatedAt: t.timestamps().updatedAt,
+    }),
+    (t) => 
+      t.index(
+        [
+          'authorUserId',
+          {
+            column: 'updatedAt',
+            order: 'DESC',
+          },
+        ]
+      ),
+  );
+
+  await db.createTable(
+    'team_members',
+    (t) => ({
+      teamMemberId: t.string(26).primaryKey(),
+      teamId: t.uuid().foreignKey('teams', 'teamId', {
+        onUpdate: 'RESTRICT',
+        onDelete: 'CASCADE',
+      }),
+      userId: t.uuid().foreignKey('users', 'id', {
+        onUpdate: 'RESTRICT',
+        onDelete: 'CASCADE',
+      }).nullable(),
+      email: t.string(),
+      role: t.enum('role'),
+      joinedAt: t.timestamp().nullable(),
+      createdAt: t.timestamps().createdAt,
+      updatedAt: t.timestamps().updatedAt,
+    }),
+    (t) => [
+      t.unique(['teamId', 'userId']),
+      t.unique(['teamId', 'email']),
     ],
   );
 });

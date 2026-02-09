@@ -7,7 +7,9 @@ import { JournalEntryTable } from "@backend/modules/journal-entries/tables/journ
 import { ApiProductRequestLogsTable } from "@backend/modules/logs/tables/api_product_request_logs.table";
 import { PromptsTable } from "@backend/modules/prompts/tables/prompts.table";
 import { SubscriptionsTable } from "@backend/modules/subscriptions/tables/subscriptions.table";
+import { TeamApiTable } from "@backend/modules/teams/tables/teams_api.table";
 import { TeamTable } from "@backend/modules/teams/tables/teams.table";
+import { TeamMembersTable } from "@backend/modules/team-members/tables/team_members.table";
 import { UserTable } from "@backend/modules/users/tables/users.table";
 import { orchidORM } from "orchid-orm/node-postgres";
 
@@ -25,7 +27,9 @@ export const db = orchidORM(
 		accounts: AccountTable,
 		verifications: VerificationTable,
 		subscriptions: SubscriptionsTable,
-		teams: TeamTable,
+		teamsApi: TeamApiTable,
+		teamsApp: TeamTable,
+		teamMembers: TeamMembersTable,
 		apiProductRequestLogs: ApiProductRequestLogsTable,
 		pgTbusTaskLogs: PgTbusTaskLogTable,
 	},

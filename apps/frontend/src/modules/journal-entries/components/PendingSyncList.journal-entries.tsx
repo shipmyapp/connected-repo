@@ -30,7 +30,7 @@ const spin = keyframes`
 
 const ITEMS_PER_PAGE = 12;
 
-export function PendingSyncList({ viewMode }: { viewMode: ViewMode }) {
+export function PendingSyncList({ viewMode, teamId }: { viewMode: ViewMode, teamId: string }) {
 	const navigate = useNavigate();
 	const [isSyncing, setIsSyncing] = useState(false);
 	const [currentPage, setCurrentPage] = useState(1);
@@ -39,11 +39,11 @@ export function PendingSyncList({ viewMode }: { viewMode: ViewMode }) {
 	
 	// Reactive data from local DB with pagination
 	const { data: entries } = useLocalDb("pendingSyncJournalEntries", () => 
-		getDataProxy().pendingSyncJournalEntriesDb.getPaginated((currentPage - 1) * ITEMS_PER_PAGE, ITEMS_PER_PAGE),
-		[currentPage]
+		getDataProxy().pendingSyncJournalEntriesDb.getPaginated((currentPage - 1) * ITEMS_PER_PAGE, ITEMS_PER_PAGE, teamId),
+		[currentPage, teamId]
 	);
 
-	const { data: totalCount } = useLocalDbValue("pendingSyncJournalEntries", () => getDataProxy().pendingSyncJournalEntriesDb.count(), 0);
+	const { data: totalCount } = useLocalDbValue("pendingSyncJournalEntries", () => getDataProxy().pendingSyncJournalEntriesDb.count(teamId), 0, [teamId]);
 
 	// Monitor sync processing status
 	useEffect(() => {

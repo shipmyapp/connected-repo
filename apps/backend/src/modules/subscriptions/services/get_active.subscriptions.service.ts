@@ -9,13 +9,13 @@ import type { ApiProductSku } from "@connected-repo/zod-schemas/enums.zod";
  * @returns Active subscription or null if not found
  */
 export async function findActiveSubscription(
-  teamId: string,
+  teamApiId: string,
   teamUserReferenceId: string,
   apiProductSku: ApiProductSku,
 ) {
   const subscription = await db.subscriptions
     .where({
-      teamId,
+      teamApiId,
       teamUserReferenceId,
       apiProductSku,
       expiresAt: { gt: sql`NOW()` },

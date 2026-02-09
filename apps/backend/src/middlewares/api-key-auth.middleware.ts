@@ -21,7 +21,7 @@ export const apiKeyAuthMiddleware = async ({
 
 	// Extract headers
 	const apiKey = reqHeaders.get("x-api-key");
-	const teamId = reqHeaders.get("x-team-id");
+	const teamApiId = reqHeaders.get("x-team-id");
 
 	if (!apiKey || typeof apiKey !== "string") {
 		throw new ORPCError("UNAUTHORIZED", {
@@ -30,7 +30,7 @@ export const apiKeyAuthMiddleware = async ({
 		});
 	}
 
-	if (!teamId || typeof teamId !== "string") {
+	if (!teamApiId || typeof teamApiId !== "string") {
 		throw new ORPCError("UNAUTHORIZED", {
 			status: 401,
 			message: "Missing or invalid x-team-id header",
@@ -38,7 +38,7 @@ export const apiKeyAuthMiddleware = async ({
 	}
 
 	try {
-		const teamFromDb = await db.teams.find(teamId).select("*", "apiSecretHash");
+		const teamFromDb = await db.teamsApi.find(teamApiId).select("*", "apiSecretHash");
 		
 		const isValid = await verifyApiKey(apiKey, teamFromDb.apiSecretHash);
 
@@ -52,7 +52,7 @@ export const apiKeyAuthMiddleware = async ({
 		return next({
 			context: {
 				...context,
-				"x-team-id": teamId,
+				"x-team-id": teamApiId,
 				"x-api-key": apiKey,
 				team: omitKeys(teamFromDb, ["apiSecretHash"])
 			},
