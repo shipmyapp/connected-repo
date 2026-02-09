@@ -5,7 +5,6 @@ import { tbus } from "@backend/events/tbus";
 import { logger } from "@backend/utils/logger.utils";
 import type { ApiProductSku } from "@connected-repo/zod-schemas/enums.zod";
 import type { TeamApiSelectAll } from "@connected-repo/zod-schemas/team_api.zod";
-import { subscriptionAlertWebhookPayloadZod } from "@connected-repo/zod-schemas/webhook_call_queue.zod";
 
 const SUBSCRIPTION_USAGE_ALERT_THRESHOLD_PERCENT = 90;
 
@@ -37,8 +36,8 @@ const checkAndScheduleWebhookAt90Percent = async (
     usagePercent >= SUBSCRIPTION_USAGE_ALERT_THRESHOLD_PERCENT &&
     !subscription.notifiedAt90PercentUse
   ) {
-    const payload = subscriptionAlertWebhookPayloadZod.parse({
-      event: "subscription.usage_alert",
+    const payload = {
+      event: "subscription.usage_alert" as const,
       subscriptionId: subscription.subscriptionId,
       teamApiId: subscription.teamApiId,
       apiProductSku: subscription.apiProductSku,
@@ -46,7 +45,7 @@ const checkAndScheduleWebhookAt90Percent = async (
       maxRequests: subscription.maxRequests,
       usagePercent: Math.round(usagePercent),
       timestamp: Date.now(),
-    });
+    };
 
     // Schedule pg-tbus task
     // Note: This is intentionally outside the DB transaction to avoid blocking.
