@@ -3,7 +3,9 @@
 	"description": "Common Material-UI components for the monorepo",
 	"devDependencies": {
 		"@connected-repo/typescript-config": "*",
-		"@types/react": "^19.2.2"
+		"@types/node": "^22.18.12",
+		"@types/react": "^19.2.2",
+		"@types/react-dom": "^19.2.2"
 	},
 	"exports": {
 		"./components/*": {
