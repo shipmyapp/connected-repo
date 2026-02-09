@@ -1,5 +1,6 @@
 import { env } from "@frontend/configs/env.config";
 import { getSWProxy } from '@frontend/sw/proxy.sw';
+import { orpcFetch } from "@frontend/utils/orpc.client";
 import * as Comlink from 'comlink';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { SSEStatus } from "./sse.manager.sw";
@@ -35,15 +36,8 @@ export function useConnectivity(userId?: string) {
 
 	const checkServerHealth = useCallback(async () => {
 		try {
-			const controller = new AbortController();
-			const timeoutId = setTimeout(() => controller.abort(), HEALTH_CHECK_TIMEOUT);
-			const res = await fetch(`${env.VITE_API_URL}/user-app/health`, { 
-					method: "GET", 
-					credentials: "include", 
-					signal: controller.signal 
-			});
-			clearTimeout(timeoutId);
-			const isOk = res.ok;
+			const res = await orpcFetch.health();
+			const isOk = res.status === "ok";
 			setIsServerReachable(isOk);
 			return isOk;
 		} catch {
