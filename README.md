@@ -20,6 +20,9 @@ Production-ready Turborepo monorepo for building full-stack TypeScript applicati
 - **State**: TanStack Query (server), Zustand (global), React Hook Form (forms)
 - **UI**: Material-UI (via `@connected-repo/ui-mui`)
 - **PWA**: Vite PWA plugin with offline support
+- **Offline Storage**: Dexie.js (IndexedDB wrapper)
+- **Sync**: SSE-based delta sync with real-time updates
+- **Workers**: Two-worker architecture (DataWorker + MediaWorker)
 - **Testing**: Playwright (E2E)
 
 ### Tooling
@@ -46,6 +49,8 @@ Production-ready Turborepo monorepo for building full-stack TypeScript applicati
 │   └── frontend/                   # React + Vite
 │       ├── src/
 │       │   ├── modules/            # Feature modules
+│       │   ├── worker/             # Web Workers (DataWorker, MediaWorker)
+│       │   ├── sw/                 # Service Worker (SSE sync)
 │       │   ├── components/         # Shared components
 │       │   └── main.tsx            # Entry
 │       └── package.json
@@ -189,6 +194,63 @@ Frontend includes PWA support:
 - Update prompts for new versions
 - Offline blocker UI when connection is lost
 
+### Offline-First Architecture
+
+Full offline support with Dexie.js (IndexedDB):
+
+**Data Synchronization:**
+- **Delta Sync**: SSE-based streaming sync (delta-on-connect + live monitoring)
+- **Local Database**: IndexedDB with separate tables for synced data and pending changes
+- **Reactive UI**: Hooks automatically re-render when local DB changes
+- **Conflict Resolution**: Soft deletes, server-wins for conflicts
+
+**Worker Architecture:**
+```
+UI Thread (React)
+  ├─► DataWorker (Dexie DB, Sync, SSE)
+  └─► MediaWorker (CDN uploads, thumbnails, exports)
+```
+
+**File Uploads:**
+- S3 presigned URLs for direct browser-to-S3 uploads
+- File blobs cached in IndexedDB for offline access
+- Automatic sync when connection restored
+
+### Two-Worker Architecture
+
+**DataWorker**: Handles all IndexedDB access and sync
+- Dexie.js database operations
+- SyncOrchestrator for background sync
+- SSE connection management
+- Only worker allowed to access IndexedDB
+
+**MediaWorker**: Stateless processing worker
+- Image compression (browser-image-compression)
+- PDF thumbnail generation (pdfjs-dist)
+- Video thumbnail generation (mp4box + WebCodecs)
+- CDN uploads via presigned URLs
+- CSV/PDF exports
+
+**Communication**: Comlink proxy pattern for worker-to-worker calls
+
+### Real-Time Sync (SSE)
+
+Server-Sent Events for live data synchronization:
+
+**Backend** (Orchid ORM hooks):
+```typescript
+// Tables emit events on create/update/delete
+this.afterCreate(schema.keyof().options, (entries) => {
+  pushToSync("create", entries);
+});
+```
+
+**Frontend** (Service Worker):
+- Connects on login, disconnects on logout
+- Receives delta chunks on initial connection
+- Real-time updates via streaming SSE
+- Heartbeat every 10s for connectivity monitoring
+
 ### Cron Jobs
 
 Per-minute cron jobs using node-cron with mutex locking:
@@ -232,6 +294,16 @@ Zero-downtime deployments require strict adherence to the following rules. Break
 * **N-1 Compatibility:** The current Backend must support the previous version of the Frontend.
 * **No Breaking Payload Changes:** Do not remove fields from JSON responses or change data types (e.g., String to Int) without a version bump (e.g., `/v1/` to `/v2/`).
 * **Graceful Failure:** Agents/Frontends must ignore unknown keys in API responses rather than crashing.
+
+### Dual Team Model
+
+Separate teams for UI and API access:
+
+| Aspect | teams_app (UI) | teams_api (External) |
+|--------|---------------|---------------------|
+| **Auth** | Session/Cookie | API Key |
+| **Use Case** | Journal entries, prompts | Webhook integrations |
+| **Tables** | `teams_app`, `team_members` | `teams_api` |
 
 ### End-to-End Type Safety
 

@@ -23,7 +23,7 @@
 
 **Frontend (React 19 + Vite + TanStack Query + PWA):**
 - See [apps/frontend/AGENTS.md](apps/frontend/AGENTS.md)
-- React patterns, oRPC client, PWA features, E2E testing, UI design
+- React patterns, oRPC client, PWA features, offline-first, workers, E2E testing, UI design
 
 **Packages:**
 - See [packages/AGENTS.md](packages/AGENTS.md)

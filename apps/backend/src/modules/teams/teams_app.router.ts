@@ -60,7 +60,7 @@ const getTeamMembers = rpcProtectedProcedure
 	.output(z.array(teamAppMemberSelectAllZod))
 	.handler(async ({ input: { teamAppId }, context: { user } }) => {
 		// Verify user is member of the team
-		const membership = await db.teamMembers.where({ teamAppId, userId: user.id }).take();
+		const membership = await db.teamMembers.where({ teamAppId, userId: user.id }).takeOptional();
 		if (!membership) throw new Error("Unauthorized: Not a team member");
 
 		return await db.teamMembers.where({ teamAppId });
@@ -77,13 +77,13 @@ const addTeamMember = rpcProtectedProcedure
 		const { teamAppId, email, role } = input;
 
 		// Verify current user is Owner or Admin
-		const actor = await db.teamMembers.where({ teamAppId, userId: user.id }).take();
+		const actor = await db.teamMembers.where({ teamAppId, userId: user.id }).takeOptional();
 		if (!actor || (actor.role !== "Owner" && actor.role !== "Admin")) {
 			throw new Error("Unauthorized: Only Owners and Admins can add members");
 		}
 
 		// Try to find if user already exists on platform
-		const targetUser = await db.users.where({ email }).take();
+		const targetUser = await db.users.where({ email }).takeOptional();
 
 		return await db.teamMembers.create({
 			teamAppId,
@@ -98,11 +98,11 @@ const removeTeamMember = rpcProtectedProcedure
 	.input(z.object({ teamMemberId: z.uuid() }))
 	.output(z.object({ success: z.boolean() }))
 	.handler(async ({ input: { teamMemberId }, context: { user } }) => {
-		const target = await db.teamMembers.where({ teamMemberId }).take();
+		const target = await db.teamMembers.where({ teamMemberId }).takeOptional();
 		if (!target) throw new Error("Member not found");
 
 		// Verify actor has permission
-		const actor = await db.teamMembers.where({ teamAppId: target.teamAppId, userId: user.id }).take();
+		const actor = await db.teamMembers.where({ teamAppId: target.teamAppId, userId: user.id }).takeOptional();
 		if (!actor || (actor.role !== "Owner" && actor.role !== "Admin")) {
 			throw new Error("Unauthorized");
 		}

@@ -58,6 +58,10 @@ async function* getDeltaForTable(
 	since: number,
 	signal?: AbortSignal,
 ): AsyncGenerator<DeltaOutput> {
+	// Clean up inputs to avoid IN (NULL/undefined) or empty array issues
+	userTeamsAppIds = userTeamsAppIds.filter(id => !!id);
+	userOwnerAdminTeamAppIds = userOwnerAdminTeamAppIds.filter(id => !!id);
+
 	try {
 		const thirtySecondsAgo = since - 30000;
 		const chunkSize = 100;
@@ -65,12 +69,18 @@ async function* getDeltaForTable(
 
 		// 1. Determine the absolute overlap floor (Time-based vs. Count-based)
 		if (tableName === "journalEntries") {
+			let where: Record<string, string | any[]> = { authorUserId: userId };
+			if (userTeamsAppIds.length > 0) {
+				where = { 
+					OR: [
+						{ authorUserId: userId },
+						{ teamId: { in: userTeamsAppIds } }
+					]
+				};
+			}
 			const twentiethJE = await db.journalEntries
 				.select("updatedAt")
-				.where({ 
-					authorUserId: userId,
-					teamId: { in: userOwnerAdminTeamAppIds }
-				})
+				.where(where)
 				.order({ updatedAt: "DESC" })
 				.limit(20)
 				.includeDeleted()
@@ -100,12 +110,16 @@ async function* getDeltaForTable(
 			let data: any[] = [];
 
 			if (tableName === "journalEntries") {
+				const where: Record<string, string | any[]> = { authorUserId: userId };
+				if (userOwnerAdminTeamAppIds.length > 0) {
+					where.OR = [
+						{ authorUserId: userId },
+						{ teamId: { in: userOwnerAdminTeamAppIds } }
+					];
+				}
 				let query = db.journalEntries
                     .includeDeleted()
-					.where({
-						authorUserId: userId,
-						teamId: { in: userOwnerAdminTeamAppIds }
-					})
+					.where(where)
 					.select("*")
 					.order({ updatedAt: "ASC", journalEntryId: "ASC" })
 					.limit(chunkSize);
@@ -121,32 +135,37 @@ async function* getDeltaForTable(
 					});
 				}
 			} else if (tableName === "teamsApp") {
-				let query = db.teamsApp
-                    .includeDeleted()
-                    .where({ teamAppId: { in: userTeamsAppIds } })
-					.select("*")
-					.order({ updatedAt: "ASC", teamAppId: "ASC" })
-					.limit(chunkSize);
+				if (userTeamsAppIds.length > 0) {
+					let query = db.teamsApp
+						.includeDeleted()
+						.where({ teamAppId: { in: userTeamsAppIds } })
+						.select("*")
+						.order({ updatedAt: "ASC", teamAppId: "ASC" })
+						.limit(chunkSize);
 
-				if (cursorId === null) {
-					data = await query.where({ updatedAt: { gte: cursorTimestamp } });
-				} else {
-					data = await query.where({
-						OR: [
-							{ updatedAt: { gt: cursorTimestamp } },
-							{ updatedAt: cursorTimestamp, teamAppId: { gt: cursorId as string } },
-						],
-					});
+					if (cursorId === null) {
+						data = await query.where({ updatedAt: { gte: cursorTimestamp } });
+					} else {
+						data = await query.where({
+							OR: [
+								{ updatedAt: { gt: cursorTimestamp } },
+								{ updatedAt: cursorTimestamp, teamAppId: { gt: cursorId as string } },
+							],
+						});
+					}
 				}
 			} else if (tableName === "teamMembers") {
+				const where: Record<string, string | any[]> = { userId };
+				if (userOwnerAdminTeamAppIds.length > 0) {
+					where.OR = [
+						{ teamAppId: { in: userOwnerAdminTeamAppIds } },
+						{ userId }
+					];
+				}
+
 				let query = db.teamMembers
                     .includeDeleted()
-                    .where({
-                        OR: [
-                            { teamAppId: { in: userOwnerAdminTeamAppIds } },
-                            { userId }
-                        ]
-                    })
+                    .where(where)
 					.select("*")
 					.order({ updatedAt: "ASC", teamMemberId: "ASC" })
 					.limit(chunkSize);
@@ -209,7 +228,12 @@ async function* getDeltaForTable(
 			};
 		}
 	} catch (error) {
-		console.error(`[SyncRouter] Delta sync failed for table ${tableName}:`, error);
+		console.error(`[SyncRouter] Delta sync failed for table ${tableName}:`, error, {
+            userId,
+            userTeamsAppIds,
+            userOwnerAdminTeamAppIds,
+            since
+        });
 		yield {
 			type: "delta",
 			table: tableName,
