@@ -53,7 +53,7 @@ export function useConnectivity(userId?: string) {
 		// 1. Service Worker Sync
 		getSWProxy().then(async (proxy) => {
 			if (!active) return;
-			const sw = proxy as any;
+			const sw = proxy
 			const initialStatus = await sw.getStatus() as SSEStatus;
 			setSseStatus(initialStatus);
 

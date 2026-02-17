@@ -1,11 +1,10 @@
 import { userContext } from "@frontend/contexts/UserContext";
+import { setSentryUser } from "@frontend/instrumentation";
 import { authClient } from "@frontend/utils/auth.client";
 import { getAuthCache, saveAuthCache, saveLastLogin } from "@frontend/utils/auth.persistence";
 import { detectUserTimezone } from "@frontend/utils/timezone.utils";
-import * as Sentry from "@sentry/react";
 import type { LoaderFunctionArgs } from "react-router";
 import { redirect } from "react-router";
-import { toast } from "react-toastify";
 
 /**
  * Auth loader for protected routes
@@ -14,6 +13,18 @@ import { toast } from "react-toastify";
 export async function authLoader({ context }: LoaderFunctionArgs) {
 	const cached = getAuthCache();
 	const isOffline = !navigator.onLine;
+
+	// 0. If offline and we have a cache, skip the network call entirely
+	if (isOffline && cached) {
+		console.info("[AuthLoader] Offline: skipping getSession, using cache.");
+		const sessionInfo = {
+			hasSession: true,
+			user: cached.user,
+			isRegistered: true,
+		};
+		context.set(userContext, sessionInfo);
+		return sessionInfo;
+	}
 
 	try {
 		// Fetch session from better-auth client
@@ -53,6 +64,7 @@ export async function authLoader({ context }: LoaderFunctionArgs) {
 		try {
 			const detectedTimezone = await detectUserTimezone();
 			if (detectedTimezone && detectedTimezone !== session.user.timezone) {
+				const { toast } = await import("react-toastify");
 				toast.info(`Timezone change detected. Updating timezone to match your current location.`, {
 					position: "top-center",
 					autoClose: 1000,
@@ -62,7 +74,7 @@ export async function authLoader({ context }: LoaderFunctionArgs) {
 
 				// Update the session user object with the new timezone
 				session.user.timezone = detectedTimezone;
-
+				
 				// Show toast notification
 				toast.success(`Your timezone has been updated to match your current location`, {
 					position: "top-center",
@@ -74,6 +86,7 @@ export async function authLoader({ context }: LoaderFunctionArgs) {
 			}
 		} catch (timezoneError) {
 			console.error(timezoneError);
+			const { toast } = await import("react-toastify");
 			toast.error("Timezone detection/update failed.");
 		}
 
@@ -83,7 +96,7 @@ export async function authLoader({ context }: LoaderFunctionArgs) {
 			isRegistered: true, // better-auth handles registration
 		};
 
-		Sentry.setUser({
+		setSentryUser({
 			email: session.user.email,
 			username: session.user.name,
 			id: session.user.id

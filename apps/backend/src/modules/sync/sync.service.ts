@@ -9,19 +9,16 @@ const syncToUserAndOptionalTeamAppOwnersAdminsZod = {
 	syncToTeamAppIdOwnersAdmins: z.uuid().nullish(),
 	syncToTeamAppIdAllMembers: z.null().optional(),
 };
-
 const syncToUserAndTeamAppOwnersAdminsZod = {
 	syncToUserId: z.uuid(),
 	syncToTeamAppIdOwnersAdmins: z.uuid().nullish(),
 	syncToTeamAppIdAllMembers: z.null().optional(),
 };
-
 const syncToTeamAppIdAllMembersZod = {
 	syncToUserId: z.null().optional(),
 	syncToTeamAppIdOwnersAdmins: z.null().optional(),
 	syncToTeamAppIdAllMembers: z.uuid(),
 };
-
 const syncToAllUsersZod = {
 	syncToUserId: z.null().optional(),
 	syncToTeamAppIdOwnersAdmins: z.null().optional(),

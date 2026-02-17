@@ -3,6 +3,9 @@ import type { UserAppBackendOutputs } from "@frontend/utils/orpc.client";
 import { createContext, useContext, useEffect, useState, useMemo, type ReactNode } from "react";
 import { useSessionInfo, type SessionInfo } from "./UserContext";
 import { useQuery } from "@tanstack/react-query";
+import { useLocalDb } from "@frontend/worker/db/hooks/useLocalDb";
+import { getDataProxy } from "@frontend/worker/worker.proxy";
+import { DB_UPDATES_CHANNEL, DbUpdateMessage } from "@frontend/configs/channels.config";
 
 export type Team = UserAppBackendOutputs["teams"]["getMyTeams"][number];
 
@@ -32,35 +35,32 @@ export function WorkspaceProvider({ children, sessionInfo: propSessionInfo }: Wo
 	// Use propSessionInfo directly as it's passed from AppLayout (loader data)
 	const sessionInfo = propSessionInfo;
 
-	const { data: teamsData = [], isLoading, isFetchedAfterMount } = useQuery(orpc.teams.getMyTeams.queryOptions({}));
-	const [teams, setTeams] = useState<Team[]>([]);
-	const [isFirstLoad, setIsFirstLoad] = useState(true);
+	// Use local DB as the source of truth for teams. 
+	// This hook listens to "teamsApp" updates.
+	const { data: teams = [], isLoading, refetch } = useLocalDb<Team>(
+		"teamsApp",
+		() => {
+			if (!sessionInfo?.user?.id) return Promise.resolve([]);
+			return getDataProxy().teamsAppDb.getAllWithRole(sessionInfo.user.id).then(res => (res as Team[]) || []);
+		},
+		[sessionInfo?.user?.id]
+	);
 
-	// Sync teams to local DB for offline access
+	// Also listen for teamMembers updates to ensure role changes are reactive
 	useEffect(() => {
-		if (isFetchedAfterMount && teamsData) {
-			setTeams(teamsData);
-			import("@frontend/worker/worker.proxy").then(({ getDataProxy }) => {
-				getDataProxy().teamsAppDb.saveTeams(teamsData);
-			});
-			setIsFirstLoad(false);
-		}
-	}, [teamsData, isFetchedAfterMount]);
-
-	// Load teams from Dexie on mount (offline fallback) 
-	useEffect(() => {
-		let isMounted = true;
-		if (isFirstLoad) {
-			import("@frontend/worker/worker.proxy").then(({ getDataProxy }) => {
-				getDataProxy().teamsAppDb.getAll().then((cachedTeams: any) => {
-					if (isMounted && cachedTeams && (cachedTeams as any).length > 0 && isFirstLoad) {
-						setTeams(cachedTeams as Team[]);
-					}
-				});
-			});
-		}
-		return () => { isMounted = false; };
-	}, [isFirstLoad]);
+		const dbUpdatesChannel = new BroadcastChannel(DB_UPDATES_CHANNEL);
+		const handleMessage = (event: MessageEvent<DbUpdateMessage>) => {
+			const { table } = event.data;
+			if (table === "teamMembers") {
+				refetch();
+			}
+		};
+		dbUpdatesChannel.addEventListener('message', handleMessage);
+		return () => {
+			dbUpdatesChannel.removeEventListener('message', handleMessage);
+			dbUpdatesChannel.close();
+		};
+	}, [refetch]);
 
 	const personalWorkspace: Workspace = useMemo(() => ({
 		id: sessionInfo?.user?.id || "personal",

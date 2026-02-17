@@ -82,6 +82,7 @@ export const LoginPage = () => {
 					callbackURL,
 					errorCallbackURL: `${env.VITE_USER_APP_URL}/auth/error`,
 					// newUserCallbackURL: "/welcome",
+					disableRedirect: true,
 				}, {
 					throw: true,
 				});

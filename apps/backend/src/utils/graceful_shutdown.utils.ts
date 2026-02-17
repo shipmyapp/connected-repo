@@ -4,7 +4,7 @@ import { tbus } from "@backend/events/tbus";
 import { otelNodeSdk } from "@backend/otel.sdk";
 import { logger } from "@backend/utils/logger.utils";
 import { recordErrorOtel } from "@backend/utils/record-message.otel.utils";
-import type { IncomingMessage, Server, ServerResponse } from "node:http";
+import type { Server } from "node:http";
 
   /**
    * Wait for active requests to complete with timeout
@@ -73,7 +73,7 @@ export const decrementActiveRequests = () => {
 };
 
 export const handleServerClose = (
-  server: Server<typeof IncomingMessage, typeof ServerResponse>
+  server: Server
 ) => {
   /**
    * Graceful shutdown handler

@@ -1,13 +1,13 @@
 import type { ActiveSessionSelectAll } from "@backend/modules/auth/tables/session.auth.table";
 import type { UserSelectAll } from "@connected-repo/zod-schemas/user.zod";
 import { os } from "@orpc/server";
-import type { RequestHeadersPluginContext } from "@orpc/server/plugins";
+import type { RequestHeadersPluginContext, ResponseHeadersPluginContext } from "@orpc/server/plugins";
 import { z } from "zod";
 
 /**
  * @public
  */
-export interface RpcContext extends RequestHeadersPluginContext {
+export interface RpcContext extends RequestHeadersPluginContext, ResponseHeadersPluginContext {
 	session?: ActiveSessionSelectAll;
 	user?: UserSelectAll;
 }
