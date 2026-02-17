@@ -1,4 +1,4 @@
-import z from "zod";
+import { z } from "zod";
 import { apiProductRequestLogSelectAllZod, openapiRequestInputZod } from "./api_product_request_log.zod.js";
 import { zSmallint, zString, zTimeEpoch, zTimestamps } from "./zod_utils.js";
 

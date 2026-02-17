@@ -2,7 +2,7 @@ import type { ActiveSessionSelectAll } from "@backend/modules/auth/tables/sessio
 import type { UserSelectAll } from "@connected-repo/zod-schemas/user.zod";
 import { os } from "@orpc/server";
 import type { RequestHeadersPluginContext } from "@orpc/server/plugins";
-import z from "zod";
+import { z } from "zod";
 
 /**
  * @public

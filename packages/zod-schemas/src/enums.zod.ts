@@ -1,4 +1,4 @@
-import z from "zod";
+import { z } from "zod";
 
 export const API_PRODUCT_REQUEST_STATUS_ENUM = ["AI Error", "Invalid API route", "No active subscription", "Requests exhausted", "Pending", "Server Error", "Success"] as const;
 export const apiProductRequestStatusZod = z.enum(API_PRODUCT_REQUEST_STATUS_ENUM);

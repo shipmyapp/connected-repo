@@ -1,4 +1,4 @@
-import z from "zod";
+import { z } from "zod";
 import { apiProductRequestStatusZod, apiProductSkuZod, apiRequestMethodZod } from "./enums.zod.js";
 import { zSmallint, zString, zTimestamps } from "./zod_utils.js";
 

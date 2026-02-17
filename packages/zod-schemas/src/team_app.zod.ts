@@ -1,4 +1,4 @@
-import z from "zod";
+import { z } from "zod";
 import { teamMemberRoleZod } from "./enums.zod.js";
 import { zString, zTimeEpoch, zTimestamps } from "./zod_utils.js";
 

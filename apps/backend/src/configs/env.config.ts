@@ -58,6 +58,7 @@ const envSchema = z.object({
 	OTEL_SERVICE_NAME: zString.min(1),
 	OTEL_TRACE_EXPORTER_URL: z.url().optional(),
 	PORT: z.coerce.number().default(3000),
+	PROD_COOKIE_DOMAIN: z.preprocess((val) => (val === "" ? undefined : val), z.string().optional()),
 	SESSION_SECRET: zString.min(32, "Session secret must be at least 32 characters"),
 	SUPRSEND_API_KEY: zString.min(1),
 	SUPRSEND_API_SECRET: zString.min(1),

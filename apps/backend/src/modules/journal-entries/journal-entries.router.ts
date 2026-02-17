@@ -1,5 +1,5 @@
 import { db } from "@backend/db/db";
-import z from "zod";
+import { z } from "zod";
 import { rpcProtectedProcedure } from "@backend/procedures/protected.procedure";
 import {
 	journalEntryCreateInputZod,

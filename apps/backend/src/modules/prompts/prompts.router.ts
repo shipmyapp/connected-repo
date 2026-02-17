@@ -1,7 +1,7 @@
 import { db } from "@backend/db/db";
 import { rpcProtectedProcedure } from "@backend/procedures/protected.procedure";
 import { rpcPublicProcedure } from "@backend/procedures/public.procedure";
-import z from "zod";
+import { z } from "zod";
 import {
 	promptGetByCategoryZod,
 	promptGetByIdZod,
