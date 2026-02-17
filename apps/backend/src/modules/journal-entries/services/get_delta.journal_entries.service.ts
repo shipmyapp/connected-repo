@@ -8,28 +8,26 @@ export const getDeltaJournalEntries = async (
     chunkSize: number,
 ) => {
     
-    const visibilityWhere: any = {
-        OR: [{ capturedByUserId: userId }],
-    };
-    if (userOwnerAdminTeamAppIds.length > 0) {
-        visibilityWhere.OR.push({ teamId: { in: userOwnerAdminTeamAppIds } });
-    }
-
     let query = db.journalEntries
         .includeDeleted()
-        .where(visibilityWhere)
+        .where({
+            OR: [
+                { authorUserId: userId },
+                ...(userOwnerAdminTeamAppIds.length > 0 ? [{ teamId: { in: userOwnerAdminTeamAppIds } }] : [])
+            ]
+        })
         .select("*")
         .order({ updatedAt: "ASC", journalEntryId: "ASC" })
         .limit(chunkSize)
 
     if (cursorId === null) {
-			return query.where({ updatedAt: { gte: cursorUpdatedAt } });
+			return await query.where({ updatedAt: { gte: cursorUpdatedAt } });
 		} else {
-			return query.where({
+			return await query.where({
 				OR: [
 					{ updatedAt: { gt: cursorUpdatedAt } },
 					{ updatedAt: cursorUpdatedAt, journalEntryId: { gt: cursorId } },
 				],
 			});
 		}
-}   
+}

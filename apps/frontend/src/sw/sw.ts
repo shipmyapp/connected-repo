@@ -6,6 +6,8 @@ import { SSEManager } from './sse/sse.manager.sw';
 
 declare const self: ServiceWorkerGlobalScope;
 
+console.info('[SW] Service Worker script executing...');
+
 precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
 
@@ -25,9 +27,11 @@ const sseManager = new SSEManager();
  */
 self.addEventListener('message', (event) => {
     if (event.data?.type === 'CAN_HAS_COMLINK') {
+        console.info('[SW] Comlink handshake received');
         const port = event.ports[0];
         if (port) {
             Comlink.expose(sseManager, port);
+            console.info('[SW] Comlink exposed on port');
         }
     }
 

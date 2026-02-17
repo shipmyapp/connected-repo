@@ -9,6 +9,9 @@ import { journalEntrySelectAllZod } from "@connected-repo/zod-schemas/journal_en
 import { zSmallint, zTimeEpoch } from "@connected-repo/zod-schemas/zod_utils";
 import { TABLES_TO_SYNC_ENUM, TablesToSync, tablesToSyncZod } from "@connected-repo/zod-schemas/enums.zod";
 import { getDeltaPrompts } from "../prompts/servies.get_delta.prompts.service.js";
+import { getDeltaJournalEntries } from "../journal-entries/services/get_delta.journal_entries.service.js";
+import { getTeamAppDelta } from "../teams/services/get_team_app_delta.teams.service.js";
+import { getTeamMembersDelta } from "../teams/services/get_team_members_delta.teams.service.js";
 
 export const deltaOutputZod = z.discriminatedUnion("tableName", [
     z.object({
@@ -55,7 +58,7 @@ const heartbeatSyncInput = z.object({
 	tableMarkers: z.array(z.object({
 			tableName: tablesToSyncZod,
 			cursorUpdatedAt: zTimeEpoch,
-			cursorId: z.union([z.uuid(), z.ulid()]),
+			cursorId: z.string().nullable(),
 		})),
 });
 
@@ -71,7 +74,7 @@ async function* getDeltaForTable(
 	userTeamsAppIds: string[],
 	userOwnerAdminTeamAppIds: string[],
 	since?: number,
-	sinceCursorId?: string,
+	sinceCursorId?: string | null,
 	signal?: AbortSignal,
 ): AsyncGenerator<DeltaOutput> {
 	// Clean up inputs to avoid IN (NULL/undefined) or empty array issues
@@ -98,14 +101,14 @@ async function* getDeltaForTable(
 					chunkSize
 				);
 			} else if (tableName === "teamsApp") {
-				data = await getTeamsAppDelta(
+				data = await getTeamAppDelta(
 					userTeamsAppIds,
 					cursorUpdatedAtDate,
 					cursorId,
 					chunkSize
 				);
 			} else if (tableName === "journalEntries") {
-				data = await getJournalEntriesDelta(
+				data = await getDeltaJournalEntries(
 					userId,
 					userOwnerAdminTeamAppIds,
 					cursorUpdatedAtDate,
@@ -180,6 +183,8 @@ export const heartbeatSync = rpcProtectedProcedure
 	.handler(async function* ({ input: { type, tableMarkers }, context: { user, resHeaders }, signal }) {
 		// --- 0. Disable buffering for SSE (Nginx/Traefik compatibility) ---
 		resHeaders?.set('X-Accel-Buffering', 'no');
+
+		console.info(`[SyncRouter] New connection from user ${user.id} (Table markers: ${tableMarkers.length})`);
 
 		// --- 1. Start Live Subscription FIRST (Buffer incoming events to avoid gaps) ---
 		// We start the iterator early but don't pull from it until deltas are delivered.
@@ -285,15 +290,3 @@ export const heartbeatSync = rpcProtectedProcedure
 export const syncRouter = {
 	heartbeatSync,
 };
-function getTeamMembersDelta(userId: string, userOwnerAdminTeamAppIds: string[], cursorUpdatedAtDate: Date, cursorId: string | null, chunkSize: number): any[] | PromiseLike<any[]> {
-	throw new Error("Function not implemented.");
-}
-
-function getTeamsAppDelta(userTeamsAppIds: string[], cursorUpdatedAtDate: Date, cursorId: string | null, chunkSize: number): any[] | PromiseLike<any[]> {
-	throw new Error("Function not implemented.");
-}
-
-function getJournalEntriesDelta(userId: string, userOwnerAdminTeamAppIds: string[], cursorUpdatedAtDate: Date, cursorId: string | null, chunkSize: number): any[] | PromiseLike<any[]> {
-	throw new Error("Function not implemented.");
-}
-

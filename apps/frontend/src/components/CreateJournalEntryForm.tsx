@@ -116,7 +116,7 @@ export function CreateJournalEntryForm() {
 			}
 
 			// 2. Prepare entry data
-			const submitData: PendingSyncJournalEntry = {
+			const submitData: any = {
 				...data,
 				attachmentFileIds: fileIds,
 				teamId: teamId,
@@ -128,7 +128,8 @@ export function CreateJournalEntryForm() {
 			};
 
 			try {
-				await app.pendingSyncJournalEntriesDb.add(submitData);
+                // Use unified DB manager
+				await app.journalEntriesDb.handleLocalCreate(submitData);
 
 				// Cleanup state
 				attachments.forEach((a) => URL.revokeObjectURL(a.previewUrl));
@@ -162,7 +163,7 @@ export function CreateJournalEntryForm() {
 						type: "local-database",
 						message: error instanceof Error
 							? error.message
-							: "Unknown error when saving data to local-b"
+							: "Unknown error when saving data to local-db"
 					}
 				)
 			} 

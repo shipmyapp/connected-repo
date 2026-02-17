@@ -875,6 +875,10 @@ cron.schedule('* * * * *', async () => {
 - ✅ **Two-worker architecture** - Split AppWorker into DataWorker (DB + sync) and MediaWorker (CPU-intensive tasks) for better performance and domain isolation
 - ✅ **Thumbnail generation for all file types** - PDF (pdfjs-dist), video (mp4box + VideoDecoder), and image thumbnails with fallback to "not-available" for unsupported formats
 - ✅ **File type icons in UI** - PDF, video, image, and generic file icons displayed when thumbnails unavailable
+- ✅ **Unified DB Architecture** - Merged pendingSyncJournalEntries into journalEntries table with _pendingAction field (create/update/delete/null) for simplified sync state management
+- ✅ **Cursor-based Delta Sync** - Implemented proper cursor pagination with cursorId/cursorUpdatedAt metadata per table in syncMetadata store
+- ✅ **SSE Manager Refactor** - Singleton pattern with sync metadata tracking, removed pending count checks, streamlined status transitions
+- ✅ **Journal Entry Update Support** - Added backend update endpoint and local handleLocalUpdate with pending action tracking
 - **Acceptance Criteria:**
   - ✅ IndexedDB initialized and working
   - ✅ Journal entries stored offline with file attachments

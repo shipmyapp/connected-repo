@@ -12,9 +12,9 @@ export const getDeltaPrompts = async (
         .limit(chunkSize)
 
     if (cursorId === null) {
-        return query.where({ updatedAt: { gte: cursorUpdatedAt } });
+        return await query.where({ updatedAt: { gte: cursorUpdatedAt } });
     } else {
-        return query.where({
+        return await query.where({
             OR: [
                 { updatedAt: { gt: cursorUpdatedAt } },
                 { updatedAt: cursorUpdatedAt, promptId: { gt: cursorId } },
