@@ -14,16 +14,7 @@
 	},
 	"formatter": {
 		"enabled": true,
-		"includes": [
-			"*.tsx",
-			"*.ts",
-			"*.md",
-			"*.json",
-			"*.js",
-			"*.jsx",
-			"*.css",
-			"*.html"
-		],
+		"includes": ["*.tsx", "*.ts", "*.md", "*.json", "*.js", "*.jsx", "*.css", "*.html"],
 		"indentStyle": "tab",
 		"lineWidth": 100
 	},
