@@ -11,7 +11,9 @@ import { getDataProxy } from "@frontend/worker/worker.proxy";
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router";
 import { JournalEntryDetailView } from "../components/JournalEntryDetailView";
+import { EditJournalEntryDialog } from "../components/EditJournalEntryDialog";
 import { useActiveTeamId } from "@frontend/contexts/WorkspaceContext";
+import { toast } from "react-toastify";
 
 export default function PendingSyncJournalEntryDetailPage() {
 	const navigate = useNavigate();
@@ -19,6 +21,7 @@ export default function PendingSyncJournalEntryDetailPage() {
 	const activeTeamId = useActiveTeamId();
 	const [isDeleting, setIsDeleting] = useState(false);
 	const [isSyncingState, setIsSyncingState] = useState(false);
+	const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 	const [attachments, setAttachments] = useState<{ url: string; name: string }[]>([]);
 	const [redirectStatus, setRedirectStatus] = useState<"none" | "checking" | "redirecting" | "error">("none");
 	const [debugInfo, setDebugInfo] = useState<string | null>(null);
@@ -121,6 +124,24 @@ export default function PendingSyncJournalEntryDetailPage() {
 		}
 	};
 
+	const handleEdit = () => {
+		setIsEditDialogOpen(true);
+	};
+
+	const handleSaveEdit = async (data: { content: string; prompt: string | null }) => {
+		if (!entryId) return;
+		
+		try {
+			await getDataProxy().pendingSyncJournalEntriesDb.update(entryId, data);
+			toast.success("Entry updated successfully");
+			setIsEditDialogOpen(false);
+		} catch (error) {
+			console.error("Failed to update entry:", error);
+			toast.error("Failed to update entry. Please try again.");
+			throw error;
+		}
+	};
+
 	if (entryLoading) return <LoadingSpinner text="Loading journal entry..." />;
 
 	if (entryError) {
@@ -197,15 +218,24 @@ export default function PendingSyncJournalEntryDetailPage() {
 	return (
 		<Container maxWidth="md" sx={{ py: { xs: 3, md: 5 } }}>
 			<JournalEntryDetailView 
-				entry={journalEntry} 
-				onDelete={handleDelete} 
+				entry={journalEntry}
+				onDelete={handleDelete}
+				onEdit={handleEdit}
 				isDeleting={isDeleting}
+				canEdit={true}
 				attachments={attachments}
 				syncError={journalEntry.error}
 				errorCount={journalEntry.errorCount}
 				status={journalEntry.status}
 				onRetry={handleRetry}
 				isSyncing={isSyncingState}
+			/>
+			<EditJournalEntryDialog
+				open={isEditDialogOpen}
+				onClose={() => setIsEditDialogOpen(false)}
+				onSave={handleSaveEdit}
+				initialContent={journalEntry.content}
+				initialPrompt={journalEntry.prompt}
 			/>
 		</Container>
 	);

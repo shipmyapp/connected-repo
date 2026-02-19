@@ -6,17 +6,21 @@ import { useLocalDbItem } from "@frontend/worker/db/hooks/useLocalDbItem";
 import { getDataProxy } from "@frontend/worker/worker.proxy";
 import { useParams } from "react-router";
 import { JournalEntryDetailView } from "../components/JournalEntryDetailView";
+import { EditJournalEntryDialog } from "../components/EditJournalEntryDialog";
 import { useConnectivity } from "@frontend/sw/sse/useConnectivity.sse.sw";
 import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
 import { orpc } from "@frontend/utils/orpc.tanstack.client";
 import { useMutation } from "@tanstack/react-query";
 import { useActiveTeamId } from "@frontend/contexts/WorkspaceContext";
+import { useState } from "react";
+import { toast } from "react-toastify";
 
 export default function SyncedJournalEntryDetailPage() {
 	const { entryId } = useParams<{ entryId: string }>();
 	const { isServerReachable } = useConnectivity();
 	const activeTeamId = useActiveTeamId();
+	const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
 	const { data: journalEntry, isLoading, error } = useLocalDbItem(
 		"journalEntries",
@@ -24,10 +28,48 @@ export default function SyncedJournalEntryDetailPage() {
 	);
 
 	const deleteMutation = useMutation(orpc.journalEntries.delete.mutationOptions());
+	const updateMutation = useMutation(orpc.journalEntries.update.mutationOptions());
 
 	const handleDelete = async () => {
 		if (entryId) {
 			await deleteMutation.mutateAsync({ journalEntryId: entryId, teamId: activeTeamId });
+		}
+	};
+
+	const handleEdit = () => {
+		setIsEditDialogOpen(true);
+	};
+
+	const handleSaveEdit = async (data: { content: string; prompt: string | null }) => {
+		if (!entryId) return;
+		
+		try {
+			console.log("[Edit] Saving changes:", data);
+			
+			// Update on server
+			const updatedEntry = await updateMutation.mutateAsync({
+				journalEntryId: entryId,
+				teamId: activeTeamId,
+				...data,
+			});
+			
+			console.log("[Edit] Server response:", updatedEntry);
+			
+			// Update local IndexedDB with the server response
+			if (updatedEntry) {
+				console.log("[Edit] Updating local DB with:", updatedEntry);
+				await getDataProxy().journalEntriesDb.upsert(updatedEntry);
+				console.log("[Edit] Local DB updated successfully");
+			} else {
+				console.warn("[Edit] No updated entry returned from server");
+			}
+			
+			toast.success("Entry updated successfully");
+			setIsEditDialogOpen(false);
+		} catch (error) {
+			console.error("[Edit] Failed to update entry:", error);
+			toast.error("Failed to update entry. Please try again.");
+			throw error;
 		}
 	};
 
@@ -79,12 +121,23 @@ export default function SyncedJournalEntryDetailPage() {
 		<Container maxWidth="md" sx={{ py: { xs: 3, md: 5 } }}>
 			<JournalEntryDetailView 
 				entry={journalEntry} 
-				onDelete={handleDelete} 
+				onDelete={handleDelete}
+				onEdit={handleEdit}
 				isDeleting={deleteMutation.isPending}
 				canDelete={isServerReachable}
+				canEdit={isServerReachable}
 				deleteDisabledReason="Deleting synced entries requires an active internet connection."
+				editDisabledReason="Editing synced entries requires an active internet connection."
 				attachments={attachments}
 				status="synced"
+			/>
+			<EditJournalEntryDialog
+				open={isEditDialogOpen}
+				onClose={() => setIsEditDialogOpen(false)}
+				onSave={handleSaveEdit}
+				initialContent={journalEntry.content}
+				initialPrompt={journalEntry.prompt}
+				isSaving={updateMutation.isPending}
 			/>
 		</Container>
 	);
