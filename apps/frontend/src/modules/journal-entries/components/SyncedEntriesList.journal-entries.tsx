@@ -11,6 +11,7 @@ import { useNavigate } from "react-router";
 import { toast } from "react-toastify";
 import { JournalEntryCardView } from "@frontend/components/JournalEntryCardView";
 import { JournalEntryTableView } from "@frontend/components/JournalEntryTableView";
+import { SearchEmptyState } from "./SearchEmptyState.journal-entries";
 import { getDataProxy, getMediaProxy } from "@frontend/worker/worker.proxy";
 import { getSWProxy } from "@frontend/sw/proxy.sw";
 import { useLocalDb } from "@frontend/worker/db/hooks/useLocalDb";
@@ -27,7 +28,13 @@ const spin = keyframes`
 
 const ITEMS_PER_PAGE = 12;
 
-export function SyncedEntriesList({ viewMode, teamId: propTeamId, excludeUserId }: { viewMode: ViewMode, teamId?: string | null, excludeUserId?: string }) {
+export function SyncedEntriesList({ viewMode, teamId: propTeamId, excludeUserId, searchQuery, onClearSearch }: { 
+	viewMode: ViewMode;
+	teamId?: string | null;
+	excludeUserId?: string;
+	searchQuery?: string;
+	onClearSearch?: () => void;
+}) {
 	const activeTeamId = useActiveTeamId();
 	const teamId = propTeamId !== undefined ? propTeamId : activeTeamId;
 	const navigate = useNavigate();
@@ -38,18 +45,31 @@ export function SyncedEntriesList({ viewMode, teamId: propTeamId, excludeUserId 
 	const { isServerReachable, sseStatus } = useConnectivity();
 
 	// Reactive data from local DB with pagination
-	const { data: allEntries = [] } = useLocalDb("journalEntries", () => 
-		getDataProxy().journalEntriesDb.getPaginated((currentPage - 1) * ITEMS_PER_PAGE, ITEMS_PER_PAGE, teamId),
-		[currentPage, teamId]
+	const { data: allEntries = [] } = useLocalDb(
+		"journalEntries",
+		() => searchQuery
+			? getDataProxy().journalEntriesDb.searchPaginated(searchQuery, (currentPage - 1) * ITEMS_PER_PAGE, ITEMS_PER_PAGE, teamId)
+			: getDataProxy().journalEntriesDb.getPaginated((currentPage - 1) * ITEMS_PER_PAGE, ITEMS_PER_PAGE, teamId),
+		[currentPage, teamId, searchQuery]
 	);
 
 	const entries = excludeUserId ? allEntries.filter(e => e.authorUserId !== excludeUserId) : allEntries;
 
-	const { data: totalCount = 0 } = useLocalDbValue("journalEntries", () => 
-		excludeUserId 
-			? getDataProxy().journalEntriesDb.getAll(teamId).then(list => list.filter(e => e.authorUserId !== excludeUserId).length)
-			: getDataProxy().journalEntriesDb.count(teamId), 
-		0, [teamId, excludeUserId]);
+	const { data: totalCount = 0 } = useLocalDbValue(
+		"journalEntries",
+		() => {
+			if (searchQuery) {
+				return excludeUserId
+					? getDataProxy().journalEntriesDb.search(searchQuery, teamId).then(list => list.filter(e => e.authorUserId !== excludeUserId).length)
+					: getDataProxy().journalEntriesDb.searchCount(searchQuery, teamId);
+			}
+			return excludeUserId
+				? getDataProxy().journalEntriesDb.getAll(teamId).then(list => list.filter(e => e.authorUserId !== excludeUserId).length)
+				: getDataProxy().journalEntriesDb.count(teamId);
+		},
+		0,
+		[teamId, excludeUserId, searchQuery]
+	);
 
 	const handleRefreshDeltas = async () => {
 		if (!isServerReachable || isRefreshing || sseStatus === 'connecting' || sseStatus === 'connected') return;
@@ -205,29 +225,35 @@ export function SyncedEntriesList({ viewMode, teamId: propTeamId, excludeUserId 
 
 			<Collapse in={isExpanded} timeout="auto" unmountOnExit>
 				<Box sx={{ pt: 1 }}>
-					{viewMode === "card" ? (
-						<JournalEntryCardView 
-							entries={entries} 
-							onEntryClick={(entryId: string) => navigate(teamId ? `/teams/${teamId}/journal-entries/synced/${entryId}` : `/journal-entries/synced/${entryId}`)}
-						/>
+					{entries.length === 0 && searchQuery ? (
+						<SearchEmptyState searchQuery={searchQuery} onClearSearch={onClearSearch || (() => {})} />
 					) : (
-						<JournalEntryTableView 
-							entries={entries as any} 
-							onEntryClick={(entryId: string) => navigate(teamId ? `/teams/${teamId}/journal-entries/synced/${entryId}` : `/journal-entries/synced/${entryId}`)}
-						/>
-					)}
-					{totalPages > 1 && (
-						<Box sx={{ display: "flex", justifyContent: "center", mt: 6, mb: 2 }}>
-							<Pagination
-								count={totalPages}
-								page={currentPage}
-								onChange={(_e, page) => setCurrentPage(page)}
-								color="primary"
-								size="large"
-								showFirstButton
-								showLastButton
-							/>
-						</Box>
+						<>
+							{viewMode === "card" ? (
+								<JournalEntryCardView 
+									entries={entries} 
+									onEntryClick={(entryId: string) => navigate(teamId ? `/teams/${teamId}/journal-entries/synced/${entryId}` : `/journal-entries/synced/${entryId}`)}
+								/>
+							) : (
+								<JournalEntryTableView 
+									entries={entries as any} 
+									onEntryClick={(entryId: string) => navigate(teamId ? `/teams/${teamId}/journal-entries/synced/${entryId}` : `/journal-entries/synced/${entryId}`)}
+								/>
+							)}
+							{totalPages > 1 && (
+								<Box sx={{ display: "flex", justifyContent: "center", mt: 6, mb: 2 }}>
+									<Pagination
+										count={totalPages}
+										page={currentPage}
+										onChange={(_e, page) => setCurrentPage(page)}
+										color="primary"
+										size="large"
+										showFirstButton
+										showLastButton
+									/>
+								</Box>
+							)}
+						</>
 					)}
 				</Box>
 			</Collapse>

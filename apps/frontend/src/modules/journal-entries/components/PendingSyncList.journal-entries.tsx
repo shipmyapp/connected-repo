@@ -10,6 +10,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { JournalEntryCardView } from "@frontend/components/JournalEntryCardView";
 import { JournalEntryTableView } from "@frontend/components/JournalEntryTableView";
+import { SearchEmptyState } from "./SearchEmptyState.journal-entries";
 import { Pagination } from "@connected-repo/ui-mui/navigation/Pagination";
 import { getDataProxy } from "@frontend/worker/worker.proxy";
 import { useLocalDb } from "@frontend/worker/db/hooks/useLocalDb";
@@ -31,7 +32,11 @@ const spin = keyframes`
 
 const ITEMS_PER_PAGE = 12;
 
-export function PendingSyncList({ viewMode }: { viewMode: ViewMode }) {
+export function PendingSyncList({ viewMode, searchQuery, onClearSearch }: { 
+	viewMode: ViewMode;
+	searchQuery?: string;
+	onClearSearch?: () => void;
+}) {
 	const teamId = useActiveTeamId();
 	const navigate = useNavigate();
 	const [isSyncing, setIsSyncing] = useState(false);
@@ -40,12 +45,22 @@ export function PendingSyncList({ viewMode }: { viewMode: ViewMode }) {
 	const { isServerReachable } = useConnectivity();
 	
 	// Reactive data from local DB with pagination
-	const { data: entries = [] } = useLocalDb("pendingSyncJournalEntries", () => 
-		getDataProxy().pendingSyncJournalEntriesDb.getPaginated((currentPage - 1) * ITEMS_PER_PAGE, ITEMS_PER_PAGE, teamId),
-		[currentPage, teamId]
+	const { data: entries = [] } = useLocalDb(
+		"pendingSyncJournalEntries",
+		() => searchQuery
+			? getDataProxy().pendingSyncJournalEntriesDb.searchPaginated(searchQuery, (currentPage - 1) * ITEMS_PER_PAGE, ITEMS_PER_PAGE, teamId)
+			: getDataProxy().pendingSyncJournalEntriesDb.getPaginated((currentPage - 1) * ITEMS_PER_PAGE, ITEMS_PER_PAGE, teamId),
+		[currentPage, teamId, searchQuery]
 	);
 
-	const { data: totalCount = 0 } = useLocalDbValue("pendingSyncJournalEntries", () => getDataProxy().pendingSyncJournalEntriesDb.count(teamId), 0, [teamId]);
+	const { data: totalCount = 0 } = useLocalDbValue(
+		"pendingSyncJournalEntries",
+		() => searchQuery
+			? getDataProxy().pendingSyncJournalEntriesDb.searchCount(searchQuery, teamId)
+			: getDataProxy().pendingSyncJournalEntriesDb.count(teamId),
+		0,
+		[teamId, searchQuery]
+	);
 
 	// Monitor sync processing status
 	useEffect(() => {
@@ -146,10 +161,12 @@ export function PendingSyncList({ viewMode }: { viewMode: ViewMode }) {
 
 			<Collapse in={isExpanded} timeout="auto" unmountOnExit>
 				<Box sx={{ pt: 1 }}>
-					{totalCount === 0 ? (
+					{totalCount === 0 && !searchQuery ? (
 						<Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', py: 1, px: 5.5, opacity: 0.8 }}>
 							No pending entries
 						</Typography>
+					) : totalCount === 0 && searchQuery ? (
+						<SearchEmptyState searchQuery={searchQuery} onClearSearch={onClearSearch || (() => {})} />
 					) : (
 						<Box sx={{ opacity: isSyncing ? 0.7 : 1, transition: 'opacity 0.3s' }}>
 							{viewMode === "card" ? (
