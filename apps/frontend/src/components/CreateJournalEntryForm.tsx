@@ -377,6 +377,9 @@ export function CreateJournalEntryForm() {
 							? "Start typing your reflection..."
 							: "What's on your mind today?"
 						}
+						showCharacterCount={true}
+						maxCharacters={50000}
+						warningThreshold={0.9}
 						sx={{ 
 							"& .MuiOutlinedInput-root": {
 								borderRadius: 2,

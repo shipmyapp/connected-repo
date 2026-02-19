@@ -3,7 +3,9 @@ import { apiProductRequestLogSelectAllZod, openapiRequestInputZod } from "./api_
 import { zSmallint, zString, zTimeEpoch, zTimestamps } from "./zod_utils.js";
 
 export const journalEntryMandatoryZod = z.object({
-	content: zString.min(1, "Content is required").max(50000),
+	content: zString
+		.min(1, "Please write at least 1 character to save your entry")
+		.max(50000, "Your entry is too long. Maximum 50,000 characters allowed"),
 	authorUserId: z.uuid(),
 	// Main file & Thumbnail
 	attachmentUrls: z.array(z.tuple([z.url(), z.url().or(z.literal("not-available"))])).default([])
