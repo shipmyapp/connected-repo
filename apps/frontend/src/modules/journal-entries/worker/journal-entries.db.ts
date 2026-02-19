@@ -85,6 +85,67 @@ export class JournalEntriesDBManager {
     return await db.journalEntries.filter(e => !e.teamId).count();
   }
 
+  async search(query: string, teamId: string | null = null) {
+    const lowerQuery = query.toLowerCase().trim();
+    if (!lowerQuery) {
+      return this.getAll(teamId);
+    }
+
+    const baseCollection = teamId
+      ? db.journalEntries.where("teamId").equals(teamId)
+      : db.journalEntries.toCollection().filter(e => !e.teamId);
+
+    return await baseCollection
+      .filter(entry => {
+        const contentMatch = entry.content.toLowerCase().includes(lowerQuery);
+        const promptMatch = entry.prompt?.toLowerCase().includes(lowerQuery);
+        return contentMatch || promptMatch;
+      })
+      .reverse()
+      .toArray();
+  }
+
+  async searchPaginated(query: string, offset: number, limit: number, teamId: string | null = null) {
+    const lowerQuery = query.toLowerCase().trim();
+    if (!lowerQuery) {
+      return this.getPaginated(offset, limit, teamId);
+    }
+
+    const baseCollection = teamId
+      ? db.journalEntries.where("teamId").equals(teamId)
+      : db.journalEntries.toCollection().filter(e => !e.teamId);
+
+    return await baseCollection
+      .filter(entry => {
+        const contentMatch = entry.content.toLowerCase().includes(lowerQuery);
+        const promptMatch = entry.prompt?.toLowerCase().includes(lowerQuery);
+        return contentMatch || promptMatch;
+      })
+      .reverse()
+      .offset(offset)
+      .limit(limit)
+      .toArray();
+  }
+
+  async searchCount(query: string, teamId: string | null = null) {
+    const lowerQuery = query.toLowerCase().trim();
+    if (!lowerQuery) {
+      return this.count(teamId);
+    }
+
+    const baseCollection = teamId
+      ? db.journalEntries.where("teamId").equals(teamId)
+      : db.journalEntries.toCollection().filter(e => !e.teamId);
+
+    return await baseCollection
+      .filter(entry => {
+        const contentMatch = entry.content.toLowerCase().includes(lowerQuery);
+        const promptMatch = entry.prompt?.toLowerCase().includes(lowerQuery);
+        return contentMatch || promptMatch;
+      })
+      .count();
+  }
+
   async wipeByTeamAppId(teamAppId: string) {
     console.warn(`[JournalEntriesDBManager] Wiping all entries for team ${teamAppId}`);
     await db.journalEntries.where("teamId").equals(teamAppId).delete();
