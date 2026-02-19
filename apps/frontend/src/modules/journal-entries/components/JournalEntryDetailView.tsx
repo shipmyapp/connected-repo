@@ -8,6 +8,7 @@ import { ErrorAlert } from "@connected-repo/ui-mui/components/ErrorAlert";
 import { ArrowBackIcon } from "@connected-repo/ui-mui/icons/ArrowBackIcon";
 import { CalendarTodayIcon } from "@connected-repo/ui-mui/icons/CalendarTodayIcon";
 import { DeleteIcon } from "@connected-repo/ui-mui/icons/DeleteIcon";
+import { EditIcon } from "@connected-repo/ui-mui/icons/EditIcon";
 import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { Card, CardContent } from "@connected-repo/ui-mui/layout/Card";
 import { Divider } from "@connected-repo/ui-mui/layout/Divider";
@@ -34,9 +35,12 @@ interface JournalEntryDetailViewProps {
 		createdAt: number | string | Date;
 	};
 	onDelete: () => Promise<void>;
+	onEdit?: () => void;
 	isDeleting?: boolean;
 	canDelete?: boolean;
+	canEdit?: boolean;
 	deleteDisabledReason?: string | null;
+	editDisabledReason?: string | null;
 	attachments?: { url: string; thumbnailUrl?: string; name: string }[];
 	syncError?: string | null;
 	errorCount?: number;
@@ -47,10 +51,13 @@ interface JournalEntryDetailViewProps {
 
 export function JournalEntryDetailView({ 
 	entry, 
-	onDelete, 
+	onDelete,
+	onEdit,
 	isDeleting = false,
 	canDelete = true,
+	canEdit = true,
 	deleteDisabledReason = null,
+	editDisabledReason = null,
 	attachments = [],
 	syncError = null,
 	errorCount = 0,
@@ -177,23 +184,44 @@ export function JournalEntryDetailView({
 							size="small" 
 							sx={{ fontWeight: 600, fontSize: "0.75rem" }} 
 						/>
-						<Tooltip title={!canDelete ? deleteDisabledReason : "Delete Entry"}>
-							<IconButton
-								color="error"
-								disabled={!canDelete || isDeleting}
-								onClick={handleDeleteClick}
-								sx={{
-									transition: "all 0.2s ease-in-out",
-									"&:hover": {
-										transform: !canDelete ? "none" : "scale(1.1)",
-										bgcolor: "error.lighter",
-									},
-									opacity: !canDelete ? 0.6 : 1,
-								}}
-							>
-								<DeleteIcon />
-							</IconButton>
-						</Tooltip>
+						<Stack direction="row" spacing={1}>
+							{onEdit && (
+								<Tooltip title={!canEdit ? editDisabledReason : "Edit Entry"}>
+									<IconButton
+										color="primary"
+										disabled={!canEdit}
+										onClick={onEdit}
+										sx={{
+											transition: "all 0.2s ease-in-out",
+											"&:hover": {
+												transform: !canEdit ? "none" : "scale(1.1)",
+												bgcolor: "primary.lighter",
+											},
+											opacity: !canEdit ? 0.6 : 1,
+										}}
+									>
+										<EditIcon />
+									</IconButton>
+								</Tooltip>
+							)}
+							<Tooltip title={!canDelete ? deleteDisabledReason : "Delete Entry"}>
+								<IconButton
+									color="error"
+									disabled={!canDelete || isDeleting}
+									onClick={handleDeleteClick}
+									sx={{
+										transition: "all 0.2s ease-in-out",
+										"&:hover": {
+											transform: !canDelete ? "none" : "scale(1.1)",
+											bgcolor: "error.lighter",
+										},
+										opacity: !canDelete ? 0.6 : 1,
+									}}
+								>
+									<DeleteIcon />
+								</IconButton>
+							</Tooltip>
+						</Stack>
 					</Stack>
 
 					<Divider sx={{ mb: 4 }} />
