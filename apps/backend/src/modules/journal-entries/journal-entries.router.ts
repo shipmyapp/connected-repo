@@ -6,6 +6,7 @@ import {
 	journalEntryDeleteZod,
 	journalEntryGetByIdZod,
 	journalEntryGetByUserZod,
+	journalEntryUpdateWithTeamInputZod,
 } from "@connected-repo/zod-schemas/journal_entry.zod";
 
 // Get all journal entries for the authenticated user, optionally filtered by team
@@ -83,10 +84,45 @@ const deleteEntry = rpcProtectedProcedure
 		return { success: true };
 	});
 
+// Update journal entry
+const update = rpcProtectedProcedure
+	.input(journalEntryUpdateWithTeamInputZod)
+	.handler(async ({ input, context: { user } }) => {
+		const { journalEntryId, teamId, content, prompt } = input;
+		
+		// Build the where clause
+		const whereClause: any = { authorUserId: user.id };
+		if (teamId !== undefined) {
+			whereClause.teamId = teamId;
+		}
+
+		// Build the update data
+		const updateData: any = {};
+		if (content !== undefined) updateData.content = content;
+		if (prompt !== undefined) updateData.prompt = prompt;
+
+		// Update the entry using find + where pattern (like getById)
+		await db.journalEntries
+			.find(journalEntryId)
+			.where(whereClause)
+			.update(updateData);
+
+		// Fetch and return the updated entry
+		const updatedEntry = await db.journalEntries
+			.select("*", {
+				author: (t) => t.author.selectAll(),
+			})
+			.find(journalEntryId)
+			.where(whereClause);
+
+		return updatedEntry;
+	});
+
 export const journalEntriesRouter = {
 	getAll,
 	getById,
 	create,
 	getByUser,
 	delete: deleteEntry,
+	update,
 };
