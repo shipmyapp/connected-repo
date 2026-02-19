@@ -122,6 +122,11 @@ export class PendingSyncJournalEntriesDBManager {
     notifySubscribers("pendingSyncJournalEntries");
   }
 
+  async update(id: string, updates: Partial<Pick<PendingSyncJournalEntry, "content" | "prompt">>) {
+    await db.pendingSyncJournalEntries.update(id, updates);
+    notifySubscribers("pendingSyncJournalEntries");
+  }
+
   async delete(id: string) {
     await db.transaction("rw", [db.pendingSyncJournalEntries, db.files], async () => {
       await db.pendingSyncJournalEntries.delete(id);

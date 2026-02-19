@@ -36,6 +36,11 @@ export class JournalEntriesDBManager {
     notifySubscribers("journalEntries");
   }
 
+  async update(id: string, updates: Partial<Pick<JournalEntrySelectAll, "content" | "prompt">>) {
+    await db.journalEntries.update(id, updates);
+    notifySubscribers("journalEntries");
+  }
+
   async getById(id: string) {
     return await db.journalEntries.get(id);
   }
