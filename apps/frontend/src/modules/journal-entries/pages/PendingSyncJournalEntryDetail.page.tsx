@@ -24,8 +24,13 @@ export default function PendingSyncJournalEntryDetailPage() {
 	const [debugInfo, setDebugInfo] = useState<string | null>(null);
 
 	const { data: journalEntry, isLoading: entryLoading, error: entryError } = useLocalDbItem(
-		"pendingSyncJournalEntries",
-		() => getDataProxy().pendingSyncJournalEntriesDb.get(entryId || "")
+		"journalEntries",
+		async () => {
+            const entry = await getDataProxy().journalEntriesDb.getById(entryId || "");
+            // Only strictly pending entries should be here
+            if (entry && entry._pendingAction === null) return null;
+            return entry;
+        }
 	);
 
 	// Fetch local files for the pending sync
@@ -42,6 +47,7 @@ export default function PendingSyncJournalEntryDetailPage() {
 		const fetchFiles = async () => {
 			if (!entryId) return;
 			try {
+                // Since entryId is used as pendingSyncId in the files table for new entries
 				const files = await getDataProxy().filesDb.getFilesByPendingSyncId(entryId);
 				if (!active) return;
 				
@@ -69,39 +75,21 @@ export default function PendingSyncJournalEntryDetailPage() {
 		};
 	}, [entryId]);
 
-	// Detect if entry has been synced when it disappears from pending
+	// Detect if entry has been synced
 	useEffect(() => {
-		if (!entryLoading && !journalEntry && redirectStatus === "none" && entryId) {
-			const checkSynced = async () => {
-				setRedirectStatus("checking");
-				// Wait a tiny bit for the worker to finish the transaction (though indexedDB is ACID, React state might lag)
-				await new Promise(resolve => setTimeout(resolve, 500));
-				
-				try {
-					const syncedEntry = await getDataProxy().journalEntriesDb.getById(entryId);
-					if (syncedEntry) {
-						setRedirectStatus("redirecting");
-						setTimeout(() => {
-							navigate(`/journal-entries/synced/${entryId}`, { replace: true });
-						}, 2000);
-					} else {
-						setRedirectStatus("error");
-						setDebugInfo(`Entry ID: ${entryId}, Workspace: ${activeTeamId || 'Personal'}`);
-					}
-				} catch (err) {
-					setRedirectStatus("error");
-					setDebugInfo(`Error verifying sync status: ${err instanceof Error ? err.message : 'Unknown error'}`);
-				}
-			};
-			checkSynced();
+		if (!entryLoading && journalEntry && journalEntry._pendingAction === null && redirectStatus === "none") {
+            setRedirectStatus("redirecting");
+            setTimeout(() => {
+                navigate(`/journal-entries/synced/${entryId}`, { replace: true });
+            }, 2000);
 		}
-	}, [journalEntry, entryLoading, entryId, navigate, redirectStatus, activeTeamId]);
+	}, [journalEntry, entryLoading, entryId, navigate, redirectStatus]);
 
 	const handleRetry = async () => {
 		if (entryId) {
 			try {
 				setIsSyncingState(true);
-				await getDataProxy().sync.processQueue(true);
+				await getDataProxy().sync.processQueue();
 			} catch (err) {
 				console.error("[PendingSyncDetail] Error retrying sync:", err);
 			} finally {
@@ -114,7 +102,7 @@ export default function PendingSyncJournalEntryDetailPage() {
 		if (entryId) {
 			setIsDeleting(true);
 			try {
-				await getDataProxy().pendingSyncJournalEntriesDb.delete(entryId);
+				await getDataProxy().journalEntriesDb.delete(entryId);
 			} finally {
 				setIsDeleting(false);
 			}
@@ -201,9 +189,9 @@ export default function PendingSyncJournalEntryDetailPage() {
 				onDelete={handleDelete} 
 				isDeleting={isDeleting}
 				attachments={attachments}
-				syncError={journalEntry.error}
-				errorCount={journalEntry.errorCount}
-				status={journalEntry.status}
+				syncError={(journalEntry as any).error}
+				errorCount={(journalEntry as any).errorCount}
+				status={(journalEntry as any).status || 'pending'}
 				onRetry={handleRetry}
 				isSyncing={isSyncingState}
 			/>

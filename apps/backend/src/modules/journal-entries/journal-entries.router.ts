@@ -1,5 +1,5 @@
 import { db } from "@backend/db/db";
-import z from "zod";
+import { z } from "zod";
 import { rpcProtectedProcedure } from "@backend/procedures/protected.procedure";
 import {
 	journalEntryCreateInputZod,
@@ -69,6 +69,20 @@ const getByUser = rpcProtectedProcedure
 		return journalEntries;
 	});
 
+// Update journal entry
+const update = rpcProtectedProcedure
+	.input(journalEntryCreateInputZod.extend({ journalEntryId: z.string().ulid() }))
+	.handler(async ({ input, context: { user } }) => {
+		const { journalEntryId, ...updates } = input;
+		
+		const updatedJournalEntry = await db.journalEntries
+			.find(journalEntryId)
+			.where({ authorUserId: user.id })
+			.update(updates);
+
+		return updatedJournalEntry;
+	});
+
 // Delete journal entry
 const deleteEntry = rpcProtectedProcedure
 	.input(journalEntryDeleteZod.extend({ teamId: z.uuid().nullable().optional() }))
@@ -87,6 +101,7 @@ export const journalEntriesRouter = {
 	getAll,
 	getById,
 	create,
+	update,
 	getByUser,
 	delete: deleteEntry,
 };

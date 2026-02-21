@@ -4,7 +4,7 @@ import { ulid } from "ulid";
 
 export const BaseTable = createBaseTable({
   autoForeignKeys: false,
-  nowSQL: `now() AT TIME ZONE 'UTC'`,
+  nowSQL: `clock_timestamp() AT TIME ZONE 'UTC'`,
 	snakeCase: true,
 
 	columnTypes: (t) => ({

@@ -22,15 +22,13 @@ export const auth = betterAuth({
 		modelName: "accounts",
 	},
 	advanced: {
-		cookies: {
-			state: {
-				attributes: {
-					sameSite: isProd ? "none" : "lax",
-					secure: !isDev,
-					httpOnly: true,
-					path: "/",
-				},
-			},
+		crossSubDomainCookies: {
+			enabled: Boolean(isProd && env.PROD_COOKIE_DOMAIN),
+			domain: env.PROD_COOKIE_DOMAIN
+		},
+		defaultCookieAttributes: {
+			httpOnly: true,
+			secure: true,
 		},
 		database: {
 			// Setting generateId to false allows your database handle all ID generation
@@ -40,16 +38,13 @@ export const auth = betterAuth({
 	baseURL: env.VITE_API_URL,
 	basePath: "/api/auth",
 	database: orchidAdapter(db),
-	// Increase timeout for OAuth token exchange
-	defaultCookieAttributes: {
-		httpOnly: true,
-		secure: isProd,
-		sameSite: isProd ? "none" : "lax", // "none" requires secure: true
-		path: "/",
-	},
 	emailAndPassword: {
 		enabled: isTest,
 	},
+	// Leads to session leakage. Probably need to check the adapter implementation first.
+	// experimental: {
+	// 	joins: true,
+	// },
 	logger: {
 		disabled: false,
 		disableColors: !isDev,
@@ -74,6 +69,18 @@ export const auth = betterAuth({
 					logger.info({ module: "better-auth", ...args }, message);
 			}
 		},
+	},
+	onAPIError: {
+		errorURL: `${env.WEBAPP_URL}/auth/error`,
+	},
+	rateLimit: {
+		enabled: true,
+		window: 10,
+		max: 100,
+		storage: "memory",
+		// TODO: Enable database rate limiting
+		// storage: "database",
+		// modelName: "betterauth_ratelimit"
 	},
 	secret: env.BETTER_AUTH_SECRET,
 	session: {
@@ -120,7 +127,11 @@ export const auth = betterAuth({
 			redirectURI: `${env.VITE_API_URL}/api/auth/callback/google`,
 		},
 	},
-	trustedOrigins: allowedOrigins.length > 0 ? allowedOrigins : ["*"],
+	telemetry: {
+		enabled: true,
+	},
+	trustedOrigins: allowedOrigins,
+	updateAccountOnSignin: true,
 	user: {
 		changeEmail: {
 			enabled: false, // Disable email changes for simplicity
@@ -162,63 +173,6 @@ export const auth = betterAuth({
 	verification: {
 		modelName: "verifications",
 	},
-	// Leads to session leakage. Probably need to check the adapter implementation first.
-	// experimental: {
-	// 	joins: true,
-	// },
-	plugins: [
-		// Custom plugin to capture OAuth state_mismatch and other errors before redirect
-		{
-			id: "oauth-error-telemetry",
-			onResponse: async (response) => {
-				try {
-					// Check if this is an OAuth error redirect
-					if (response.status === 302 && response.headers) {
-						const location = response.headers.get?.("location") || response.headers.get?.("Location");
-						if (location?.includes("error=")) {
-							const url = new URL(location, env.WEBAPP_URL);
-							const error = url.searchParams.get("error");
-							const errorDescription = url.searchParams.get("error_description");
-							
-							if (error) {
-								const errorMessage = errorDescription 
-									? `OAuth error: ${error} - ${decodeURIComponent(errorDescription)}`
-									: `OAuth error: ${error}`;
-								
-								// Log with all available context
-								logger.error({
-									module: "oauth-error",
-									error,
-									errorDescription,
-									redirectUrl: location,
-									responseUrl: response.url || "",
-								}, errorMessage);
-								
-								// Record the error in OpenTelemetry/Sentry
-								recordErrorOtel({
-									spanName: "oauth.error.callback",
-									error: new Error(errorMessage),
-									level: "error",
-									tags: {
-										error_type: "oauth_callback_error",
-									},
-									attributes: {
-										"error.code": error,
-										"error.description": errorDescription || "",
-										"oauth.redirect_url": location,
-										"response.url": response.url || "",
-									},
-								});
-							}
-						}
-					}
-				} catch (err) {
-					// Don't let telemetry errors break the auth flow
-					console.error("[oauth-error-telemetry] Error capturing OAuth error:", err);
-				}
-			},
-		},
-	],
 });
 
 export type BetterAuthSession = typeof auth.$Infer.Session;

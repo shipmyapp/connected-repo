@@ -47,17 +47,24 @@ export function useConnectivity(userId?: string) {
 	}, []);
 
 	useEffect(() => {
-		if (!userId) return;
+		if (!userId) {
+			console.debug('[Connectivity] userId is initially missing, waiting for session...');
+			return;
+		}
 		let active = true;
 
 		// 1. Service Worker Sync
+		console.info(`[Connectivity] Setting up sync for user: ${userId}`);
 		getSWProxy().then(async (proxy) => {
 			if (!active) return;
-			const sw = proxy as any;
+			console.info('[Connectivity] SW Proxy obtained');
+			const sw = proxy
 			const initialStatus = await sw.getStatus() as SSEStatus;
+			console.info(`[Connectivity] Initial SSE status: ${initialStatus}`);
 			setSseStatus(initialStatus);
 
 			await sw.onStatusChange(Comlink.proxy((status: SSEStatus) => {
+				console.info(`[Connectivity] SSE status changed: ${status}`);
 				if (active) {
 					setSseStatus(status);
 					// If SSE is connected or sync-complete, we can definitely assume server and internet are reachable
@@ -72,6 +79,7 @@ export function useConnectivity(userId?: string) {
 					}
 				}
 			}));
+			console.info('[Connectivity] Calling startMonitoring...');
 			sw.startMonitoring(env.VITE_API_URL, userId).catch((err: unknown) => console.error('[Connectivity] Failed to start monitoring:', err));
 		}).catch(err => {
 			console.error('[Connectivity] Failed to get SW Proxy:', err);

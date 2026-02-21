@@ -1,5 +1,5 @@
 import { type Db, db as orchidDb } from "@backend/db/db";
-import z from "zod";
+import { z } from "zod";
 
 const modelNames = ["accounts", "sessions", "users", "verifications"] as const;
 export type ModelName = typeof modelNames[number];

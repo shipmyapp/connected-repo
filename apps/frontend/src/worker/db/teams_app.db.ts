@@ -1,15 +1,20 @@
 import type { TeamAppSelectAll, TeamWithRole } from "@connected-repo/zod-schemas/team_app.zod";
-import { db, notifySubscribers } from "./db.manager";
+import { clientDb, notifySubscribers, type WithSync } from "./db.manager";
 import { teamMembersDb } from "./team_members.db";
 
 export class TeamsAppDBManager {
   async saveTeams(teams: TeamAppSelectAll[]) {
-    await db.teamsApp.bulkPut(teams);
+    const data: WithSync<TeamAppSelectAll>[] = teams.map(t => ({
+      ...t,
+      _pendingAction: null,
+      clientUpdatedAt: t.updatedAt,
+    }));
+    await clientDb.teamsApp.bulkPut(data);
     notifySubscribers("teamsApp");
   }
 
   async getAll(): Promise<TeamAppSelectAll[]> {
-    return await db.teamsApp.orderBy("name").toArray();
+    return await clientDb.teamsApp.orderBy("name").toArray();
   }
 
   async getAllWithRole(userId: string): Promise<TeamWithRole[] | null> {
@@ -18,7 +23,7 @@ export class TeamsAppDBManager {
     if (teamAppIds.length === 0) {
       return null;
     };
-    const teamApps = await db.teamsApp.where("teamAppId").anyOf(teamAppIds).toArray();
+    const teamApps = await clientDb.teamsApp.where("teamAppId").anyOf(teamAppIds).toArray();
     const teamsAndRole = teamApps.map((teamApp) => {
       const teamMember = teamMembers.find((teamMember) => teamMember.teamAppId === teamApp.teamAppId);
       return {
@@ -30,7 +35,7 @@ export class TeamsAppDBManager {
   }
 
   async wipeByTeamAppId(teamAppId: string) {
-    await db.teamsApp.where("teamAppId").equals(teamAppId).delete();
+    await clientDb.teamsApp.where("teamAppId").equals(teamAppId).delete();
     await teamMembersDb.wipeByTeamAppId(teamAppId);
     notifySubscribers("teamsApp");
   }

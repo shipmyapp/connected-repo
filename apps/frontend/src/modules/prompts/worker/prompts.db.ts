@@ -1,5 +1,5 @@
 import { PromptSelectAll } from "@connected-repo/zod-schemas/prompt.zod";
-import { db, notifySubscribers } from "../../../worker/db/db.manager";
+import { clientDb, notifySubscribers, type WithSync } from "../../../worker/db/db.manager";
 
 export class PromptsDBManager {
   async bulkDelete(prompts: PromptSelectAll[]) {
@@ -8,23 +8,33 @@ export class PromptsDBManager {
   }
 
   async bulkUpsert(prompts: PromptSelectAll[]) {
-    await db.prompts.bulkPut(prompts);
+    const data: WithSync<PromptSelectAll>[] = prompts.map(p => ({
+      ...p,
+      _pendingAction: null,
+      clientUpdatedAt: p.updatedAt,
+    }));
+    await clientDb.prompts.bulkPut(data);
     notifySubscribers("prompts");
   }
 
   async upsert(prompt: PromptSelectAll) {
-    await db.prompts.put(prompt);
+    const data: WithSync<PromptSelectAll> = {
+      ...prompt,
+      _pendingAction: null,
+      clientUpdatedAt: prompt.updatedAt,
+    };
+    await clientDb.prompts.put(data);
     notifySubscribers("prompts");
   }
 
   getAll() {
-    return db.prompts.toArray();
+    return clientDb.prompts.toArray();
   }
 
   async getRandomActive(teamId: string | null = null) {
     const query = teamId 
-      ? db.prompts.where("teamId").equals(teamId).and(p => !p.deletedAt)
-      : db.prompts.filter(p => !p.teamId && !p.deletedAt);
+      ? clientDb.prompts.where("teamId").equals(teamId).and(p => !p.deletedAt)
+      : clientDb.prompts.filter(p => !p.teamId && !p.deletedAt);
     
     const active = await query.toArray();
     
@@ -36,7 +46,7 @@ export class PromptsDBManager {
   }
 
   getLatestUpdatedAt() {
-    return db.prompts.orderBy("updatedAt").reverse().first();
+    return clientDb.prompts.orderBy("updatedAt").reverse().first();
   }
 }
 

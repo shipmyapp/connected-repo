@@ -24,7 +24,7 @@ Shared Zod validation schemas for backend/frontend consistency
 
 **Example**:
 ```typescript
-import z from 'zod';
+import { z } from 'zod';
 import { zString, zTimestamps } from './zod_utils.js';
 
 export const entityMandatoryZod = z.object({ name: zString.min(1) });
@@ -183,7 +183,7 @@ export const teamSelectAllZod = teamMandatoryZod
 
 Create `src/<entity>.zod.ts`:
 ```typescript
-import z from 'zod';
+import { z } from 'zod';
 import { zString, zTimestamps } from './zod_utils.js';
 
 export const entityMandatoryZod = z.object({ name: zString.min(1) });

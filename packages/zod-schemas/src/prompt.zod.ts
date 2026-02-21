@@ -1,4 +1,4 @@
-import z from "zod";
+import { z } from "zod";
 import { zSmallint, zString, zTimeEpoch, zTimestamps } from "./zod_utils.js";
 
 export const promptMandatoryZod = z.object({

@@ -1,4 +1,4 @@
-import z from "zod";
+import { z } from "zod";
 
 export const API_PRODUCT_REQUEST_STATUS_ENUM = ["AI Error", "Invalid API route", "No active subscription", "Requests exhausted", "Pending", "Server Error", "Success"] as const;
 export const apiProductRequestStatusZod = z.enum(API_PRODUCT_REQUEST_STATUS_ENUM);
@@ -36,3 +36,7 @@ export type WebhookStatus = z.infer<typeof webhookStatusZod>;
 export const PG_TBUS_TASK_STATUS_ENUM = ["pending", "active", "completed", "failed", "cancelled"] as const;
 export const pgTbusTaskStatusZod = z.enum(PG_TBUS_TASK_STATUS_ENUM);
 export type PgTbusTaskStatus = z.infer<typeof pgTbusTaskStatusZod>;
+
+export const TABLES_TO_SYNC_ENUM = ["journalEntries", "prompts", "teamsApp", "teamMembers"] as const;
+export const tablesToSyncZod = z.enum(TABLES_TO_SYNC_ENUM);
+export type TablesToSync = z.infer<typeof tablesToSyncZod>;

@@ -1,71 +1,130 @@
 import Dexie from "dexie";
 import { JournalEntrySelectAll, journalEntrySelectAllZod } from "@connected-repo/zod-schemas/journal_entry.zod";
-import { pendingSyncJournalEntriesDb } from "@frontend/worker/db/pending-sync-journal-entries.db";
-import { db, notifySubscribers } from "../../../worker/db/db.manager";
+import { clientDb, notifySubscribers, type WithSync } from "../../../worker/db/db.manager";
 
 export class JournalEntriesDBManager {
+  /**
+   * Upsert from SERVER (SSE or API response)
+   */
   async upsert(entry: JournalEntrySelectAll) {
-    await db.transaction("rw", [db.journalEntries, db.pendingSyncJournalEntries, db.files], async () => {
-      await db.journalEntries.put(journalEntrySelectAllZod.parse(entry));
-      // When upserting a synced entry, check if it was previously a pending entry and remove it
-      console.debug(`[JournalEntriesDBManager] Upserting synced entry ${entry.journalEntryId}, clearing pending.`);
-      await pendingSyncJournalEntriesDb.delete(entry.journalEntryId);
+    const data: WithSync<JournalEntrySelectAll> = {
+      ...journalEntrySelectAllZod.parse(entry),
+      _pendingAction: null,
+      clientUpdatedAt: entry.updatedAt, // Sync with server updatedAt
+    };
+    
+    await clientDb.journalEntries.put(data);
+    notifySubscribers("journalEntries");
+  }
+
+  /**
+   * Bulk upsert from SERVER (Delta sync)
+   */
+  async bulkUpsert(entries: JournalEntrySelectAll[]) {
+    if (entries.length === 0) return;
+    
+    const data: WithSync<JournalEntrySelectAll>[] = entries.map(entry => ({
+      ...entry,
+      _pendingAction: null,
+      clientUpdatedAt: entry.updatedAt,
+    }));
+
+    await clientDb.journalEntries.bulkPut(data);
+    notifySubscribers("journalEntries");
+  }
+
+  /**
+   * LOCAL Update (User edit)
+   * Constraint: DO NOT change updatedAt. Update clientUpdatedAt only.
+   */
+  async handleLocalUpdate(id: string, updates: Partial<JournalEntrySelectAll>) {
+    await clientDb.transaction("rw", clientDb.journalEntries, async () => {
+      const existing = await clientDb.journalEntries.get(id);
+      if (!existing) return;
+
+      const updated: WithSync<JournalEntrySelectAll> = {
+        ...existing,
+        ...updates,
+        _pendingAction: existing._pendingAction === 'create' ? 'create' : 'update',
+        clientUpdatedAt: Date.now(),
+      };
+
+      await clientDb.journalEntries.put(updated);
     });
     notifySubscribers("journalEntries");
   }
 
-  async bulkUpsert(entries: JournalEntrySelectAll[]) {
-    if (entries.length === 0) return;
-    
-    await db.transaction("rw", [db.journalEntries, db.pendingSyncJournalEntries, db.files], async () => {
-      console.info(`[JournalEntriesDBManager] Bulk upserting ${entries.length} synced entries.`);
-      await db.journalEntries.bulkPut(entries);
-      const ids = entries.map(e => e.journalEntryId);
-      await pendingSyncJournalEntriesDb.bulkDelete(ids);
-    });
+  /**
+   * LOCAL Create
+   */
+  async handleLocalCreate(entry: WithSync<JournalEntrySelectAll>) {
+    const data: WithSync<JournalEntrySelectAll> = {
+      ...entry,
+      _pendingAction: 'create',
+      clientUpdatedAt: Date.now(),
+    };
+    await clientDb.journalEntries.put(data);
     notifySubscribers("journalEntries");
   }
 
   async bulkDelete(journalEntryIds: string[]) {
-    await db.journalEntries.bulkDelete(journalEntryIds);
+    await clientDb.journalEntries.bulkDelete(journalEntryIds);
     notifySubscribers("journalEntries");
   }
 
   async delete(id: string) {
-    await db.journalEntries.delete(id);
+    await clientDb.transaction("rw", clientDb.journalEntries, async () => {
+      const existing = await clientDb.journalEntries.get(id);
+      if (existing) {
+        if (existing._pendingAction === 'create') {
+          // If never synced, just delete
+          await clientDb.journalEntries.delete(id);
+        } else {
+          // Mark for deletion on server
+          await clientDb.journalEntries.update(id, { 
+            _pendingAction: 'delete',
+            clientUpdatedAt: Date.now()
+          });
+        }
+      }
+    });
     notifySubscribers("journalEntries");
   }
 
   async getById(id: string) {
-    return await db.journalEntries.get(id);
+    return await clientDb.journalEntries.get(id);
   }
 
   async getAll(teamId: string | null = null) {
-    if (teamId) {
-      return await db.journalEntries.where("teamId").equals(teamId).reverse().toArray();
-    }
-    return await db.journalEntries.filter(e => !e.teamId).reverse().toArray();
+    const baseQuery = teamId 
+      ? clientDb.journalEntries.where("teamId").equals(teamId)
+      : clientDb.journalEntries.filter(e => !e.teamId);
+
+    // Filter out items marked for deletion
+    return await baseQuery
+      .filter(e => e._pendingAction !== 'delete')
+      .reverse()
+      .toArray();
   }
 
   async getAllUnscoped() {
-    return await db.journalEntries.reverse().toArray();
+    return await clientDb.journalEntries.filter(e => e._pendingAction !== 'delete').reverse().toArray();
   }
 
-  getPaginated(offset: number, limit: number, teamId: string | null = null) {
+  async getPaginated(offset: number, limit: number, teamId: string | null = null) {
     if (teamId) {
-      return db.journalEntries
+      return clientDb.journalEntries
         .where("[teamId+createdAt]")
         .between([teamId, Dexie.minKey], [teamId, Dexie.maxKey])
+        .filter(e => e._pendingAction === null)
         .reverse()
         .offset(offset)
         .limit(limit)
         .toArray();
     }
-    // For personal space (null teamId)
-    // Using filter and reverse on the whole table is fine for local Dexie scale
-    return db.journalEntries
+    return clientDb.journalEntries
       .toCollection()
-      .filter(e => !e.teamId)
+      .filter(e => !e.teamId && e._pendingAction === null)
       .reverse()
       .offset(offset)
       .limit(limit)
@@ -73,21 +132,34 @@ export class JournalEntriesDBManager {
   }
 
   async getLatestUpdatedAt() {
-    const latest = await db.journalEntries.orderBy("updatedAt").last();
-    console.debug(`[JournalEntriesDBManager] Latest updatedAt: ${latest?.updatedAt}`);
+    const latest = await clientDb.journalEntries.orderBy("updatedAt").last();
     return latest;
   }
 
   async count(teamId: string | null = null) {
     if (teamId) {
-      return await db.journalEntries.where("teamId").equals(teamId).count();
+      return await clientDb.journalEntries.where("teamId").equals(teamId).filter(e => e._pendingAction === null).count();
     }
-    return await db.journalEntries.filter(e => !e.teamId).count();
+    return await clientDb.journalEntries.filter(e => !e.teamId && e._pendingAction === null).count();
+  }
+
+  async countPending(teamId: string | null = null) {
+    if (teamId) {
+      return await clientDb.journalEntries.where("teamId").equals(teamId).filter(e => !!e._pendingAction && e._pendingAction !== 'delete').count();
+    }
+    return await clientDb.journalEntries.filter(e => !e.teamId && !!e._pendingAction && e._pendingAction !== 'delete').count();
+  }
+
+  async getPending(teamId: string | null = null) {
+    if (teamId) {
+      return await clientDb.journalEntries.where("teamId").equals(teamId).filter(e => !!e._pendingAction && e._pendingAction !== 'delete').reverse().toArray();
+    }
+    return await clientDb.journalEntries.filter(e => !e.teamId && !!e._pendingAction && e._pendingAction !== 'delete').reverse().toArray();
   }
 
   async wipeByTeamAppId(teamAppId: string) {
     console.warn(`[JournalEntriesDBManager] Wiping all entries for team ${teamAppId}`);
-    await db.journalEntries.where("teamId").equals(teamAppId).delete();
+    await clientDb.journalEntries.where("teamId").equals(teamAppId).delete();
     notifySubscribers("journalEntries");
   }
 }
