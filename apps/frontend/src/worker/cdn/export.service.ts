@@ -62,7 +62,7 @@ export class ExportService {
           .join("; ");
 
         return [
-          this.sanitizeCsvCell(entry.journalEntryId),
+          this.sanitizeCsvCell(entry.id),
           this.sanitizeCsvCell(this.formatDate(entry.createdAt)),
           this.sanitizeCsvCell(this.formatDate(entry.updatedAt)),
           this.sanitizeCsvCell(entry.authorUserId),

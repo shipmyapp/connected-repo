@@ -7,7 +7,7 @@ export class ApiProductRequestLogsTable extends BaseTable {
   
   columns = this.setColumns(
     (t) => ({
-      apiProductRequestId: t.ulid().primaryKey(),
+      apiProductRequestId: t.ulidWithDefault().primaryKey(),
       teamApiId: t.uuid(),
       teamUserReferenceId: t.string(),
       requestBodyText: t.text().nullable(),

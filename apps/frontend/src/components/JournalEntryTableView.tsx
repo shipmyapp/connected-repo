@@ -106,7 +106,7 @@ export function JournalEntryTableView({ entries, onEntryClick }: JournalEntryTab
 				sorting: [{ id: "createdAt", desc: true }],
 			}}
 			muiTableBodyRowProps={({ row }) => ({
-				onClick: () => onEntryClick(row.original.journalEntryId),
+				onClick: () => onEntryClick(row.original.id),
 				sx: {
 					cursor: "pointer",
 					transition: "background-color 0.2s ease-in-out",

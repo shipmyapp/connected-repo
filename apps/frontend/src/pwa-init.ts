@@ -12,8 +12,8 @@ export function initPWA() {
         // Monitor installation state
         const sw = r.installing || r.waiting || r.active;
         if (sw) {
-          sw.addEventListener('statechange', (e) => {
-            const state = (e.target as any).state;
+          sw.addEventListener('statechange', () => {
+            const state = sw.state;
             if (state === 'installing') {
               console.info('[PWA] SW installing...');
             }

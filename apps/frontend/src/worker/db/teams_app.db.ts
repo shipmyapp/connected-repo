@@ -18,13 +18,13 @@ export class TeamsAppDBManager {
 
   async getAllWithRole(userId: string): Promise<TeamWithRole[] | null> {
     const teamMembers = await teamMembersDb.getUserTeamMembers(userId);
-    const teamAppIds = teamMembers.map((teamMember) => teamMember.teamAppId);
+    const teamAppIds = teamMembers.map((teamMember) => teamMember.teamId);
     if (teamAppIds.length === 0) {
       return null;
     };
-    const teamApps = await clientDb.teamsApp.where("teamAppId").anyOf(teamAppIds).toArray();
+    const teamApps = await clientDb.teamsApp.where("id").anyOf(teamAppIds).toArray();
     const teamsAndRole = teamApps.map((teamApp) => {
-      const teamMember = teamMembers.find((teamMember) => teamMember.teamAppId === teamApp.teamAppId);
+      const teamMember = teamMembers.find((teamMember) => teamMember.teamId === teamApp.id);
       return {
         ...teamApp,
         joinedAt: teamMember?.joinedAt,
@@ -35,7 +35,7 @@ export class TeamsAppDBManager {
   }
 
   async wipeByTeamAppId(teamAppId: string) {
-    await clientDb.teamsApp.where("teamAppId").equals(teamAppId).delete();
+    await clientDb.teamsApp.where("id").equals(teamAppId).delete();
     await teamMembersDb.wipeByTeamAppId(teamAppId);
     notifySubscribers("teamsApp");
   }

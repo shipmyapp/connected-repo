@@ -7,26 +7,21 @@ export const getTeamMembersDelta = async (
 		cursorId: string | null,
 		chunkSize: number,
 	) => {
-		let query = db.teamMembers
+		return db.teamMembers
 			.includeDeleted()
 			.where({
 				OR: [
 					{ userId },
-					...(userOwnerAdminTeamAppIds.length > 0 ? [{ teamAppId: { in: userOwnerAdminTeamAppIds } }] : [])
+					...(userOwnerAdminTeamAppIds.length > 0 ? [{ id: { in: userOwnerAdminTeamAppIds } }] : [])
+				]
+			})
+			.where({
+				OR: [
+					{ updatedAt: { gte: cursorUpdatedAt } },
+					...(cursorId ? [{ updatedAt: cursorUpdatedAt, id: { gt: cursorId } }] : []),
 				]
 			})
 			.select("*")
-			.order({ updatedAt: "ASC", teamMemberId: "ASC" })
+			.order({ updatedAt: "ASC", id: "ASC" })
 			.limit(chunkSize);
-
-		if (cursorId === null) {
-			return await query.where({ updatedAt: { gte: cursorUpdatedAt } });
-		} else {
-			return await query.where({
-				OR: [
-					{ updatedAt: { gt: cursorUpdatedAt } },
-					{ updatedAt: cursorUpdatedAt, teamMemberId: { gt: cursorId } },
-				],
-			});
-		}
 	};

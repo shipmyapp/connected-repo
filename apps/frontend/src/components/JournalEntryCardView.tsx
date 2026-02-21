@@ -43,7 +43,7 @@ export function JournalEntryCardView({ entries, onEntryClick, renderExtra }: Jou
 		>
 			{entries.map((entry) => (
 				<Box
-					key={entry.journalEntryId}
+					key={entry.id}
 					sx={{
 						display: "flex",
 						minHeight: 0,
@@ -51,7 +51,7 @@ export function JournalEntryCardView({ entries, onEntryClick, renderExtra }: Jou
 					}}
 				>
 					<Card
-						onClick={() => onEntryClick(entry.journalEntryId)}
+						onClick={() => onEntryClick(entry.id)}
 						sx={{
 							height: "100%",
 							width: "100%",

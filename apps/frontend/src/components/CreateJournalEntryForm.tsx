@@ -101,7 +101,7 @@ export function CreateJournalEntryForm() {
 	const {formMethods, RhfFormProvider } = useRhfForm<PendingSyncJournalEntry>({
 		onSubmit: async (data) => {
 			const app = getDataProxy();
-			const entryId = data.journalEntryId;
+			const entryId = data.id;
 			
 			// 1. Prepare and persist files
 			const fileIds = attachments.map((a) => a.id);
@@ -121,7 +121,7 @@ export function CreateJournalEntryForm() {
 				attachmentFileIds: fileIds,
 				teamId: teamId,
 				prompt: writingMode === "free" ? null : data.prompt,
-				promptId: writingMode === "free" ? null : randomPrompt?.promptId ?? null,
+				promptId: writingMode === "free" ? null : randomPrompt?.id ?? null,
 				createdAt: Date.now(),
 				status: fileIds.length > 0 ? "file-upload-pending" : "file-upload-completed",
 				errorCount: 0,
@@ -142,7 +142,7 @@ export function CreateJournalEntryForm() {
 				}
 
 				formMethods.reset({
-					journalEntryId: ulid(),
+					id: ulid(),
 					prompt: null, // Will be set by effect
 					content: "",
 					attachmentFileIds: [],
@@ -175,7 +175,7 @@ export function CreateJournalEntryForm() {
 				prompt: null,
 				content: undefined,
 				attachmentFileIds: [],
-				journalEntryId: ulid(),
+				id: ulid(),
 				teamId: teamId,
 				status: "file-upload-pending",
 				errorCount: 0,

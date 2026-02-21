@@ -5,6 +5,7 @@ import { teamsAppDb } from '@frontend/worker/db/teams_app.db';
 import { clientDb, wipeTeamData } from '@frontend/worker/db/db.manager';
 import { orpcFetch, UserAppBackendOutputs } from '@frontend/utils/orpc.client';
 import { SSE_MESSAGES_CHANNEL, type SseMessage } from '@frontend/configs/channels.config';
+import { TABLES_TO_SYNC_ENUM, TablesToSync } from '@connected-repo/zod-schemas/enums.zod';
 
 type HeartbeatStream = UserAppBackendOutputs["sync"]["heartbeatSync"];
 
@@ -47,11 +48,10 @@ export class SSEManager {
         this.sseChannel.postMessage(message);
     }
 
-    private async getLatestSyncMetadata(): Promise<Record<string, { updatedAt: number, cursor: string | null }>> {
-        const tables = ['journalEntries', 'prompts', 'teamsApp', 'teamMembers'];
+    private async getLatestSyncMetadata(): Promise<Record<TablesToSync, { updatedAt: number, cursor: string | null }>> {
         const metadata: Record<string, { updatedAt: number, cursor: string | null }> = {};
 
-        for (const table of tables) {
+        for (const table of TABLES_TO_SYNC_ENUM) {
             const row = await clientDb.syncMetadata.get(table);
             metadata[table] = {
                 updatedAt: row?.cursorUpdatedAt ?? 0,
@@ -127,19 +127,19 @@ export class SSEManager {
             try {
                 if (event.data.length > 0) {
                     if (event.tableName === 'journalEntries') {
-                        await journalEntriesDb.bulkUpsert(event.data as any[]);
-                    } else if (event.tableName === 'prompts') {
-                        await promptsDb.bulkUpsert(event.data as any[]);
+                        await journalEntriesDb.bulkUpsert(event.data);
+                    } else if (event.tableName === 'prompts') { 
+                        await promptsDb.bulkUpsert(event.data);
                     } else if (event.tableName === "teamsApp") {
-                        await teamsAppDb.saveTeams(event.data as any[]);
-                        for (const team of (event.data as any[])) {
-                            if (team.deletedAt) await wipeTeamData(team.teamAppId);
+                        await teamsAppDb.saveTeams(event.data);
+                        for (const team of event.data) {
+                            if (team.deletedAt) await wipeTeamData(team.id);
                         }
                     } else if (event.tableName === "teamMembers") {
-                        await teamMembersDb.saveMembers(event.data as any[]);
-                        for (const member of (event.data as any[])) {
+                        await teamMembersDb.saveMembers(event.data);
+                        for (const member of event.data) {
                             if (member.userId === this.currentUserId && member.deletedAt) {
-                                await wipeTeamData(member.teamAppId);
+                                await wipeTeamData(member.teamId);
                             }
                         }
                     }
@@ -180,7 +180,7 @@ export class SSEManager {
         if (event.type === 'data-change-journalEntries') {
             console.info(`[SSE] Real-time [journalEntries]: ${event.operation}`);
             if (event.operation === 'delete') {
-                await journalEntriesDb.bulkDelete(event.data.map((d: any) => d.journalEntryId));
+                await journalEntriesDb.bulkDelete(event.data.map((d: any) => d.id));
             } else {
                 await journalEntriesDb.bulkUpsert(event.data);
             }
@@ -193,9 +193,9 @@ export class SSEManager {
         } else if (event.type === "data-change-teamsApp") {
             if (event.operation === "delete") {
                 for (const team of event.data) {
-                    await wipeTeamData(team.teamAppId);
+                    await wipeTeamData(team.id);
                 }
-                await clientDb.teamsApp.bulkDelete(event.data.map((t: any) => t.teamAppId));
+                await clientDb.teamsApp.bulkDelete(event.data.map((t: any) => t.id));
             } else {
                 await teamsAppDb.saveTeams(event.data);
             }
@@ -204,10 +204,10 @@ export class SSEManager {
                 const affectsMe = event.data.some((m: any) => m.userId === this.currentUserId);
                 if (affectsMe) {
                     for (const member of event.data) {
-                        if (member.userId === this.currentUserId) await wipeTeamData(member.teamAppId);
+                        if (member.userId === this.currentUserId) await wipeTeamData(member.teamId);
                     }
                 }
-                await clientDb.teamMembers.bulkDelete(event.data.map((m: any) => m.teamMemberId));
+                await clientDb.teamMembers.bulkDelete(event.data.map((m: any) => m.teamId));
             } else {
                 await teamMembersDb.saveMembers(event.data);
             }
@@ -261,7 +261,7 @@ export class SSEManager {
 
                 // Mapping metadata for the backend
                 const tableMarkers = Object.entries(lastSyncMetadata).map(([tableName, meta]) => ({
-                    tableName: tableName as any,
+                    tableName: tableName as TablesToSync,
                     cursorUpdatedAt: meta.updatedAt,
                     cursorId: meta.cursor
                 }));
@@ -290,7 +290,7 @@ export class SSEManager {
             } catch (err: unknown) {
                 if (err instanceof Error && err.name === 'AbortError') continue;
                 
-                if (err instanceof Error && err.name === 'FetchError' && (err as any).status === 401) {
+                if (err instanceof Error && err.name === 'FetchError' && 'status' in err && err.status === 401) {
                     this.isMonitoring = false;
                     this.updateStatus('auth-error');
                     break;

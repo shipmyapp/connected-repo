@@ -95,8 +95,8 @@ export class JournalEntriesDBManager {
     notifySubscribers("journalEntries");
   }
 
-  async bulkDelete(journalEntryIds: string[]) {
-    await clientDb.journalEntries.bulkDelete(journalEntryIds);
+  async bulkDelete(ids: string[]) {
+    await clientDb.journalEntries.bulkDelete(ids);
     notifySubscribers("journalEntries");
   }
 
@@ -126,7 +126,7 @@ export class JournalEntriesDBManager {
       // 1. Immediate API Call to server
       const orpcFetch = (await import("../../../utils/orpc.client")).orpcFetch;
       await orpcFetch.journalEntries.delete({ 
-        journalEntryId: id,
+        id: id,
         teamId: existing.teamId || undefined 
       });
 

@@ -118,7 +118,7 @@ async function* getDeltaForTable(
 			} else if (tableName === "prompts") {
 				data = await getDeltaPrompts(
 					cursorUpdatedAtDate,
-					cursorId ? Number(cursorId) : null,
+					cursorId ?? null,
 					chunkSize
 				);
 			}
@@ -140,10 +140,6 @@ async function* getDeltaForTable(
 			const lastItem = data[data.length - 1];
 			const batchMaxUpdatedAt = lastItem.updatedAt;
 			cursorUpdatedAtDate = new Date(batchMaxUpdatedAt);
-            if (tableName === "journalEntries") cursorId = lastItem.journalEntryId;
-			else if (tableName === "prompts") cursorId = lastItem.promptId;
-            else if (tableName === "teamsApp") cursorId = lastItem.teamAppId;
-            else if (tableName === "teamMembers") cursorId = lastItem.teamMemberId;
 
 			hasMore = data.length === chunkSize;
 
@@ -152,7 +148,7 @@ async function* getDeltaForTable(
 				tableName,
 				data,
 				cursorUpdatedAt: batchMaxUpdatedAt,
-				cursorId,
+				cursorId: lastItem.id,
 				isLastChunk: !hasMore,
 			};
 
@@ -165,6 +161,7 @@ async function* getDeltaForTable(
             cursorUpdatedAt: cursorUpdatedAtDate.getTime(),
             cursorId,
         });
+
 		yield {
 			type: "delta",
 			tableName: tableName,
@@ -174,15 +171,22 @@ async function* getDeltaForTable(
 			isLastChunk: true,
 			error: error instanceof Error ? error.message : "Unknown database error during delta sync",
 		};
+
+		return;
 	}
 }
 
 export const heartbeatSync = rpcProtectedProcedure
 	.input(heartbeatSyncInput)
 	.output(eventIterator(heartbeatSyncOutput))
-	.handler(async function* ({ input: { type, tableMarkers }, context: { user, resHeaders }, signal }) {
+	.handler(async function* ({ input: { type, tableMarkers }, context: { user: { id: userId }, resHeaders }, signal }) {
 		// --- 0. Disable buffering for SSE (Nginx/Traefik compatibility) ---
 		resHeaders?.set('X-Accel-Buffering', 'no');
+
+		// Refetching user so as not to use andy cached data from middleware.
+		const user = await db.users.find(userId).select("*", {
+			teamMembers: (t) => t.teamMembers.selectAll()
+		});
 
 		console.info(`[SyncRouter] New connection from user ${user.id} (Table markers: ${tableMarkers.length})`);
 
@@ -203,8 +207,8 @@ export const heartbeatSync = rpcProtectedProcedure
 				for await (const chunk of getDeltaForTable(
 					tableName,
 					user.id,
-					user.teamMembers.map(m => m.teamAppId),
-					user.teamMembers.filter(m => m.role === "Owner" || m.role === "Admin").map(m => m.teamAppId),
+					user.teamMembers.map(m => m.teamId),
+					user.teamMembers.filter(m => m.role === "Owner" || m.role === "Admin").map(m => m.teamId),
 					cursorUpdatedAt,
 					cursorId,
 					signal,
@@ -232,10 +236,10 @@ export const heartbeatSync = rpcProtectedProcedure
 		// --- 3. Start Live Monitoring (Buffered Events First) ---
 		for await (const payload of liveIterator) {
 			// Real-time filtering for data privacy:
-			const userTeamMemberIds = user.teamMembers.map(m => m.teamAppId);
+			const userTeamMemberIds = user.teamMembers.map(m => m.id);
 			const userOwnerAdminTeamMemberIds = user.teamMembers
 				.filter(m => m.role === "Owner" || m.role === "Admin")
-				.map(m => m.teamAppId);
+				.map(m => m.id);
 
 			const isTeamOwnerAdminAccess =
 				"syncToTeamAppIdOwnersAdmins" in payload &&
@@ -251,37 +255,37 @@ export const heartbeatSync = rpcProtectedProcedure
 
 			const isGlobalAccess =
 				!("syncToUserId" in payload) ||
-				payload.syncToUserId === null ||
-				payload.syncToUserId === undefined;
+				!payload.syncToUserId;
 
 			if (isTeamOwnerAdminAccess || isTeamAllMemberAccess || isPersonalAccess || isGlobalAccess) {
-				// Membership Change Check: If any membership change (add, role change, remove)
-				// affects the current user, we yield the payload FIRST so the frontend updates,
-				// and then return to close the connection and force a context refresh.
-				let shouldAbort = false;
-				if (payload.type === "data-change-teamMembers") {
-					const affectsMe = payload.data.some((m) => m.userId === user.id);
-					if (affectsMe) {
-						if (payload.operation === "create" || payload.operation === "delete") {
+				yield payload;
+			}
+
+			// Membership Change Check: If any membership change (add, role change, remove)
+			// affects the current user, we yield the payload FIRST so the frontend updates,
+			// and then return to close the connection and force a context refresh.
+			if (payload.type === "data-change-teamMembers") {
+				const affectsMe = payload.data.some((m) => m.userId === user.id);
+				if (affectsMe) {
+					let shouldAbort = false;
+					if (payload.operation === "create" || payload.operation === "delete") {
+						shouldAbort = true;
+					} else if (payload.operation === "update") {
+						const myMembership = payload.data.find((m) => m.userId === user.id);
+						const currentRole = user.teamMembers.find(
+							(t) => t.id === myMembership?.id,
+						)?.role;
+						// Abort only in change of role.
+						if (currentRole && myMembership && currentRole !== myMembership.role) {
 							shouldAbort = true;
-						} else if (payload.operation === "update") {
-							const myMembership = payload.data.find((m) => m.userId === user.id);
-							const currentRole = user.teamMembers.find(
-								(t) => t.teamAppId === myMembership?.teamAppId,
-							)?.role;
-							// Abort only in change of role.
-							if (currentRole && myMembership && currentRole !== myMembership.role) {
-								shouldAbort = true;
-							}
 						}
 					}
-				}
-				yield payload;
-				if (shouldAbort) {
-					console.log(
-						`[SyncRouter] Critical membership change for user ${user.id}. Aborting sync for context refresh.`,
-					);
-					return;
+					if (shouldAbort) {
+						console.log(
+							`[SyncRouter] Critical membership change for user ${user.id}. Aborting sync for context refresh.`,
+						);
+						return;
+					}
 				}
 			}
 		}

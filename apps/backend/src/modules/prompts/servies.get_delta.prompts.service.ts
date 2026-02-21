@@ -2,23 +2,18 @@ import { db } from "@backend/db/db"
 
 export const getDeltaPrompts = async (
     cursorUpdatedAt: Date,
-    cursorId: number | null,
+    cursorId: string | null,
     chunkSize: number,
 ) => {
-    const query = db.prompts
+    return db.prompts
         .includeDeleted()
         .select("*")
-        .order({ updatedAt: "ASC", promptId: "ASC" })
-        .limit(chunkSize)
-
-    if (cursorId === null) {
-        return await query.where({ updatedAt: { gte: cursorUpdatedAt } });
-    } else {
-        return await query.where({
+        .where({
             OR: [
-                { updatedAt: { gt: cursorUpdatedAt } },
-                { updatedAt: cursorUpdatedAt, promptId: { gt: cursorId } },
+                { updatedAt: { gte: cursorUpdatedAt } },
+                ...(cursorId ? [{ updatedAt: cursorUpdatedAt, id: { gt: cursorId } }] : []),
             ],
-        });
-    }
+        })
+        .order({ updatedAt: "ASC", id: "ASC" })
+        .limit(chunkSize);
 }

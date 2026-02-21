@@ -28,7 +28,7 @@ export const userAppHandler = new RPCHandler(userAppRouter, {
     new LoggingHandlerPlugin({
       logger,
       logRequestResponse: isDev, // Only log in dev
-      logRequestAbort: true,
+      logRequestAbort: false,
     }),
     // CSRF protection (disabled in development for easier testing)
     ...(isProd || isStaging ? [new SimpleCsrfProtectionHandlerPlugin()] : []),

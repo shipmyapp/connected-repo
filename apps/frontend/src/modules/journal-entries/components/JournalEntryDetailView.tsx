@@ -28,7 +28,7 @@ const spin = keyframes`
 
 interface JournalEntryDetailViewProps {
 	entry: {
-		journalEntryId: string;
+		id: string;
 		prompt?: string | null;
 		content: string;
 		createdAt: number | string | Date;

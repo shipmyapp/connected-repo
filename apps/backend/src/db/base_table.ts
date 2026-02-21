@@ -15,7 +15,8 @@ export const BaseTable = createBaseTable({
     teamMemberRoleEnum: () => t.enum("team_member_role_enum", TEAM_MEMBER_ROLE_ENUM),
     themeSettingEnum: () => t.enum("theme_setting_enum", THEME_SETTING_ENUM),
     timestampNumber: () => t.timestamp().asNumber(),
-    ulid: () => t.string(26).default(() => ulid()),
+    ulid: () => t.string(26),
+    ulidWithDefault: () => t.string(26).default(() => ulid()),
     webhookStatusEnum: () => t.enum("webhook_status_enum", WEBHOOK_STATUS_ENUM),
     pgTbusTaskStatusEnum: () => t.enum("pg_tbus_task_status_enum", PG_TBUS_TASK_STATUS_ENUM),
 

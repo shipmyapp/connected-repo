@@ -29,14 +29,14 @@ const getAll = rpcProtectedProcedure
 // Get journal entry by ID
 const getById = rpcProtectedProcedure
 	.input(journalEntryGetByIdZod.extend({ teamId: z.uuid().nullable().optional() }))
-	.handler(async ({ input: { journalEntryId, teamId }, context: { user } }) => {
-		const query: any = { journalEntryId, authorUserId: user.id };
+	.handler(async ({ input: { id, teamId }, context: { user } }) => {
+		const query: any = { id, authorUserId: user.id };
 		if (teamId !== undefined) {
 			query.teamId = teamId;
 		}
 
 		const journalEntry = await db.journalEntries
-			.find(journalEntryId)
+			.find(id)
 			.where(query);
 
 		return journalEntry;
@@ -71,12 +71,12 @@ const getByUser = rpcProtectedProcedure
 
 // Update journal entry
 const update = rpcProtectedProcedure
-	.input(journalEntryCreateInputZod.extend({ journalEntryId: z.string().ulid() }))
+	.input(journalEntryCreateInputZod.extend({ id: z.ulid() }))
 	.handler(async ({ input, context: { user } }) => {
-		const { journalEntryId, ...updates } = input;
+		const { id, ...updates } = input;
 		
 		const updatedJournalEntry = await db.journalEntries
-			.find(journalEntryId)
+			.find(id)
 			.selectAll()
 			.where({ authorUserId: user.id })
 			.update(updates);
@@ -87,13 +87,13 @@ const update = rpcProtectedProcedure
 // Delete journal entry
 const deleteEntry = rpcProtectedProcedure
 	.input(journalEntryDeleteZod.extend({ teamId: z.uuid().nullable().optional() }))
-	.handler(async ({ input: { journalEntryId, teamId }, context: { user } }) => {
-		const query: any = { journalEntryId, authorUserId: user.id };
+	.handler(async ({ input: { id, teamId }, context: { user } }) => {
+		const query: any = { id, authorUserId: user.id };
 		if (teamId !== undefined) {
 			query.teamId = teamId;
 		}
 		
-		await db.journalEntries.find(journalEntryId).where(query).delete();
+		await db.journalEntries.find(id).where(query).delete();
 
 		return { success: true };
 	});

@@ -102,9 +102,9 @@ export default function TeamSwitcher() {
 				)}
 				{teams.map((team) => (
 					<MenuItem 
-						key={team.teamAppId} 
-						onClick={() => handleSelect({ id: team.teamAppId, name: team.name, type: 'team', role: team.userRole })}
-						selected={activeWorkspace.id === team.teamAppId}
+						key={team.id} 
+						onClick={() => handleSelect({ id: team.id, name: team.name, type: 'team', role: team.userRole })}
+						selected={activeWorkspace.id === team.id}
 					>
 						<ListItemIcon><GroupIcon fontSize="small" /></ListItemIcon>
 						<Box sx={{ flexGrow: 1 }}>

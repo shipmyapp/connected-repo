@@ -7,8 +7,7 @@ export const getDeltaJournalEntries = async (
     cursorId: string | null,
     chunkSize: number,
 ) => {
-    
-    let query = db.journalEntries
+    return db.journalEntries
         .includeDeleted()
         .where({
             OR: [
@@ -16,18 +15,13 @@ export const getDeltaJournalEntries = async (
                 ...(userOwnerAdminTeamAppIds.length > 0 ? [{ teamId: { in: userOwnerAdminTeamAppIds } }] : [])
             ]
         })
+        .where({
+            OR: [
+                { updatedAt: { gte: cursorUpdatedAt } },
+                ...(cursorId ? [{ updatedAt: cursorUpdatedAt, id: { gt: cursorId } }] : []),
+            ],
+        })
         .select("*")
-        .order({ updatedAt: "ASC", journalEntryId: "ASC" })
-        .limit(chunkSize)
-
-    if (cursorId === null) {
-			return await query.where({ updatedAt: { gte: cursorUpdatedAt } });
-		} else {
-			return await query.where({
-				OR: [
-					{ updatedAt: { gt: cursorUpdatedAt } },
-					{ updatedAt: cursorUpdatedAt, journalEntryId: { gt: cursorId } },
-				],
-			});
-		}
+        .order({ updatedAt: "ASC", id: "ASC" })
+        .limit(chunkSize);
 }

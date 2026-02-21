@@ -127,7 +127,7 @@ export function WorkspaceProvider({ children, sessionInfo: propSessionInfo }: Wo
 			if (sortedTeams[0]) {
 				const latestTeam = sortedTeams[0];
 				setActiveWorkspace({
-					id: latestTeam.teamAppId,
+					id: latestTeam.id,
 					name: latestTeam.name,
 					type: "team",
 					role: latestTeam.userRole,
@@ -135,7 +135,7 @@ export function WorkspaceProvider({ children, sessionInfo: propSessionInfo }: Wo
 			}
 		} else if (activeWorkspace.type === "team") {
 			// Validate current team exists and update role if needed
-			const currentTeam = teams.find(t => t.teamAppId === activeWorkspace.id);
+			const currentTeam = teams.find(t => t.id === activeWorkspace.id);
 			if (!currentTeam) {
 				setActiveWorkspace(personalWorkspace);
 			} else if (currentTeam.userRole !== activeWorkspace.role) {

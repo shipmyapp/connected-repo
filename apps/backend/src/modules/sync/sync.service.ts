@@ -11,10 +11,10 @@ const syncToUserAndOptionalTeamAppOwnersAdminsZod = {
 };
 const syncToUserAndTeamAppOwnersAdminsZod = {
 	syncToUserId: z.uuid(),
-	syncToTeamAppIdOwnersAdmins: z.uuid().nullish(),
+	syncToTeamAppIdOwnersAdmins: z.uuid(),
 	syncToTeamAppIdAllMembers: z.null().optional(),
 };
-const syncToTeamAppIdAllMembersZod = {
+const syncToTeamAppAllMembersZod = {
 	syncToUserId: z.null().optional(),
 	syncToTeamAppIdOwnersAdmins: z.null().optional(),
 	syncToTeamAppIdAllMembers: z.uuid(),
@@ -35,7 +35,7 @@ export const syncPayloadZod = z.discriminatedUnion("type", [
     type: z.literal("data-change-teamsApp"),
     data: z.array(teamAppSelectAllZod),
     operation: z.enum(["create", "update", "delete"]),
-  }).extend(syncToTeamAppIdAllMembersZod),
+  }).extend(syncToTeamAppAllMembersZod),
   z.object({
     type: z.literal("data-change-teamMembers"),
     data: z.array(teamAppMemberSelectAllZod),

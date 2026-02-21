@@ -19,7 +19,7 @@ export default function TeamDetailsPage() {
 	const { teams, user } = useWorkspace();
 	const [viewMode, setViewMode] = useState<"card" | "table">("card");
 
-	const team = teams.find(t => t.teamAppId === teamId);
+	const team = teams.find(t => t.id === teamId);
 
 	if (!teamId || !team) return (
 		<Container maxWidth="lg" sx={{ py: 8, textAlign: 'center' }}>

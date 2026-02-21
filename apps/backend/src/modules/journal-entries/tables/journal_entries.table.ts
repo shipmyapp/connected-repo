@@ -3,6 +3,7 @@ import { Db } from "@backend/db/db";
 import { syncService } from "@backend/modules/sync/sync.service";
 import { UserTable } from "@backend/modules/users/tables/users.table";
 import { JournalEntrySelectAll, journalEntrySelectAllZod } from "@connected-repo/zod-schemas/journal_entry.zod";
+import z from "zod";
 
 // Notify sync service about journal entry changes
 const pushEntriesToSync = (operation: "create" | "update" | "delete", entries: JournalEntrySelectAll[]) => {
@@ -34,10 +35,10 @@ export class JournalEntryTable extends BaseTable {
 
 	columns = this.setColumns((t) => 
 		({
-			journalEntryId: t.ulid().primaryKey(),
+			id: t.ulidWithDefault().primaryKey(),
 
 			prompt: t.string(500).nullable(),
-			promptId: t.smallint().foreignKey("prompts", "promptId", {
+			promptId: t.ulid().foreignKey("prompts", "id", {
 				onDelete: "SET NULL",
 				onUpdate: "RESTRICT",
 			}).nullable(),
@@ -46,7 +47,7 @@ export class JournalEntryTable extends BaseTable {
 				onDelete: "CASCADE",
 				onUpdate: "RESTRICT",
 			}),
-			teamId: t.uuid().foreignKey("teams_app", "teamAppId", {
+			teamId: t.uuid().foreignKey("teams_app", "id", {
 				onDelete: "SET NULL",
 				onUpdate: "RESTRICT",
 			}).nullable(),

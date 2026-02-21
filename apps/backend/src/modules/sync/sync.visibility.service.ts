@@ -7,9 +7,9 @@ export class SyncVisibilityService {
 	async getAdminOrOwnerTeamIds(userId: string): Promise<string[]> {
 		const memberships = await db.teamMembers
 			.where({ userId, role: { in: ["Owner", "Admin"] } })
-			.select("teamAppId");
+			.select("id");
 		
-		return memberships.map(m => m.teamAppId);
+		return memberships.map(m => m.id);
 	}
 
 	/**
@@ -41,7 +41,7 @@ export class SyncVisibilityService {
 
 		if (teamId) {
 			const partners = await db.teamMembers
-				.where({ teamAppId: teamId, role: { in: ["Owner", "Admin"] } })
+				.where({ id: teamId, role: { in: ["Owner", "Admin"] } })
 				.select("userId");
 			
 			for (const p of partners) {

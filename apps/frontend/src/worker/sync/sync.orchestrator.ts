@@ -6,6 +6,7 @@ import { orpcFetch } from "../../utils/orpc.client";
 import type { JournalEntrySelectAll } from "@connected-repo/zod-schemas/journal_entry.zod";
 import type { StoredFile } from "../db/schema.db.types";
 import { SSE_MESSAGES_CHANNEL, type SseMessage } from "../../configs/channels.config";
+import { TablesToSync } from "@connected-repo/zod-schemas/enums.zod";
 
 export class SyncOrchestrator {
   private isProcessing = false;
@@ -64,8 +65,8 @@ export class SyncOrchestrator {
     }
   }
 
-  private async syncTable(tableName: string) {
-    const table = (clientDb as any)[tableName];
+  private async syncTable(tableName: TablesToSync) {
+    const table = clientDb[tableName];
     if (!table) return;
 
     // Find all records with a pending action
@@ -77,8 +78,7 @@ export class SyncOrchestrator {
 
     console.group(`[SyncOrchestrator] Table: ${tableName} (${pendingRecords.length} pending)`);
     for (const record of pendingRecords) {
-      const recordId = record.journalEntryId || record.promptId || record.teamAppId || record.teamMemberId;
-      const syncKey = `${tableName}:${recordId}`;
+      const syncKey = `${tableName}:${record.id}`;
       
       if (this.inFlightSyncs.has(syncKey)) continue;
 
@@ -94,7 +94,7 @@ export class SyncOrchestrator {
     console.groupEnd();
   }
 
-  private async syncRecord(tableName: string, record: any) {
+  private async syncRecord(tableName: TablesToSync, record: any) {
     const action = record._pendingAction;
     
     // Special handling for journalEntries due to media
@@ -111,30 +111,24 @@ export class SyncOrchestrator {
         await this.handleSuccess(tableName, record, result);
       } else if (action === 'delete') {
         await this.pushDeleteToBackend(tableName, record);
-        const table = (clientDb as any)[tableName];
-        const recordId = record.journalEntryId || record.promptId || record.teamAppId || record.teamMemberId;
-        await table.delete(recordId);
+        const table = clientDb[tableName];
+        await table.where("id").equals(record.id).delete();
       }
     } catch (err: any) {
-      if (err?.status === 409) {
-        await this.handleConflict(tableName, record, err.serverData);
-      } else {
-        throw err;
-      }
+      throw err;
     }
   }
 
   private async orchestrateJournalEntry(record: any) {
-    const entryId = record.journalEntryId;
+    const entryId = record.id;
     const action = record._pendingAction;
 
     if (action === 'delete') {
       try {
-        await orpcFetch.journalEntries.delete({ journalEntryId: entryId });
+        await orpcFetch.journalEntries.delete({ id: entryId });
         await clientDb.journalEntries.delete(entryId);
       } catch (err: any) {
-        if (err?.status === 409) await this.handleConflict('journalEntries', record, err.serverData);
-        else console.error(`[SyncOrchestrator] Failed to delete entry ${entryId}`, err);
+        console.error(`[SyncOrchestrator] Failed to delete entry ${entryId}`, err);
       }
       return;
     }
@@ -202,11 +196,7 @@ export class SyncOrchestrator {
       }
       await this.handleSuccess('journalEntries', record, result);
     } catch (err: any) {
-      if (err?.status === 409) {
-        await this.handleConflict('journalEntries', record, err.data || err.serverData);
-      } else {
-        console.error(`[SyncOrchestrator] Backend sync failed for entry ${entryId}`, err);
-      }
+      console.error(`[SyncOrchestrator] Backend sync failed for entry ${entryId}`, err);
     }
   }
 
@@ -245,8 +235,8 @@ export class SyncOrchestrator {
     }
   }
 
-  private async handleSuccess(tableName: string, localRecord: any, serverRecord: any) {
-    const table = (clientDb as any)[tableName];
+  private async handleSuccess(tableName: TablesToSync, localRecord: any, serverRecord: any) {
+    const table = clientDb[tableName];
     const recordIdField = this.getRecordIdField(tableName);
     
     await table.put({
@@ -256,43 +246,19 @@ export class SyncOrchestrator {
     console.info(`[SyncOrchestrator] Successfully synced ${tableName}:${localRecord[recordIdField]}`);
   }
 
-  private async handleConflict(tableName: string, localRecord: any, serverRecord: any) {
-    console.warn(`[SyncOrchestrator] Conflict detected for ${tableName}:${localRecord[this.getRecordIdField(tableName)]}`);
-    
-    const recordIdField = this.getRecordIdField(tableName);
-    const recordId = localRecord[recordIdField];
-
-    // 1. Save local version to conflicts table
-    await clientDb.syncConflicts.add({
-      tableName,
-      recordId: String(recordId),
-      localData: localRecord,
-      serverData: serverRecord,
-      conflictedAt: Date.now()
-    });
-
-    // 2. Overwrite main table with server version (resolves conflict locally)
-    const table = (clientDb as any)[tableName];
-    await table.put({
-      ...serverRecord,
-      _pendingAction: null,
-      clientUpdatedAt: serverRecord.updatedAt
-    });
-  }
-
-  private getRecordIdField(tableName: string): string {
+  private getRecordIdField(tableName: TablesToSync): string {
     switch (tableName) {
-      case 'journalEntries': return 'journalEntryId';
-      case 'prompts': return 'promptId';
-      case 'teamsApp': return 'teamAppId';
-      case 'teamMembers': return 'teamMemberId';
+      case 'journalEntries': return 'id';
+      case 'prompts': return 'id';
+      case 'teamsApp': return 'id';
+      case 'teamMembers': return 'id';
       default: return 'id';
     }
   }
 
-  private async pushToBackend(tableName: string, action: 'create' | 'update', record: any) {
+  private async pushToBackend(tableName: TablesToSync, action: 'create' | 'update', record: any) {
     // This is a placeholder for actual oRPC calls per table
-    // For now, we only have promptId/teamId as relevant fields
+    // For now, we only have id/teamId as relevant fields
     if (tableName === 'journalEntries') {
        // Handled in orchestrateJournalEntry
        return;
@@ -303,7 +269,7 @@ export class SyncOrchestrator {
 
   private async pushDeleteToBackend(tableName: string, record: any) {
     if (tableName === 'journalEntries') {
-      return await orpcFetch.journalEntries.delete({ journalEntryId: record.journalEntryId });
+      return await orpcFetch.journalEntries.delete({ id: record.id });
     }
     throw new Error(`Delete handler not implemented for ${tableName}`);
   }

@@ -30,9 +30,7 @@ export class PromptsDBManager {
   }
 
   async getRandomActive(teamId: string | null = null) {
-    const query = teamId 
-      ? clientDb.prompts.where("teamId").equals(teamId).and(p => !p.deletedAt)
-      : clientDb.prompts.filter(p => !p.teamId && !p.deletedAt);
+    const query = clientDb.prompts.filter(p => !p.deletedAt);
     
     const active = await query.toArray();
     

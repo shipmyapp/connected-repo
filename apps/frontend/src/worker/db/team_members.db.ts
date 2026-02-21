@@ -21,7 +21,7 @@ export class TeamMembersDBManager {
   }
 
   async wipeByTeamAppId(teamAppId: string) {
-    await clientDb.teamMembers.where("teamAppId").equals(teamAppId).delete();
+    await clientDb.teamMembers.where("teamId").equals(teamAppId).delete();
     notifySubscribers("teamMembers");
   }
 }

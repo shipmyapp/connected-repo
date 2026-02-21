@@ -7,7 +7,6 @@ import type { StoredFile, SyncMetadata, SyncConflict, PendingAction, JournalEntr
 // --- Database Table Types with Sync Metadata ---
 export type WithSync<T> = T & {
   _pendingAction?: PendingAction | null;
-  clientUpdatedAt?: number;
 } & Partial<JournalEntrySyncMetadata>;
 
 export class ClientDatabase extends Dexie {
@@ -17,46 +16,19 @@ export class ClientDatabase extends Dexie {
   teamsApp!: Table<WithSync<TeamAppSelectAll>, string>;
   teamMembers!: Table<WithSync<TeamAppMemberSelectAll>, string>;
   syncMetadata!: Table<SyncMetadata, string>;
-  syncConflicts!: Table<SyncConflict, number>;
 
   constructor() {
     super("app_db_v1");
 
-    // Version 1 (Legacy)
-    this.version(1).stores({
-      journalEntries: "journalEntryId, teamId, createdAt, updatedAt, [teamId+createdAt]",
-      prompts: "promptId, teamId, text, updatedAt, [teamId+updatedAt]",
-      pendingSyncJournalEntries: "journalEntryId, teamId, createdAt, updatedAt, [teamId+createdAt]",
-      files: "fileId, pendingSyncId, mimeType, status, thumbnailStatus, teamId",
-      teams: null,
-      teamsApp: "teamAppId, name, updatedAt",
-      teamMembers: "teamMemberId, teamAppId, userId, email, updatedAt",
-    });
-
     // Version 2 (Event-Driven Sync)
     this.version(2).stores({
-      journalEntries: "journalEntryId, teamId, createdAt, updatedAt, clientUpdatedAt, _pendingAction, [teamId+createdAt]",
-      prompts: "promptId, teamId, text, updatedAt, clientUpdatedAt, _pendingAction, [teamId+updatedAt]",
+      journalEntries: "id, teamId, createdAt, updatedAt, clientUpdatedAt, _pendingAction, [teamId+createdAt]",
+      prompts: "id, teamId, text, updatedAt, clientUpdatedAt, _pendingAction, [teamId+updatedAt]",
       files: "fileId, pendingSyncId, mimeType, status, thumbnailStatus, teamId",
-      teamsApp: "teamAppId, name, updatedAt, clientUpdatedAt, _pendingAction",
-      teamMembers: "teamMemberId, teamAppId, userId, email, updatedAt, clientUpdatedAt, _pendingAction",
+      teamsApp: "id, name, updatedAt, clientUpdatedAt, _pendingAction",
+      teamMembers: "id, id, userId, email, updatedAt, clientUpdatedAt, _pendingAction",
       syncMetadata: "tableName",
-      syncConflicts: "++conflictId, tableName, recordId, conflictedAt",
-      pendingSyncJournalEntries: null, // Delete legacy table
-    }).upgrade(async (trans: Transaction) => {
-      // Migration: Move legacy pending entries to journalEntries
-      const legacyPending = trans.table("pendingSyncJournalEntries");
-      const mainEntries = trans.table("journalEntries");
-      
-      const pendingItems = await legacyPending.toArray();
-      for (const item of pendingItems) {
-        await mainEntries.put({
-          ...item,
-          _pendingAction: 'create',
-          clientUpdatedAt: item.updatedAt || Date.now()
-        });
-      }
-    });
+    })
 
     /**
      * Future migrations strategy:
@@ -89,12 +61,12 @@ export const subscribe = (callback: (table: AppDbTable) => void) => {
   return () => subscribers.delete(callback);
 };
 
-export const wipeTeamData = async (teamAppId: string) => {
-  console.warn(`[DBManager] PERMANENTLY WIPING all data for team: ${teamAppId}`);
+export const wipeTeamData = async (teamId: string) => {
+  console.warn(`[DBManager] PERMANENTLY WIPING all data for team: ${teamId}`);
   
   const { journalEntriesDb } = await import("../../modules/journal-entries/worker/journal-entries.db");
   const { teamsAppDb } = await import("./teams_app.db");
   
-  await journalEntriesDb.wipeByTeamAppId(teamAppId);
-  await teamsAppDb.wipeByTeamAppId(teamAppId);
+  await journalEntriesDb.wipeByTeamAppId(teamId);
+  await teamsAppDb.wipeByTeamAppId(teamId);
 };

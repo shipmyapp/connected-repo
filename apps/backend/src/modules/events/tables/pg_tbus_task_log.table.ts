@@ -9,7 +9,7 @@ export class PgTbusTaskLogTable extends BaseTable {
 
   columns = this.setColumns(
     (t) => ({
-      pgTbusTaskLogId: t.ulid().primaryKey(),
+      pgTbusTaskLogId: t.ulidWithDefault().primaryKey(),
 
       // pg-tbus correlation
       tbusTaskId: t.uuid().nullable(), // pg-tbus internal task ID
