@@ -212,7 +212,7 @@ export function SyncedEntriesList({ viewMode, teamId: propTeamId, excludeUserId 
 						/>
 					) : (
 						<JournalEntryTableView 
-							entries={entries as any} 
+							entries={entries} 
 							onEntryClick={(entryId: string) => navigate(teamId ? `/teams/${teamId}/journal-entries/synced/${entryId}` : `/journal-entries/synced/${entryId}`)}
 						/>
 					)}

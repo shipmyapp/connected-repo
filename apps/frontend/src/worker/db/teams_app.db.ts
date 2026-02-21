@@ -27,6 +27,7 @@ export class TeamsAppDBManager {
       const teamMember = teamMembers.find((teamMember) => teamMember.teamAppId === teamApp.teamAppId);
       return {
         ...teamApp,
+        joinedAt: teamMember?.joinedAt,
         userRole: teamMember?.role,
       };
     });

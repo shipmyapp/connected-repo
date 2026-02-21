@@ -49,7 +49,7 @@ const startDeferredTasks = () => {
 };
 
 if ('requestIdleCallback' in window) {
-  (window as any).requestIdleCallback(() => startDeferredTasks());
+  window.requestIdleCallback(() => startDeferredTasks());
 } else {
   setTimeout(startDeferredTasks, 2000); // Fallback for browsers without idle support
 }

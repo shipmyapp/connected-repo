@@ -39,7 +39,7 @@ export function WorkspaceProvider({ children, sessionInfo: propSessionInfo }: Wo
 	// This hook listens to "teamsApp" updates.
 	const { data: teams = [], isLoading, refetch } = useLocalDb<Team>(
 		"teamsApp",
-		() => {
+		async () => {
 			if (!sessionInfo?.user?.id) return Promise.resolve([]);
 			return getDataProxy().teamsAppDb.getAllWithRole(sessionInfo.user.id).then(res => (res as Team[]) || []);
 		},
@@ -119,8 +119,8 @@ export function WorkspaceProvider({ children, sessionInfo: propSessionInfo }: Wo
 		if (!hasSaved && activeWorkspace.id === personalWorkspace.id) {
 			// Auto-select latest joined team if nothing is saved
 			const sortedTeams = [...teams].sort((a, b) => {
-				const timeA = (a as any).joinedAt || 0;
-				const timeB = (b as any).joinedAt || 0;
+				const timeA = a.joinedAt || 0;
+				const timeB = b.joinedAt || 0;
 				return timeB - timeA;
 			});
 			

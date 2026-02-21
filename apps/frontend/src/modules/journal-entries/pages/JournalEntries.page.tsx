@@ -130,12 +130,12 @@ export default function JournalEntriesPage() {
                         <Collapse in={isPendingExpanded}>
                             {viewMode === "card" ? (
                                 <JournalEntryCardView 
-                                    entries={pendingEntries as any} 
+                                    entries={pendingEntries} 
                                     onEntryClick={(entryId: string) => navigate(teamId ? `/teams/${teamId}/journal-entries/synced/${entryId}` : `/journal-entries/synced/${entryId}`)}
                                 />
                             ) : (
                                 <JournalEntryTableView 
-                                    entries={pendingEntries as any} 
+                                    entries={pendingEntries} 
                                     onEntryClick={(entryId: string) => navigate(teamId ? `/teams/${teamId}/journal-entries/synced/${entryId}` : `/journal-entries/synced/${entryId}`)}
                                 />
                             )}

@@ -66,7 +66,7 @@ export class JournalEntriesDBManager {
       const result = await orpcFetch.journalEntries.update({
         ...existing,
         ...updates
-      } as any);
+      });
 
       // 2. Local Update on Success
       await clientDb.transaction("rw", clientDb.journalEntries, async () => {

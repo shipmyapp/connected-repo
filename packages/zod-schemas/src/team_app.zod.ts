@@ -60,6 +60,7 @@ export const teamAppMemberRoleZod = teamMemberRoleZod;
 export type TeamAppMemberRole = z.infer<typeof teamAppMemberRoleZod>;
 
 export const teamWithRoleZod = teamAppSelectAllZod.extend({
+  joinedAt: zTimeEpoch.nullable(),
   userRole: teamMemberRoleZod,
 });
 export type TeamWithRole = z.infer<typeof teamWithRoleZod>;

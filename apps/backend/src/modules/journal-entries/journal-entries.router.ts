@@ -77,6 +77,7 @@ const update = rpcProtectedProcedure
 		
 		const updatedJournalEntry = await db.journalEntries
 			.find(journalEntryId)
+			.selectAll()
 			.where({ authorUserId: user.id })
 			.update(updates);
 

@@ -23,10 +23,11 @@ const getMyTeams = rpcProtectedProcedure
 		const teamsWithRoles = await db.teamsApp
 			.join("members")
 			.where({ "members.userId": userId })
-			.select("*", "members.role");
+			.select("*", "members.joinedAt", "members.role");
 
 		return teamsWithRoles.map(t => ({
 			...t,
+			joinedAt: t.joinedAt,
 			userRole: t.role
 		}));
 	});

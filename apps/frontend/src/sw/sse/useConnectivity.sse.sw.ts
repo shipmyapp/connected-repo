@@ -141,8 +141,7 @@ export function useConnectivity(userId?: string) {
 
 	const reconnect = useCallback(async () => {
 		try {
-			const proxy = await getSWProxy();
-			const sw = proxy as any;
+			const sw = await getSWProxy();
 			await sw.reconnect();
 		} catch (err) {
 			console.error('[Connectivity] Failed to trigger reconnect:', err);
