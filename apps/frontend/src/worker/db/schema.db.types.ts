@@ -14,7 +14,7 @@ export interface StoredFile {
   teamId?: string | null;
 }
 
-export type PendingAction = 'create' | 'update' | 'delete';
+export type PendingAction = 'create';
 
 export interface SyncMetadata {
   tableName: string;
@@ -22,14 +22,6 @@ export interface SyncMetadata {
   cursorId: string | null;
 }
 
-export interface SyncConflict {
-  conflictId?: number; // Auto-increment
-  tableName: string;
-  recordId: string;
-  localData: any;
-  serverData: any;
-  conflictedAt: number;
-}
 
 export interface JournalEntrySyncMetadata {
   status?: "file-upload-pending" | "file-upload-in-progress" | "file-upload-completed" | "file-upload-failed" | "syncing" | "synced" | "sync-failed";

@@ -6,7 +6,7 @@ import { orpcFetch } from "../../utils/orpc.client";
 import type { JournalEntrySelectAll } from "@connected-repo/zod-schemas/journal_entry.zod";
 import type { StoredFile } from "../db/schema.db.types";
 import { SSE_MESSAGES_CHANNEL, type SseMessage } from "../../configs/channels.config";
-import { TablesToSync } from "@connected-repo/zod-schemas/enums.zod";
+import { TABLES_TO_SYNC_ENUM, TablesToSync } from "@connected-repo/zod-schemas/enums.zod";
 
 export class SyncOrchestrator {
   private isProcessing = false;
@@ -50,13 +50,7 @@ export class SyncOrchestrator {
       console.debug("[SyncOrchestrator] Starting sync scan...");
       
       // We process tables in order of dependency if any, but mostly concurrent is fine
-      await Promise.all([
-        this.syncTable('journalEntries'),
-        this.syncTable('teamsApp'),
-        this.syncTable('teamMembers'),
-        // Prompts are usually server-to-client, but we check for consistency
-        this.syncTable('prompts')
-      ]);
+      await Promise.all(TABLES_TO_SYNC_ENUM.map((tableName) => this.syncTable(tableName)));
 
     } catch (err) {
       console.error("[SyncOrchestrator] Global sync error:", err);
@@ -97,41 +91,18 @@ export class SyncOrchestrator {
   private async syncRecord(tableName: TablesToSync, record: any) {
     const action = record._pendingAction;
     
-    // Special handling for journalEntries due to media
+    // Only journalEntries currently support offline-first creation
     if (tableName === 'journalEntries') {
       await this.orchestrateJournalEntry(record);
       return;
     }
 
-    // Generic sync for other tables (simplified for this task)
-    // In a real app, prompts/teams might have different endpoints
-    try {
-      if (action === 'create' || action === 'update') {
-        const result = await this.pushToBackend(tableName, action, record);
-        await this.handleSuccess(tableName, record, result);
-      } else if (action === 'delete') {
-        await this.pushDeleteToBackend(tableName, record);
-        const table = clientDb[tableName];
-        await table.where("id").equals(record.id).delete();
-      }
-    } catch (err: any) {
-      throw err;
-    }
+    console.warn(`[SyncOrchestrator] No sync handler for table: ${tableName}`);
   }
 
   private async orchestrateJournalEntry(record: any) {
     const entryId = record.id;
     const action = record._pendingAction;
-
-    if (action === 'delete') {
-      try {
-        await orpcFetch.journalEntries.delete({ id: entryId });
-        await clientDb.journalEntries.delete(entryId);
-      } catch (err: any) {
-        console.error(`[SyncOrchestrator] Failed to delete entry ${entryId}`, err);
-      }
-      return;
-    }
 
     // Handle Media first
     const files = await filesDb.getFilesByPendingSyncId(entryId);
@@ -184,12 +155,6 @@ export class SyncOrchestrator {
       let result;
       if (action === 'create') {
         result = await orpcFetch.journalEntries.create({
-          ...record,
-          attachmentUrls: validUrls
-        });
-      } else {
-        // @ts-ignore - update procedure recently added to backend, types might not be synced yet
-        result = await orpcFetch.journalEntries.update({
           ...record,
           attachmentUrls: validUrls
         });
@@ -256,23 +221,7 @@ export class SyncOrchestrator {
     }
   }
 
-  private async pushToBackend(tableName: TablesToSync, action: 'create' | 'update', record: any) {
-    // This is a placeholder for actual oRPC calls per table
-    // For now, we only have id/teamId as relevant fields
-    if (tableName === 'journalEntries') {
-       // Handled in orchestrateJournalEntry
-       return;
-    }
-    // Generic fallback or specific handlers for other tables
-    throw new Error(`Push handler not implemented for ${tableName}`);
-  }
 
-  private async pushDeleteToBackend(tableName: string, record: any) {
-    if (tableName === 'journalEntries') {
-      return await orpcFetch.journalEntries.delete({ id: record.id });
-    }
-    throw new Error(`Delete handler not implemented for ${tableName}`);
-  }
 }
 
 export const syncOrchestrator = new SyncOrchestrator();

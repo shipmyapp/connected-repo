@@ -148,15 +148,14 @@ export class JournalEntriesDBManager {
       ? clientDb.journalEntries.where("teamId").equals(teamId)
       : clientDb.journalEntries.filter(e => !e.teamId);
 
-    // Filter out items marked for deletion
+    // Simplified query as items are no longer marked for deletion
     return await baseQuery
-      .filter(e => e._pendingAction !== 'delete')
       .reverse()
       .toArray();
   }
 
   async getAllUnscoped() {
-    return await clientDb.journalEntries.filter(e => e._pendingAction !== 'delete').reverse().toArray();
+    return await clientDb.journalEntries.reverse().toArray();
   }
 
   async getPaginated(offset: number, limit: number, teamId: string | null = null) {
@@ -193,16 +192,16 @@ export class JournalEntriesDBManager {
 
   async countPending(teamId: string | null = null) {
     if (teamId) {
-      return await clientDb.journalEntries.where("teamId").equals(teamId).filter(e => !!e._pendingAction && e._pendingAction !== 'delete').count();
+      return await clientDb.journalEntries.where("teamId").equals(teamId).filter(e => !!e._pendingAction).count();
     }
-    return await clientDb.journalEntries.filter(e => !e.teamId && !!e._pendingAction && e._pendingAction !== 'delete').count();
+    return await clientDb.journalEntries.filter(e => !e.teamId && !!e._pendingAction).count();
   }
 
   async getPending(teamId: string | null = null) {
     if (teamId) {
-      return await clientDb.journalEntries.where("teamId").equals(teamId).filter(e => !!e._pendingAction && e._pendingAction !== 'delete').reverse().toArray();
+      return await clientDb.journalEntries.where("teamId").equals(teamId).filter(e => !!e._pendingAction).reverse().toArray();
     }
-    return await clientDb.journalEntries.filter(e => !e.teamId && !!e._pendingAction && e._pendingAction !== 'delete').reverse().toArray();
+    return await clientDb.journalEntries.filter(e => !e.teamId && !!e._pendingAction).reverse().toArray();
   }
 
   async wipeByTeamAppId(teamAppId: string) {
