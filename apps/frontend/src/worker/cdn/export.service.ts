@@ -1,29 +1,49 @@
-import type { JournalEntrySelectAll } from "@connected-repo/zod-schemas/journal_entry.zod";
 import pdfMake from "pdfmake/build/pdfmake";
 import type { TDocumentDefinitions, Content } from "pdfmake/interfaces";
+import type { JournalEntrySelectAll } from "@connected-repo/zod-schemas/journal_entry.zod";
 
 export class ExportService {
   private pdfMakeInstance: any = null;
 
   /**
-   * Lazily initializes pdfMake with vfs fonts.
+   * Lazily initializes pdfMake with system fonts.
    */
   private async ensureInitialized() {
     if (this.pdfMakeInstance) return;
 
-    console.info("[ExportService] Initializing pdfMake and fonts...");
+    console.info("[ExportService] Initializing pdfMake with system fonts...");
     try {
-      const pdfFonts = await import("pdfmake/build/vfs_fonts");
-      
-      // Handle ESM default export or direct export
-      const instance = (pdfMake as any).default || pdfMake;
-      const vfs = (pdfFonts as any).default?.pdfMake?.vfs || (pdfFonts as any).pdfMake?.vfs;
-      
-      if (!vfs) {
-        throw new Error("Could not find vfs in vfs_fonts");
-      }
+      const instance = pdfMake;
 
-      instance.vfs = vfs;
+      // Map standard PDF fonts
+      instance.fonts = {
+        // Standard PDF fonts (Built-in)
+        Helvetica: {
+          normal: "Helvetica",
+          bold: "Helvetica-Bold",
+          italics: "Helvetica-Oblique",
+          bolditalics: "Helvetica-BoldOblique"
+        },
+        // Times: {
+        //   normal: "Times-Roman",
+        //   bold: "Times-Bold",
+        //   italics: "Times-Italic",
+        //   bolditalics: "Times-BoldItalic"
+        // },
+        // Courier: {
+        //   normal: "Courier",
+        //   bold: "Courier-Bold",
+        //   italics: "Courier-Oblique",
+        //   bolditalics: "Courier-BoldOblique"
+        // },
+        // Symbol: {
+        //   normal: "Symbol"
+        // },
+        // ZapfDingbats: {
+        //   normal: "ZapfDingbats"
+        // }
+      };
+
       this.pdfMakeInstance = instance;
       console.info("[ExportService] Initialization complete.");
     } catch (err) {
@@ -110,7 +130,7 @@ export class ExportService {
         }
 
         const attachments = (entry.attachmentUrls || [])
-          .map(([url]) => url.split('/').pop())
+          .map(([url]) => url.split("/").pop())
           .join(", ");
 
         tableBody.push([
@@ -125,7 +145,7 @@ export class ExportService {
       console.info("[ExportService] PDF: Table body generated. Creating document...");
 
       const docDefinition: TDocumentDefinitions = {
-        pageOrientation: 'landscape',
+        pageOrientation: "landscape",
         content: [
           { text: "Journal Entries Export", style: "header" },
           { text: `Exported on: ${this.formatDate(new Date())}`, style: "subtitle" },
@@ -152,13 +172,16 @@ export class ExportService {
             bold: true,
             fontSize: 12,
             color: "black",
-            fillColor: '#eeeeee'
+            fillColor: "#eeeeee"
           }
         },
         defaultStyle: {
+          font: "Helvetica",
           fontSize: 10
         }
+
       };
+
 
       console.info("[ExportService] PDF: Calling createPdf...");
 
