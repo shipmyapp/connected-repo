@@ -7,7 +7,7 @@ import type { StoredFile, SyncMetadata, SyncConflict, PendingAction, JournalEntr
 // --- Database Table Types with Sync Metadata ---
 export type WithSync<T> = T & {
   _pendingAction?: PendingAction | null;
-  clientUpdatedAt: number;
+  clientUpdatedAt?: number;
 } & Partial<JournalEntrySyncMetadata>;
 
 export class ClientDatabase extends Dexie {

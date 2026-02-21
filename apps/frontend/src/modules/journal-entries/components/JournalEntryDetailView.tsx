@@ -80,7 +80,7 @@ export function JournalEntryDetailView({
 			await onDelete();
 			navigate("/journal-entries", { replace: true });
 		} catch (error) {
-			setDeleteError("Failed to delete journal entry. Please try again.");
+			setDeleteError(error instanceof Error ? error.message : "Failed to delete journal entry. Please try again.");
 		}
 	};
 

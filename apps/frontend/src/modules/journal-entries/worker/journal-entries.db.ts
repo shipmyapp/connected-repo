@@ -10,7 +10,6 @@ export class JournalEntriesDBManager {
     const data: WithSync<JournalEntrySelectAll> = {
       ...journalEntrySelectAllZod.parse(entry),
       _pendingAction: null,
-      clientUpdatedAt: entry.updatedAt, // Sync with server updatedAt
     };
     
     await clientDb.journalEntries.put(data);
@@ -26,7 +25,6 @@ export class JournalEntriesDBManager {
     const data: WithSync<JournalEntrySelectAll>[] = entries.map(entry => ({
       ...entry,
       _pendingAction: null,
-      clientUpdatedAt: entry.updatedAt,
     }));
 
     await clientDb.journalEntries.bulkPut(data);
@@ -35,23 +33,54 @@ export class JournalEntriesDBManager {
 
   /**
    * LOCAL Update (User edit)
-   * Constraint: DO NOT change updatedAt. Update clientUpdatedAt only.
+   * Enforces Online-Only for synced records.
    */
   async handleLocalUpdate(id: string, updates: Partial<JournalEntrySelectAll>) {
-    await clientDb.transaction("rw", clientDb.journalEntries, async () => {
-      const existing = await clientDb.journalEntries.get(id);
-      if (!existing) return;
+    const existing = await clientDb.journalEntries.get(id);
+    if (!existing) {
+      throw new Error(`Entry with id ${id} not found.`);
+    }
 
-      const updated: WithSync<JournalEntrySelectAll> = {
+    // If it's a new unsynced record, we allow offline-first logic
+    if (existing._pendingAction === 'create') {
+      await clientDb.transaction("rw", clientDb.journalEntries, async () => {
+        const updated: WithSync<JournalEntrySelectAll> = {
+          ...existing,
+          ...updates,
+          _pendingAction: 'create',
+        };
+        await clientDb.journalEntries.put(updated);
+      });
+      notifySubscribers("journalEntries");
+      return;
+    }
+
+    // For already-synced records, we MUST be online
+    if (!navigator.onLine) {
+      throw new Error("Offline: Edits to synced entries require an internet connection.");
+    }
+
+    try {
+      // 1. Immediate API Call
+      const orpcFetch = (await import("../../../utils/orpc.client")).orpcFetch;
+      const result = await orpcFetch.journalEntries.update({
         ...existing,
-        ...updates,
-        _pendingAction: existing._pendingAction === 'create' ? 'create' : 'update',
-        clientUpdatedAt: Date.now(),
-      };
+        ...updates
+      } as any);
 
-      await clientDb.journalEntries.put(updated);
-    });
-    notifySubscribers("journalEntries");
+      // 2. Local Update on Success
+      await clientDb.transaction("rw", clientDb.journalEntries, async () => {
+        const data: WithSync<JournalEntrySelectAll> = {
+          ...result,
+          _pendingAction: null,
+        };
+        await clientDb.journalEntries.put(data);
+      });
+      notifySubscribers("journalEntries");
+    } catch (err) {
+      console.error("[JournalEntriesDB] Online update failed:", err);
+      throw err;
+    }
   }
 
   /**
@@ -61,7 +90,6 @@ export class JournalEntriesDBManager {
     const data: WithSync<JournalEntrySelectAll> = {
       ...entry,
       _pendingAction: 'create',
-      clientUpdatedAt: Date.now(),
     };
     await clientDb.journalEntries.put(data);
     notifySubscribers("journalEntries");
@@ -72,23 +100,43 @@ export class JournalEntriesDBManager {
     notifySubscribers("journalEntries");
   }
 
+  /**
+   * LOCAL Delete
+   * Enforces Online-Only for synced records.
+   */
   async delete(id: string) {
-    await clientDb.transaction("rw", clientDb.journalEntries, async () => {
-      const existing = await clientDb.journalEntries.get(id);
-      if (existing) {
-        if (existing._pendingAction === 'create') {
-          // If never synced, just delete
-          await clientDb.journalEntries.delete(id);
-        } else {
-          // Mark for deletion on server
-          await clientDb.journalEntries.update(id, { 
-            _pendingAction: 'delete',
-            clientUpdatedAt: Date.now()
-          });
-        }
-      }
-    });
-    notifySubscribers("journalEntries");
+    const existing = await clientDb.journalEntries.get(id);
+    if (!existing) {
+      throw new Error(`Entry with id ${id} not found.`);
+    }
+
+    // If never synced (pending create), just delete locally immediately
+    if (existing._pendingAction === 'create') {
+      await clientDb.journalEntries.delete(id);
+      notifySubscribers("journalEntries");
+      return;
+    }
+
+    // For already-synced records, we MUST be online to delete
+    if (!navigator.onLine) {
+      throw new Error("Offline: Deleting synced entries requires an internet connection.");
+    }
+
+    try {
+      // 1. Immediate API Call to server
+      const orpcFetch = (await import("../../../utils/orpc.client")).orpcFetch;
+      await orpcFetch.journalEntries.delete({ 
+        journalEntryId: id,
+        teamId: existing.teamId || undefined 
+      });
+
+      // 2. Local Delete on server success
+      await clientDb.journalEntries.delete(id);
+      notifySubscribers("journalEntries");
+    } catch (err) {
+      console.error("[JournalEntriesDB] Online delete failed:", err);
+      throw err;
+    }
   }
 
   async getById(id: string) {

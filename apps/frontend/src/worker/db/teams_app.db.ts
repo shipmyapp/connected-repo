@@ -7,7 +7,6 @@ export class TeamsAppDBManager {
     const data: WithSync<TeamAppSelectAll>[] = teams.map(t => ({
       ...t,
       _pendingAction: null,
-      clientUpdatedAt: t.updatedAt,
     }));
     await clientDb.teamsApp.bulkPut(data);
     notifySubscribers("teamsApp");

@@ -879,6 +879,8 @@ cron.schedule('* * * * *', async () => {
 - ✅ **Cursor-based Delta Sync** - Implemented proper cursor pagination with cursorId/cursorUpdatedAt metadata per table in syncMetadata store
 - ✅ **SSE Manager Refactor** - Singleton pattern with sync metadata tracking, removed pending count checks, streamlined status transitions
 - ✅ **Journal Entry Update Support** - Added backend update endpoint and local handleLocalUpdate with pending action tracking
+- ✅ **Online-Only Synced Mutations** - Synced records require online connection for updates/deletes; only pending creates work offline
+- ✅ **Simplified Sync Model** - Removed required clientUpdatedAt field; synced records use server timestamps only
 - **Acceptance Criteria:**
   - ✅ IndexedDB initialized and working
   - ✅ Journal entries stored offline with file attachments

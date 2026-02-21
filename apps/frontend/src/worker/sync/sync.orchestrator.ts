@@ -252,7 +252,6 @@ export class SyncOrchestrator {
     await table.put({
       ...serverRecord,
       _pendingAction: null,
-      clientUpdatedAt: serverRecord.updatedAt
     });
     console.info(`[SyncOrchestrator] Successfully synced ${tableName}:${localRecord[recordIdField]}`);
   }

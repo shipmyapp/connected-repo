@@ -4,7 +4,13 @@ import * as Comlink from 'comlink';
 import { isDev } from '@frontend/configs/env.config';
 import { SSEManager } from './sse/sse.manager.sw';
 
-declare const self: ServiceWorkerGlobalScope;
+declare const self: ServiceWorkerGlobalScope & {
+  __WB_DISABLE_DEV_LOGS?: boolean;
+};
+
+if (isDev) {
+  self.__WB_DISABLE_DEV_LOGS = true;
+}
 
 console.info('[SW] Service Worker script executing...');
 

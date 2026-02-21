@@ -10,7 +10,6 @@ export class TeamMembersDBManager {
     const data: WithSync<TeamAppMemberSelectAll>[] = members.map(m => ({
       ...m,
       _pendingAction: null,
-      clientUpdatedAt: m.updatedAt,
     }));
     await clientDb.teamMembers.bulkPut(data);
     notifySubscribers("teamMembers");

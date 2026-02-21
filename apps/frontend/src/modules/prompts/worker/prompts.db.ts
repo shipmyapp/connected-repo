@@ -11,7 +11,6 @@ export class PromptsDBManager {
     const data: WithSync<PromptSelectAll>[] = prompts.map(p => ({
       ...p,
       _pendingAction: null,
-      clientUpdatedAt: p.updatedAt,
     }));
     await clientDb.prompts.bulkPut(data);
     notifySubscribers("prompts");
@@ -21,7 +20,6 @@ export class PromptsDBManager {
     const data: WithSync<PromptSelectAll> = {
       ...prompt,
       _pendingAction: null,
-      clientUpdatedAt: prompt.updatedAt,
     };
     await clientDb.prompts.put(data);
     notifySubscribers("prompts");
