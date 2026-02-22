@@ -33,6 +33,24 @@ export default function JournalEntriesPage() {
 	const { data: pendingCount, isLoading: pendingLoading } = useLocalDbValue("journalEntries", () => getDataProxy().journalEntriesDb.countPending(teamId), 0, [teamId]);
 
 	const { data: pendingEntries = [] } = useLocalDb("journalEntries", () => getDataProxy().journalEntriesDb.getPending(teamId), [teamId]);
+    const pendingEntryIds = pendingEntries.map(e => e.id);
+
+    // Fetch attachments for pending entries
+    const { data: pendingFiles = [] } = useLocalDb("files", () => 
+        getDataProxy().filesDb.getFilesByTableIds(pendingEntryIds),
+        [pendingEntryIds.join(',')]
+    );
+
+    // Group files by tableId
+    const pendingAttachmentsMap = React.useMemo(() => {
+        const map: Record<string, any[]> = {};
+        pendingFiles.forEach(f => {
+            const list = map[f.tableId] || [];
+            list.push(f);
+            map[f.tableId] = list;
+        });
+        return map;
+    }, [pendingFiles]);
 
 	const isLoading = syncLoading || pendingLoading;
 	const totalCount = synchronizedCount + pendingCount;
@@ -132,11 +150,13 @@ export default function JournalEntriesPage() {
                                 <JournalEntryCardView 
                                     entries={pendingEntries} 
                                     onEntryClick={(entryId: string) => navigate(teamId ? `/teams/${teamId}/journal-entries/synced/${entryId}` : `/journal-entries/synced/${entryId}`)}
+                                    attachments={pendingAttachmentsMap}
                                 />
                             ) : (
                                 <JournalEntryTableView 
                                     entries={pendingEntries} 
                                     onEntryClick={(entryId: string) => navigate(teamId ? `/teams/${teamId}/journal-entries/synced/${entryId}` : `/journal-entries/synced/${entryId}`)}
+                                    attachments={pendingAttachmentsMap}
                                 />
                             )}
                         </Collapse>

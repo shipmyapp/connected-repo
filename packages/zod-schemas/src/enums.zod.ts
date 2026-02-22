@@ -21,6 +21,14 @@ export const API_REQUEST_METHOD_ENUM = ["GET", "POST", "PUT", "DELETE"] as const
 export const apiRequestMethodZod = z.enum(API_REQUEST_METHOD_ENUM);
 export type ApiRequestMethod = z.infer<typeof apiRequestMethodZod>;
 
+export const FILE_TABLE_NAME_ENUM = ["journalEntries"] as const;
+export const fileTableNameZod = z.enum(FILE_TABLE_NAME_ENUM);
+export type FileTableName = z.infer<typeof fileTableNameZod>;
+
+export const FILE_TYPE_ENUM = ["attachment"] as const;
+export const fileTypeZod = z.enum(FILE_TYPE_ENUM);
+export type FileType = z.infer<typeof fileTypeZod>;
+
 export const TEAM_MEMBER_ROLE_ENUM = ["Owner", "Admin", "Member"] as const;
 export const teamMemberRoleZod = z.enum(TEAM_MEMBER_ROLE_ENUM);
 export type TeamMemberRole = z.infer<typeof teamMemberRoleZod>;
@@ -37,6 +45,6 @@ export const PG_TBUS_TASK_STATUS_ENUM = ["pending", "active", "completed", "fail
 export const pgTbusTaskStatusZod = z.enum(PG_TBUS_TASK_STATUS_ENUM);
 export type PgTbusTaskStatus = z.infer<typeof pgTbusTaskStatusZod>;
 
-export const TABLES_TO_SYNC_ENUM = ["teamsApp", "teamMembers", "journalEntries", "prompts"] as const;
+export const TABLES_TO_SYNC_ENUM = ["teamsApp", "teamMembers", "journalEntries", "files", "prompts"] as const;
 export const tablesToSyncZod = z.enum(TABLES_TO_SYNC_ENUM);
 export type TablesToSync = z.infer<typeof tablesToSyncZod>;

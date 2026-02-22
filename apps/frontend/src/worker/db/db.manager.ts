@@ -2,6 +2,7 @@ import Dexie, { type Table, type Transaction } from "dexie";
 import type { JournalEntrySelectAll } from "@connected-repo/zod-schemas/journal_entry.zod";
 import type { TeamAppMemberSelectAll, TeamAppSelectAll } from "@connected-repo/zod-schemas/team_app.zod";
 import type { PromptSelectAll } from "@connected-repo/zod-schemas/prompt.zod";
+import type { FileSelectAll } from "@connected-repo/zod-schemas/file.zod";
 import type { StoredFile, SyncMetadata, PendingAction, JournalEntrySyncMetadata } from "./schema.db.types";
 
 // --- Database Table Types with Sync Metadata ---
@@ -24,7 +25,7 @@ export class ClientDatabase extends Dexie {
     this.version(2).stores({
       journalEntries: "id, teamId, createdAt, updatedAt, clientUpdatedAt, _pendingAction, [teamId+createdAt]",
       prompts: "id, teamId, text, updatedAt, clientUpdatedAt, _pendingAction, [teamId+updatedAt]",
-      files: "fileId, pendingSyncId, mimeType, status, thumbnailStatus, teamId",
+      files: "id, tableId, tableName, type, _status, _thumbnailStatus, teamId, updatedAt, _pendingAction",
       teamsApp: "id, name, updatedAt, clientUpdatedAt, _pendingAction",
       teamMembers: "id, id, userId, email, updatedAt, clientUpdatedAt, _pendingAction",
       syncMetadata: "tableName",

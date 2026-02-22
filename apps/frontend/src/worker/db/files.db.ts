@@ -3,37 +3,39 @@ import type { StoredFile } from "./schema.db.types";
 
 export class FilesDBManager {
   /**
-   * Stores a file blob in IndexedDB.
+   * Stores a file blob in IndexedDB for local use/sync.
    */
-  async upsert(fileId: string, pendingSyncId: string, blob: Blob, fileName: string, teamId: string | null = null) {
+  async upsertLocal(file: Omit<StoredFile, '_status' | '_error' | '_errorCount'>) {
     await clientDb.files.put({
-      fileId,
-      pendingSyncId,
-      blob,
-      fileName,
-      mimeType: blob.type,
-      createdAt: Date.now(),
-      status: "pending",
-      error: "",
-      errorCount: 0,
-      teamId,
-    });
+      ...file,
+      _status: "pending",
+      _error: "",
+      _errorCount: 0,
+    } as StoredFile);
+    notifySubscribers("files");
+  }
+
+  /**
+   * Bulk upsert for sync from backend.
+   */
+  async bulkUpsert(files: any[]) {
+    await clientDb.files.bulkPut(files);
     notifySubscribers("files");
   }
 
   /**
    * Updates specific fields of a stored file.
    */
-  async update(fileId: string, updates: Partial<StoredFile>) {
-    await clientDb.files.update(fileId, updates);
+  async update(id: string, updates: Partial<StoredFile>) {
+    await clientDb.files.update(id, updates);
     notifySubscribers("files");
   }
 
   /**
    * Retrieves a file from storage.
    */
-  get(fileId: string) {
-    return clientDb.files.get(fileId);
+  get(id: string) {
+    return clientDb.files.get(id);
   }
 
   /**
@@ -44,23 +46,37 @@ export class FilesDBManager {
   }
 
   /**
-   * Retrieves all files linked to a specific pending sync entry.
+   * Retrieves all files linked to a specific table record.
    */
-  getFilesByPendingSyncId(pendingSyncId: string) {
-    return clientDb.files.where("pendingSyncId").equals(pendingSyncId).toArray();
+  getFilesByTableId(tableId?: string) {
+    if (!tableId) return [];
+    return clientDb.files.where("tableId").equals(tableId).toArray();
   }
 
   /**
-   * Deletes all files linked to a specific pending sync entry.
+   * Retrieves all files linked to any of the provided table record IDs.
    */
-  async deleteFilesByPendingSyncId(pendingSyncId: string) {
-    await clientDb.files.where("pendingSyncId").equals(pendingSyncId).delete();
+  async getFilesByTableIds(tableIds: string[]) {
+    if (tableIds.length === 0) return [];
+    return clientDb.files.where("tableId").anyOf(tableIds).toArray();
+  }
+
+  /**
+   * Deletes all files linked to a specific table record.
+   */
+  async deleteFilesByTableId(tableId: string) {
+    await clientDb.files.where("tableId").equals(tableId).delete();
     notifySubscribers("files");
   }
 
-  async bulkDeleteFilesByPendingSyncIds(pendingSyncIds: string[]) {
-    await clientDb.files.where("pendingSyncId").anyOf(pendingSyncIds).delete();
+  async bulkDelete(ids: string[]) {
+    await clientDb.files.bulkDelete(ids);
     notifySubscribers("files");
+  }
+
+  async getAll(teamId?: string | null) {
+    if (teamId === undefined) return clientDb.files.toArray();
+    return clientDb.files.where("teamId").equals(teamId || "").toArray();
   }
 }
 

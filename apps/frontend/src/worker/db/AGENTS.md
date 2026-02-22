@@ -40,13 +40,20 @@
 * **Status Fields:**
   - Journal entries: `'file-upload-pending' | 'file-upload-completed' | 'synced' | 'failed'`
   - Files: `'pending' | 'in-progress' | 'completed' | 'failed'`
-  - Thumbnails: `'pending' | 'in-progress' | 'completed' | 'failed'`
+
+* **Polymorphic File Sync (v3):**
+  - Files are now synced independently of their parent table using `tableName` and `tableId`.
+  - Incremental updates for files are fetched via `files.delta` endpoint based on user/team.
+  - Parent entities (e.g., `journalEntries`) store `attachmentFileIds: string[]` instead of direct URLs.
+  - UI components fetch files reactively using `useLocalDb("files", ...)` filtered by `tableId`.
 
 * **SyncOrchestrator Flow:**
-  1. Thumbnail generation for images (if needed)
-  2. CDN upload for original + thumbnail
-  3. Backend entry sync with attachment URLs
-  4. Error tracking with retry limits (3 for thumbnails, 5 for uploads)
+  1. File Upload Stage (independent of parent):
+     - Thumbnail generation -> CDN upload -> Backend meta creation (`files.create`).
+     - Local file status transitions to `completed` + `synced`.
+  2. Parent Entity Sync Stage:
+     - Parent record (e.g., journal entry) is synced with `attachmentFileIds`.
+     - Backend links files to the parent via `afterCreate` hooks if needed.
 
 * **Cross-Context Communication:** BroadcastChannel("db-updates") notifies SSE manager in Service Worker when pending entries change
 
@@ -62,5 +69,6 @@
     - **UI Rule**: DO NOT call `journalEntriesDb.delete()` from the frontend UI for synced entries. These deletions must happen on the backend via oRPC to ensure all devices receive the deletion event.
     - **Worker Use only**: The local `delete()` method in `JournalEntriesDBManager` is reserved for the sync engine to purge local cache after a server confirmation or a full sync refresh.
 
-* **Pending Entries (`pendingSyncJournalEntries`)**:
-    - **Local Rule**: `pendingSyncJournalEntriesDb.delete()` is the correct way to cancel a pending sync. It safely removes the entry and all associated local files/blobs.
+* **Pending Entries & Files**:
+    - Deleting a pending parent record DOES NOT automatically delete its pending files if they are meant to be shareable. However, for ephemeral attachments, `journalEntriesDb.delete()` cleans up associated records.
+    - `filesDb.delete()` is used to remove local binary Blobs after successful CDN upload or cancellation.

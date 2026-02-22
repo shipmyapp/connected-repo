@@ -12,6 +12,8 @@ import { getDeltaPrompts } from "../prompts/servies.get_delta.prompts.service.js
 import { getDeltaJournalEntries } from "../journal-entries/services/get_delta.journal_entries.service.js";
 import { getTeamAppDelta } from "../teams/services/get_team_app_delta.teams.service.js";
 import { getTeamMembersDelta } from "../teams/services/get_team_members_delta.teams.service.js";
+import { getDeltaFiles } from "../files/services/get_delta.files.service.js";
+import { fileSelectAllZod } from "@connected-repo/zod-schemas/file.zod";
 
 export const deltaOutputZod = z.discriminatedUnion("tableName", [
     z.object({
@@ -47,6 +49,15 @@ export const deltaOutputZod = z.discriminatedUnion("tableName", [
         data: z.array(teamAppMemberSelectAllZod),
         cursorUpdatedAt: zTimeEpoch.nullable(),
         cursorId: z.uuid().nullable(),
+        isLastChunk: z.boolean(),
+        error: z.string().optional(),
+    }),
+    z.object({
+		type: z.literal("delta"),
+        tableName: z.enum(["files"]),
+        data: z.array(fileSelectAllZod),
+        cursorUpdatedAt: zTimeEpoch.nullable(),
+        cursorId: z.coerce.string().nullable(),
         isLastChunk: z.boolean(),
         error: z.string().optional(),
     })
@@ -119,6 +130,14 @@ async function* getDeltaForTable(
 				data = await getDeltaPrompts(
 					cursorUpdatedAtDate,
 					cursorId ?? null,
+					chunkSize
+				);
+			} else if (tableName === "files") {
+				data = await getDeltaFiles(
+					userId,
+					userOwnerAdminTeamAppIds,
+					cursorUpdatedAtDate,
+					cursorId,
 					chunkSize
 				);
 			}

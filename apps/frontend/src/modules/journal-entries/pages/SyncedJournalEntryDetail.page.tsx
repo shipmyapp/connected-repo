@@ -3,6 +3,7 @@ import { LoadingSpinner } from "@connected-repo/ui-mui/components/LoadingSpinner
 import { Alert } from "@connected-repo/ui-mui/feedback/Alert";
 import { Container } from "@connected-repo/ui-mui/layout/Container";
 import { useLocalDbItem } from "@frontend/worker/db/hooks/useLocalDbItem";
+import { useLocalDb } from "@frontend/worker/db/hooks/useLocalDb";
 import { getDataProxy } from "@frontend/worker/worker.proxy";
 import { useState } from "react";
 import { useParams } from "react-router";
@@ -23,6 +24,12 @@ export default function SyncedJournalEntryDetailPage() {
 		() => getDataProxy().journalEntriesDb.getById(entryId || "")
 	);
 
+	const { data: files, isLoading: isLoadingFiles } = useLocalDb(
+		"files",
+		() => getDataProxy().filesDb.getFilesByTableId(entryId),
+		[entryId]
+	);
+
 	const handleDelete = async () => {
 		if (entryId) {
 			setIsDeleting(true);
@@ -34,7 +41,7 @@ export default function SyncedJournalEntryDetailPage() {
 		}
 	};
 
-	if (isLoading) return <LoadingSpinner text="Loading journal entry..." />;
+	if (isLoading || isLoadingFiles) return <LoadingSpinner text="Loading journal entry..." />;
 
 	if (error) {
 		return (
@@ -73,9 +80,10 @@ export default function SyncedJournalEntryDetailPage() {
 		);
 	}
 
-	const attachments = (journalEntry.attachmentUrls || []).map((urls, index) => ({
-		url: urls[0], // Use original URL
-		name: `Attachment ${index + 1}`
+	const attachments = (files || []).map((file) => ({
+		url: file.cdnUrl || "",
+		name: file.fileName,
+        thumbnailUrl: file.thumbnailCdnUrl || undefined
 	}));
 
 	return (

@@ -311,7 +311,7 @@ export function JournalEntryDetailView({
 										}}
 										onClick={() => window.open(file.url, "_blank")}
 									>
-										{file.thumbnailUrl === "not-available" ? (
+										{!file.thumbnailUrl ? (
 											<Box
 												sx={{
 													width: "100%",

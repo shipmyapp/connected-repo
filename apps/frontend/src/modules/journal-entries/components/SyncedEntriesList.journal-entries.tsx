@@ -44,6 +44,24 @@ export function SyncedEntriesList({ viewMode, teamId: propTeamId, excludeUserId 
 	);
 
 	const entries = excludeUserId ? allEntries.filter(e => e.authorUserId !== excludeUserId) : allEntries;
+    const entryIds = entries.map(e => e.id);
+
+    // Fetch attachments for these entries
+    const { data: files = [] } = useLocalDb("files", () => 
+        getDataProxy().filesDb.getFilesByTableIds(entryIds),
+        [entryIds.join(',')]
+    );
+
+    // Group files by tableId
+    const attachmentsMap = React.useMemo(() => {
+        const map: Record<string, any[]> = {};
+        files.forEach(f => {
+            const list = map[f.tableId] || [];
+            list.push(f);
+            map[f.tableId] = list;
+        });
+        return map;
+    }, [files]);
 
 	const { data: totalCount = 0 } = useLocalDbValue("journalEntries", () => 
 		excludeUserId 
@@ -71,6 +89,7 @@ export function SyncedEntriesList({ viewMode, teamId: propTeamId, excludeUserId 
 		try {
 			setIsExporting(true);
 			const allEntries = await getDataProxy().journalEntriesDb.getAll(teamId);
+			const allFiles = await getDataProxy().filesDb.getAll(teamId);
 			
 			if (allEntries.length === 0) {
 				toast.update(toastId, { render: "No entries to export", type: 'warning', autoClose: 3000 });
@@ -82,9 +101,9 @@ export function SyncedEntriesList({ viewMode, teamId: propTeamId, excludeUserId 
 			
 			let blob: Blob;
 			if (format === 'csv') {
-				blob = await mediaProxy.export.generateCSV(allEntries);
+				blob = await mediaProxy.export.generateCSV(allEntries, allFiles);
 			} else {
-				blob = await mediaProxy.export.generatePDF(allEntries);
+				blob = await mediaProxy.export.generatePDF(allEntries, allFiles);
 			}
 			
 			const url = URL.createObjectURL(blob);
@@ -209,11 +228,13 @@ export function SyncedEntriesList({ viewMode, teamId: propTeamId, excludeUserId 
 						<JournalEntryCardView 
 							entries={entries} 
 							onEntryClick={(entryId: string) => navigate(teamId ? `/teams/${teamId}/journal-entries/synced/${entryId}` : `/journal-entries/synced/${entryId}`)}
+                            attachments={attachmentsMap}
 						/>
 					) : (
 						<JournalEntryTableView 
 							entries={entries} 
 							onEntryClick={(entryId: string) => navigate(teamId ? `/teams/${teamId}/journal-entries/synced/${entryId}` : `/journal-entries/synced/${entryId}`)}
+                            attachments={attachmentsMap}
 						/>
 					)}
 					{totalPages > 1 && (

@@ -89,11 +89,13 @@ export class SyncOrchestrator {
   }
 
   private async syncRecord(tableName: TablesToSync, record: any) {
-    const action = record._pendingAction;
-    
-    // Only journalEntries currently support offline-first creation
     if (tableName === 'journalEntries') {
       await this.orchestrateJournalEntry(record);
+      return;
+    }
+
+    if (tableName === 'files') {
+      await this.orchestrateFile(record);
       return;
     }
 
@@ -104,60 +106,28 @@ export class SyncOrchestrator {
     const entryId = record.id;
     const action = record._pendingAction;
 
-    // Handle Media first
-    const files = await filesDb.getFilesByPendingSyncId(entryId);
-    const mediaProxy = getMediaProxyInternal();
-    if (!mediaProxy) return;
-
-    let allMediaReady = true;
-    const attachmentUrls: ([string, string] | null)[] = [];
-
-    // Note: attachmentFileIds should be on the record
-    const fileIds = record.attachmentFileIds || [];
-
-    for (const fileId of fileIds) {
-      const file = files.find((f: StoredFile) => f.fileId === fileId);
-      if (!file) {
-        attachmentUrls.push(null);
-        continue;
-      }
-
-      // Thumbnail check
-      if (file.thumbnailStatus !== 'completed' && file.mimeType.startsWith("image/")) {
-        allMediaReady = false;
-        // Trigger thumbnail in background (don't block loop, but we can't sync yet)
-        this.triggerThumbnail(fileId, file, mediaProxy);
-        attachmentUrls.push(null);
-        continue;
-      }
-
-      // Upload check
-      if (file.status !== 'completed') {
-        allMediaReady = false;
-        this.triggerUpload(fileId, file, mediaProxy);
-        attachmentUrls.push(null);
-        continue;
-      }
-
-      if (file.cdnUrls) {
-        attachmentUrls.push(file.cdnUrls as [string, string]);
-      } else {
-        attachmentUrls.push(null);
+    // Check if all files are synced on backend
+    const entryFiles = await filesDb.getFilesByTableId(entryId);
+    let allFilesSyncedOnBackend = true;
+    
+    for (const file of entryFiles) {
+      if (file._pendingAction !== null) {
+        allFilesSyncedOnBackend = false;
+        break;
       }
     }
 
-    if (!allMediaReady) return;
+    if (!allFilesSyncedOnBackend) {
+        console.debug(`[SyncOrchestrator] JournalEntry ${entryId} waiting for files to sync...`);
+        return;
+    }
 
-    // Media is ready, push to backend
-    const validUrls = attachmentUrls.filter((u): u is [string, string] => u !== null);
-    
+    // All files are synced, push entry to backend
     try {
       let result;
       if (action === 'create') {
-        result = await orpcFetch.journalEntries.create({
-          ...record,
-          attachmentUrls: validUrls
-        });
+        const { _pendingAction, status, error, errorCount, ...data } = record;
+        result = await orpcFetch.journalEntries.create(data);
       }
       await this.handleSuccess('journalEntries', record, result);
     } catch (err: any) {
@@ -165,38 +135,70 @@ export class SyncOrchestrator {
     }
   }
 
-  private async triggerThumbnail(fileId: string, file: StoredFile, mediaProxy: any) {
-    if (file.thumbnailStatus === 'in-progress') return;
+  private async orchestrateFile(file: StoredFile) {
+    const fileId = file.id;
+    const action = file._pendingAction;
+    const mediaProxy = getMediaProxyInternal();
+    if (!mediaProxy) return;
+
+    // 1. Thumbnail check
+    if (file._thumbnailStatus !== 'completed' && file.mimeType.startsWith("image/")) {
+      await this.triggerThumbnail(fileId, file, mediaProxy);
+      return;
+    }
+
+    // 2. Upload check
+    if (file._status !== 'completed') {
+      await this.triggerUpload(fileId, file, mediaProxy);
+      return;
+    }
+
+    // 3. Push to backend
     try {
-      await filesDb.update(fileId, { thumbnailStatus: 'in-progress' });
-      const blobFile = new File([file.blob], "original", { type: file.mimeType });
+      let result;
+      if (action === 'create') {
+        const { _blob, _thumbnailBlob, _status, _error, _errorCount, _thumbnailStatus, _pendingAction, ...syncData } = file;
+        result = await orpcFetch.files.create(syncData);
+      }
+      await this.handleSuccess('files', file, result);
+    } catch (err: any) {
+      console.error(`[SyncOrchestrator] Backend sync failed for file ${fileId}`, err);
+    }
+  }
+
+  private async triggerThumbnail(fileId: string, file: StoredFile, mediaProxy: any) {
+    if (file._thumbnailStatus === 'in-progress') return;
+    try {
+      await filesDb.update(fileId, { _thumbnailStatus: 'in-progress' });
+      const blobFile = new File([file._blob!], "original", { type: file.mimeType });
       const result = await mediaProxy.media.generateThumbnail(blobFile);
       if (result.thumbnailFile) {
         await filesDb.update(fileId, { 
-          thumbnailBlob: result.thumbnailFile, 
-          thumbnailStatus: 'completed' 
+          _thumbnailBlob: result.thumbnailFile, 
+          _thumbnailStatus: 'completed' 
         });
       }
     } catch (e) {
-      await filesDb.update(fileId, { thumbnailStatus: 'failed' });
+      await filesDb.update(fileId, { _thumbnailStatus: 'failed' });
     }
   }
 
   private async triggerUpload(fileId: string, file: StoredFile, mediaProxy: any) {
-    if (file.status === 'in-progress') return;
+    if (file._status === 'in-progress') return;
     try {
-      await filesDb.update(fileId, { status: 'in-progress' });
-      const blobFile = new File([file.blob], "original", { type: file.mimeType });
-      const thumbFile = file.thumbnailBlob ? new File([file.thumbnailBlob], "thumb", { type: file.thumbnailBlob.type }) : undefined;
+      await filesDb.update(fileId, { _status: 'in-progress' });
+      const blobFile = new File([file._blob!], "original", { type: file.mimeType });
+      const thumbFile = file._thumbnailBlob ? new File([file._thumbnailBlob], "thumb", { type: file._thumbnailBlob.type }) : undefined;
       const result = await mediaProxy.media.uploadMediaPair(blobFile, thumbFile);
       if (result.success && result.urls) {
         await filesDb.update(fileId, { 
-          cdnUrls: result.urls, 
-          status: 'completed' 
+          cdnUrl: result.urls[0],
+          thumbnailCdnUrl: result.urls[1],
+          _status: 'completed' 
         });
       }
     } catch (e) {
-      await filesDb.update(fileId, { status: 'failed' });
+      await filesDb.update(fileId, { _status: 'failed' });
     }
   }
 
@@ -208,7 +210,7 @@ export class SyncOrchestrator {
       ...serverRecord,
       _pendingAction: null,
     });
-    console.info(`[SyncOrchestrator] Successfully synced ${tableName}:${localRecord[recordIdField]}`);
+    console.info(`[SyncOrchestrator] Successfully synced ${tableName}:${localRecord[recordIdField]} (server id: ${serverRecord.id})`);
   }
 
   private getRecordIdField(tableName: TablesToSync): string {
@@ -217,6 +219,7 @@ export class SyncOrchestrator {
       case 'prompts': return 'id';
       case 'teamsApp': return 'id';
       case 'teamMembers': return 'id';
+      case 'files': return 'id';
       default: return 'id';
     }
   }

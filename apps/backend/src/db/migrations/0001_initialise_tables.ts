@@ -1,9 +1,13 @@
-import { change } from '../db_script';
+import { change } from "../db_script";
 
 change(async (db) => {
   await db.createEnum('theme_setting_enum', ['dark', 'light', 'system']);
 
   await db.createEnum('team_member_role_enum', ['Owner', 'Admin', 'Member']);
+
+  await db.createEnum('file_table_name_enum', ['journalEntries']);
+
+  await db.createEnum('file_type_enum', ['attachment']);
 
   await db.createEnum('api_product_enum', ['journal_entry_create']);
 
@@ -251,7 +255,6 @@ change(async (db) => {
         onUpdate: 'RESTRICT',
         onDelete: 'SET NULL',
       }).nullable(),
-      attachmentUrls: t.array(t.array(t.string())).default([]),
       deletedAt: t.timestamp().nullable(),
       createdAt: t.timestamps().createdAt,
       updatedAt: t.timestamps().updatedAt,
@@ -282,6 +285,28 @@ change(async (db) => {
     role: t.enum('team_member_role_enum'),
     addedAt: t.timestamp().default(t.sql`NOW()`),
     joinedAt: t.timestamp().nullable(),
+    deletedAt: t.timestamp().nullable(),
+    createdAt: t.timestamps().createdAt,
+    updatedAt: t.timestamps().updatedAt,
+  }));
+
+  await db.createTable('files', (t) => ({
+    id: t.string(26).primaryKey(),
+    tableName: t.enum('file_table_name_enum'),
+    tableId: t.string(),
+    type: t.enum('file_type_enum'),
+    fileName: t.string(),
+    mimeType: t.string(),
+    cdnUrl: t.string().nullable(),
+    thumbnailCdnUrl: t.string().nullable(),
+    createdByUserId: t.uuid().foreignKey('users', 'id', {
+      onUpdate: 'RESTRICT',
+      onDelete: 'CASCADE',
+    }),
+    teamId: t.uuid().foreignKey('teams_app', 'id', {
+      onUpdate: 'RESTRICT',
+      onDelete: 'CASCADE',
+    }).nullable(),
     deletedAt: t.timestamp().nullable(),
     createdAt: t.timestamps().createdAt,
     updatedAt: t.timestamps().updatedAt,

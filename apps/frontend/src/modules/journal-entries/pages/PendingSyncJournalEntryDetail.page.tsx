@@ -48,15 +48,15 @@ export default function PendingSyncJournalEntryDetailPage() {
 			if (!entryId) return;
 			try {
                 // Since entryId is used as pendingSyncId in the files table for new entries
-				const files = await getDataProxy().filesDb.getFilesByPendingSyncId(entryId);
+				const files = await getDataProxy().filesDb.getFilesByTableId(entryId);
 				if (!active) return;
 				
 				const mapped = files.map(file => {
 					const isMedia = file.mimeType.startsWith("image/") || file.mimeType === "application/pdf" || file.mimeType.startsWith("video/");
 					
 					return {
-						url: createUrl(file.blob),
-						thumbnailUrl: file.thumbnailBlob ? createUrl(file.thumbnailBlob) : (isMedia ? "not-available" as const : undefined),
+						url: createUrl(file._blob!),
+						thumbnailUrl: file._thumbnailBlob ? createUrl(file._thumbnailBlob) : (isMedia ? "not-available" as const : undefined),
 						name: file.fileName
 					};
 				});

@@ -1,20 +1,16 @@
-export interface StoredFile {
-  fileId: string;
-  pendingSyncId: string;
-  blob: Blob;
-  fileName: string;
-  mimeType: string;
-  createdAt: number;
-  status: "pending" | "in-progress" | "completed" | "failed";
-  error?: string;
-  errorCount: number;
-  thumbnailBlob?: Blob | null;
-  thumbnailStatus?: 'pending' | 'in-progress' | 'completed' | 'failed';
-  cdnUrls?: [string, "not-available" | string] | null; // [originalUrl, thumbnailUrl]
-  teamId?: string | null;
+import type { FileSelectAll } from "@connected-repo/zod-schemas/file.zod";
+
+export interface StoredFile extends FileSelectAll {
+  _blob?: Blob;
+  _status?: "pending" | "in-progress" | "completed" | "failed";
+  _error?: string;
+  _errorCount?: number;
+  _thumbnailBlob?: Blob | null;
+  _thumbnailStatus?: 'pending' | 'in-progress' | 'completed' | 'failed';
+  _pendingAction?: PendingAction | null;
 }
 
-export type PendingAction = 'create';
+export type PendingAction = 'create' | 'update' | 'delete';
 
 export interface SyncMetadata {
   tableName: string;

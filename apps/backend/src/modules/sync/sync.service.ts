@@ -1,3 +1,4 @@
+import { fileSelectAllZod } from "@connected-repo/zod-schemas/file.zod";
 import { journalEntrySelectAllZod } from "@connected-repo/zod-schemas/journal_entry.zod";
 import { promptSelectAllZod } from "@connected-repo/zod-schemas/prompt.zod";
 import { teamAppMemberSelectAllZod, teamAppSelectAllZod } from "@connected-repo/zod-schemas/team_app.zod";
@@ -46,6 +47,11 @@ export const syncPayloadZod = z.discriminatedUnion("type", [
     data: z.array(promptSelectAllZod),
     operation: z.enum(["create", "update", "delete"]),
   }).extend(syncToAllUsersZod),
+  z.object({
+    type: z.literal("data-change-files"),
+    data: z.array(fileSelectAllZod),
+    operation: z.enum(["create", "update", "delete"]),
+  }).extend(syncToUserAndOptionalTeamAppOwnersAdminsZod),
   z.object({
     type: z.literal("heartbeat"),
   }).extend(syncToAllUsersZod),

@@ -13,6 +13,7 @@ import { RhfTextField } from "@connected-repo/ui-mui/rhf-form/RhfTextField";
 import { useRhfForm } from "@connected-repo/ui-mui/rhf-form/useRhfForm";
 import { PendingSyncJournalEntry, pendingSyncJournalEntryZod } from "@connected-repo/zod-schemas/journal_entry.zod";
 import { useActiveTeamId } from "@frontend/contexts/WorkspaceContext";
+import { useSessionInfo } from "@frontend/contexts/UserContext";
 import { getDataProxy } from "@frontend/worker/worker.proxy";
 import { zodResolver } from "@hookform/resolvers/zod";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
@@ -26,6 +27,7 @@ type WritingMode = "prompted" | "free";
 
 export function CreateJournalEntryForm() {
 	const teamId = useActiveTeamId();
+    const { user } = useSessionInfo();
 	const [success, setSuccess] = useState("");
 	const [writingMode, setWritingMode] = useState<WritingMode>("prompted");
 	const [attachments, setAttachments] = useState<MediaFile[]>([]);
@@ -77,13 +79,24 @@ export function CreateJournalEntryForm() {
 			// 1. Prepare and persist files
 			const fileIds = attachments.map((a) => a.id);
 			for (const attachment of attachments) {
-				await app.filesDb.upsert(
-					attachment.id,
-					entryId,
-					attachment.file,
-					attachment.file.name,
-					teamId
-				);
+				await app.filesDb.upsertLocal({
+					id: attachment.id,
+					tableId: entryId,
+					tableName: "journalEntries",
+                    type: "attachment",
+					fileName: attachment.file.name,
+					mimeType: attachment.file.type,
+					teamId,
+                    createdAt: Date.now(),
+                    updatedAt: Date.now(),
+                    cdnUrl: null,
+                    thumbnailCdnUrl: null,
+                    createdByUserId: user?.id || "",
+                    deletedAt: null,
+					_blob: attachment.file,
+					_thumbnailBlob: null,
+                    _pendingAction: 'create',
+				});
 			}
 
 			// 2. Prepare entry data
@@ -119,7 +132,6 @@ export function CreateJournalEntryForm() {
 					id: ulid(),
 					prompt: null, // Will be set by effect
 					content: "",
-					attachmentFileIds: [],
 					teamId: teamId,
 					status: "file-upload-pending",
 					errorCount: 0,
@@ -148,7 +160,6 @@ export function CreateJournalEntryForm() {
 			defaultValues: {
 				prompt: null,
 				content: undefined,
-				attachmentFileIds: [],
 				id: ulid(),
 				teamId: teamId,
 				status: "file-upload-pending",

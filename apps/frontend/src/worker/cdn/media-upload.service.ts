@@ -7,7 +7,7 @@ export interface MediaProcessingResult {
 
 export interface MediaUploadResult {
   success: boolean;
-  urls: [string, "not-available" | string] | null;
+  urls: [string, string | null] | null;
   error?: string;
 }
 
@@ -60,7 +60,7 @@ export class MediaUploadService {
       const thumbnailResult = results[1];
 
       if (originalResult?.success) {
-        let thumbUrl: string | "not-available" = "not-available";
+        let thumbUrl: string | null = null;
         
         if (thumbnailResult?.success) {
           thumbUrl = thumbnailResult.url;

@@ -2,17 +2,85 @@ import { Chip } from "@connected-repo/ui-mui/data-display/Chip";
 import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
 import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { Card, CardContent } from "@connected-repo/ui-mui/layout/Card";
+import { Stack } from "@connected-repo/ui-mui/layout/Stack";
 import { JournalEntrySelectAll } from "@connected-repo/zod-schemas/journal_entry.zod";
-import React from "react";
+import React, { useEffect, useState, useRef } from "react";
 import AttachFileIcon from "@mui/icons-material/AttachFile";
+import { alpha } from "@mui/material";
 
 interface JournalEntryCardViewProps {
 	entries: (JournalEntrySelectAll | any)[];
 	onEntryClick: (entryId: string) => void;
 	renderExtra?: (entry: any) => React.ReactNode;
+    attachments?: Record<string, any[]>;
 }
 
-export function JournalEntryCardView({ entries, onEntryClick, renderExtra }: JournalEntryCardViewProps) {
+function ThumbnailItem({ attachment }: { attachment: any }) {
+    const [url, setUrl] = useState<string | null>(null);
+    const trackedUrl = useRef<string | null>(null);
+
+    useEffect(() => {
+        let previewUrl: string | null = null;
+        if (attachment.thumbnailCdnUrl) {
+            previewUrl = attachment.thumbnailCdnUrl;
+        } else if (attachment._thumbnailBlob) {
+            previewUrl = URL.createObjectURL(attachment._thumbnailBlob);
+        } else if (attachment.cdnUrl) {
+            previewUrl = attachment.cdnUrl;
+        } else if (attachment._blob) {
+            previewUrl = URL.createObjectURL(attachment._blob);
+        }
+
+        if (previewUrl && previewUrl !== attachment.thumbnailCdnUrl && previewUrl !== attachment.cdnUrl) {
+            trackedUrl.current = previewUrl;
+        }
+        setUrl(previewUrl);
+
+        return () => {
+            if (trackedUrl.current) {
+                URL.revokeObjectURL(trackedUrl.current);
+                trackedUrl.current = null;
+            }
+        };
+    }, [attachment]);
+
+    if (!url) return null;
+
+    return (
+        <Box 
+            component="img"
+            src={url}
+            sx={{ 
+                width: 24, 
+                height: 24, 
+                borderRadius: 0.5, 
+                objectFit: 'cover',
+                border: '1px solid',
+                borderColor: 'divider'
+            }}
+        />
+    );
+}
+
+function MultipleThumbnailPreview({ attachments }: { attachments: any[] }) {
+    const images = attachments.filter(a => a.mimeType.startsWith('image/') || a.type === 'attachment');
+    if (images.length === 0) return null;
+
+    return (
+        <Stack direction="row" spacing={0.5} sx={{ ml: 1 }}>
+            {images.slice(0, 4).map(img => (
+                <ThumbnailItem key={img.id} attachment={img} />
+            ))}
+            {images.length > 4 && (
+                <Typography variant="caption" sx={{ alignSelf: 'center', opacity: 0.7 }}>
+                    +{images.length - 4}
+                </Typography>
+            )}
+        </Stack>
+    );
+}
+
+export function JournalEntryCardView({ entries, onEntryClick, renderExtra, attachments = {} }: JournalEntryCardViewProps) {
 	const truncateContent = (content: string, maxLength = 100) => {
 		if (content.length <= maxLength) return content;
 		return `${content.substring(0, maxLength)}...`;
@@ -125,6 +193,7 @@ export function JournalEntryCardView({ entries, onEntryClick, renderExtra }: Jou
 									<Typography variant="caption" color="text.secondary" fontWeight={500}>
 										{formatDate(entry.createdAt)}
 									</Typography>
+                                    <MultipleThumbnailPreview attachments={attachments[entry.id] || []} />
 									{(entry.attachmentUrls?.length > 0 || entry.attachmentFileIds?.length > 0) && (
 										<Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3, color: 'text.secondary' }}>
 											<AttachFileIcon sx={{ fontSize: 14, transform: 'rotate(45deg)' }} />

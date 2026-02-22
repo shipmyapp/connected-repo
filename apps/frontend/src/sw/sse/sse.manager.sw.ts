@@ -2,6 +2,7 @@ import { journalEntriesDb } from '@frontend/modules/journal-entries/worker/journ
 import { promptsDb } from '@frontend/modules/prompts/worker/prompts.db';
 import { teamMembersDb } from '@frontend/worker/db/team_members.db';
 import { teamsAppDb } from '@frontend/worker/db/teams_app.db';
+import { filesDb } from '@frontend/worker/db/files.db';
 import { clientDb, wipeTeamData } from '@frontend/worker/db/db.manager';
 import { orpcFetch, UserAppBackendOutputs } from '@frontend/utils/orpc.client';
 import { SSE_MESSAGES_CHANNEL, type SseMessage } from '@frontend/configs/channels.config';
@@ -142,6 +143,8 @@ export class SSEManager {
                                 await wipeTeamData(member.teamId);
                             }
                         }
+                    } else if (event.tableName === "files") {
+                        await filesDb.bulkUpsert(event.data);
                     }
                 }
 
@@ -211,6 +214,13 @@ export class SSEManager {
             } else {
                 await teamMembersDb.saveMembers(event.data);
             }
+        } else if (event.type === 'data-change-files') {
+            console.info(`[SSE] Real-time [files]: ${event.operation}`);
+            if (event.operation === 'delete') {
+                await filesDb.bulkDelete(event.data.map((d: any) => d.id));
+            } else {
+                await filesDb.bulkUpsert(event.data);
+            }
         }
     }
 
@@ -251,7 +261,7 @@ export class SSEManager {
             console.info(`[SSE] Loop starting for user ${userId} at ${apiUrl}`);
             this.updateStatus('connecting');
             this.abortController = new AbortController();
-            this.pendingTables = new Set(['journalEntries', 'prompts', 'teamsApp', 'teamMembers']);
+            this.pendingTables = new Set(TABLES_TO_SYNC_ENUM);
             this.erroredTables.clear();
 
             try {

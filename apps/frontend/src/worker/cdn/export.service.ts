@@ -1,6 +1,8 @@
 import pdfMake from "pdfmake/build/pdfmake";
 import type { TDocumentDefinitions, Content } from "pdfmake/interfaces";
 import type { JournalEntrySelectAll } from "@connected-repo/zod-schemas/journal_entry.zod";
+import type { FileSelectAll } from "@connected-repo/zod-schemas/file.zod";
+import type { StoredFile } from "../db/schema.db.types";
 
 export class ExportService {
   private pdfMakeInstance: any = null;
@@ -56,8 +58,14 @@ export class ExportService {
    * Generates a CSV blob for the given journal entries.
    * Excludes deleted entries and the deletedAt column.
    */
-  public async generateCSV(entries: JournalEntrySelectAll[]): Promise<Blob> {
+  public async generateCSV(entries: JournalEntrySelectAll[], files: (FileSelectAll | StoredFile)[] = []): Promise<Blob> {
     const activeEntries = entries.filter(e => !e.deletedAt);
+    const filesByTableId = new Map<string, (FileSelectAll | StoredFile)[]>();
+    for (const file of files) {
+        const list = filesByTableId.get(file.tableId) || [];
+        list.push(file);
+        filesByTableId.set(file.tableId, list);
+    }
     console.info(`[ExportService] Starting CSV export for ${activeEntries.length} active entries (filtered from ${entries.length}).`);
     
     const headers = [
@@ -77,8 +85,9 @@ export class ExportService {
           console.info(`[ExportService] CSV Progress: ${index}/${activeEntries.length}`);
         }
 
-        const attachments = (entry.attachmentUrls || [])
-          .map(([url, thumb]) => `${url}${thumb !== "not-available" ? ` (Thumb: ${thumb})` : ""}`)
+        const entryFiles = (filesByTableId.get(entry.id) || []);
+        const attachments = entryFiles
+          .map((f) => `${f.cdnUrl}${f.thumbnailCdnUrl ? ` (Thumb: ${f.thumbnailCdnUrl})` : ""}`)
           .join("; ");
 
         return [
@@ -107,8 +116,14 @@ export class ExportService {
    * Generates a PDF blob for the given journal entries using pdfmake.
    * Excludes deleted entries.
    */
-  public async generatePDF(entries: JournalEntrySelectAll[]): Promise<Blob> {
+  public async generatePDF(entries: JournalEntrySelectAll[], files: (FileSelectAll | StoredFile)[] = []): Promise<Blob> {
     const activeEntries = entries.filter(e => !e.deletedAt);
+    const filesByTableId = new Map<string, (FileSelectAll | StoredFile)[]>();
+    for (const file of files) {
+        const list = filesByTableId.get(file.tableId) || [];
+        list.push(file);
+        filesByTableId.set(file.tableId, list);
+    }
     console.info(`[ExportService] Starting PDF export for ${activeEntries.length} active entries (filtered from ${entries.length}).`);
     
     await this.ensureInitialized();
@@ -129,8 +144,9 @@ export class ExportService {
           console.info(`[ExportService] PDF Progress: ${i}/${activeEntries.length}`);
         }
 
-        const attachments = (entry.attachmentUrls || [])
-          .map(([url]) => url.split("/").pop())
+        const entryFiles = (filesByTableId.get(entry.id) || []);
+        const attachments = entryFiles
+          .map((f) => f.fileName)
           .join(", ");
 
         tableBody.push([
