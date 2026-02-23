@@ -5,7 +5,7 @@ export class SubscriptionsTable extends BaseTable {
   readonly table = "subscriptions";
 
   columns = this.setColumns((t) => ({
-    subscriptionId: t.ulid().primaryKey(),
+    subscriptionId: t.ulidWithDefault().primaryKey(),
     
     expiresAt: t.timestampNumber(),
     maxRequests: t.integer(),

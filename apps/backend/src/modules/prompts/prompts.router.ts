@@ -1,7 +1,7 @@
 import { db } from "@backend/db/db";
 import { rpcProtectedProcedure } from "@backend/procedures/protected.procedure";
 import { rpcPublicProcedure } from "@backend/procedures/public.procedure";
-import z from "zod";
+import { z } from "zod";
 import {
 	promptGetByCategoryZod,
 	promptGetByIdZod,
@@ -67,8 +67,8 @@ const getRandomActive = rpcProtectedProcedure
 // Get prompt by ID
 const getById = rpcPublicProcedure
 	.input(promptGetByIdZod)
-	.handler(async ({ input: { promptId } }) => {
-		const prompt = await db.prompts.find(promptId);
+	.handler(async ({ input: { id } }) => {
+		const prompt = await db.prompts.find(id);
 
 		if (!prompt) {
 			throw new ORPCError("NOT_FOUND", {

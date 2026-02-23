@@ -40,6 +40,7 @@
 		"@types/react": "^19.2.2",
 		"@types/react-dom": "^19.2.2",
 		"@vitejs/plugin-react-swc": "^4.2.0",
+		"cross-env": "^7.0.3",
 		"dotenv": "^17.2.3",
 		"vite": "^7.3.0",
 		"vite-bundle-analyzer": "^1.2.3"
@@ -56,7 +57,7 @@
 		"dev": "vite",
 		"format": "biome format . --write",
 		"lint": "biome check .",
-		"preview": "vite preview",
+		"preview": "cross-env VITE_USER_APP_URL=http://localhost:4173 bash -c 'if [[ \"$*\" == *\"--no-build\"* ]]; then vite preview; else yarn run build && vite preview; fi' --",
 		"test:build": "tsc -b && vite build --mode test",
 		"test:e2e": "playwright test",
 		"test:e2e:ui": "playwright test --ui"

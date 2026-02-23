@@ -1,9 +1,13 @@
-import { change } from '../db_script';
+import { change } from "../db_script";
 
 change(async (db) => {
   await db.createEnum('theme_setting_enum', ['dark', 'light', 'system']);
 
   await db.createEnum('team_member_role_enum', ['Owner', 'Admin', 'Member']);
+
+  await db.createEnum('file_table_name_enum', ['journalEntries']);
+
+  await db.createEnum('file_type_enum', ['attachment']);
 
   await db.createEnum('api_product_enum', ['journal_entry_create']);
 
@@ -12,6 +16,28 @@ change(async (db) => {
   await db.createEnum('api_status_enum', ['AI Error', 'Invalid API route', 'No active subscription', 'Requests exhausted', 'Pending', 'Server Error', 'Success']);
 
   await db.createEnum('pg_tbus_task_status_enum', ['pending', 'active', 'completed', 'failed', 'cancelled']);
+
+  await db.createTable(
+    'prompts',
+    (t) => ({
+      id: t.string(26).primaryKey(),
+      text: t.string(500),
+      category: t.string(100).nullable(),
+      tags: t.array(t.string()).nullable(),
+      deletedAt: t.timestamp().nullable(),
+      createdAt: t.timestamps().createdAt,
+      updatedAt: t.timestamps().updatedAt,
+    }),
+    (t) => 
+      t.index(
+        [
+          {
+            column: 'updatedAt',
+            order: 'DESC',
+          },
+        ]
+      ),
+  );
 
   await db.createTable('teams_api', (t) => ({
     teamApiId: t.uuid().primaryKey().default(t.sql`gen_random_uuid()`),
@@ -197,7 +223,7 @@ change(async (db) => {
 
 change(async (db) => {
   await db.createTable('teams_app', (t) => ({
-    teamAppId: t.uuid().primaryKey().default(t.sql`gen_random_uuid()`),
+    id: t.uuid().primaryKey().default(t.sql`gen_random_uuid()`),
     name: t.string(),
     logoUrl: t.string().nullable(),
     createdByUserId: t.uuid().foreignKey('users', 'id', {
@@ -212,60 +238,11 @@ change(async (db) => {
 
 change(async (db) => {
   await db.createTable(
-    'prompts',
-    (t) => ({
-      promptId: t.smallint().identity().primaryKey(),
-      text: t.string(500),
-      category: t.string(100).nullable(),
-      tags: t.array(t.string()).nullable(),
-      teamId: t.uuid().foreignKey('teams_app', 'teamAppId', {
-        onUpdate: 'RESTRICT',
-        onDelete: 'SET NULL',
-      }).nullable(),
-      deletedAt: t.timestamp().nullable(),
-      createdAt: t.timestamps().createdAt,
-      updatedAt: t.timestamps().updatedAt,
-    }),
-    (t) => [
-      t.index(
-        [
-          {
-            column: 'updatedAt',
-            order: 'DESC',
-          },
-        ]
-      ),
-      t.index(['teamId']),
-    ],
-  );
-
-  await db.createTable('team_members', (t) => ({
-    teamMemberId: t.uuid().primaryKey().default(t.sql`gen_random_uuid()`),
-    teamAppId: t.uuid().foreignKey('teams_app', 'teamAppId', {
-      onUpdate: 'RESTRICT',
-      onDelete: 'CASCADE',
-    }),
-    userId: t.uuid().foreignKey('users', 'id', {
-      onUpdate: 'RESTRICT',
-      onDelete: 'SET NULL',
-    }).nullable(),
-    email: t.string().nullable(),
-    role: t.enum('team_member_role_enum'),
-    addedAt: t.timestamp().default(t.sql`NOW()`),
-    joinedAt: t.timestamp().nullable(),
-    deletedAt: t.timestamp().nullable(),
-    createdAt: t.timestamps().createdAt,
-    updatedAt: t.timestamps().updatedAt,
-  }));
-});
-
-change(async (db) => {
-  await db.createTable(
     'journal_entries',
     (t) => ({
-      journalEntryId: t.string(26).primaryKey(),
+      id: t.string(26).primaryKey(),
       prompt: t.string(500).nullable(),
-      promptId: t.smallint().foreignKey('prompts', 'promptId', {
+      promptId: t.string(26).foreignKey('prompts', 'id', {
         onUpdate: 'RESTRICT',
         onDelete: 'SET NULL',
       }).nullable(),
@@ -274,11 +251,10 @@ change(async (db) => {
         onUpdate: 'RESTRICT',
         onDelete: 'CASCADE',
       }),
-      teamId: t.uuid().foreignKey('teams_app', 'teamAppId', {
+      teamId: t.uuid().foreignKey('teams_app', 'id', {
         onUpdate: 'RESTRICT',
         onDelete: 'SET NULL',
       }).nullable(),
-      attachmentUrls: t.array(t.array(t.string())).default([]),
       deletedAt: t.timestamp().nullable(),
       createdAt: t.timestamps().createdAt,
       updatedAt: t.timestamps().updatedAt,
@@ -294,4 +270,45 @@ change(async (db) => {
         ]
       ),
   );
+
+  await db.createTable('team_members', (t) => ({
+    id: t.uuid().primaryKey().default(t.sql`gen_random_uuid()`),
+    teamId: t.uuid().foreignKey('teams_app', 'id', {
+      onUpdate: 'RESTRICT',
+      onDelete: 'CASCADE',
+    }),
+    userId: t.uuid().foreignKey('users', 'id', {
+      onUpdate: 'RESTRICT',
+      onDelete: 'SET NULL',
+    }).nullable(),
+    email: t.string().nullable(),
+    role: t.enum('team_member_role_enum'),
+    addedAt: t.timestamp().default(t.sql`NOW()`),
+    joinedAt: t.timestamp().nullable(),
+    deletedAt: t.timestamp().nullable(),
+    createdAt: t.timestamps().createdAt,
+    updatedAt: t.timestamps().updatedAt,
+  }));
+
+  await db.createTable('files', (t) => ({
+    id: t.string(26).primaryKey(),
+    tableName: t.enum('file_table_name_enum'),
+    tableId: t.string(),
+    type: t.enum('file_type_enum'),
+    fileName: t.string(),
+    mimeType: t.string(),
+    cdnUrl: t.string().nullable(),
+    thumbnailCdnUrl: t.string().nullable(),
+    createdByUserId: t.uuid().foreignKey('users', 'id', {
+      onUpdate: 'RESTRICT',
+      onDelete: 'CASCADE',
+    }),
+    teamId: t.uuid().foreignKey('teams_app', 'id', {
+      onUpdate: 'RESTRICT',
+      onDelete: 'CASCADE',
+    }).nullable(),
+    deletedAt: t.timestamp().nullable(),
+    createdAt: t.timestamps().createdAt,
+    updatedAt: t.timestamps().updatedAt,
+  }));
 });

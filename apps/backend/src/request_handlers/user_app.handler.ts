@@ -6,12 +6,14 @@ import { trace } from '@opentelemetry/api';
 import { LoggingHandlerPlugin } from '@orpc/experimental-pino';
 import { onError } from '@orpc/server';
 import { RPCHandler } from '@orpc/server/node';
-import { CORSPlugin, RequestHeadersPlugin, SimpleCsrfProtectionHandlerPlugin, StrictGetMethodPlugin } from '@orpc/server/plugins';
+import { CORSPlugin, RequestHeadersPlugin, ResponseHeadersPlugin, SimpleCsrfProtectionHandlerPlugin, StrictGetMethodPlugin } from '@orpc/server/plugins';
 
 export const userAppHandler = new RPCHandler(userAppRouter, {
   plugins: [
     // Request headers plugin for accessing headers in context
     new RequestHeadersPlugin(),
+    // Response headers plugin for setting headers in context
+    new ResponseHeadersPlugin(),
     // CORS configuration with credentials support
     new CORSPlugin({
       origin: [...allowedOrigins],
@@ -26,7 +28,7 @@ export const userAppHandler = new RPCHandler(userAppRouter, {
     new LoggingHandlerPlugin({
       logger,
       logRequestResponse: isDev, // Only log in dev
-      logRequestAbort: true,
+      logRequestAbort: false,
     }),
     // CSRF protection (disabled in development for easier testing)
     ...(isProd || isStaging ? [new SimpleCsrfProtectionHandlerPlugin()] : []),

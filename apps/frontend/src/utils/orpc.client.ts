@@ -28,7 +28,8 @@ const link = new RPCLink<ClientContext>({
       const err = error as { message?: string; status?: number; code?: string; path?: string; name?: string };
       const errorMessage = err.message || "An unexpected error occurred";
       
-      if (err.name === "AbortError" || errorMessage.includes("signal is aborted")) {
+      if (err.name === "AbortError" || errorMessage.includes("signal is aborted") || errorMessage.includes("stream closed")) {
+        console.debug("[oRPC] Request aborted or stream closed (expected during navigation/offline tests)");
         return;
       };
       
@@ -38,13 +39,17 @@ const link = new RPCLink<ClientContext>({
         errorMessage.toLowerCase().includes("unauthenticated") ||
         errorMessage.toLowerCase().includes("authentication required");
       
-      // Record error with session logging
-      console.error("[oRPC Error]", err);
+      // Only log errors if we are NOT offline (to avoid console noise for expected failures)
+      const isActuallyOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+      if (!isActuallyOffline) {
+          console.error("[oRPC Error]", err);
+      } else {
+          console.debug("[oRPC] Suppressed fetch error while offline:", errorMessage);
+      }
       
       // Only show toast and handle signout if in a browser context
       if (typeof window !== 'undefined') {
         const { toast } = await import("react-toastify");
-        toast.error(errorMessage);
         
         // For auth errors, redirect to login ONLY if we're on a protected route
         if (isAuthError) {

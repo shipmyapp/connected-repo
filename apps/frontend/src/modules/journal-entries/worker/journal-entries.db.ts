@@ -1,71 +1,177 @@
 import Dexie from "dexie";
 import { JournalEntrySelectAll, journalEntrySelectAllZod } from "@connected-repo/zod-schemas/journal_entry.zod";
-import { pendingSyncJournalEntriesDb } from "@frontend/worker/db/pending-sync-journal-entries.db";
-import { db, notifySubscribers } from "../../../worker/db/db.manager";
+import { clientDb, notifySubscribers, type WithSync } from "../../../worker/db/db.manager";
 
 export class JournalEntriesDBManager {
+  /**
+   * Upsert from SERVER (SSE or API response)
+   */
   async upsert(entry: JournalEntrySelectAll) {
-    await db.transaction("rw", [db.journalEntries, db.pendingSyncJournalEntries, db.files], async () => {
-      await db.journalEntries.put(journalEntrySelectAllZod.parse(entry));
-      // When upserting a synced entry, check if it was previously a pending entry and remove it
-      console.debug(`[JournalEntriesDBManager] Upserting synced entry ${entry.journalEntryId}, clearing pending.`);
-      await pendingSyncJournalEntriesDb.delete(entry.journalEntryId);
-    });
+    const data: WithSync<JournalEntrySelectAll> = {
+      ...journalEntrySelectAllZod.parse(entry),
+      _pendingAction: null,
+    };
+    
+    await clientDb.journalEntries.put(data);
     notifySubscribers("journalEntries");
   }
 
+  /**
+   * Bulk upsert from SERVER (Delta sync)
+   */
   async bulkUpsert(entries: JournalEntrySelectAll[]) {
     if (entries.length === 0) return;
     
-    await db.transaction("rw", [db.journalEntries, db.pendingSyncJournalEntries, db.files], async () => {
-      console.info(`[JournalEntriesDBManager] Bulk upserting ${entries.length} synced entries.`);
-      await db.journalEntries.bulkPut(entries);
-      const ids = entries.map(e => e.journalEntryId);
-      await pendingSyncJournalEntriesDb.bulkDelete(ids);
-    });
+    const data: WithSync<JournalEntrySelectAll>[] = entries.map(entry => ({
+      ...entry,
+      _pendingAction: null,
+    }));
+
+    await clientDb.journalEntries.bulkPut(data);
     notifySubscribers("journalEntries");
   }
 
-  async bulkDelete(journalEntryIds: string[]) {
-    await db.journalEntries.bulkDelete(journalEntryIds);
+  /**
+   * LOCAL Update (User edit)
+   * Enforces Online-Only for synced records.
+   */
+  async handleLocalUpdate(id: string, updates: Partial<JournalEntrySelectAll>) {
+    const existing = await clientDb.journalEntries.get(id);
+    if (!existing) {
+      throw new Error(`Entry with id ${id} not found.`);
+    }
+
+    // If it's a new unsynced record, we allow offline-first logic
+    if (existing._pendingAction === 'create') {
+      await clientDb.transaction("rw", clientDb.journalEntries, async () => {
+        const updated: WithSync<JournalEntrySelectAll> = {
+          ...existing,
+          ...updates,
+          _pendingAction: 'create',
+        };
+        await clientDb.journalEntries.put(updated);
+      });
+      notifySubscribers("journalEntries");
+      return;
+    }
+
+    // For already-synced records, we MUST be online
+    if (!navigator.onLine) {
+      throw new Error("Offline: Edits to synced entries require an internet connection.");
+    }
+
+    try {
+      // 1. Immediate API Call
+      const orpcFetch = (await import("../../../utils/orpc.client")).orpcFetch;
+      const result = await orpcFetch.journalEntries.update({
+        ...existing,
+        ...updates
+      });
+
+      // 2. Local Update on Success
+      await clientDb.transaction("rw", clientDb.journalEntries, async () => {
+        const data: WithSync<JournalEntrySelectAll> = {
+          ...result,
+          _pendingAction: null,
+        };
+        await clientDb.journalEntries.put(data);
+      });
+      notifySubscribers("journalEntries");
+    } catch (err) {
+      console.error("[JournalEntriesDB] Online update failed:", err);
+      throw err;
+    }
+  }
+
+  /**
+   * LOCAL Create
+   */
+  async handleLocalCreate(entry: WithSync<JournalEntrySelectAll>) {
+    const data: WithSync<JournalEntrySelectAll> = {
+      ...entry,
+      _pendingAction: 'create',
+    };
+    await clientDb.journalEntries.put(data);
     notifySubscribers("journalEntries");
   }
 
+  async bulkDelete(ids: string[]) {
+    await clientDb.journalEntries.bulkDelete(ids);
+    notifySubscribers("journalEntries");
+  }
+
+  /**
+   * LOCAL Delete
+   * Enforces Online-Only for synced records.
+   */
   async delete(id: string) {
-    await db.journalEntries.delete(id);
-    notifySubscribers("journalEntries");
+    const existing = await clientDb.journalEntries.get(id);
+    if (!existing) {
+      throw new Error(`Entry with id ${id} not found.`);
+    }
+
+    // If never synced (pending create), just delete locally immediately
+    if (existing._pendingAction === 'create') {
+      await clientDb.journalEntries.delete(id);
+      notifySubscribers("journalEntries");
+      return;
+    }
+
+    // For already-synced records, we MUST be online to delete
+    if (!navigator.onLine) {
+      throw new Error("Offline: Deleting synced entries requires an internet connection.");
+    }
+
+    try {
+      // 1. Immediate API Call to server
+      const orpcFetch = (await import("../../../utils/orpc.client")).orpcFetch;
+      await orpcFetch.journalEntries.delete({ 
+        id: id,
+        teamId: existing.teamId || undefined 
+      });
+
+      // 2. Local Delete on server success
+      await clientDb.journalEntries.delete(id);
+      notifySubscribers("journalEntries");
+    } catch (err) {
+      console.error("[JournalEntriesDB] Online delete failed:", err);
+      throw err;
+    }
   }
 
   async getById(id: string) {
-    return await db.journalEntries.get(id);
+    return await clientDb.journalEntries.get(id);
   }
 
   async getAll(teamId: string | null = null) {
-    if (teamId) {
-      return await db.journalEntries.where("teamId").equals(teamId).reverse().toArray();
-    }
-    return await db.journalEntries.filter(e => !e.teamId).reverse().toArray();
+    const baseQuery = teamId 
+      ? clientDb.journalEntries.where("teamId").equals(teamId)
+      : clientDb.journalEntries.filter(e => !e.teamId);
+
+    // Simplified query as items are no longer marked for deletion
+    return await baseQuery
+      .reverse()
+      .toArray();
   }
 
   async getAllUnscoped() {
-    return await db.journalEntries.reverse().toArray();
+    return await clientDb.journalEntries.reverse().toArray();
   }
 
-  getPaginated(offset: number, limit: number, teamId: string | null = null) {
+  async getPaginated(offset: number, limit: number, teamId: string | null = null) {
     if (teamId) {
-      return db.journalEntries
+      return clientDb.journalEntries
         .where("[teamId+createdAt]")
         .between([teamId, Dexie.minKey], [teamId, Dexie.maxKey])
+        .filter(e => e._pendingAction === null)
         .reverse()
         .offset(offset)
         .limit(limit)
         .toArray();
     }
-    // For personal space (null teamId)
-    // Using filter and reverse on the whole table is fine for local Dexie scale
-    return db.journalEntries
+    return clientDb.journalEntries
       .toCollection()
-      .filter(e => !e.teamId)
+      .filter(e => !e.teamId && e._pendingAction === null)
       .reverse()
       .offset(offset)
       .limit(limit)
@@ -73,21 +179,34 @@ export class JournalEntriesDBManager {
   }
 
   async getLatestUpdatedAt() {
-    const latest = await db.journalEntries.orderBy("updatedAt").last();
-    console.debug(`[JournalEntriesDBManager] Latest updatedAt: ${latest?.updatedAt}`);
+    const latest = await clientDb.journalEntries.orderBy("updatedAt").last();
     return latest;
   }
 
   async count(teamId: string | null = null) {
     if (teamId) {
-      return await db.journalEntries.where("teamId").equals(teamId).count();
+      return await clientDb.journalEntries.where("teamId").equals(teamId).filter(e => e._pendingAction === null).count();
     }
-    return await db.journalEntries.filter(e => !e.teamId).count();
+    return await clientDb.journalEntries.filter(e => !e.teamId && e._pendingAction === null).count();
+  }
+
+  async countPending(teamId: string | null = null) {
+    if (teamId) {
+      return await clientDb.journalEntries.where("teamId").equals(teamId).filter(e => !!e._pendingAction).count();
+    }
+    return await clientDb.journalEntries.filter(e => !e.teamId && !!e._pendingAction).count();
+  }
+
+  async getPending(teamId: string | null = null) {
+    if (teamId) {
+      return await clientDb.journalEntries.where("teamId").equals(teamId).filter(e => !!e._pendingAction).reverse().toArray();
+    }
+    return await clientDb.journalEntries.filter(e => !e.teamId && !!e._pendingAction).reverse().toArray();
   }
 
   async wipeByTeamAppId(teamAppId: string) {
     console.warn(`[JournalEntriesDBManager] Wiping all entries for team ${teamAppId}`);
-    await db.journalEntries.where("teamId").equals(teamAppId).delete();
+    await clientDb.journalEntries.where("teamId").equals(teamAppId).delete();
     notifySubscribers("journalEntries");
   }
 }

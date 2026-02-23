@@ -9,7 +9,11 @@ export const tbus = createTBus(env.OTEL_SERVICE_NAME, {
 		password: env.DB_PASSWORD,
 		database: env.DB_NAME,
 	},
-	schema: "tbus"
+	schema: "tbus",
+	worker: {
+		concurrency: 5,
+		intervalInMs: 1000,
+	}
 });
 
 export type TBus = Bus;

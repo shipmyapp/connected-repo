@@ -3,18 +3,19 @@ import { LoadingSpinner } from "@connected-repo/ui-mui/components/LoadingSpinner
 import { Alert } from "@connected-repo/ui-mui/feedback/Alert";
 import { Container } from "@connected-repo/ui-mui/layout/Container";
 import { useLocalDbItem } from "@frontend/worker/db/hooks/useLocalDbItem";
+import { useLocalDb } from "@frontend/worker/db/hooks/useLocalDb";
 import { getDataProxy } from "@frontend/worker/worker.proxy";
+import { useState } from "react";
 import { useParams } from "react-router";
 import { JournalEntryDetailView } from "../components/JournalEntryDetailView";
 import { useConnectivity } from "@frontend/sw/sse/useConnectivity.sse.sw";
 import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
-import { orpc } from "@frontend/utils/orpc.tanstack.client";
-import { useMutation } from "@tanstack/react-query";
 import { useActiveTeamId } from "@frontend/contexts/WorkspaceContext";
 
 export default function SyncedJournalEntryDetailPage() {
 	const { entryId } = useParams<{ entryId: string }>();
+	const [isDeleting, setIsDeleting] = useState(false);
 	const { isServerReachable } = useConnectivity();
 	const activeTeamId = useActiveTeamId();
 
@@ -23,15 +24,24 @@ export default function SyncedJournalEntryDetailPage() {
 		() => getDataProxy().journalEntriesDb.getById(entryId || "")
 	);
 
-	const deleteMutation = useMutation(orpc.journalEntries.delete.mutationOptions());
+	const { data: files, isLoading: isLoadingFiles } = useLocalDb(
+		"files",
+		() => getDataProxy().filesDb.getFilesByTableId(entryId),
+		[entryId]
+	);
 
 	const handleDelete = async () => {
 		if (entryId) {
-			await deleteMutation.mutateAsync({ journalEntryId: entryId, teamId: activeTeamId });
+			setIsDeleting(true);
+			try {
+				await getDataProxy().journalEntriesDb.delete(entryId);
+			} finally {
+				setIsDeleting(false);
+			}
 		}
 	};
 
-	if (isLoading) return <LoadingSpinner text="Loading journal entry..." />;
+	if (isLoading || isLoadingFiles) return <LoadingSpinner text="Loading journal entry..." />;
 
 	if (error) {
 		return (
@@ -70,9 +80,10 @@ export default function SyncedJournalEntryDetailPage() {
 		);
 	}
 
-	const attachments = (journalEntry.attachmentUrls || []).map((urls, index) => ({
-		url: urls[0], // Use original URL
-		name: `Attachment ${index + 1}`
+	const attachments = (files || []).map((file) => ({
+		url: file.cdnUrl || "",
+		name: file.fileName,
+        thumbnailUrl: file.thumbnailCdnUrl || undefined
 	}));
 
 	return (
@@ -80,9 +91,7 @@ export default function SyncedJournalEntryDetailPage() {
 			<JournalEntryDetailView 
 				entry={journalEntry} 
 				onDelete={handleDelete} 
-				isDeleting={deleteMutation.isPending}
-				canDelete={isServerReachable}
-				deleteDisabledReason="Deleting synced entries requires an active internet connection."
+				isDeleting={isDeleting}
 				attachments={attachments}
 				status="synced"
 			/>

@@ -10,10 +10,10 @@ interface AddMemberDialogProps {
 	open: boolean;
 	onClose: () => void;
 	onSuccess: () => void;
-	teamAppId: string;
+	teamId: string;
 }
 
-export function AddMemberDialog({ open, onClose, onSuccess, teamAppId }: AddMemberDialogProps) {
+export function AddMemberDialog({ open, onClose, onSuccess, teamId }: AddMemberDialogProps) {
 	const [email, setEmail] = useState("");
 	const [role, setRole] = useState<TeamMemberRole>("Member");
 
@@ -29,7 +29,7 @@ export function AddMemberDialog({ open, onClose, onSuccess, teamAppId }: AddMemb
 	const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!email) return;
-		mutation.mutate({ teamAppId, email, role });
+		mutation.mutate({ teamId, email, role });
 	};
 
 	return (

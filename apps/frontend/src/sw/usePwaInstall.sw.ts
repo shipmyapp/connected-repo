@@ -26,7 +26,7 @@ export function usePWAInstall() {
 
     //Detect User-Platform
     const userAgent = window.navigator.userAgent || "";
-    const isChromium = (window as any).chrome !== undefined;
+    const isChromium = window.chrome !== undefined;
     const isIOS = /iPad|iPhone|iPod|Macintosh|Safari/.test(userAgent) && !isChromium;
 
     if(!userPlatform || userPlatform == null) setUserPlatform(isChromium ? "chromium" : isIOS ? "ios" : "other");

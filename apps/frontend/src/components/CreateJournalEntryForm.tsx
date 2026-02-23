@@ -13,6 +13,7 @@ import { RhfTextField } from "@connected-repo/ui-mui/rhf-form/RhfTextField";
 import { useRhfForm } from "@connected-repo/ui-mui/rhf-form/useRhfForm";
 import { PendingSyncJournalEntry, pendingSyncJournalEntryZod } from "@connected-repo/zod-schemas/journal_entry.zod";
 import { useActiveTeamId } from "@frontend/contexts/WorkspaceContext";
+import { useSessionInfo } from "@frontend/contexts/UserContext";
 import { getDataProxy } from "@frontend/worker/worker.proxy";
 import { zodResolver } from "@hookform/resolvers/zod";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
@@ -20,44 +21,16 @@ import EditNoteIcon from "@mui/icons-material/EditNote";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ulid } from "ulid";
+import { SmartMediaUploader } from "./SmartMediaUploader";
 
 type WritingMode = "prompted" | "free";
 
 export function CreateJournalEntryForm() {
 	const teamId = useActiveTeamId();
+    const { user } = useSessionInfo();
 	const [success, setSuccess] = useState("");
 	const [writingMode, setWritingMode] = useState<WritingMode>("prompted");
 	const [attachments, setAttachments] = useState<MediaFile[]>([]);
-	const attachmentsRef = useRef<MediaFile[]>([]);
-
-	// Cleanup effect to revoke all URLs only on unmount
-	useEffect(() => {
-		return () => {
-			attachmentsRef.current.forEach((a) => URL.revokeObjectURL(a.previewUrl));
-		};
-	}, []);
-
-	// Keep ref in sync for the cleanup effect closure
-	useEffect(() => {
-		attachmentsRef.current = attachments;
-	}, [attachments]);
-
-	const handleAddFiles = useCallback((newFiles: File[]) => {
-		const mediaFiles: MediaFile[] = newFiles.map((file) => ({
-			id: ulid(),
-			file,
-			previewUrl: URL.createObjectURL(file),
-		}));
-		setAttachments((prev) => [...prev, ...mediaFiles]);
-	}, []);
-
-	const handleRemoveFile = useCallback((id: string) => {
-		setAttachments((prev) => {
-			const fileToRemove = prev.find((f) => f.id === id);
-			if (fileToRemove) URL.revokeObjectURL(fileToRemove.previewUrl);
-			return prev.filter((f) => f.id !== id);
-		});
-	}, []);
 
 
 	const [randomPrompt, setRandomPrompt] = useState<any>(null);
@@ -101,37 +74,33 @@ export function CreateJournalEntryForm() {
 	const {formMethods, RhfFormProvider } = useRhfForm<PendingSyncJournalEntry>({
 		onSubmit: async (data) => {
 			const app = getDataProxy();
-			const entryId = data.journalEntryId;
+			const entryId = data.id;
 			
 			// 1. Prepare and persist files
+			// Note: Files are already persisted by SmartMediaUploader!
 			const fileIds = attachments.map((a) => a.id);
-			for (const attachment of attachments) {
-				await app.filesDb.upsert(
-					attachment.id,
-					entryId,
-					attachment.file,
-					attachment.file.name,
-					teamId
-				);
-			}
 
 			// 2. Prepare entry data
-			const submitData: PendingSyncJournalEntry = {
+			const submitData: any = {
 				...data,
 				attachmentFileIds: fileIds,
 				teamId: teamId,
 				prompt: writingMode === "free" ? null : data.prompt,
-				promptId: writingMode === "free" ? null : randomPrompt?.promptId ?? null,
+				promptId: writingMode === "free" ? null : randomPrompt?.id ?? null,
 				createdAt: Date.now(),
 				status: fileIds.length > 0 ? "file-upload-pending" : "file-upload-completed",
 				errorCount: 0,
 			};
 
 			try {
-				await app.pendingSyncJournalEntriesDb.add(submitData);
+                // Use unified DB manager
+				await app.journalEntriesDb.handleLocalCreate(submitData);
 
-				// Cleanup state
-				attachments.forEach((a) => URL.revokeObjectURL(a.previewUrl));
+				// Cleanup state (revoke URLs)
+				attachments.forEach(a => {
+					URL.revokeObjectURL(a.previewUrl);
+					if (a.thumbnailUrl) URL.revokeObjectURL(a.thumbnailUrl);
+				});
 				setAttachments([]);
 				
 				// Pick a new prompt for next entry
@@ -141,10 +110,9 @@ export function CreateJournalEntryForm() {
 				}
 
 				formMethods.reset({
-					journalEntryId: ulid(),
+					id: ulid(),
 					prompt: null, // Will be set by effect
 					content: "",
-					attachmentFileIds: [],
 					teamId: teamId,
 					status: "file-upload-pending",
 					errorCount: 0,
@@ -162,7 +130,7 @@ export function CreateJournalEntryForm() {
 						type: "local-database",
 						message: error instanceof Error
 							? error.message
-							: "Unknown error when saving data to local-b"
+							: "Unknown error when saving data to local-db"
 					}
 				)
 			} 
@@ -173,8 +141,7 @@ export function CreateJournalEntryForm() {
 			defaultValues: {
 				prompt: null,
 				content: undefined,
-				attachmentFileIds: [],
-				journalEntryId: ulid(),
+				id: ulid(),
 				teamId: teamId,
 				status: "file-upload-pending",
 				errorCount: 0,
@@ -389,11 +356,13 @@ export function CreateJournalEntryForm() {
 					/>
 
 					<Box sx={{ bgcolor: 'background.paper', borderRadius: 2, p: 1.5, border: '1px dashed', borderColor: 'divider' }}>
-						<MediaUploader
-							files={attachments}
-							onAddFiles={handleAddFiles}
-							onRemoveFile={handleRemoveFile}
+						<SmartMediaUploader
+							value={attachments}
+							onChange={setAttachments}
 							maxFiles={20}
+							teamId={teamId}
+							tableId={formMethods.getValues("id")}
+							tableName="journalEntries"
 						/>
 					</Box>
 

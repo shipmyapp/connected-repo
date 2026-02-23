@@ -1,18 +1,86 @@
 import { Box } from "@connected-repo/ui-mui/layout/Box";
+import { Stack } from "@connected-repo/ui-mui/layout/Stack";
+import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
 import { MaterialReactTable } from "@connected-repo/ui-mui/mrt/MaterialReactTable";
 import { JournalEntrySelectAll } from "@connected-repo/zod-schemas/journal_entry.zod";
 import type { MRT_ColumnDef } from "material-react-table";
-import { useCallback, useMemo } from "react";
-import { Tooltip } from "@mui/material";
+import { useCallback, useMemo, useEffect, useState, useRef } from "react";
+import { Tooltip, alpha } from "@mui/material";
 import ErrorIcon from "@mui/icons-material/Error";
 import AttachFileIcon from "@mui/icons-material/AttachFile";
 
 interface JournalEntryTableViewProps {
 	entries: JournalEntrySelectAll[];
 	onEntryClick: (entryId: string) => void;
+    attachments?: Record<string, any[]>;
 }
 
-export function JournalEntryTableView({ entries, onEntryClick }: JournalEntryTableViewProps) {
+function TableThumbnailItem({ attachment }: { attachment: any }) {
+    const [url, setUrl] = useState<string | null>(null);
+    const trackedUrl = useRef<string | null>(null);
+
+    useEffect(() => {
+        let previewUrl: string | null = null;
+        if (attachment.thumbnailCdnUrl) {
+            previewUrl = attachment.thumbnailCdnUrl;
+        } else if (attachment._thumbnailBlob) {
+            previewUrl = URL.createObjectURL(attachment._thumbnailBlob);
+        } else if (attachment.cdnUrl) {
+            previewUrl = attachment.cdnUrl;
+        } else if (attachment._blob) {
+            previewUrl = URL.createObjectURL(attachment._blob);
+        }
+
+        if (previewUrl && previewUrl !== attachment.thumbnailCdnUrl && previewUrl !== attachment.cdnUrl) {
+            trackedUrl.current = previewUrl;
+        }
+        setUrl(previewUrl);
+
+        return () => {
+            if (trackedUrl.current) {
+                URL.revokeObjectURL(trackedUrl.current);
+                trackedUrl.current = null;
+            }
+        };
+    }, [attachment]);
+
+    if (!url) return null;
+
+    return (
+        <Box 
+            component="img"
+            src={url}
+            sx={{ 
+                width: 24, 
+                height: 24, 
+                borderRadius: 0.5, 
+                objectFit: 'cover',
+                border: '1px solid',
+                borderColor: 'divider'
+            }}
+        />
+    );
+}
+
+function MultipleTableThumbnails({ attachments }: { attachments: any[] }) {
+    const images = attachments.filter(a => a.mimeType.startsWith('image/') || a.type === 'attachment');
+    if (images.length === 0) return null;
+
+    return (
+        <Stack direction="row" spacing={0.25}>
+            {images.slice(0, 3).map(img => (
+                <TableThumbnailItem key={img.id} attachment={img} />
+            ))}
+            {images.length > 3 && (
+                <Typography variant="caption" sx={{ alignSelf: 'center', opacity: 0.6, fontSize: '0.65rem' }}>
+                    +{images.length - 3}
+                </Typography>
+            )}
+        </Stack>
+    );
+}
+
+export function JournalEntryTableView({ entries, onEntryClick, attachments = {} }: JournalEntryTableViewProps) {
 	const truncateContent = useCallback(
 		(content: string, maxLength = 100) => {
 			if (content.length <= maxLength) return content;
@@ -34,6 +102,14 @@ export function JournalEntryTableView({ entries, onEntryClick }: JournalEntryTab
 
 	const columns = useMemo<MRT_ColumnDef<JournalEntrySelectAll>[]>(
 		() => [
+            {
+                accessorKey: "id",
+                header: "",
+                size: 50,
+                enableSorting: false,
+                enableColumnFilter: false,
+                Cell: ({ row }) => <MultipleTableThumbnails attachments={attachments[row.original.id] || []} />,
+            },
 			{
 				accessorKey: "prompt",
 				header: "Prompt",
@@ -106,7 +182,7 @@ export function JournalEntryTableView({ entries, onEntryClick }: JournalEntryTab
 				sorting: [{ id: "createdAt", desc: true }],
 			}}
 			muiTableBodyRowProps={({ row }) => ({
-				onClick: () => onEntryClick(row.original.journalEntryId),
+				onClick: () => onEntryClick(row.original.id),
 				sx: {
 					cursor: "pointer",
 					transition: "background-color 0.2s ease-in-out",

@@ -22,6 +22,7 @@ export interface MediaFile {
   id: string;
   file: File;
   previewUrl: string;
+  thumbnailUrl?: string;
 }
 
 interface MediaUploaderProps {
@@ -38,6 +39,7 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
   maxFiles = 5 
 }) => {
   const theme = useTheme();
+  const [failedUrls, setFailedUrls] = React.useState<Set<string>>(new Set());
   
   const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
   const ALLOWED_TYPES = [
@@ -135,15 +137,18 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
               }
             }}
           >
-            {media.file.type.startsWith('image/') ? (
+            {((media.file.type.startsWith('image/') || media.thumbnailUrl) && !failedUrls.has(media.id)) ? (
               <Box
                 component="img"
-                src={media.previewUrl}
+                src={media.thumbnailUrl || media.previewUrl}
                 alt="preview"
+                onError={() => {
+                  setFailedUrls(prev => new Set(prev).add(media.id));
+                }}
                 sx={{
                   width: '100%',
                   height: '100%',
-                  objectFit: 'contain',
+                  objectFit: 'cover',
                 }}
               />
             ) : (
@@ -171,6 +176,38 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
                 </Typography>
               </Box>
             )}
+
+            {/* File Type Badge Overlay */}
+            <Box
+              sx={{
+                position: 'absolute',
+                bottom: 6,
+                left: 6,
+                bgcolor: alpha(theme.palette.common.black, 0.6),
+                color: 'white',
+                borderRadius: '4px',
+                px: 0.6,
+                py: 0.2,
+                backdropFilter: 'blur(4px)',
+                display: 'flex',
+                alignItems: 'center',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                pointerEvents: 'none',
+                zIndex: 2
+              }}
+            >
+              <Typography 
+                variant="caption" 
+                sx={{ 
+                  fontSize: '0.55rem', 
+                  fontWeight: 900, 
+                  lineHeight: 1,
+                  letterSpacing: '0.05em'
+                }}
+              >
+                {media.file.name.split('.').pop()?.toUpperCase() || 'FILE'}
+              </Typography>
+            </Box>
           </Paper>
         </Badge>
       ))}

@@ -1,28 +1,35 @@
-import { subscribe, type AppDbTable } from "../db/db.manager";
+import { clientDb, subscribe, type AppDbTable } from "../db/db.manager";
 import { filesDb } from "../db/files.db";
-import { pendingSyncJournalEntriesDb } from "../db/pending-sync-journal-entries.db";
 import { journalEntriesDb } from "../../modules/journal-entries/worker/journal-entries.db";
 import { getMediaProxyInternal } from "../worker.context";
 import { orpcFetch } from "../../utils/orpc.client";
-import type { PendingSyncJournalEntry } from "@connected-repo/zod-schemas/journal_entry.zod";
+import type { JournalEntrySelectAll } from "@connected-repo/zod-schemas/journal_entry.zod";
 import type { StoredFile } from "../db/schema.db.types";
+import { SSE_MESSAGES_CHANNEL, type SseMessage } from "../../configs/channels.config";
+import { TABLES_TO_SYNC_ENUM, TablesToSync } from "@connected-repo/zod-schemas/enums.zod";
 
 export class SyncOrchestrator {
   private isProcessing = false;
-  private interval: any = null;
-  private inFlightSyncs = new Set<string>();
+  private sseChannel: BroadcastChannel | null = null;
+  private inFlightSyncs = new Set<string>(); // "tableName:recordId"
 
   constructor() {
-    // Subscription-based trigger
+    // 1. Listen for SSE events to trigger sync
+    this.sseChannel = new BroadcastChannel(SSE_MESSAGES_CHANNEL);
+    this.sseChannel.onmessage = (event) => {
+      const message = event.data as SseMessage;
+      if (message.type === 'SSE_HEARTBEAT' || message.type === 'SSE_CONNECTED') {
+        this.processQueue();
+      }
+    };
+
+    // 2. Listen for local DB changes to trigger sync
     subscribe((table: AppDbTable) => {
-      if (table === "pendingSyncJournalEntries" || table === "files") {
+      // If we change something locally, try to push it
+      if (['journalEntries', 'prompts', 'teamsApp', 'teamMembers', 'files'].includes(table)) {
         this.processQueue();
       }
     });
-  }
-
-  public getProcessingStatus() {
-    return this.isProcessing;
   }
 
   private isOnline(): boolean {
@@ -30,275 +37,224 @@ export class SyncOrchestrator {
   }
 
   public start() {
-    if (this.interval) return;
-    console.info("[SyncOrchestrator] Started background sync loop");
-    
-    // Periodic check every 60 seconds as a fallback safety
-    this.interval = setInterval(() => this.processQueue(), 60000);
+    console.info("[SyncOrchestrator] Service started.");
     this.processQueue();
   }
 
-  public stop() {
-    if (this.interval) {
-      clearInterval(this.interval);
-      this.interval = null;
-    }
-    console.info("[SyncOrchestrator] Stopped background sync loop");
-  }
-
-  /**
-   * Main orchestration loop.
-   */
-  public async processQueue(force: boolean = false) {
-    if (this.isProcessing) {
-      console.debug("[SyncOrchestrator] ProcessQueue skipped: already processing.");
-      return;
-    }
-
-    if (!this.isOnline() && !force) {
-      console.debug("[SyncOrchestrator] ProcessQueue skipped: offline.");
-      return;
-    }
+  public async processQueue() {
+    if (this.isProcessing) return;
+    if (!this.isOnline()) return;
 
     this.isProcessing = true;
-
     try {
-      const entries = await pendingSyncJournalEntriesDb.getAllUnscoped();
-      if (entries.length === 0) {
-        console.debug("[SyncOrchestrator] ProcessQueue: No pending entries found.");
-        return;
-      }
+      console.debug("[SyncOrchestrator] Starting sync scan...");
+      
+      // We process tables in order of dependency if any, but mostly concurrent is fine
+      await Promise.all(TABLES_TO_SYNC_ENUM.map((tableName) => this.syncTable(tableName)));
 
-      console.group(`[SyncOrchestrator] Processing ${entries.length} pending entries`);
-
-      for (const entry of entries) {
-        // Skip if already synced but somehow still in pending
-        if (entry.status === 'synced') {
-          console.debug(`[SyncOrchestrator] Entry ${entry.journalEntryId} already synced, skipping.`);
-          continue;
-        }
-        
-        try {
-          console.group(`[Entry: ${entry.journalEntryId}] Status: ${entry.status} (Force: ${force})`);
-          await this.orchestrateEntry(entry, force);
-          console.groupEnd();
-        } catch (err) {
-          console.error(`[SyncOrchestrator] Error orchestrating entry ${entry.journalEntryId}:`, err);
-          console.groupEnd();
-        }
-      }
-      console.groupEnd();
     } catch (err) {
-        console.error("[SyncOrchestrator] Queue processing failed:", err);
+      console.error("[SyncOrchestrator] Global sync error:", err);
     } finally {
       this.isProcessing = false;
     }
   }
 
-  /**
-   * Helper to handle errors during the orchestration of a single file
-   */
-  private async handleFileError(fileId: string, error: unknown, type: 'thumbnail' | 'upload') {
-    const file = await filesDb.get(fileId);
-    if (!file) return;
+  private async syncTable(tableName: TablesToSync) {
+    const table = clientDb[tableName];
+    if (!table) return;
 
-    const newErrorCount = (file.errorCount ?? 0) + 1;
-    const errorMsg = error instanceof Error ? error.message : String(error);
+    // Find all records with a pending action
+    const pendingRecords = await table
+      .filter((r: any) => r._pendingAction !== null)
+      .toArray();
 
-    const update: Partial<StoredFile> = {
-      error: errorMsg,
-      errorCount: newErrorCount,
-    };
+    if (pendingRecords.length === 0) return;
 
-    if (type === 'thumbnail') {
-      update.thumbnailStatus = 'failed';
-    } else {
-      update.status = 'failed';
+    console.group(`[SyncOrchestrator] Table: ${tableName} (${pendingRecords.length} pending)`);
+    for (const record of pendingRecords) {
+      const syncKey = `${tableName}:${record.id}`;
+      
+      if (this.inFlightSyncs.has(syncKey)) continue;
+
+      try {
+        this.inFlightSyncs.add(syncKey);
+        await this.syncRecord(tableName, record);
+      } catch (err) {
+        console.error(`[SyncOrchestrator] Error syncing ${syncKey}:`, err);
+      } finally {
+        this.inFlightSyncs.delete(syncKey);
+      }
     }
-
-    await filesDb.update(fileId, update);
-    console.warn(`[SyncOrchestrator] ${type} failed for ${fileId} (Count: ${newErrorCount}):`, errorMsg);
+    console.groupEnd();
   }
 
-  private async orchestrateEntry(entry: PendingSyncJournalEntry, force: boolean) {
-    const files = await filesDb.getFilesByPendingSyncId(entry.journalEntryId);
-    const mediaProxy = getMediaProxyInternal();
-    
-    if (!mediaProxy) {
-      console.warn("[SyncOrchestrator] MediaProxy not yet bridged, skipping media tasks for this tick.");
+  private async syncRecord(tableName: TablesToSync, record: any) {
+    if (tableName === 'journalEntries') {
+      await this.orchestrateJournalEntry(record);
       return;
     }
 
-    let allMediaFinalized = true; // Finalized means either 'completed' or 'permanently failed'
-    const attachmentUrls: ([string, "not-available" | string] | null)[] = [];
-
-    // 1. Process attachments sequentially to maintain order and track status
-    for (const fileId of entry.attachmentFileIds) {
-      const file = files.find((f: StoredFile) => f.fileId === fileId);
-      
-      if (!file) {
-        console.warn(`[SyncOrchestrator] Missing file record for ${fileId} in entry ${entry.journalEntryId}. Treating as null.`);
-        attachmentUrls.push(null);
-        continue;
-      }
-
-      // Phase A: Thumbnail Generation (if applicable)
-      const needsThumbnail = file.mimeType.startsWith("image/") || file.mimeType === "application/pdf" || file.mimeType.startsWith("video/");
-      const thumbnailPermanentlyFailed = !force && (file.errorCount ?? 0) >= 3;
-      const thumbnailReady = !needsThumbnail || file.thumbnailStatus === 'completed';
-
-      if (!thumbnailReady) {
-        allMediaFinalized = false;
-        console.info(`[SyncOrchestrator] Thumbnail for ${fileId} not ready (Status: ${file.thumbnailStatus}, Force: ${force}).`);
-        
-        if (file.thumbnailStatus !== 'in-progress' || force || thumbnailPermanentlyFailed) {
-          try {
-            if (thumbnailPermanentlyFailed) {
-              console.warn(`[SyncOrchestrator] Thumbnail generation failed repeatedly for ${fileId}. Marking as completed (will use "not-available" fallback).`);
-              await filesDb.update(fileId, { thumbnailStatus: 'completed' });
-            } else {
-              await filesDb.update(fileId, { thumbnailStatus: 'in-progress' });
-              const originalFile = new File([file.blob], file.fileName, { type: file.mimeType });
-              const result = await mediaProxy.media.generateThumbnail(originalFile);
-              
-              if (result.thumbnailFile) {
-                await filesDb.update(fileId, {
-                  thumbnailBlob: result.thumbnailFile,
-                  thumbnailStatus: 'completed'
-                });
-                console.debug(`[SyncOrchestrator] Generated thumbnail for ${fileId}`);
-              } else if (result.error) {
-                throw new Error(result.error);
-              } else {
-                // No thumbnail needed or generic failure
-                await filesDb.update(fileId, { thumbnailStatus: 'completed' });
-              }
-            }
-          } catch (error) {
-            await this.handleFileError(fileId, error, 'thumbnail');
-          }
-        }
-        attachmentUrls.push(null);
-        continue;
-      }
-
-      // Phase B: CDN Upload
-      const uploadFailed = !force && file.status === 'failed' && (file.errorCount ?? 0) >= 5;
-      const uploadReady = file.status === 'completed' || uploadFailed;
-
-      if (!uploadReady) {
-        allMediaFinalized = false;
-        console.info(`[SyncOrchestrator] Media ${fileId} not ready (Status: ${file.status}, Force: ${force}).`);
-        
-        if (file.status !== 'in-progress' || force) {
-          try {
-            await filesDb.update(fileId, { status: 'in-progress' });
-            const originalFile = new File([file.blob], file.fileName, { type: file.mimeType });
-            let thumbnailFile: File | undefined = undefined;
-            
-            if (file.thumbnailBlob) {
-              thumbnailFile = new File([file.thumbnailBlob], `thumb_${file.fileName}`, { type: file.thumbnailBlob.type });
-            }
-
-            const result = await mediaProxy.media.uploadMediaPair(originalFile, thumbnailFile);
-            
-            if (result.success && result.urls) {
-              await filesDb.update(fileId, {
-                cdnUrls: result.urls,
-                status: 'completed'
-              });
-              console.debug(`[SyncOrchestrator] Uploaded media for ${fileId}`);
-            } else {
-              throw new Error(result.error || "Upload failed");
-            }
-          } catch (error) {
-            await this.handleFileError(fileId, error, 'upload');
-          }
-        }
-        attachmentUrls.push(null);
-        continue;
-      }
-
-      // If we reach here, the file is "ready" (either successfully uploaded or permanently failed)
-      if (file.status === 'completed' && file.cdnUrls) {
-        attachmentUrls.push(file.cdnUrls as [string, "not-available" | string]);
-      } else {
-        console.warn(`[SyncOrchestrator] File ${fileId} permanently failed or has no URLs. Sending null placeholder.`);
-        attachmentUrls.push(null);
-      }
+    if (tableName === 'files') {
+      await this.orchestrateFile(record);
+      return;
     }
 
-    console.debug(`[SyncOrchestrator] All media finalized: ${allMediaFinalized}. Attachments collected: ${attachmentUrls.filter(u => u !== null).length}/${entry.attachmentFileIds.length}`);
+    console.warn(`[SyncOrchestrator] No sync handler for table: ${tableName}`);
+  }
 
-    // 2. Final Backend Sync
-    if (allMediaFinalized) {
-      const validAttachmentUrls = attachmentUrls.filter((u): u is [string, "not-available" | string] => u !== null);
-      const hasFailures = validAttachmentUrls.length < entry.attachmentFileIds.length;
+  private async orchestrateJournalEntry(record: any) {
+    const entryId = record.id;
+    const action = record._pendingAction;
 
-      if (hasFailures) {
-        console.error(`[SyncOrchestrator] Entry ${entry.journalEntryId} has failed attachments. Aborting sync.`);
-        await pendingSyncJournalEntriesDb.updateStatus(entry.journalEntryId, 'file-upload-failed', "One or more attachments failed to upload.");
-      } else {
-        await this.performBackendSync(entry, validAttachmentUrls, force);
+    // Decoupled: Push entry to backend immediately
+    try {
+      console.log(`[SyncOrchestrator] Orchestrating JournalEntry ${entryId} (${action})`);
+      let result;
+      if (action === 'create') {
+        const { _pendingAction, status, error, errorCount, ...data } = record;
+        result = await orpcFetch.journalEntries.create(data);
       }
-    } else {
-      // Update entry status if it's not already in an informative state
-      const currentStatus = attachmentUrls.every(u => u === null) 
-        ? entry.status // Don't change if we haven't even started or if all failed early
-        : 'file-upload-in-progress';
-        
-      if (entry.status !== currentStatus && !['file-upload-failed', 'sync-failed', 'syncing'].includes(entry.status)) {
-        console.info(`[SyncOrchestrator] Transitioning entry status: ${entry.status} -> ${currentStatus}`);
-        await pendingSyncJournalEntriesDb.updateStatus(entry.journalEntryId, currentStatus);
-      }
+      await this.handleSuccess('journalEntries', record, result);
+    } catch (err: any) {
+      console.error(`[SyncOrchestrator] Backend sync failed for entry ${entryId}`, err);
     }
   }
 
-  private async performBackendSync(entry: PendingSyncJournalEntry, attachmentUrls: [string, "not-available" | string][], force: boolean) {
-    // Avoid redundant calls while one is in flight in this session
-    if (!force && this.inFlightSyncs.has(entry.journalEntryId)) {
-        console.debug(`[SyncOrchestrator] Backend sync already in flight for ${entry.journalEntryId}, skipping.`);
+  private async orchestrateFile(file: StoredFile) {
+    const fileId = file.id;
+    const action = file._pendingAction;
+    const mediaProxy = getMediaProxyInternal();
+    if (!mediaProxy) return;
+
+    // 0. Parent Check: Only process files if parent entry exists
+    const parentEntry = await clientDb.journalEntries.get(file.tableId);
+    if (!parentEntry) {
+        console.debug(`[SyncOrchestrator] File ${fileId} waiting for parent entry ${file.tableId}...`);
         return;
     }
 
-    try {
-      this.inFlightSyncs.add(entry.journalEntryId);
-      console.info(`[SyncOrchestrator] Starting backend sync for ${entry.journalEntryId}...`);
-      await pendingSyncJournalEntriesDb.updateStatus(entry.journalEntryId, 'syncing');
+    // 1. Thumbnail Stage (Backup/Retry)
+    if (file._thumbnailStatus !== 'completed' && (file.mimeType.startsWith("image/") || file.mimeType === "application/pdf")) {
+      await this.triggerThumbnail(fileId, file, mediaProxy);
+      return;
+    }
 
-      const payload = {
-        journalEntryId: entry.journalEntryId,
-        content: entry.content,
-        prompt: entry.prompt,
-        promptId: entry.promptId,
-        attachmentUrls: attachmentUrls,
-        createdAt: entry.createdAt,
-        teamId: entry.teamId,
-      };
+    // 2. Upload Stage (CDN)
+    if (file._uploadStatus !== 'completed') {
+      await this.triggerUpload(fileId, file, mediaProxy);
+      return;
+    }
 
-      console.group("[SyncOrchestrator] oRPC Payload");
-      console.dir(payload);
-      console.groupEnd();
-
-      // @ts-ignore - ORPC types can be strict with date/number conversion sometimes
-      const result = await orpcFetch.journalEntries.create(payload);
-      
-      console.info(`[SyncOrchestrator] Backend confirmed creation. Result ID: ${result.journalEntryId}`);
-      
-      // Success! Move to main table.
-      // journalEntriesDb.upsert handles removing from pendingSyncJournalEntriesDb via transaction
-      await journalEntriesDb.upsert(result);
-      console.info(`[SyncOrchestrator] Successfully moved ${entry.journalEntryId} from pending to main.`);
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      console.error(`[SyncOrchestrator] Failed backend sync for ${entry.journalEntryId}:`, err);
-      
-      // Recoverable error: update status and wait for next tick/retry
-      await pendingSyncJournalEntriesDb.updateStatus(entry.journalEntryId, 'sync-failed', errorMsg);
-    } finally {
-      this.inFlightSyncs.delete(entry.journalEntryId);
+    // 3. Sync Stage (Backend Metadata)
+    if (file._syncStatus !== 'completed') {
+        try {
+            console.log(`[SyncOrchestrator] Syncing metadata for file ${fileId} to backend`);
+            await filesDb.update(fileId, { _syncStatus: 'in-progress' });
+            let result;
+            if (action === 'create') {
+              const { _blob, _thumbnailBlob, _uploadStatus, _thumbnailStatus, _syncStatus, _error, _errorCount, _pendingAction, ...syncData } = file;
+              result = await orpcFetch.files.create(syncData);
+              // Handle success by clearing pending action
+              await this.handleSuccess('files', file, result);
+            }
+        } catch (err: any) {
+            console.error(`[SyncOrchestrator] Backend sync failed for file ${fileId}`, err);
+            await filesDb.update(fileId, { _syncStatus: 'failed', _error: err.message });
+        }
     }
   }
+
+  private async triggerThumbnail(fileId: string, file: StoredFile, mediaProxy: any) {
+    if (file._thumbnailStatus === 'in-progress') return;
+    try {
+      console.log(`[SyncOrchestrator] Triggering thumbnail generation for file ${fileId}`);
+      await filesDb.update(fileId, { _thumbnailStatus: 'in-progress' });
+      
+      if (!file._blob) {
+          console.warn(`[SyncOrchestrator] Cannot generate thumbnail for ${fileId}: Blob missing`);
+          await filesDb.update(fileId, { _thumbnailStatus: 'failed', _error: "Blob missing" });
+          return;
+      }
+
+      const blobFile = new File([file._blob], file.fileName, { type: file.mimeType });
+      const result = await mediaProxy.media.generateThumbnail(blobFile);
+      if (result.thumbnailFile) {
+        await filesDb.update(fileId, { 
+          _thumbnailBlob: result.thumbnailFile, 
+          _thumbnailStatus: 'completed' 
+        });
+        console.log(`[SyncOrchestrator] Thumbnail generated for file ${fileId}`);
+      }
+    } catch (e) {
+      console.error(`[SyncOrchestrator] Thumbnail generation failed for ${fileId}`, e);
+      await filesDb.update(fileId, { _thumbnailStatus: 'failed' });
+    }
+  }
+
+  private async triggerUpload(fileId: string, file: StoredFile, mediaProxy: any) {
+    if (file._uploadStatus === 'in-progress') return;
+    try {
+      console.log(`[SyncOrchestrator] Triggering CDN upload for file ${fileId}`);
+      await filesDb.update(fileId, { _uploadStatus: 'in-progress' });
+
+      if (!file._blob) {
+        console.warn(`[SyncOrchestrator] Cannot upload file ${fileId}: Blob missing`);
+        await filesDb.update(fileId, { _uploadStatus: 'failed', _error: "Blob missing" });
+        return;
+      }
+
+      const blobFile = new File([file._blob], file.fileName, { type: file.mimeType });
+      (blobFile as any).id = fileId; // Attach id for deterministic S3 key
+      
+      const thumbFile = file._thumbnailBlob ? new File([file._thumbnailBlob], "thumb", { type: file._thumbnailBlob.type }) : undefined;
+      if (thumbFile) (thumbFile as any).id = `${fileId}_thumb`;
+
+      const result = await mediaProxy.media.uploadMediaPair(blobFile, thumbFile);
+      if (result.success && result.urls) {
+        console.log(`[SyncOrchestrator] CDN upload successful for file ${fileId}`, result.urls);
+        await filesDb.update(fileId, { 
+          cdnUrl: result.urls[0],
+          thumbnailCdnUrl: result.urls[1] || null,
+          _uploadStatus: 'completed' 
+        });
+      } else {
+        console.error(`[SyncOrchestrator] CDN upload failed for file ${fileId}: ${result.error}`);
+        await filesDb.update(fileId, { _uploadStatus: 'failed', _error: result.error });
+      }
+    } catch (e: any) {
+      console.error(`[SyncOrchestrator] CDN upload exception for file ${fileId}`, e);
+      await filesDb.update(fileId, { _uploadStatus: 'failed', _error: e.message });
+    }
+  }
+
+  private async handleSuccess(tableName: TablesToSync, localRecord: any, serverRecord: any) {
+    const table = clientDb[tableName];
+    const recordIdField = this.getRecordIdField(tableName);
+    const recordId = localRecord[recordIdField];
+
+    // Merge with existing local data to preserve blobs/status
+    const existing = await table.get(recordId);
+    
+    await table.put({
+      ...existing,
+      ...serverRecord,
+      _pendingAction: null,
+    });
+    console.info(`[SyncOrchestrator] Successfully synced ${tableName}:${recordId} (server id: ${serverRecord.id})`);
+  }
+
+  private getRecordIdField(tableName: TablesToSync): string {
+    switch (tableName) {
+      case 'journalEntries': return 'id';
+      case 'prompts': return 'id';
+      case 'teamsApp': return 'id';
+      case 'teamMembers': return 'id';
+      case 'files': return 'id';
+      default: return 'id';
+    }
+  }
+
+
 }
 
 export const syncOrchestrator = new SyncOrchestrator();

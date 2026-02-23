@@ -7,7 +7,7 @@ export class TeamAppTable extends BaseTable {
   readonly table = "teams_app";
 
   columns = this.setColumns((t) => ({
-    teamAppId: t.uuid().primaryKey().default(t.sql`gen_random_uuid()`),
+    id: t.uuid().primaryKey().default(t.sql`gen_random_uuid()`),
     name: t.string(),
     logoUrl: t.string().nullable(),
     createdByUserId: t.uuid().foreignKey("users", "id", {
@@ -23,8 +23,8 @@ export class TeamAppTable extends BaseTable {
 
   relations = {
     members: this.hasMany(() => TeamMemberTable, {
-      columns: ["teamAppId"],
-      references: ["teamAppId"],
+      columns: ["id"],
+      references: ["teamId"],
     }),
   }
 
@@ -33,7 +33,7 @@ export class TeamAppTable extends BaseTable {
       for (const entry of entries) {
         syncService.push({
           type: "data-change-teamsApp",
-          syncToTeamAppIdAllMembers: entry.teamAppId,
+          syncToTeamAppIdAllMembers: entry.id,
           operation: "create",
           data: [entry],
         });
@@ -44,7 +44,7 @@ export class TeamAppTable extends BaseTable {
       for (const entry of entries) {
         syncService.push({
           type: "data-change-teamsApp",
-          syncToTeamAppIdAllMembers: entry.teamAppId,
+          syncToTeamAppIdAllMembers: entry.id,
           operation: "update",
           data: [entry],
         });
@@ -55,7 +55,7 @@ export class TeamAppTable extends BaseTable {
       for (const entry of entries) {
         syncService.push({
           type: "data-change-teamsApp",
-          syncToTeamAppIdAllMembers: entry.teamAppId,
+          syncToTeamAppIdAllMembers: entry.id,
           operation: "delete",
           data: [entry],
         });

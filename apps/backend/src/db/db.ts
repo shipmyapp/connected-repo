@@ -3,6 +3,7 @@ import { AccountTable } from "@backend/modules/auth/tables/account.auth.table";
 import { SessionTable } from "@backend/modules/auth/tables/session.auth.table";
 import { VerificationTable } from "@backend/modules/auth/tables/verification.auth.table";
 import { PgTbusTaskLogTable } from "@backend/modules/events/tables/pg_tbus_task_log.table";
+import { FileTable } from "@backend/modules/files/tables/files.table";
 import { JournalEntryTable } from "@backend/modules/journal-entries/tables/journal_entries.table";
 import { ApiProductRequestLogsTable } from "@backend/modules/logs/tables/api_product_request_logs.table";
 import { PromptsTable } from "@backend/modules/prompts/tables/prompts.table";
@@ -26,6 +27,7 @@ export const db = orchidORM(
 		prompts: PromptsTable,
 		teamsApp: TeamAppTable,
 		teamMembers: TeamMemberTable,
+		files: FileTable,
 
 		// API only
 

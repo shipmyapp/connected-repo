@@ -28,7 +28,7 @@ const spin = keyframes`
 
 interface JournalEntryDetailViewProps {
 	entry: {
-		journalEntryId: string;
+		id: string;
 		prompt?: string | null;
 		content: string;
 		createdAt: number | string | Date;
@@ -80,7 +80,7 @@ export function JournalEntryDetailView({
 			await onDelete();
 			navigate("/journal-entries", { replace: true });
 		} catch (error) {
-			setDeleteError("Failed to delete journal entry. Please try again.");
+			setDeleteError(error instanceof Error ? error.message : "Failed to delete journal entry. Please try again.");
 		}
 	};
 
@@ -311,7 +311,7 @@ export function JournalEntryDetailView({
 										}}
 										onClick={() => window.open(file.url, "_blank")}
 									>
-										{file.thumbnailUrl === "not-available" ? (
+										{!file.thumbnailUrl ? (
 											<Box
 												sx={{
 													width: "100%",

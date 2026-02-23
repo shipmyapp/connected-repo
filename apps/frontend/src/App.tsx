@@ -8,7 +8,7 @@
  */
 import { LoadingSpinner } from "@connected-repo/ui-mui/components/LoadingSpinner";
 import { ThemeContextProvider, useThemeMode } from "@connected-repo/ui-mui/theme/ThemeContext";
-import { ErrorFallback } from "@frontend/components/error_fallback";
+import { CustomErrorBoundary, ErrorFallback } from "@frontend/components/error_fallback";
 import { usePWAInstall } from "@frontend/sw/usePwaInstall.sw";
 import { router } from "@frontend/router";
 import { LocalizationProvider } from "@mui/x-date-pickers";
@@ -57,7 +57,7 @@ function App() {
 			<ThemeContextProvider>
 				<Suspense fallback={<LoadingSpinner text="Loading..." />}>
 					<ErrorBoundary
-						fallback={<ErrorFallback />}
+						fallback={<CustomErrorBoundary />}
 						beforeCapture={(scope) => {
 							scope.setTag("level", "top-level");
 						}}

@@ -3,7 +3,7 @@ import { db } from "@backend/db/db";
 import { openApiAuthProcedure } from "@backend/procedures/open_api_auth.procedure";
 import { calculateSubscriptionParams } from "@backend/utils/calculate_subscription_params.utils";
 import { subscriptionApiCreateInputZod, subscriptionGetActiveByTeamUserZod, subscriptionSelectAllZod } from "@connected-repo/zod-schemas/subscription.zod";
-import z from "zod";
+import { z } from "zod";
 
 
 const createSubscription = openApiAuthProcedure

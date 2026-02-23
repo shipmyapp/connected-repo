@@ -5,14 +5,26 @@ import { PwaUpdatePrompt } from "@frontend/components/pwa/update_prompt.pwa";
 import type { SessionInfo } from "@frontend/contexts/UserContext";
 import { OfflineBanner } from "@frontend/sw/sse/OfflineBanner.sse.sw";
 import { useMediaQuery } from "@mui/material";
+import Fade from "@mui/material/Fade";
 import { useTheme } from "@mui/material/styles";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Outlet, useLoaderData } from "react-router";
 import { DesktopNavbar } from "./DesktopNavbar";
 import { MobileNavbar } from "./MobileNavbar";
-import { WorkspaceProvider } from "@frontend/contexts/WorkspaceContext";
+import { useWorkspace, WorkspaceProvider } from "@frontend/contexts/WorkspaceContext";
+import { userContext, useSessionInfo } from "@frontend/contexts/UserContext";
 
-import { userContext } from "@frontend/contexts/UserContext";
+export const AppLayoutContent = () => {
+	const { activeWorkspace } = useWorkspace();
+	const sessionInfo = useSessionInfo();
+	return (
+		<Fade key={activeWorkspace.id} in timeout={400}>
+			<Box sx={{ height: '100%', width: '100%' }}>
+				<Outlet context={sessionInfo} />
+			</Box>
+		</Fade>
+	);
+};
 
 /**
  * AppLayout - Main layout wrapper for authenticated pages
@@ -27,6 +39,7 @@ import { userContext } from "@frontend/contexts/UserContext";
 export const AppLayout = () => {
 	const theme = useTheme();
 	const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+	const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
 
 	// Get session data from authLoader
 	const sessionInfo = useLoaderData() as SessionInfo;
@@ -37,6 +50,24 @@ export const AppLayout = () => {
 			setThemeMode(sessionInfo.user.themeSetting);
 		}
 	}, [sessionInfo.user?.themeSetting, setThemeMode]);
+
+
+	// Detection for mobile keyboard to hide navbars and maximize space
+	useEffect(() => {
+		if (!isMobile) return;
+
+		const handleResize = () => {
+			if (window.visualViewport) {
+				const isCurrentlyOpen = window.visualViewport.height < window.innerHeight * 0.8;
+				setIsKeyboardOpen(isCurrentlyOpen);
+			}
+		};
+
+		if (window.visualViewport) {
+			window.visualViewport.addEventListener('resize', handleResize);
+			return () => window.visualViewport?.removeEventListener('resize', handleResize);
+		}
+	}, [isMobile]);
 
 	return (
 		<userContext.Provider value={sessionInfo}>
@@ -57,12 +88,13 @@ export const AppLayout = () => {
 						component="main"
 						sx={{
 							flexGrow: 1,
-							pt: { xs: 2, md: 3 },
-							pb: { xs: 10, md: 3 }, // Extra padding bottom on mobile for bottom nav
+							pt: isMobile && isKeyboardOpen ? 0 : { xs: 2, md: 3 },
+							pb: isMobile ? (isKeyboardOpen ? 0 : 10) : 3, // Remove bottom nav padding when keyboard open
 							px: { xs: 2, sm: 3, md: 4 },
+							transition: 'all 0.2s ease-in-out'
 						}}
 					>
-						<Outlet context={sessionInfo} />
+						<AppLayoutContent />
 						<PwaInstallPrompt />
 						<PwaUpdatePrompt />
 					</Box>

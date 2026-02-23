@@ -49,7 +49,7 @@ export function MembersList({ members, onUpdate }: MembersListProps) {
 
 	const handleRemove = () => {
 		if (selectedMember) {
-			removeMutation.mutate({ teamMemberId: selectedMember.teamMemberId });
+			removeMutation.mutate({ id: selectedMember.id });
 		}
 		handleMenuClose();
 	};
@@ -57,7 +57,7 @@ export function MembersList({ members, onUpdate }: MembersListProps) {
 	const handleRoleChange = (role: "Owner" | "Admin" | "Member") => {
 		if (selectedMember) {
 			updateRoleMutation.mutate({ 
-				teamMemberId: selectedMember.teamMemberId,
+				id: selectedMember.id,
 				role 
 			});
 		}
@@ -77,7 +77,7 @@ export function MembersList({ members, onUpdate }: MembersListProps) {
 				</TableHead>
 				<TableBody>
 					{members.map((member) => (
-						<TableRow key={member.teamMemberId} hover>
+						<TableRow key={member.id} hover>
 							<TableCell>
 								<Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
 									<Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main', fontSize: '0.875rem' }}>

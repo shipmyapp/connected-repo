@@ -31,7 +31,9 @@ const sentryClient = Sentry.init({
       log: { levels: ['debug', 'info', 'warn', 'error'] },
       error: { levels: ['error'] }
     }),
+    Sentry.consoleLoggingIntegration({ levels: ["log", "warn", "error"] }),
   ],
+  enableLogs: true,
   sendDefaultPii: true,
   // need with profiling integration
   profilesSampleRate: isDev ? 0 : 1.0,

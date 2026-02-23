@@ -4,3 +4,7 @@
 /// <reference types="vite-plugin-pwa/info" />
 /// <reference lib="webworker" />
 /// <reference types="vite-plugin-pwa/client" />
+
+interface Window {
+  chrome?: unknown;
+}

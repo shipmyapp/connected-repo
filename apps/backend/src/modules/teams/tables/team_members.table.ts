@@ -8,7 +8,7 @@ const pushTeamMembersToSync = (operation: "create" | "update" | "delete", entrie
 
   for (const entry of entries) {
     // Group by teamAppId and push to person who has been edited/added and owners/admins of the team
-    const key = `${entry.teamAppId}:${entry.userId}`;
+    const key = `${entry.teamId}:${entry.userId}`;
     if (!groups.has(key)) {
       groups.set(key, []);
     }
@@ -20,7 +20,7 @@ const pushTeamMembersToSync = (operation: "create" | "update" | "delete", entrie
     syncService.push({
       type: "data-change-teamMembers",
       syncToUserId: userId!,
-      syncToTeamAppIdOwnersAdmins: teamAppId,
+      syncToTeamAppIdOwnersAdmins: teamAppId!,
       operation,
       data,
     });
@@ -31,8 +31,8 @@ export class TeamMemberTable extends BaseTable {
   readonly table = "team_members";
 
   columns = this.setColumns((t) => ({
-    teamMemberId: t.uuid().primaryKey().default(t.sql`gen_random_uuid()`),
-    teamAppId: t.uuid().foreignKey("teams_app", "teamAppId", {
+    id: t.uuid().primaryKey().default(t.sql`gen_random_uuid()`),
+    teamId: t.uuid().foreignKey("teams_app", "id", {
         onUpdate: "RESTRICT",
         onDelete: "CASCADE",
     }),

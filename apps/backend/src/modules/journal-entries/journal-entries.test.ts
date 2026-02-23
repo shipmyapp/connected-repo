@@ -53,13 +53,13 @@ describe('Journal Entries Endpoints', () => {
 			expect(result.content).toBe(dummyEntry.content);
 			expect(result.prompt).toBe(dummyEntry.prompt);
 			expect(result.authorUserId).toBe(defaultContext?.user.id);
-			expect(result.journalEntryId).toBeDefined();
+			expect(result.id).toBeDefined();
 			expect(result.createdAt).toBeDefined();
 			expect(result.updatedAt).toBeDefined();
 		});
 
 		it('should create a journal entry without prompt', async () => {
-			const result = await defaultClient.create({ content: dummyEntry.content, journalEntryId: ulid() });
+			const result = await defaultClient.create({ content: dummyEntry.content, id: ulid() });
 
 			expect(result).toBeDefined();
 			expect(result.content).toBe(dummyEntry.content);

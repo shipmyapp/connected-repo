@@ -3,6 +3,7 @@ import { db } from "@backend/db/db";
 import { userCreatedEventDef } from "@backend/events/events.schema";
 import { orchidToTbusQueryAdapter } from "@backend/events/events.utils";
 import { tbus } from "@backend/events/tbus";
+import { TeamMemberTable } from "@backend/modules/teams/tables/team_members.table";
 
 export class UserTable extends BaseTable {
 	readonly table = "users";
@@ -18,6 +19,13 @@ export class UserTable extends BaseTable {
 		journalReminderTimes: t.array(t.string()).default([]),
 		...t.timestamps(),
 	}));
+
+	relations = {
+		teamMembers: this.hasMany(() => TeamMemberTable, {
+			columns: ["id"],
+			references: ["userId"],
+		}),
+	}
 
 	init() {
 		this.afterCreate(["email", "id", "name"], async (users, queryCtx) => {

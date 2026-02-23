@@ -1,5 +1,6 @@
 import { journalEntriesRouter } from '@backend/modules/journal-entries/journal-entries.router';
 import { promptsRouter } from '@backend/modules/prompts/prompts.router';
+import { filesRouter } from '@backend/modules/files/files.router';
 import { rpcPublicProcedure } from '@backend/procedures/public.procedure';
 import { usersRouter } from '@backend/routers/user_app/users.user_app.router';
 import { syncRouter } from '@backend/modules/sync/sync.router';
@@ -31,6 +32,7 @@ export const userAppRouter = {
 	sync: syncRouter,
 	cdn: cdnRouter,
 	teams: teamsAppRouter,
+	files: filesRouter,
 };
 
 export type UserAppRouter = RouterClient<typeof userAppRouter>;

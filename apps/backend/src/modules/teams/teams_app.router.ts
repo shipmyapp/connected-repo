@@ -23,10 +23,11 @@ const getMyTeams = rpcProtectedProcedure
 		const teamsWithRoles = await db.teamsApp
 			.join("members")
 			.where({ "members.userId": userId })
-			.select("*", "members.role");
+			.select("*", "members.joinedAt", "members.role");
 
 		return teamsWithRoles.map(t => ({
 			...t,
+			joinedAt: t.joinedAt,
 			userRole: t.role
 		}));
 	});
@@ -44,7 +45,7 @@ const createTeam = rpcProtectedProcedure
 			});
 
 			await db.teamMembers.create({
-				teamAppId: teamApp.teamAppId,
+				teamId: teamApp.id,
 				userId,
 				email: user.email,
 				role: "Owner",
@@ -56,28 +57,28 @@ const createTeam = rpcProtectedProcedure
 	});
 
 const getTeamMembers = rpcProtectedProcedure
-	.input(z.object({ teamAppId: z.uuid() }))
+	.input(z.object({ teamId: z.uuid() }))
 	.output(z.array(teamAppMemberSelectAllZod))
-	.handler(async ({ input: { teamAppId }, context: { user } }) => {
+	.handler(async ({ input: { teamId }, context: { user } }) => {
 		// Verify user is member of the team
-		const membership = await db.teamMembers.where({ teamAppId, userId: user.id }).takeOptional();
+		const membership = await db.teamMembers.where({ teamId, userId: user.id }).takeOptional();
 		if (!membership) throw new Error("Unauthorized: Not a team member");
 
-		return await db.teamMembers.where({ teamAppId });
+		return await db.teamMembers.where({ teamId });
 	});
 
 const addTeamMember = rpcProtectedProcedure
 	.input(z.object({
-		teamAppId: z.uuid(),
+		teamId: z.uuid(),
 		email: z.string().email(),
 		role: teamAppMemberRoleZod
 	}))
 	.output(teamAppMemberSelectAllZod)
 	.handler(async ({ input, context: { user } }) => {
-		const { teamAppId, email, role } = input;
+		const { teamId, email } = input;
 
 		// Verify current user is Owner or Admin
-		const actor = await db.teamMembers.where({ teamAppId, userId: user.id }).takeOptional();
+		const actor = await db.teamMembers.where({ teamId, userId: user.id }).takeOptional();
 		if (!actor || (actor.role !== "Owner" && actor.role !== "Admin")) {
 			throw new Error("Unauthorized: Only Owners and Admins can add members");
 		}
@@ -86,23 +87,21 @@ const addTeamMember = rpcProtectedProcedure
 		const targetUser = await db.users.where({ email }).takeOptional();
 
 		return await db.teamMembers.create({
-			teamAppId,
+			...input,
 			userId: targetUser?.id || null,
-			email,
-			role,
 			joinedAt: targetUser ? Date.now() : null,
 		});
 	});
 
 const removeTeamMember = rpcProtectedProcedure
-	.input(z.object({ teamMemberId: z.uuid() }))
+	.input(z.object({ id: z.uuid() }))
 	.output(z.object({ success: z.boolean() }))
-	.handler(async ({ input: { teamMemberId }, context: { user } }) => {
-		const target = await db.teamMembers.where({ teamMemberId }).takeOptional();
+	.handler(async ({ input: { id }, context: { user } }) => {
+		const target = await db.teamMembers.where({ id }).takeOptional();
 		if (!target) throw new Error("Member not found");
 
 		// Verify actor has permission
-		const actor = await db.teamMembers.where({ teamAppId: target.teamAppId, userId: user.id }).takeOptional();
+		const actor = await db.teamMembers.where({ id: target.id, userId: user.id }).takeOptional();
 		if (!actor || (actor.role !== "Owner" && actor.role !== "Admin")) {
 			throw new Error("Unauthorized");
 		}
@@ -112,27 +111,27 @@ const removeTeamMember = rpcProtectedProcedure
 			throw new Error("Unauthorized: Admins cannot remove the Owner");
 		}
 
-		await db.teamMembers.where({ teamMemberId }).delete();
+		await db.teamMembers.where({ id }).delete();
 		return { success: true };
 	});
 
 const updateMemberRole = rpcProtectedProcedure
 	.input(z.object({
-		teamMemberId: z.uuid(),
+		id: z.uuid(),
 		role: teamAppMemberRoleZod
 	}))
 	.output(teamAppMemberSelectAllZod)
 	.handler(async ({ input, context: { user } }) => {
-		const { teamMemberId, role } = input;
-		const target = await db.teamMembers.where({ teamMemberId }).take();
+		const { id, role } = input;
+		const target = await db.teamMembers.where({ id }).take();
 		if (!target) throw new Error("Member not found");
 
-		const actor = await db.teamMembers.where({ teamAppId: target.teamAppId, userId: user.id }).take();
+		const actor = await db.teamMembers.where({ id: target.id, userId: user.id }).take();
 		if (!actor || actor.role !== "Owner") {
 			throw new Error("Unauthorized: Only Owners can change roles");
 		}
 
-		return await db.teamMembers.where({ teamMemberId }).selectAll().take().update({ role });
+		return await db.teamMembers.where({ id }).selectAll().take().update({ role });
 	});
 
 export const teamsAppRouter = {

@@ -1,17 +1,21 @@
-import * as Sentry from "@sentry/react";
 import { useEffect } from "react";
 import { useRouteError } from "react-router";
 
-export const ErrorFallback = () => {
-	return <div>Something went wrong!!!</div>;
+export const ErrorFallback = ({ error }: { error: Error }) => {
+	return <div>{error.message}</div>;
 };
 
 export const CustomErrorBoundary = () => {
 	const error = useRouteError() as Error;
 
   useEffect(() => {
-    Sentry.captureException(error);
-  }, [error]);
+		if (error) {
+            // Lazily capture exception if Sentry is available
+            import("@sentry/react").then((Sentry) => {
+                Sentry.captureException(error);
+            });
+		}
+	}, [error]);
 
-	return <ErrorFallback />;
+	return <ErrorFallback error={error}/>;
 }

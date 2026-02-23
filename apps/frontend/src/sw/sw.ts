@@ -4,7 +4,15 @@ import * as Comlink from 'comlink';
 import { isDev } from '@frontend/configs/env.config';
 import { SSEManager } from './sse/sse.manager.sw';
 
-declare const self: ServiceWorkerGlobalScope;
+declare const self: ServiceWorkerGlobalScope & {
+  __WB_DISABLE_DEV_LOGS?: boolean;
+};
+
+if (isDev) {
+  self.__WB_DISABLE_DEV_LOGS = true;
+}
+
+console.info('[SW] Service Worker script executing...');
 
 precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
@@ -25,9 +33,11 @@ const sseManager = new SSEManager();
  */
 self.addEventListener('message', (event) => {
     if (event.data?.type === 'CAN_HAS_COMLINK') {
+        console.info('[SW] Comlink handshake received');
         const port = event.ports[0];
         if (port) {
             Comlink.expose(sseManager, port);
+            console.info('[SW] Comlink exposed on port');
         }
     }
 

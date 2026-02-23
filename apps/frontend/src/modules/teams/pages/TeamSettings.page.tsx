@@ -20,10 +20,10 @@ export default function TeamSettingsPage() {
 	const { teams } = useWorkspace();
 	const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
-	const team = teams.find(t => t.teamAppId === teamId);
+	const team = teams.find(t => t.id === teamId);
 
 	const { data: members = [], isLoading, refetch } = useQuery(
-		orpc.teams.getTeamMembers.queryOptions({ input: { teamAppId: teamId as string } }),
+		orpc.teams.getTeamMembers.queryOptions({ input: { teamId: teamId as string } }),
 	);
 
 	if (!teamId) return null;
@@ -71,7 +71,7 @@ export default function TeamSettingsPage() {
 				open={isAddDialogOpen} 
 				onClose={() => setIsAddDialogOpen(false)} 
 				onSuccess={refetch}
-				teamAppId={teamId}
+				teamId={teamId}
 			/>
 		</Container>
 	);

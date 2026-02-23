@@ -1,3 +1,4 @@
+import { fileSelectAllZod } from "@connected-repo/zod-schemas/file.zod";
 import { journalEntrySelectAllZod } from "@connected-repo/zod-schemas/journal_entry.zod";
 import { promptSelectAllZod } from "@connected-repo/zod-schemas/prompt.zod";
 import { teamAppMemberSelectAllZod, teamAppSelectAllZod } from "@connected-repo/zod-schemas/team_app.zod";
@@ -9,19 +10,16 @@ const syncToUserAndOptionalTeamAppOwnersAdminsZod = {
 	syncToTeamAppIdOwnersAdmins: z.uuid().nullish(),
 	syncToTeamAppIdAllMembers: z.null().optional(),
 };
-
 const syncToUserAndTeamAppOwnersAdminsZod = {
 	syncToUserId: z.uuid(),
-	syncToTeamAppIdOwnersAdmins: z.uuid().nullish(),
+	syncToTeamAppIdOwnersAdmins: z.uuid(),
 	syncToTeamAppIdAllMembers: z.null().optional(),
 };
-
-const syncToTeamAppIdAllMembersZod = {
+const syncToTeamAppAllMembersZod = {
 	syncToUserId: z.null().optional(),
 	syncToTeamAppIdOwnersAdmins: z.null().optional(),
 	syncToTeamAppIdAllMembers: z.uuid(),
 };
-
 const syncToAllUsersZod = {
 	syncToUserId: z.null().optional(),
 	syncToTeamAppIdOwnersAdmins: z.null().optional(),
@@ -38,7 +36,7 @@ export const syncPayloadZod = z.discriminatedUnion("type", [
     type: z.literal("data-change-teamsApp"),
     data: z.array(teamAppSelectAllZod),
     operation: z.enum(["create", "update", "delete"]),
-  }).extend(syncToTeamAppIdAllMembersZod),
+  }).extend(syncToTeamAppAllMembersZod),
   z.object({
     type: z.literal("data-change-teamMembers"),
     data: z.array(teamAppMemberSelectAllZod),
@@ -49,6 +47,11 @@ export const syncPayloadZod = z.discriminatedUnion("type", [
     data: z.array(promptSelectAllZod),
     operation: z.enum(["create", "update", "delete"]),
   }).extend(syncToAllUsersZod),
+  z.object({
+    type: z.literal("data-change-files"),
+    data: z.array(fileSelectAllZod),
+    operation: z.enum(["create", "update", "delete"]),
+  }).extend(syncToUserAndOptionalTeamAppOwnersAdminsZod),
   z.object({
     type: z.literal("heartbeat"),
   }).extend(syncToAllUsersZod),

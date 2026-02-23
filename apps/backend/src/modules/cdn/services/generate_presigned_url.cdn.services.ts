@@ -6,6 +6,7 @@ import { s3Client } from "@backend/utils/s3.client";
 import { z } from "zod";
 
 export const generateUrlInput = z.object({
+  id: z.ulid().optional(),
   contentType: z.string().optional(),
   fileName: z.string().min(1),
   resourceType: z.string().default('media'),
@@ -18,6 +19,7 @@ export const generatePresignedUrlService = async (input: z.infer<typeof generate
       folderName: input.teamHandle ?? userId,
       fileName: input.fileName,
       resourceType: input.resourceType,
+      id: input.id,
     });
 
     const command = new PutObjectCommand({

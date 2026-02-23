@@ -1,8 +1,10 @@
 import { BaseTable } from "@backend/db/base_table";
 import { Db } from "@backend/db/db";
+import { FileTable } from "@backend/modules/files/tables/files.table";
 import { syncService } from "@backend/modules/sync/sync.service";
 import { UserTable } from "@backend/modules/users/tables/users.table";
 import { JournalEntrySelectAll, journalEntrySelectAllZod } from "@connected-repo/zod-schemas/journal_entry.zod";
+import z from "zod";
 
 // Notify sync service about journal entry changes
 const pushEntriesToSync = (operation: "create" | "update" | "delete", entries: JournalEntrySelectAll[]) => {
@@ -34,10 +36,10 @@ export class JournalEntryTable extends BaseTable {
 
 	columns = this.setColumns((t) => 
 		({
-			journalEntryId: t.ulid().primaryKey(),
+			id: t.ulidWithDefault().primaryKey(),
 
 			prompt: t.string(500).nullable(),
-			promptId: t.smallint().foreignKey("prompts", "promptId", {
+			promptId: t.ulid().foreignKey("prompts", "id", {
 				onDelete: "SET NULL",
 				onUpdate: "RESTRICT",
 			}).nullable(),
@@ -46,11 +48,10 @@ export class JournalEntryTable extends BaseTable {
 				onDelete: "CASCADE",
 				onUpdate: "RESTRICT",
 			}),
-			teamId: t.uuid().foreignKey("teams_app", "teamAppId", {
+			teamId: t.uuid().foreignKey("teams_app", "id", {
 				onDelete: "SET NULL",
 				onUpdate: "RESTRICT",
 			}).nullable(),
-			attachmentUrls: t.array(t.array(t.string()).narrowType(t => t<[string, "not-available" | string]>())).default([]),
 			deletedAt: t.timestampNumber().nullable(),
 
 			...t.timestamps(),
@@ -63,13 +64,21 @@ export class JournalEntryTable extends BaseTable {
 	readonly softDelete = true;
 
 	relations = {
+		attachments: this.hasMany(() => FileTable, {
+			columns: ["id"],
+			references: ["tableId"],
+			on: {
+				tableName: "journalEntries" as const,
+				type: "attachment" as const,
+			}
+		}),
 		author: this.belongsTo(() => UserTable, {
 			columns: ["authorUserId"],
 			references: ["id"],
 		})
 	};
 
-	init() {
+	init(orm: Db) {
 		this.afterCreate( journalEntrySelectAllZod.keyof().options, async (entries) => {
 			pushEntriesToSync("create", entries);
 		});
@@ -77,6 +86,13 @@ export class JournalEntryTable extends BaseTable {
 			pushEntriesToSync("update", entries);
 		});
 		this.afterDelete( journalEntrySelectAllZod.keyof().options, async (entries) => {
+			await orm.files.where({
+				tableName: "journalEntries",
+				type: "attachment",
+				tableId: {
+					in: entries.map((e) => e.id),
+				}
+			}).delete();
 			pushEntriesToSync("delete", entries);
 		});
 	}
