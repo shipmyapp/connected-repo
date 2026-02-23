@@ -77,27 +77,8 @@ export function CreateJournalEntryForm() {
 			const entryId = data.id;
 			
 			// 1. Prepare and persist files
+			// Note: Files are already persisted by SmartMediaUploader!
 			const fileIds = attachments.map((a) => a.id);
-			for (const attachment of attachments) {
-				await app.filesDb.upsertLocal({
-					id: attachment.id,
-					tableId: entryId,
-					tableName: "journalEntries",
-                    type: "attachment",
-					fileName: attachment.file.name,
-					mimeType: attachment.file.type,
-					teamId,
-                    createdAt: Date.now(),
-                    updatedAt: Date.now(),
-                    cdnUrl: null,
-                    thumbnailCdnUrl: null,
-                    createdByUserId: user?.id || "",
-                    deletedAt: null,
-					_blob: attachment.file,
-					_thumbnailBlob: null,
-                    _pendingAction: 'create',
-				});
-			}
 
 			// 2. Prepare entry data
 			const submitData: any = {
@@ -379,6 +360,9 @@ export function CreateJournalEntryForm() {
 							value={attachments}
 							onChange={setAttachments}
 							maxFiles={20}
+							teamId={teamId}
+							tableId={formMethods.getValues("id")}
+							tableName="journalEntries"
 						/>
 					</Box>
 

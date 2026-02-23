@@ -20,12 +20,14 @@ export const generateS3Key = (options: {
   fileName: string;
   folderName?: string;
   resourceType?: string;
+  id?: string;
 }): string => {
   const safeFileName = sanitizeFileName(options.fileName);
   const folderPrefix = options.folderName ? `${options.folderName}/` : "";
   const resourcePrefix = options.resourceType ? `${options.resourceType}/` : "";
+  const id = options.id || ulid();
   
-  return `${folderPrefix}${resourcePrefix}${ulid()}_${safeFileName}`;
+  return `${folderPrefix}${resourcePrefix}${id}_${safeFileName}`;
 };
 
 /**

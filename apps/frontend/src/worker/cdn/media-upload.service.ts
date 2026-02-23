@@ -48,6 +48,7 @@ export class MediaUploadService {
 
   /**
    * Performs the actual CDN upload for a pair of files.
+   * Highly robust: handles missing thumbnails or partial failures.
    */
   async uploadMediaPair(original: File, thumbnail?: File): Promise<MediaUploadResult> {
     const filesToUpload: File[] = [original];
@@ -57,24 +58,15 @@ export class MediaUploadService {
       const results = await this.cdnManager.uploadFiles(filesToUpload, "media");
       
       const originalResult = results[0];
-      const thumbnailResult = results[1];
+      const thumbnailResult = thumbnail ? results[1] : null;
 
       if (originalResult?.success) {
-        let thumbUrl: string | null = null;
-        
-        if (thumbnailResult?.success) {
-          thumbUrl = thumbnailResult.url;
-        } else if (original.type.startsWith("image/")) {
-          // For images, the original can serve as its own thumbnail if needed
-          thumbUrl = originalResult.url;
-        }
-
         return { 
           success: true, 
-          urls: [originalResult.url, thumbUrl]
+          urls: [originalResult.url, thumbnailResult?.url || null]
         };
       } else {
-        return { success: false, urls: null, error: originalResult?.error || "Upload failed" };
+        return { success: false, urls: null, error: originalResult?.error || "Original upload failed" };
       }
     } catch (error) {
       return { 

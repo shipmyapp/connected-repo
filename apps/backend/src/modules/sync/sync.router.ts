@@ -255,20 +255,20 @@ export const heartbeatSync = rpcProtectedProcedure
 		// --- 3. Start Live Monitoring (Buffered Events First) ---
 		for await (const payload of liveIterator) {
 			// Real-time filtering for data privacy:
-			const userTeamMemberIds = user.teamMembers.map(m => m.id);
-			const userOwnerAdminTeamMemberIds = user.teamMembers
+			const userTeamAppIds = user.teamMembers.map(m => m.teamId);
+			const userOwnerAdminTeamAppIds = user.teamMembers
 				.filter(m => m.role === "Owner" || m.role === "Admin")
-				.map(m => m.id);
+				.map(m => m.teamId);
 
 			const isTeamOwnerAdminAccess =
 				"syncToTeamAppIdOwnersAdmins" in payload &&
 				payload.syncToTeamAppIdOwnersAdmins &&
-				userOwnerAdminTeamMemberIds.includes(payload.syncToTeamAppIdOwnersAdmins);
+				userOwnerAdminTeamAppIds.includes(payload.syncToTeamAppIdOwnersAdmins);
 
 			const isTeamAllMemberAccess =
 				"syncToTeamAppIdAllMembers" in payload &&
 				payload.syncToTeamAppIdAllMembers &&
-				userTeamMemberIds.includes(payload.syncToTeamAppIdAllMembers);
+				userTeamAppIds.includes(payload.syncToTeamAppIdAllMembers);
 
 			const isPersonalAccess = "syncToUserId" in payload && payload.syncToUserId === user.id;
 

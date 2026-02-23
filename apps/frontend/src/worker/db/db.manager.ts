@@ -25,7 +25,7 @@ export class ClientDatabase extends Dexie {
     this.version(2).stores({
       journalEntries: "id, teamId, createdAt, updatedAt, clientUpdatedAt, _pendingAction, [teamId+createdAt]",
       prompts: "id, teamId, text, updatedAt, clientUpdatedAt, _pendingAction, [teamId+updatedAt]",
-      files: "id, tableId, tableName, type, _status, _thumbnailStatus, teamId, updatedAt, _pendingAction",
+      files: "id, tableId, tableName, type, _uploadStatus, _thumbnailStatus, _syncStatus, teamId, updatedAt, _pendingAction",
       teamsApp: "id, name, updatedAt, clientUpdatedAt, _pendingAction",
       teamMembers: "id, id, userId, email, updatedAt, clientUpdatedAt, _pendingAction",
       syncMetadata: "tableName",

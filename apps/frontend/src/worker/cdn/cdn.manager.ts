@@ -28,6 +28,7 @@ export class CDNManager {
       // Note: orpcFetch will handle credentials/cookies automatically in the worker
       const response = await orpcFetch.cdn.generateBatchPresignedUrls(
         files.map((f) => ({
+          id: (f as any).id, // Pass the ULID if attached to the file object
           fileName: f.name,
           resourceType,
           contentType: f.type,

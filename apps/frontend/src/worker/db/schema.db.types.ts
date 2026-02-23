@@ -2,11 +2,12 @@ import type { FileSelectAll } from "@connected-repo/zod-schemas/file.zod";
 
 export interface StoredFile extends FileSelectAll {
   _blob?: Blob;
-  _status?: "pending" | "in-progress" | "completed" | "failed";
+  _uploadStatus?: "pending" | "in-progress" | "completed" | "failed";
+  _thumbnailStatus?: "pending" | "in-progress" | "completed" | "failed";
+  _syncStatus?: "pending" | "in-progress" | "completed" | "failed";
   _error?: string;
   _errorCount?: number;
   _thumbnailBlob?: Blob | null;
-  _thumbnailStatus?: 'pending' | 'in-progress' | 'completed' | 'failed';
   _pendingAction?: PendingAction | null;
 }
 

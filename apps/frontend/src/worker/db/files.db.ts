@@ -5,10 +5,12 @@ export class FilesDBManager {
   /**
    * Stores a file blob in IndexedDB for local use/sync.
    */
-  async upsertLocal(file: Omit<StoredFile, '_status' | '_error' | '_errorCount'>) {
+  async upsertLocal(file: Omit<StoredFile, '_uploadStatus' | '_thumbnailStatus' | '_syncStatus' | '_error' | '_errorCount'>) {
     await clientDb.files.put({
       ...file,
-      _status: "pending",
+      _uploadStatus: "pending",
+      _thumbnailStatus: "pending",
+      _syncStatus: "pending",
       _error: "",
       _errorCount: 0,
     } as StoredFile);
@@ -41,8 +43,12 @@ export class FilesDBManager {
   /**
    * Retrieves all files with a 'pending' status.
    */
-  async getPendingFiles() {
-    return await clientDb.files.where("status").equals("pending").toArray();
+  async getPendingActions() {
+    return await clientDb.files.filter(f => f._pendingAction !== null && f._pendingAction !== undefined).toArray();
+  }
+
+  async getUploadPendingFiles() {
+    return await clientDb.files.where("_uploadStatus").equals("pending").toArray();
   }
 
   /**
