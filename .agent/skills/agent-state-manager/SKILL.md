@@ -17,7 +17,7 @@ Maintain `AGENTS.md` as the "Mirror of Truth" (Machine-centric) and `README.md` 
 ### 2. Selective ADR Indexing
 - **Threshold for Logging**: Create an ADR entry ONLY for major architectural shifts, breaking changes, or critical logic decisions (e.g., switching sync strategies).
 - **Flood Control**: Do not log granular commit details or routine feature updates in `## 3. Decision Records`.
-- **Format**: `[ID] | [Date] | [Context] -> [Decision] -> [Constraints]`
+- **Format**: `| ID | Title | Status | Description |`
 
 ### 3. TypeScript & Data Integrity
 - **The TS Vault**: Strictly maintain verbose TypeScript interfaces, generics, and constraints. LLMs must not "work around" types.
@@ -32,8 +32,8 @@ Maintain `AGENTS.md` as the "Mirror of Truth" (Machine-centric) and `README.md` 
 - **Validation**: If code deviates from Active Task, **STOP**. Force alignment before proceeding.
 
 ### Phase 3: Archive & Pivot
-1. **Blueprint Sync**: Overwrite Blueprint with the new code reality.
-2. **ADR Pivot**: If a major shift occurred, move the Active Task summary to Decision Records with a new incremental `[ADR-ID]`.
+1. **Blueprint Sync**: Overwrite `## 1. Blueprint` with the new code reality.
+2. **ADR Pivot**: If a major shift occurred, move the Active Task summary to `## 3. Decision Records` using the tabular format with a new incremental `[ADR-ID]`.
 3. **README Update**: Update `README.md` for human-facing project milestones.
 
 ## Style Guidelines

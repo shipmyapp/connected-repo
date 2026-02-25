@@ -2,6 +2,11 @@
 
 Production-ready Turborepo monorepo for building full-stack TypeScript applications with end-to-end type safety.
 
+> [!NOTE]
+> This project follows a **Bimodal Documentation System**.
+> - **Human-friendly**: Use this `README.md` for high-level concepts, architectural overviews, and onboarding.
+> - **Agent-optimized**: See [AGENTS.md](./AGENTS.md) for technical deep dives, implementation patterns, and machine-centric decision records.
+
 ## Tech Stack
 
 ### Backend
@@ -314,11 +319,12 @@ Shared Zod schemas in `packages/zod-schemas/`:
 
 ## Documentation
 
+- [Root Architecture & ADRs](./AGENTS.md)
+- [Backend Patterns](./apps/backend/AGENTS.md)
+- [Frontend PWA & Workers](./apps/frontend/AGENTS.md)
+- [UI Component System](./packages/ui-mui/AGENTS.md)
+- [Schema Management](./packages/zod-schemas/AGENTS.md)
 - [CONTRIBUTING.md](./CONTRIBUTING.md) - Contribution guidelines
-- [AGENTS.md](./AGENTS.md) - Agent guidelines
-- [apps/backend/AGENTS.md](./apps/backend/AGENTS.md) - Backend patterns
-- [apps/frontend/AGENTS.md](./apps/frontend/AGENTS.md) - Frontend patterns
-- [packages/AGENTS.md](./packages/AGENTS.md) - Package architecture
 
 ## API Endpoints
 
