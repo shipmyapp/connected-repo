@@ -41,6 +41,7 @@ The `useConnectivity` hook maps these granular worker statuses to human-readable
 - **Descriptive Messages**: "Session Expired", "Sync Issue", or "No Internet" based on the specific failure code.
 
 ## File Reference
+- **Detailed Documentation**: [SSE Architecture & Lifecycle](file:///Users/krishna404/codeProjects/shipmyapp/connected-repo/apps/frontend/src/sw/sse/SSE_ARCHITECTURE.md)
 - **Backend Logic**: `apps/backend/src/modules/sync/sync.router.ts`
 - **Frontend Manager**: `apps/frontend/src/sw/sse/sse.manager.sw.ts`
 - **UI Hook**: `apps/frontend/src/sw/sse/useConnectivity.sse.sw.ts`

@@ -111,7 +111,6 @@ export const SmartMediaUploader: React.FC<SmartMediaUploaderProps> = ({
           // Persist thumbnail to DB
           await dataProxy.filesDb.update(media.id, {
             _thumbnailBlob: thumbnailFile,
-            _thumbnailStatus: 'completed'
           });
 
           // Emit atomic update via functional approach to prevent race conditions

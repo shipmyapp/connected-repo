@@ -93,7 +93,6 @@ export default function SyncedJournalEntryDetailPage() {
 				onDelete={handleDelete} 
 				isDeleting={isDeleting}
 				attachments={attachments}
-				status="synced"
 			/>
 		</Container>
 	);

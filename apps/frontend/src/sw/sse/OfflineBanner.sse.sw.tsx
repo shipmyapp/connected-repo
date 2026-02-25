@@ -41,11 +41,11 @@ export function OfflineBanner() {
 	};
 
 	const severity: "error" | "warning" =
-		status.code === "LIVE_SYNC_DOWN" || status.code === "SERVER_DOWN"
+		status.code === "LIVE_SYNC_DOWN" || status.code === "SERVER_DOWN" || status.code === "AUTH_ERROR"
 			? "error"
 			: "warning";
 
-	const isShowing = isOffline && showDelayed && !isDismissed;
+	const isShowing = isOffline && showDelayed && (!isDismissed || status.code === "AUTH_ERROR");
 
 	const action = (
 		<Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -60,14 +60,26 @@ export function OfflineBanner() {
 					{isReconnecting ? "Syncing..." : "Retry Sync"}
 				</Button>
 			)}
-			<IconButton
-				aria-label="close"
-				color="inherit"
-				size="small"
-				onClick={() => setIsDismissed(true)}
-			>
-				<CloseIcon fontSize="small" />
-			</IconButton>
+			{status.code === "AUTH_ERROR" && (
+				<Button 
+					color="inherit" 
+					size="small" 
+					onClick={() => window.location.href = "/auth/login"}
+					sx={{ fontWeight: 600, mr: 1 }}
+				>
+					Login
+				</Button>
+			)}
+			{status.code !== "AUTH_ERROR" && (
+				<IconButton
+					aria-label="close"
+					color="inherit"
+					size="small"
+					onClick={() => setIsDismissed(true)}
+				>
+					<CloseIcon fontSize="small" />
+				</IconButton>
+			)}
 		</Box>
 	);
 

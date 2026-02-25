@@ -61,7 +61,7 @@ export class SyncOrchestrator {
     this.isProcessing = true;
     this.needsRescan = false;
     try {
-      // Sequential table processing for dependency resolution
+      // Process tables in order
       const syncOrder: TablesToSync[] = ['teamsApp', 'teamMembers', 'prompts', 'journalEntries', 'files'];
       for (const tableName of syncOrder) {
         await this.syncTable(tableName);
@@ -163,19 +163,15 @@ export class SyncOrchestrator {
 
   private async orchestrateFile(file: StoredFile) {
     const fileId = file.id;
-    const mediaProxy = getMediaProxyInternal();
-    if (!mediaProxy) return;
-
-    // 0. Parent Check: Only process files if parent entry exists AND is synced on server
-    const parentEntry = await clientDb.journalEntries.get(file.tableId);
-    if (!parentEntry || parentEntry._pendingAction !== null) return;
+    let currentFile = file;
 
     // Linear flow determined by data presence
-    let currentFile = file;
+    const mediaProxy = getMediaProxyInternal();
 
     // 1. Thumbnail Stage (If needed and missing)
     const isMedia = currentFile.mimeType.startsWith("image/") || currentFile.mimeType === "application/pdf";
     if (isMedia && !currentFile.thumbnailCdnUrl && !currentFile._thumbnailBlob) {
+      if (!mediaProxy) return; // Block thumbnail stage if worker not ready
       await this.triggerThumbnail(fileId, currentFile, mediaProxy);
       const updated = await filesDb.get(fileId);
       if (!updated) return;
@@ -184,6 +180,7 @@ export class SyncOrchestrator {
 
     // 2. Upload Stage (If missing CDN URL)
     if (!currentFile.cdnUrl) {
+      if (!mediaProxy) return; // Block upload stage if worker not ready
       await this.triggerUpload(fileId, currentFile, mediaProxy);
       const updated = await filesDb.get(fileId);
       if (!updated) return;

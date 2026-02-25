@@ -189,9 +189,6 @@ export default function PendingSyncJournalEntryDetailPage() {
 				onDelete={handleDelete} 
 				isDeleting={isDeleting}
 				attachments={attachments}
-				syncError={journalEntry.error}
-				errorCount={journalEntry.errorCount}
-				status={journalEntry.status || 'pending'}
 				onRetry={handleRetry}
 				isSyncing={isSyncingState}
 			/>

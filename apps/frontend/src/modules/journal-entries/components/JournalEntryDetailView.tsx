@@ -32,15 +32,13 @@ interface JournalEntryDetailViewProps {
 		prompt?: string | null;
 		content: string;
 		createdAt: number | string | Date;
+		_pendingAction?: 'create' | 'update' | 'delete' | null;
 	};
 	onDelete: () => Promise<void>;
 	isDeleting?: boolean;
 	canDelete?: boolean;
 	deleteDisabledReason?: string | null;
 	attachments?: { url: string; thumbnailUrl?: string; name: string }[];
-	syncError?: string | null;
-	errorCount?: number;
-	status?: "synced" | "pending" | "syncing" | "sync-failed" | "file-upload-failed" | "file-upload-in-progress" | string;
 	onRetry?: () => Promise<void>;
 	isSyncing?: boolean;
 }
@@ -52,12 +50,10 @@ export function JournalEntryDetailView({
 	canDelete = true,
 	deleteDisabledReason = null,
 	attachments = [],
-	syncError = null,
-	errorCount = 0,
-	status = "synced",
 	onRetry,
 	isSyncing = false
 }: JournalEntryDetailViewProps) {
+	const status = entry._pendingAction === null ? "synced" : (isSyncing ? "syncing" : "pending");
 	const navigate = useNavigate();
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 	const [confirmationText, setConfirmationText] = useState("");
@@ -374,73 +370,8 @@ export function JournalEntryDetailView({
 						)}
 					</Box>
 
-					{/* Footer Section: Errors, Retries, and Metadata */}
+					{/* Footer Section: Metadata */}
 					<Box sx={{ mt: 6, pt: 3, borderTop: "1px solid", borderColor: "divider" }}>
-						{syncError && (
-							<Alert 
-								severity="error" 
-								sx={{ 
-									mb: 3, 
-									borderRadius: 2,
-									'& .MuiAlert-message': { width: '100%', p: 0 }
-								}}
-							>
-								<Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-									<Typography variant="subtitle2" fontWeight={700}>Synchronization Error</Typography>
-									<Typography variant="body2" sx={{ opacity: 0.9 }}>{syncError}</Typography>
-									
-									<Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 1 }}>
-										<Typography variant="caption" sx={{ opacity: 0.8, fontWeight: 600 }}>
-											Retry Attempts: {errorCount}
-										</Typography>
-										{onRetry && (
-											<Tooltip title={isSyncing ? "Syncing..." : "Retry Sync Now"}>
-												<IconButton
-													size="small"
-													color="inherit"
-													onClick={onRetry}
-													disabled={isSyncing}
-													sx={{ 
-														p: 0.5,
-														bgcolor: 'rgba(0,0,0,0.1)',
-														'&:hover': { bgcolor: 'rgba(0,0,0,0.2)' }
-													}}
-												>
-													<SyncIcon 
-														sx={{ 
-															fontSize: 14,
-															animation: isSyncing ? `${spin} 1s linear infinite` : 'none'
-														}} 
-													/>
-												</IconButton>
-											</Tooltip>
-										)}
-									</Stack>
-								</Box>
-							</Alert>
-						)}
-
-						{!syncError && onRetry && (
-							<Box sx={{ mb: 3, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1.5 }}>
-								<Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-									Ready to sync
-								</Typography>
-								<Tooltip title={isSyncing ? "Syncing..." : "Start Manual Sync"}>
-									<IconButton
-										color="primary"
-										onClick={onRetry}
-										disabled={isSyncing}
-										sx={{ 
-											bgcolor: 'action.hover',
-											'&:hover': { bgcolor: 'action.selected' }
-										}}
-									>
-										<SyncIcon sx={{ animation: isSyncing ? `${spin} 1s linear infinite` : 'none' }} />
-									</IconButton>
-								</Tooltip>
-							</Box>
-						)}
-
 						<Stack direction="row" alignItems="center" justifyContent="flex-end" spacing={1}>
 							<CalendarTodayIcon sx={{ fontSize: 16, color: "text.secondary" }} />
 							<Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>

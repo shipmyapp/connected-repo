@@ -321,6 +321,7 @@ export class SSEManager {
                     console.error('[SSE] Auth failure (401)');
                     this.isMonitoring = false;
                     this.updateStatus('auth-error');
+                    this.broadcastSSEMessage('SSE_AUTH_ERROR');
                     break;
                 }
 

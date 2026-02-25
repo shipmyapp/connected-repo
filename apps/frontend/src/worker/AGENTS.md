@@ -7,7 +7,7 @@ The application uses TWO dedicated web workers to maintain UI responsiveness and
 - **State**: HOLDER of the Dexie.js database instance.
 - **Responsibilities**:
   - Managing all local IndexedDB persistence via Dexie.
-  - Orchestrating the background `SyncOrchestrator`.
+  - Orchestrating the background `SyncOrchestrator`. See [Detailed Sync Logic](file:///Users/krishna404/codeProjects/shipmyapp/connected-repo/apps/frontend/src/worker/sync/SYNC_LOGIC.md).
   - Managing real-time SSE event subscriptions and heartbeats.
 - **Strict Rule**: This is the ONLY worker allowed to access the database.
 
