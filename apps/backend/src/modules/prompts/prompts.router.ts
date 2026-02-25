@@ -10,7 +10,7 @@ import { ORPCError } from "@orpc/server";
 
 // Get all active prompts, optionally filtered by team
 const getAllActive = rpcProtectedProcedure
-	.input(z.object({ teamId: z.uuid().nullable().optional() }))
+	.input(z.object({ teamId: z.ulid().nullable().optional() }))
 	.handler(async ({ input: { teamId } }) => {
 		const query: any = { deletedAt: null };
 		if (teamId !== undefined) {
@@ -27,7 +27,7 @@ const getAllActive = rpcProtectedProcedure
 
 // Get a random active prompt, optionally filtered by team
 const getRandomActive = rpcProtectedProcedure
-	.input(z.object({ teamId: z.uuid().nullable().optional() }))
+	.input(z.object({ teamId: z.ulid().nullable().optional() }))
 	.handler(async ({ input: { teamId } }) => {
 		const query: any = { deletedAt: null };
 		if (teamId !== undefined) {
@@ -82,7 +82,7 @@ const getById = rpcPublicProcedure
 
 // Get prompts by category, optionally filtered by team
 const getByCategory = rpcProtectedProcedure
-	.input(promptGetByCategoryZod.extend({ teamId: z.uuid().nullable().optional() }))
+	.input(promptGetByCategoryZod.extend({ teamId: z.ulid().nullable().optional() }))
 	.handler(async ({ input: { category, teamId } }) => {
 		const query: any = { category, deletedAt: null };
 		if (teamId !== undefined) {

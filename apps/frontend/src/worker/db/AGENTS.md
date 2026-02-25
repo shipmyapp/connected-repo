@@ -37,24 +37,21 @@
 
 ### 5. Sync State & File Attachments
 
-* **Status Fields:**
-  - Journal entries: `'file-upload-pending' | 'file-upload-completed' | 'synced' | 'failed'`
-  - Files: `'pending' | 'in-progress' | 'completed' | 'failed'`
+* **Status Fields**:
+  - All tables: `_pendingAction: 'create' | 'update' | 'delete' | null`
+  - Files: `_uploadStatus`, `_thumbnailStatus`, `_syncStatus` (each `'pending' | 'in-progress' | 'completed' | 'failed'`)
 
-* **Polymorphic File Sync (v3):**
-  - Files are now synced independently of their parent table using `tableName` and `tableId`.
-  - Incremental updates for files are fetched via `files.delta` endpoint based on user/team.
-  - Parent entities (e.g., `journalEntries`) store `attachmentFileIds: string[]` instead of direct URLs.
+* **Polymorphic File Sync (v3)**:
+  - Files are synced independently using `tableName` and `tableId` (ULID/UUID).
+  - Incremental updates for files are fetched via `files.delta` endpoint.
+  - Parent entities (e.g., `journalEntries`) NO LONGER store file IDs; linkage is via the `files` table's `tableId`.
   - UI components fetch files reactively using `useLocalDb("files", ...)` filtered by `tableId`.
 
-* **SyncOrchestrator Flow:**
-  1. File Upload Stage (independent of parent):
-     - Thumbnail generation -> CDN upload -> Backend meta creation (`files.create`).
-     - Local file status transitions to `completed` + `synced`.
-  2. Parent Entity Sync Stage:
-     - Parent record (e.g., journal entry) is synced with `attachmentFileIds`.
-     - Backend links files to the parent via `afterCreate` hooks if needed.
-
+* **SyncOrchestrator Flow**:
+  1. **Thumbnail Stage**: Generate thumbnail if needed.
+  2. **Upload Stage**: Upload both original and thumbnail to CDN using deterministic ULID keys.
+  3. **Metadata Stage**: Create the backend file record via `files.create`.
+  4. **Completion**: Once all stages for all entity files are done, the entity remains synced via background heartbeats.
 * **Cross-Context Communication:** BroadcastChannel("db-updates") notifies SSE manager in Service Worker when pending entries change
 
 * **File Schema (v2):**
@@ -65,10 +62,10 @@
 
 ### 6. Deletion & Sync Integrity (CRITICAL)
 
-* **Synced Entries (`journalEntries`)**:
-    - **UI Rule**: DO NOT call `journalEntriesDb.delete()` from the frontend UI for synced entries. These deletions must happen on the backend via oRPC to ensure all devices receive the deletion event.
-    - **Worker Use only**: The local `delete()` method in `JournalEntriesDBManager` is reserved for the sync engine to purge local cache after a server confirmation or a full sync refresh.
+* **Synced Entries**:
+    - **Online-Only**: Synced records (`_pendingAction === null`) MUST be deleted while online.
+    - **Direct Action**: The frontend calls the backend API first, then deletes locally on success.
 
-* **Pending Entries & Files**:
-    - Deleting a pending parent record DOES NOT automatically delete its pending files if they are meant to be shareable. However, for ephemeral attachments, `journalEntriesDb.delete()` cleans up associated records.
-    - `filesDb.delete()` is used to remove local binary Blobs after successful CDN upload or cancellation.
+* **Pending Entries**:
+    - **Direct Delete**: Records with `_pendingAction === 'create'` are deleted locally immediately.
+    - Associated files in the `files` table should also be purged locally.

@@ -7,7 +7,7 @@ export class TeamAppTable extends BaseTable {
   readonly table = "teams_app";
 
   columns = this.setColumns((t) => ({
-    id: t.uuid().primaryKey().default(t.sql`gen_random_uuid()`),
+    id: t.ulidWithDefault().primaryKey(),
     name: t.string(),
     logoUrl: t.string().nullable(),
     createdByUserId: t.uuid().foreignKey("users", "id", {

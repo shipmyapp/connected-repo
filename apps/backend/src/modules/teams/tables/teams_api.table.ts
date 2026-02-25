@@ -5,7 +5,7 @@ export class TeamApiTable extends BaseTable {
   readonly table = "teams_api";
 
   columns = this.setColumns((t) => ({
-    teamApiId: t.uuid().primaryKey().default(t.sql`gen_random_uuid()`),
+    teamApiId: t.ulidWithDefault().primaryKey(),
 
     allowApiSubsCreationForSkus: t.array(t.string().narrowType((t) => t<ApiProductSku>())).default([]),
     allowedDomains: t.array(t.string()),

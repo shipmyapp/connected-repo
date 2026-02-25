@@ -8,11 +8,12 @@ import type { StoredFile, SyncMetadata, PendingAction, JournalEntrySyncMetadata 
 // --- Database Table Types with Sync Metadata ---
 export type WithSync<T> = T & {
   _pendingAction?: PendingAction | null;
+  _lastSyncAttemptAt?: number;
 } & Partial<JournalEntrySyncMetadata>;
 
 export class ClientDatabase extends Dexie {
   journalEntries!: Table<WithSync<JournalEntrySelectAll>, string>;
-  prompts!: Table<WithSync<PromptSelectAll>, number>;
+  prompts!: Table<WithSync<PromptSelectAll>, string>;
   files!: Table<StoredFile, string>;
   teamsApp!: Table<WithSync<TeamAppSelectAll>, string>;
   teamMembers!: Table<WithSync<TeamAppMemberSelectAll>, string>;
@@ -23,11 +24,11 @@ export class ClientDatabase extends Dexie {
 
     // Version 2 (Event-Driven Sync)
     this.version(2).stores({
-      journalEntries: "id, teamId, createdAt, updatedAt, clientUpdatedAt, _pendingAction, [teamId+createdAt]",
+      journalEntries: "id, teamId, createdAt, updatedAt, _pendingAction, _lastSyncAttemptAt, [teamId+createdAt]",
       prompts: "id, teamId, text, updatedAt, clientUpdatedAt, _pendingAction, [teamId+updatedAt]",
       files: "id, tableId, tableName, type, _uploadStatus, _thumbnailStatus, _syncStatus, teamId, updatedAt, _pendingAction",
-      teamsApp: "id, name, updatedAt, clientUpdatedAt, _pendingAction",
-      teamMembers: "id, id, userId, email, updatedAt, clientUpdatedAt, _pendingAction",
+      teamsApp: "id, name, updatedAt, _pendingAction",
+      teamMembers: "id, userId, teamId, email, updatedAt, _pendingAction",
       syncMetadata: "tableName",
     })
 
@@ -48,12 +49,22 @@ export type AppDbTable = keyof Omit<ClientDatabase, keyof Dexie | "version" | "o
 const dbUpdatesChannel = new BroadcastChannel("db-updates");
 const subscribers: Set<(table: AppDbTable) => void> = new Set();
 
+// Listen for updates from other contexts (e.g. Service Worker -> Data Worker)
+dbUpdatesChannel.onmessage = (event) => {
+  const { table } = event.data;
+  if (table) {
+    for (const callback of subscribers) {
+      callback(table as AppDbTable);
+    }
+  }
+};
+
 export const notifySubscribers = (table: AppDbTable) => {
   // Notify local subscribers (same context)
   for (const callback of subscribers) {
     callback(table);
   }
-  // Notify other workers (different context)
+  // Notify other contexts (different context)
   dbUpdatesChannel.postMessage({ table });
 };
 

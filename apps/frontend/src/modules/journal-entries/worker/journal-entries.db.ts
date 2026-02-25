@@ -131,6 +131,7 @@ export class JournalEntriesDBManager {
       });
 
       // 2. Local Delete on server success
+      // No special modelling required - just delete the entry
       await clientDb.journalEntries.delete(id);
       notifySubscribers("journalEntries");
     } catch (err) {

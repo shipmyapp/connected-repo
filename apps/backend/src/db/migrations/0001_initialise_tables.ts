@@ -40,7 +40,7 @@ change(async (db) => {
   );
 
   await db.createTable('teams_api', (t) => ({
-    teamApiId: t.uuid().primaryKey().default(t.sql`gen_random_uuid()`),
+    teamApiId: t.string(26).primaryKey(),
     allowApiSubsCreationForSkus: t.array(t.string()).default([]),
     allowedDomains: t.array(t.string()),
     allowedIPs: t.array(t.string()),
@@ -142,7 +142,7 @@ change(async (db) => {
       apiProductSku: t.enum('api_product_enum'),
       apiProductQuantity: t.smallint(),
       requestsConsumed: t.integer(),
-      teamApiId: t.uuid(),
+      teamApiId: t.string(26),
       teamUserReferenceId: t.string(),
       billingInvoiceNumber: t.string().nullable(),
       billingInvoiceDate: t.timestamp().nullable(),
@@ -159,7 +159,7 @@ change(async (db) => {
     'api_product_request_logs',
     (t) => ({
       apiProductRequestId: t.string(26).primaryKey(),
-      teamApiId: t.uuid(),
+      teamApiId: t.string(26),
       teamUserReferenceId: t.string(),
       requestBodyText: t.text().nullable(),
       requestBodyJson: t.json().nullable(),
@@ -194,7 +194,7 @@ change(async (db) => {
       queueName: t.string().nullable(),
       entityType: t.string().nullable(),
       entityId: t.string().nullable(),
-      teamApiId: t.uuid().nullable(),
+      teamApiId: t.string(26).nullable(),
       status: t.enum('pg_tbus_task_status_enum'),
       attemptNumber: t.integer().default(0),
       scheduledAt: t.timestamp().nullable(),
@@ -223,7 +223,7 @@ change(async (db) => {
 
 change(async (db) => {
   await db.createTable('teams_app', (t) => ({
-    id: t.uuid().primaryKey().default(t.sql`gen_random_uuid()`),
+    id: t.string(26).primaryKey(),
     name: t.string(),
     logoUrl: t.string().nullable(),
     createdByUserId: t.uuid().foreignKey('users', 'id', {
@@ -251,7 +251,7 @@ change(async (db) => {
         onUpdate: 'RESTRICT',
         onDelete: 'CASCADE',
       }),
-      teamId: t.uuid().foreignKey('teams_app', 'id', {
+      teamId: t.string(26).foreignKey('teams_app', 'id', {
         onUpdate: 'RESTRICT',
         onDelete: 'SET NULL',
       }).nullable(),
@@ -272,8 +272,8 @@ change(async (db) => {
   );
 
   await db.createTable('team_members', (t) => ({
-    id: t.uuid().primaryKey().default(t.sql`gen_random_uuid()`),
-    teamId: t.uuid().foreignKey('teams_app', 'id', {
+    id: t.string(26).primaryKey(),
+    teamId: t.string(26).foreignKey('teams_app', 'id', {
       onUpdate: 'RESTRICT',
       onDelete: 'CASCADE',
     }),
@@ -303,7 +303,7 @@ change(async (db) => {
       onUpdate: 'RESTRICT',
       onDelete: 'CASCADE',
     }),
-    teamId: t.uuid().foreignKey('teams_app', 'id', {
+    teamId: t.string(26).foreignKey('teams_app', 'id', {
       onUpdate: 'RESTRICT',
       onDelete: 'CASCADE',
     }).nullable(),

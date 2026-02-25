@@ -15,7 +15,7 @@ export const fileMandatoryZod = z.object({
 export const fileOptionalZod = z.object({
     cdnUrl: z.url().nullable(),
     thumbnailCdnUrl: z.url().nullable(),
-    teamId: z.uuid().nullable(),
+    teamId: z.ulid().nullable(),
     deletedAt: zTimeEpoch.nullable()
 });
 

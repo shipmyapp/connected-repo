@@ -12,7 +12,7 @@ const subscriptionMandatoryZod = z.object({
   apiProductSku: apiProductSkuZod,
   apiProductQuantity: zSmallint(1),
   requestsConsumed: zSmallint(0).default(0),
-  teamApiId: z.uuid(),
+  teamApiId: z.ulid(),
   teamUserReferenceId: zString,
 });
 

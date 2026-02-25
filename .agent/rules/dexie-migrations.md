@@ -24,19 +24,19 @@ Ensures frontend database schema changes are managed through explicit versioning
 
 // Existing version
 this.version(3).stores({
-  leads: "leadId, teamId, createdAt, updatedAt",
+  journalEntries: "id, teamId, createdAt, updatedAt",
 });
 
 // New version with migration
 this.version(4).stores({
-  leads: "leadId, teamId, createdAt, updatedAt, status", // Added status index
+  journalEntries: "id, teamId, createdAt, updatedAt, _pendingAction", // Added _pendingAction index
 }).upgrade(async (tx) => {
   // Migration logic if needed
-  await tx.table("leads").toCollection().modify(lead => {
-    if (!lead.status) lead.status = 'active';
+  await tx.table("journalEntries").toCollection().modify(entry => {
+    if (entry._pendingAction === undefined) entry._pendingAction = null;
   });
 });
 ```
 
 > [!IMPORTANT]
-> Always verify that the new version number is exactly $current\_version + 1$.
+> Always verify that the new version number is exactly $current\_version + 1$. Always use ULIDs for record IDs (except `userId`).

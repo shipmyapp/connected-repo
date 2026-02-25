@@ -47,7 +47,7 @@ export class FileTable extends BaseTable {
             onDelete: "CASCADE",
             onUpdate: "RESTRICT",
         }),
-        teamId: t.uuid().foreignKey("teams_app", "id", {
+        teamId: t.ulid().foreignKey("teams_app", "id", {
             onDelete: "CASCADE",
             onUpdate: "RESTRICT",
         }).nullable(),

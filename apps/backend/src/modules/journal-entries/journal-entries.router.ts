@@ -10,7 +10,7 @@ import {
 
 // Get all journal entries for the authenticated user, optionally filtered by team
 const getAll = rpcProtectedProcedure
-	.input(z.object({ teamId: z.uuid().nullable().optional() }))
+	.input(z.object({ teamId: z.ulid().nullable().optional() }))
 	.handler(async ({ input: { teamId }, context: { user } }) => {
 		const query: any = { authorUserId: user.id };
 		if (teamId !== undefined) {
@@ -28,7 +28,7 @@ const getAll = rpcProtectedProcedure
 
 // Get journal entry by ID
 const getById = rpcProtectedProcedure
-	.input(journalEntryGetByIdZod.extend({ teamId: z.uuid().nullable().optional() }))
+	.input(journalEntryGetByIdZod.extend({ teamId: z.ulid().nullable().optional() }))
 	.handler(async ({ input: { id, teamId }, context: { user } }) => {
 		const query: any = { id, authorUserId: user.id };
 		if (teamId !== undefined) {
@@ -86,7 +86,7 @@ const update = rpcProtectedProcedure
 
 // Delete journal entry
 const deleteEntry = rpcProtectedProcedure
-	.input(journalEntryDeleteZod.extend({ teamId: z.uuid().nullable().optional() }))
+	.input(journalEntryDeleteZod.extend({ teamId: z.ulid().nullable().optional() }))
 	.handler(async ({ input: { id, teamId }, context: { user } }) => {
 		const query: any = { id, authorUserId: user.id };
 		if (teamId !== undefined) {

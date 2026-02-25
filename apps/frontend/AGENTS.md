@@ -55,10 +55,10 @@ const data = await getDataProxy().journalEntriesDb.getAll();
 ## Offline-First Architecture
 
 **Dexie.js Tables**:
-- `journalEntries`: Synced data from server
-- `pendingSyncJournalEntries`: Local changes awaiting sync
-- `files`: Blob storage for attachments
+- `journalEntries`: Main table with `_pendingAction` for local/remote state
+- `files`: Blob storage and metadata for attachments
 - `teamsApp`, `teamMembers`: Team data
+- `syncMetadata`: Cursor-level checkpoints
 
 **Reactive Hooks** (`worker/db/hooks/useLocalDb.ts`):
 ```typescript
@@ -119,7 +119,7 @@ await axios.put(signedUrl, fileBlob, {
 await filesDb.create({ fileId, blob: fileBlob, status: 'completed' });
 ```
 
-**Attachment Schema**: `attachmentUrls: [string, string | "not-available"][]` - [original, thumbnail]
+**Attachment Schema**: Files are separate records linked via `tableId: ulid` and `tableName: "journalEntries"`.
 
 ## Forms (React Hook Form)
 
@@ -148,12 +148,12 @@ return (
 ## Offline Constraints (CRITICAL)
 
 **Prohibited Offline**:
-- Editing/deleting synced entries (`journalEntries` table)
+- Editing/deleting synced entries (records where `_pendingAction === null`)
 - Must use server mutations to ensure consistency
 
 **Allowed Offline**:
-- Creating new entries (goes to `pendingSyncJournalEntries`)
-- Deleting pending entries (local queue cleanup)
+- Creating new entries (starts with `_pendingAction: 'create'`)
+- Deleting/Editing pending entries (local queue cleanup/updates)
 
 ## oRPC Client
 

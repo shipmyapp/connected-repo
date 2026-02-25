@@ -48,7 +48,7 @@ export class JournalEntryTable extends BaseTable {
 				onDelete: "CASCADE",
 				onUpdate: "RESTRICT",
 			}),
-			teamId: t.uuid().foreignKey("teams_app", "id", {
+			teamId: t.ulid().foreignKey("teams_app", "id", {
 				onDelete: "SET NULL",
 				onUpdate: "RESTRICT",
 			}).nullable(),

@@ -31,8 +31,8 @@ export class TeamMemberTable extends BaseTable {
   readonly table = "team_members";
 
   columns = this.setColumns((t) => ({
-    id: t.uuid().primaryKey().default(t.sql`gen_random_uuid()`),
-    teamId: t.uuid().foreignKey("teams_app", "id", {
+    id: t.ulidWithDefault().primaryKey(),
+    teamId: t.ulid().foreignKey("teams_app", "id", {
         onUpdate: "RESTRICT",
         onDelete: "CASCADE",
     }),

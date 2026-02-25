@@ -7,18 +7,18 @@ import { z } from "zod";
 
 const syncToUserAndOptionalTeamAppOwnersAdminsZod = {
 	syncToUserId: z.uuid(),
-	syncToTeamAppIdOwnersAdmins: z.uuid().nullish(),
+	syncToTeamAppIdOwnersAdmins: z.ulid().nullish(), // Changed from z.uuid()
 	syncToTeamAppIdAllMembers: z.null().optional(),
 };
 const syncToUserAndTeamAppOwnersAdminsZod = {
 	syncToUserId: z.uuid(),
-	syncToTeamAppIdOwnersAdmins: z.uuid(),
+	syncToTeamAppIdOwnersAdmins: z.ulid(), // Changed from z.uuid()
 	syncToTeamAppIdAllMembers: z.null().optional(),
 };
 const syncToTeamAppAllMembersZod = {
 	syncToUserId: z.null().optional(),
 	syncToTeamAppIdOwnersAdmins: z.null().optional(),
-	syncToTeamAppIdAllMembers: z.uuid(),
+	syncToTeamAppIdAllMembers: z.ulid(), // Changed from z.uuid()
 };
 const syncToAllUsersZod = {
 	syncToUserId: z.null().optional(),

@@ -57,7 +57,7 @@ const createTeam = rpcProtectedProcedure
 	});
 
 const getTeamMembers = rpcProtectedProcedure
-	.input(z.object({ teamId: z.uuid() }))
+	.input(z.object({ teamId: z.ulid() }))
 	.output(z.array(teamAppMemberSelectAllZod))
 	.handler(async ({ input: { teamId }, context: { user } }) => {
 		// Verify user is member of the team
@@ -69,7 +69,7 @@ const getTeamMembers = rpcProtectedProcedure
 
 const addTeamMember = rpcProtectedProcedure
 	.input(z.object({
-		teamId: z.uuid(),
+		teamId: z.ulid(),
 		email: z.string().email(),
 		role: teamAppMemberRoleZod
 	}))
@@ -94,7 +94,7 @@ const addTeamMember = rpcProtectedProcedure
 	});
 
 const removeTeamMember = rpcProtectedProcedure
-	.input(z.object({ id: z.uuid() }))
+	.input(z.object({ id: z.ulid() }))
 	.output(z.object({ success: z.boolean() }))
 	.handler(async ({ input: { id }, context: { user } }) => {
 		const target = await db.teamMembers.where({ id }).takeOptional();
@@ -117,7 +117,7 @@ const removeTeamMember = rpcProtectedProcedure
 
 const updateMemberRole = rpcProtectedProcedure
 	.input(z.object({
-		id: z.uuid(),
+		id: z.ulid(),
 		role: teamAppMemberRoleZod
 	}))
 	.output(teamAppMemberSelectAllZod)

@@ -12,7 +12,12 @@ type HeartbeatStream = UserAppBackendOutputs["sync"]["heartbeatSync"];
 
 // Extract the individual event object from the stream's iterator
 export type HeartbeatEvent = HeartbeatStream extends AsyncIterable<infer T> ? T : never;
+export type DeltaOutput = Extract<HeartbeatEvent, { type: 'delta' }>;
 export type SSEStatus = 'connected' | 'disconnected' | 'connecting' | 'sync-complete' | 'sync-error' | 'auth-error' | 'connection-error';
+
+type TableDataMap = {
+    [K in TablesToSync]: Extract<DeltaOutput, { tableName: K }>['data']
+};
 
 export class SSEManager {
     private static instance: SSEManager | null = null;
@@ -24,7 +29,6 @@ export class SSEManager {
         }
         return SSEManager.instance;
     }
-
     private currentStatus: SSEStatus = 'disconnected';
     private currentUserId: string | null = null;
     private statusListeners = new Set<(status: SSEStatus) => void>();
@@ -39,6 +43,76 @@ export class SSEManager {
     // Track initial sync state for tables
     private pendingTables = new Set<string>();
     private erroredTables = new Set<string>();
+
+    private tableHandlers: {
+        [K in TablesToSync]: (data: TableDataMap[K], operation?: 'create' | 'update' | 'delete' | 'delta') => Promise<void>
+    } = {
+        journalEntries: async (data, op) => {
+            const ids = data.map(d => typeof d === 'string' ? d : d.id);
+            if (op === 'delete') await journalEntriesDb.bulkDelete(ids);
+            else {
+                const objects = data.filter((d): d is Exclude<typeof d, string> => typeof d !== 'string');
+                await journalEntriesDb.bulkUpsert(objects);
+            }
+        },
+        prompts: async (data, op) => {
+            const objects = data.filter((d): d is Exclude<typeof d, string> => typeof d !== 'string');
+            if (op === 'delete') {
+                // Prompts soft-delete via upsert, so we need the objects. 
+                // If we only have IDs (unlikely for soft-delete), we can't do much here.
+                if (objects.length > 0) await promptsDb.bulkDelete(objects);
+            } else {
+                await promptsDb.bulkUpsert(objects);
+            }
+        },
+        teamsApp: async (data, op) => {
+            const ids = data.map(t => typeof t === 'string' ? t : t.id);
+            if (op === 'delete') {
+                for (const id of ids) await wipeTeamData(id);
+                await clientDb.teamsApp.bulkDelete(ids);
+            } else {
+                const objects = data.filter((t): t is Exclude<typeof t, string> => typeof t !== 'string');
+                await teamsAppDb.saveTeams(objects);
+                for (const team of objects) {
+                    if (team.deletedAt) await wipeTeamData(team.id);
+                }
+            }
+        },
+        teamMembers: async (data, op) => {
+            if (op === 'delete') {
+                const affectedTeamIds = data.map(m => typeof m === 'string' ? m : m.teamId);
+                const affectsMe = data.some(m => (typeof m === 'string' ? m : m.userId) === this.currentUserId);
+                if (affectsMe) {
+                    for (const teamId of affectedTeamIds) await wipeTeamData(teamId);
+                }
+                await clientDb.teamMembers.bulkDelete(affectedTeamIds);
+            } else {
+                const objects = data.filter((m): m is Exclude<typeof m, string> => typeof m !== 'string');
+                await teamMembersDb.saveMembers(objects);
+                for (const member of objects) {
+                    if (member.userId === this.currentUserId && member.deletedAt) {
+                        await wipeTeamData(member.teamId);
+                    }
+                }
+            }
+        },
+        files: async (data, op) => {
+            const ids = data.map(d => typeof d === 'string' ? d : d.id);
+            if (op === 'delete') await filesDb.bulkDelete(ids);
+            else {
+                const objects = data.filter((d): d is Exclude<typeof d, string> => typeof d !== 'string');
+                await filesDb.bulkUpsert(objects);
+            }
+        }
+    };
+
+    private async runHandler<T extends TablesToSync>(tableName: T, data: TableDataMap[T], operation?: "create" | "update" | "delete" | "delta") {
+      const handler = this.tableHandlers[tableName];
+      if (handler) {
+          // Safe cast within the generic helper to bridge the correlated union mapping
+          await handler(data, operation);
+      }
+    }
 
     constructor() {
         console.info('[SSEManager] constructor called');
@@ -102,7 +176,6 @@ export class SSEManager {
         if (event.type === 'heartbeat') {
             console.info('[SSE] Heartbeat received');
             this.broadcastSSEMessage('SSE_HEARTBEAT');
-            
             if (this.currentStatus === 'connected' && this.pendingTables.size === 0) {
                 // We are idle and backend is synced
                 this.updateStatus('sync-complete');
@@ -110,11 +183,11 @@ export class SSEManager {
             return;
         }
 
-        console.info(`[SSE] Processing event: ${event.type}`);
+        console.info(`[SSE] Event: ${event.type}`);
 
         if (event.type === 'delta') {
             if ('error' in event && event.error) {
-                console.error(`[SSE] Delta sync error for ${event.tableName}: ${event.error}`);
+                console.error(`[SSE] Delta error [${event.tableName}]: ${event.error}`);
                 this.erroredTables.add(event.tableName);
                 this.pendingTables.delete(event.tableName);
                 this.updateStatus('sync-error');
@@ -122,35 +195,13 @@ export class SSEManager {
                 return;
             }
 
-            console.group(`[SSE] Received delta for ${event.tableName}`);
-            console.debug(`Records: ${event.data.length}, isLastChunk: ${event.isLastChunk}`);
-            
             try {
                 if (event.data.length > 0) {
-                    if (event.tableName === 'journalEntries') {
-                        await journalEntriesDb.bulkUpsert(event.data);
-                    } else if (event.tableName === 'prompts') { 
-                        await promptsDb.bulkUpsert(event.data);
-                    } else if (event.tableName === "teamsApp") {
-                        await teamsAppDb.saveTeams(event.data);
-                        for (const team of event.data) {
-                            if (team.deletedAt) await wipeTeamData(team.id);
-                        }
-                    } else if (event.tableName === "teamMembers") {
-                        await teamMembersDb.saveMembers(event.data);
-                        for (const member of event.data) {
-                            if (member.userId === this.currentUserId && member.deletedAt) {
-                                await wipeTeamData(member.teamId);
-                            }
-                        }
-                    } else if (event.tableName === "files") {
-                        await filesDb.bulkUpsert(event.data);
-                    }
+                    await this.runHandler(event.tableName, event.data, event.type);
                 }
 
-                // Update metadata for this table
                 const maxUpdatedAt = event.data.length > 0 
-                  ? Math.max(...event.data.map((d: any) => d.updatedAt))
+                  ? Math.max(...event.data.map((d) => d.updatedAt))
                   : 0;
                 
                 if (maxUpdatedAt > 0) {
@@ -158,20 +209,14 @@ export class SSEManager {
                 }
 
                 if (event.isLastChunk) {
-                    console.info(`[SSE] Completed delta sync for table: ${event.tableName}`);
+                    console.info(`[SSE] Delta complete: ${event.tableName}`);
                     this.pendingTables.delete(event.tableName);
                     if (this.pendingTables.size === 0) {
-                        if (this.erroredTables.size > 0) {
-                            this.updateStatus('sync-error');
-                        } else {
-                            this.updateStatus('sync-complete');
-                        }
+                        this.updateStatus(this.erroredTables.size > 0 ? 'sync-error' : 'sync-complete');
                     }
                 }
-                console.groupEnd();
             } catch (err) {
-                console.error(`[SSE] Failed to persist delta for ${event.tableName}:`, err);
-                console.groupEnd();
+                console.error(`[SSE] Delta persist fail [${event.tableName}]:`, err);
                 this.erroredTables.add(event.tableName);
                 this.updateStatus('sync-error');
                 this.abortController?.abort();
@@ -179,49 +224,29 @@ export class SSEManager {
             return;
         }
 
-        // Handle real-time updates
-        if (event.type === 'data-change-journalEntries') {
-            console.info(`[SSE] Real-time [journalEntries]: ${event.operation}`);
-            if (event.operation === 'delete') {
-                await journalEntriesDb.bulkDelete(event.data.map((d: any) => d.id));
-            } else {
-                await journalEntriesDb.bulkUpsert(event.data);
-            }
-        } else if (event.type === 'data-change-prompts') {
-            if (event.operation === 'delete') {
-                await promptsDb.bulkDelete(event.data);
-            } else {
-                await promptsDb.bulkUpsert(event.data);
-            }
-        } else if (event.type === "data-change-teamsApp") {
-            if (event.operation === "delete") {
-                for (const team of event.data) {
-                    await wipeTeamData(team.id);
-                }
-                await clientDb.teamsApp.bulkDelete(event.data.map((t: any) => t.id));
-            } else {
-                await teamsAppDb.saveTeams(event.data);
-            }
-        } else if (event.type === "data-change-teamMembers") {
-            if (event.operation === "delete") {
-                const affectsMe = event.data.some((m: any) => m.userId === this.currentUserId);
-                if (affectsMe) {
-                    for (const member of event.data) {
-                        if (member.userId === this.currentUserId) await wipeTeamData(member.teamId);
-                    }
-                }
-                await clientDb.teamMembers.bulkDelete(event.data.map((m: any) => m.teamId));
-            } else {
-                await teamMembersDb.saveMembers(event.data);
-            }
-        } else if (event.type === 'data-change-files') {
-            console.info(`[SSE] Real-time [files]: ${event.operation}`);
-            if (event.operation === 'delete') {
-                await filesDb.bulkDelete(event.data.map((d: any) => d.id));
-            } else {
-                await filesDb.bulkUpsert(event.data);
-            }
+        // Real-time updates
+        const tableMatch = event.type.match(/^data-change-(.+)$/);
+        if (tableMatch) {
+            const tableName = tableMatch[1] as TablesToSync;
+            console.info(`[SSE] Real-time [${tableName}]: ${event.operation}`);
+            await this.runHandler(tableName, event.data as any, event.operation);
         }
+    }
+
+    private async waitForOnline() {
+        if (navigator.onLine) return;
+        
+        console.info('[SSE] Device offline. Waiting for network...');
+        this.updateStatus('disconnected');
+        
+        return new Promise<void>((resolve) => {
+            const handleOnline = () => {
+                self.removeEventListener('online', handleOnline);
+                console.info('[SSE] Device back online.');
+                resolve();
+            };
+            self.addEventListener('online', handleOnline);
+        });
     }
 
     public async getStatus(): Promise<SSEStatus> { 
@@ -255,52 +280,45 @@ export class SSEManager {
         this.isMonitoring = true;
         this.currentUserId = userId;
         this.retryCount = 0;
-        console.info(`[SSEManager] startMonitoring called for userId: ${userId}`);
+        console.info(`[SSEManager] startMonitoring [${userId}]`);
 
         while (this.isMonitoring) {
-            console.info(`[SSE] Loop starting for user ${userId} at ${apiUrl}`);
+            await this.waitForOnline();
+            if (!this.isMonitoring) break;
+
+            console.info(`[SSE] Connecting to ${apiUrl}`);
             this.updateStatus('connecting');
             this.abortController = new AbortController();
             this.pendingTables = new Set(TABLES_TO_SYNC_ENUM);
             this.erroredTables.clear();
 
             try {
-                console.info('[SSE] Fetching sync metadata...');
                 const lastSyncMetadata = await this.getLatestSyncMetadata();
-                console.info('[SSE] Last sync metadata:', lastSyncMetadata);
-
-                // Mapping metadata for the backend
                 const tableMarkers = Object.entries(lastSyncMetadata).map(([tableName, meta]) => ({
                     tableName: tableName as TablesToSync,
                     cursorUpdatedAt: meta.updatedAt,
                     cursorId: meta.cursor
                 }));
 
-                console.info('[SSE] Initiating heartbeatSync stream...');
                 const stream = await orpcFetch.sync.heartbeatSync({ 
                     type: 'heartbeat',
                     tableMarkers
                 }, { signal: this.abortController.signal });
 
-                console.info('[SSE] Stream obtained, waiting for events...');
                 this.updateStatus('connected');
                 this.broadcastSSEMessage('SSE_CONNECTED');
                 this.resetHeartbeatWatchdog();
                 this.retryCount = 0;
 
                 for await (const event of stream) {
-                    if (!this.isMonitoring) {
-                        console.info('[SSE] Stop requested, breaking stream loop');
-                        break;
-                    }
-                    console.info('[SSE] RAW EVENT:', event);
+                    if (!this.isMonitoring) break;
                     await this.handleSSEEvent(event);
                 }
-                console.info('[SSE] Stream loop exited naturally');
             } catch (err: unknown) {
                 if (err instanceof Error && err.name === 'AbortError') continue;
                 
                 if (err instanceof Error && err.name === 'FetchError' && 'status' in err && err.status === 401) {
+                    console.error('[SSE] Auth failure (401)');
                     this.isMonitoring = false;
                     this.updateStatus('auth-error');
                     break;
@@ -317,11 +335,11 @@ export class SSEManager {
                     const jitter = backoff * 0.2 * Math.random();
                     const delay = backoff + jitter;
 
-                    console.log(`[SSE] Retrying in ${Math.round(delay)}ms (Attempt ${this.retryCount + 1})...`);
+                    console.log(`[SSE] Retry in ${Math.round(delay)}ms (Attempt ${this.retryCount + 1})`);
                     
                     this.retryAbortController = new AbortController();
                     try {
-                        await new Promise((resolve, reject) => {
+                        await new Promise<void>((resolve, reject) => {
                             const timer = setTimeout(resolve, delay);
                             this.retryAbortController?.signal.addEventListener('abort', () => {
                                 clearTimeout(timer);
@@ -341,8 +359,8 @@ export class SSEManager {
 }
 
 // Service Worker event listeners
-self.addEventListener('message', (event: any) => {
+self.addEventListener('message', ((event: ExtendableMessageEvent) => {
     if (event.data?.type === 'REFRESH_SYNC') {
         SSEManager.getInstance().refresh();
     }
-});
+}) as EventListener);

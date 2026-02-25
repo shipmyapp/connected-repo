@@ -30,7 +30,7 @@ export const deltaOutputZod = z.discriminatedUnion("tableName", [
         tableName: z.enum(["prompts"]),
         data: z.array(promptSelectAllZod),
         cursorUpdatedAt: zTimeEpoch.nullable(),
-        cursorId: z.coerce.string().nullable(),
+        cursorId: z.ulid().nullable(),
         isLastChunk: z.boolean(),
         error: z.string().optional(),
     }),
@@ -39,7 +39,7 @@ export const deltaOutputZod = z.discriminatedUnion("tableName", [
         tableName: z.enum(["teamsApp"]),
         data: z.array(teamAppSelectAllZod),
         cursorUpdatedAt: zTimeEpoch.nullable(),
-        cursorId: z.uuid().nullable(),
+        cursorId: z.ulid().nullable(),
         isLastChunk: z.boolean(),
         error: z.string().optional(),
     }),
@@ -48,7 +48,7 @@ export const deltaOutputZod = z.discriminatedUnion("tableName", [
         tableName: z.enum(["teamMembers"]),
         data: z.array(teamAppMemberSelectAllZod),
         cursorUpdatedAt: zTimeEpoch.nullable(),
-        cursorId: z.uuid().nullable(),
+        cursorId: z.ulid().nullable(),
         isLastChunk: z.boolean(),
         error: z.string().optional(),
     }),
@@ -57,7 +57,7 @@ export const deltaOutputZod = z.discriminatedUnion("tableName", [
         tableName: z.enum(["files"]),
         data: z.array(fileSelectAllZod),
         cursorUpdatedAt: zTimeEpoch.nullable(),
-        cursorId: z.coerce.string().nullable(),
+        cursorId: z.ulid().nullable(),
         isLastChunk: z.boolean(),
         error: z.string().optional(),
     })
@@ -79,6 +79,16 @@ const heartbeatSyncOutput = z.discriminatedUnion("type", [
     ...syncPayloadZod.options,
 ]);
 
+const DELTA_FETCHERS: {
+	[K in TablesToSync]: (userId: string, teamIds: string[], cursorDate: Date, cursorId: string | null, size: number) => Promise<Extract<DeltaOutput, { tableName: K }>["data"]>
+} = {
+	teamMembers: (userId, teamIds, cursorDate, cursorId, size) => getTeamMembersDelta(userId, teamIds, cursorDate, cursorId, size),
+	teamsApp: (_userId, teamIds, cursorDate, cursorId, size) => getTeamAppDelta(teamIds, cursorDate, cursorId, size),
+	journalEntries: (userId, teamIds, cursorDate, cursorId, size) => getDeltaJournalEntries(userId, teamIds, cursorDate, cursorId, size),
+	prompts: (_userId, _teamIds, cursorDate, cursorId, size) => getDeltaPrompts(cursorDate, cursorId, size),
+	files: (userId, teamIds, cursorDate, cursorId, size) => getDeltaFiles(userId, teamIds, cursorDate, cursorId, size),
+};
+
 async function* getDeltaForTable(
 	tableName: TablesToSync,
 	userId: string,
@@ -88,110 +98,56 @@ async function* getDeltaForTable(
 	sinceCursorId?: string | null,
 	signal?: AbortSignal,
 ): AsyncGenerator<DeltaOutput> {
-	// Clean up inputs to avoid IN (NULL/undefined) or empty array issues
-	userTeamsAppIds = userTeamsAppIds.filter(id => !!id);
-	userOwnerAdminTeamAppIds = userOwnerAdminTeamAppIds.filter(id => !!id);
-
+	const userTeams = userTeamsAppIds.filter(Boolean);
+	const adminTeams = userOwnerAdminTeamAppIds.filter(Boolean);
 	const chunkSize = 100;
 
 	let hasMore = true;
-	let cursorUpdatedAtDate: Date = new Date(since || 0);
-	let cursorId: string | null = sinceCursorId ?? null;
+	let cursorUpdatedAtDate = new Date(since || 0);
+	let cursorId = sinceCursorId ?? null;
+
+	const fetcher = DELTA_FETCHERS[tableName];
 
 	try {
-		while (hasMore) {
-			if (signal?.aborted) break;
-			let data: any[] = [];
-
-			if (tableName === "teamMembers") {
-				data = await getTeamMembersDelta(
-					userId,
-					userOwnerAdminTeamAppIds,
-					cursorUpdatedAtDate,
-					cursorId,
-					chunkSize
-				);
-			} else if (tableName === "teamsApp") {
-				data = await getTeamAppDelta(
-					userTeamsAppIds,
-					cursorUpdatedAtDate,
-					cursorId,
-					chunkSize
-				);
-			} else if (tableName === "journalEntries") {
-				data = await getDeltaJournalEntries(
-					userId,
-					userOwnerAdminTeamAppIds,
-					cursorUpdatedAtDate,
-					cursorId,
-					chunkSize
-				);
-			} else if (tableName === "prompts") {
-				data = await getDeltaPrompts(
-					cursorUpdatedAtDate,
-					cursorId ?? null,
-					chunkSize
-				);
-			} else if (tableName === "files") {
-				data = await getDeltaFiles(
-					userId,
-					userOwnerAdminTeamAppIds,
-					cursorUpdatedAtDate,
-					cursorId,
-					chunkSize
-				);
-			}
+		while (hasMore && !signal?.aborted) {
+			const data = await fetcher(
+				userId, 
+				tableName === "teamsApp" ? userTeams : adminTeams, 
+				cursorUpdatedAtDate, 
+				cursorId, 
+				chunkSize
+			);
 
 			if (data.length === 0) {
-				hasMore = false;
-				yield {
-					type: "delta",
-					tableName,
-					data: [],
-					cursorUpdatedAt: null,
-					cursorId: null,
-					isLastChunk: true,
-				};
+				yield { type: "delta", tableName, data: [], cursorUpdatedAt: null, cursorId: null, isLastChunk: true } as DeltaOutput;
 				break;
 			}
 
-			// Update cursor for next batch
-			const lastItem = data[data.length - 1];
-			const batchMaxUpdatedAt = lastItem.updatedAt;
-			cursorUpdatedAtDate = new Date(batchMaxUpdatedAt);
-
+			const lastItem = data[data.length - 1]!;
+			cursorUpdatedAtDate = new Date(lastItem.updatedAt);
+			cursorId = lastItem.id;
 			hasMore = data.length === chunkSize;
 
 			yield {
 				type: "delta",
 				tableName,
 				data,
-				cursorUpdatedAt: batchMaxUpdatedAt,
-				cursorId: lastItem.id,
+				cursorUpdatedAt: lastItem.updatedAt,
+				cursorId,
 				isLastChunk: !hasMore,
-			};
-
+			} as DeltaOutput;
 		}
 	} catch (error) {
-		console.error(`[SyncRouter] Delta sync failed for table ${tableName}:`, error, {
-            userId,
-            userTeamsAppIds,
-            userOwnerAdminTeamAppIds,
-            cursorUpdatedAt: cursorUpdatedAtDate.getTime(),
-            cursorId,
-        });
-
+		console.error(`[SyncRouter] Delta failed [${tableName}]:`, error);
 		yield {
 			type: "delta",
-			tableName: tableName,
+			tableName,
 			data: [],
 			cursorUpdatedAt: cursorUpdatedAtDate.getTime(),
 			cursorId,
 			isLastChunk: true,
-			error: error instanceof Error ? error.message : "Unknown database error during delta sync",
-		};
-
-		return;
+			error: error instanceof Error ? error.message : "Database error",
+		} as DeltaOutput;
 	}
 }
 
@@ -206,6 +162,12 @@ export const heartbeatSync = rpcProtectedProcedure
 		const user = await db.users.find(userId).select("*", {
 			teamMembers: (t) => t.teamMembers.selectAll()
 		});
+
+		// Real-time filtering for data privacy:
+		const userTeamAppIds = user.teamMembers.map(m => m.teamId);
+		const userOwnerAdminTeamAppIds = user.teamMembers
+			.filter(m => m.role === "Owner" || m.role === "Admin")
+			.map(m => m.teamId);
 
 		console.info(`[SyncRouter] New connection from user ${user.id} (Table markers: ${tableMarkers.length})`);
 
@@ -226,8 +188,8 @@ export const heartbeatSync = rpcProtectedProcedure
 				for await (const chunk of getDeltaForTable(
 					tableName,
 					user.id,
-					user.teamMembers.map(m => m.teamId),
-					user.teamMembers.filter(m => m.role === "Owner" || m.role === "Admin").map(m => m.teamId),
+					userTeamAppIds,
+					userOwnerAdminTeamAppIds,
 					cursorUpdatedAt,
 					cursorId,
 					signal,
@@ -254,12 +216,6 @@ export const heartbeatSync = rpcProtectedProcedure
 
 		// --- 3. Start Live Monitoring (Buffered Events First) ---
 		for await (const payload of liveIterator) {
-			// Real-time filtering for data privacy:
-			const userTeamAppIds = user.teamMembers.map(m => m.teamId);
-			const userOwnerAdminTeamAppIds = user.teamMembers
-				.filter(m => m.role === "Owner" || m.role === "Admin")
-				.map(m => m.teamId);
-
 			const isTeamOwnerAdminAccess =
 				"syncToTeamAppIdOwnersAdmins" in payload &&
 				payload.syncToTeamAppIdOwnersAdmins &&
@@ -270,11 +226,8 @@ export const heartbeatSync = rpcProtectedProcedure
 				payload.syncToTeamAppIdAllMembers &&
 				userTeamAppIds.includes(payload.syncToTeamAppIdAllMembers);
 
-			const isPersonalAccess = "syncToUserId" in payload && payload.syncToUserId === user.id;
-
-			const isGlobalAccess =
-				!("syncToUserId" in payload) ||
-				!payload.syncToUserId;
+			const isPersonalAccess = "syncToUserId" in payload && !!payload.syncToUserId && payload.syncToUserId === user.id;
+			const isGlobalAccess = !("syncToUserId" in payload) && !("syncToTeamAppIdOwnersAdmins" in payload) && !("syncToTeamAppIdAllMembers" in payload);
 
 			if (isTeamOwnerAdminAccess || isTeamAllMemberAccess || isPersonalAccess || isGlobalAccess) {
 				yield payload;

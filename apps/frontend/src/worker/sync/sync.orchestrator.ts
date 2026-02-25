@@ -1,3 +1,4 @@
+import { type Table } from "dexie";
 import { clientDb, subscribe, type AppDbTable } from "../db/db.manager";
 import { filesDb } from "../db/files.db";
 import { journalEntriesDb } from "../../modules/journal-entries/worker/journal-entries.db";
@@ -12,6 +13,8 @@ export class SyncOrchestrator {
   private isProcessing = false;
   private sseChannel: BroadcastChannel | null = null;
   private inFlightSyncs = new Set<string>(); // "tableName:recordId"
+  private retryCounts = new Map<string, number>(); // "tableName:recordId" -> count
+  private needsRescan = false;
 
   constructor() {
     // 1. Listen for SSE events to trigger sync
@@ -30,32 +33,47 @@ export class SyncOrchestrator {
         this.processQueue();
       }
     });
+
+    // 3. Listen for online status restoration
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', () => this.processQueue());
+    } else if (typeof self !== 'undefined') {
+      self.addEventListener('online', () => this.processQueue());
+    }
   }
 
   private isOnline(): boolean {
     return typeof navigator !== 'undefined' && navigator.onLine;
   }
 
-  public start() {
+  public async start() {
     console.info("[SyncOrchestrator] Service started.");
     this.processQueue();
   }
 
   public async processQueue() {
-    if (this.isProcessing) return;
+    if (this.isProcessing) {
+        this.needsRescan = true;
+        return;
+    }
     if (!this.isOnline()) return;
 
     this.isProcessing = true;
+    this.needsRescan = false;
     try {
-      console.debug("[SyncOrchestrator] Starting sync scan...");
-      
-      // We process tables in order of dependency if any, but mostly concurrent is fine
-      await Promise.all(TABLES_TO_SYNC_ENUM.map((tableName) => this.syncTable(tableName)));
-
+      // Sequential table processing for dependency resolution
+      const syncOrder: TablesToSync[] = ['teamsApp', 'teamMembers', 'prompts', 'journalEntries', 'files'];
+      for (const tableName of syncOrder) {
+        await this.syncTable(tableName);
+      }
     } catch (err) {
       console.error("[SyncOrchestrator] Global sync error:", err);
     } finally {
       this.isProcessing = false;
+      if (this.needsRescan) {
+        this.needsRescan = false;
+        this.processQueue();
+      }
     }
   }
 
@@ -76,11 +94,27 @@ export class SyncOrchestrator {
       
       if (this.inFlightSyncs.has(syncKey)) continue;
 
+      // --- Exponential Backoff Check ---
+      const retryCount = this.retryCounts.get(syncKey) || 0;
+      if (retryCount > 0) {
+        const lastAttempt = (record as any)._lastSyncAttemptAt || 0;
+        const delay = Math.min(300000, Math.pow(2, retryCount) * 2000); // Max 5 mins
+        if (Date.now() - lastAttempt < delay) {
+          continue; // Skip for now
+        }
+      }
+
       try {
         this.inFlightSyncs.add(syncKey);
         await this.syncRecord(tableName, record);
+        this.retryCounts.delete(syncKey); // Success!
       } catch (err) {
         console.error(`[SyncOrchestrator] Error syncing ${syncKey}:`, err);
+        const nextRetry = (this.retryCounts.get(syncKey) || 0) + 1;
+        this.retryCounts.set(syncKey, nextRetry);
+        
+        // Update record with last attempt timestamp (locally)
+        await (table as Table<any, any>).update(record.id, { _lastSyncAttemptAt: Date.now() });
       } finally {
         this.inFlightSyncs.delete(syncKey);
       }
@@ -89,6 +123,12 @@ export class SyncOrchestrator {
   }
 
   private async syncRecord(tableName: TablesToSync, record: any) {
+    if (record._pendingAction && record._pendingAction !== 'create') {
+      console.error(`[SyncOrchestrator] Unsupported offline action "${record._pendingAction}" on ${tableName}:${record.id}. Sync model requires online-only for synced records.`);
+      // We don't throw here to avoid blocking the queue, but we don't proceed either.
+      return;
+    }
+
     if (tableName === 'journalEntries') {
       await this.orchestrateJournalEntry(record);
       return;
@@ -111,119 +151,95 @@ export class SyncOrchestrator {
       console.log(`[SyncOrchestrator] Orchestrating JournalEntry ${entryId} (${action})`);
       let result;
       if (action === 'create') {
-        const { _pendingAction, status, error, errorCount, ...data } = record;
+        const { _pendingAction, ...data } = record;
         result = await orpcFetch.journalEntries.create(data);
       }
       await this.handleSuccess('journalEntries', record, result);
     } catch (err: any) {
       console.error(`[SyncOrchestrator] Backend sync failed for entry ${entryId}`, err);
+      throw err; // Re-throw to be caught by syncTable for retry logic
     }
   }
 
   private async orchestrateFile(file: StoredFile) {
     const fileId = file.id;
-    const action = file._pendingAction;
     const mediaProxy = getMediaProxyInternal();
     if (!mediaProxy) return;
 
-    // 0. Parent Check: Only process files if parent entry exists
+    // 0. Parent Check: Only process files if parent entry exists AND is synced on server
     const parentEntry = await clientDb.journalEntries.get(file.tableId);
-    if (!parentEntry) {
-        console.debug(`[SyncOrchestrator] File ${fileId} waiting for parent entry ${file.tableId}...`);
-        return;
+    if (!parentEntry || parentEntry._pendingAction !== null) return;
+
+    // Linear flow determined by data presence
+    let currentFile = file;
+
+    // 1. Thumbnail Stage (If needed and missing)
+    const isMedia = currentFile.mimeType.startsWith("image/") || currentFile.mimeType === "application/pdf";
+    if (isMedia && !currentFile.thumbnailCdnUrl && !currentFile._thumbnailBlob) {
+      await this.triggerThumbnail(fileId, currentFile, mediaProxy);
+      const updated = await filesDb.get(fileId);
+      if (!updated) return;
+      currentFile = updated;
     }
 
-    // 1. Thumbnail Stage (Backup/Retry)
-    if (file._thumbnailStatus !== 'completed' && (file.mimeType.startsWith("image/") || file.mimeType === "application/pdf")) {
-      await this.triggerThumbnail(fileId, file, mediaProxy);
-      return;
+    // 2. Upload Stage (If missing CDN URL)
+    if (!currentFile.cdnUrl) {
+      await this.triggerUpload(fileId, currentFile, mediaProxy);
+      const updated = await filesDb.get(fileId);
+      if (!updated) return;
+      currentFile = updated;
     }
 
-    // 2. Upload Stage (CDN)
-    if (file._uploadStatus !== 'completed') {
-      await this.triggerUpload(fileId, file, mediaProxy);
-      return;
-    }
-
-    // 3. Sync Stage (Backend Metadata)
-    if (file._syncStatus !== 'completed') {
+    // 3. Sync Stage (Metadata to backend)
+    if (currentFile.cdnUrl && currentFile._pendingAction === 'create') {
         try {
-            console.log(`[SyncOrchestrator] Syncing metadata for file ${fileId} to backend`);
-            await filesDb.update(fileId, { _syncStatus: 'in-progress' });
-            let result;
-            if (action === 'create') {
-              const { _blob, _thumbnailBlob, _uploadStatus, _thumbnailStatus, _syncStatus, _error, _errorCount, _pendingAction, ...syncData } = file;
-              result = await orpcFetch.files.create(syncData);
-              // Handle success by clearing pending action
-              await this.handleSuccess('files', file, result);
-            }
+            const { _blob, _thumbnailBlob, _pendingAction, ...syncData } = currentFile;
+            const result = await orpcFetch.files.create(syncData);
+            await this.handleSuccess('files', currentFile, result);
         } catch (err: any) {
-            console.error(`[SyncOrchestrator] Backend sync failed for file ${fileId}`, err);
-            await filesDb.update(fileId, { _syncStatus: 'failed', _error: err.message });
+            console.error(`[SyncOrchestrator] Metadata sync failed for ${fileId}`, err);
+            throw err; // Trigger retry backoff
         }
     }
   }
 
   private async triggerThumbnail(fileId: string, file: StoredFile, mediaProxy: any) {
-    if (file._thumbnailStatus === 'in-progress') return;
     try {
-      console.log(`[SyncOrchestrator] Triggering thumbnail generation for file ${fileId}`);
-      await filesDb.update(fileId, { _thumbnailStatus: 'in-progress' });
-      
-      if (!file._blob) {
-          console.warn(`[SyncOrchestrator] Cannot generate thumbnail for ${fileId}: Blob missing`);
-          await filesDb.update(fileId, { _thumbnailStatus: 'failed', _error: "Blob missing" });
-          return;
-      }
+      if (!file._blob) return;
 
       const blobFile = new File([file._blob], file.fileName, { type: file.mimeType });
       const result = await mediaProxy.media.generateThumbnail(blobFile);
       if (result.thumbnailFile) {
         await filesDb.update(fileId, { 
-          _thumbnailBlob: result.thumbnailFile, 
-          _thumbnailStatus: 'completed' 
+          _thumbnailBlob: result.thumbnailFile
         });
-        console.log(`[SyncOrchestrator] Thumbnail generated for file ${fileId}`);
       }
     } catch (e) {
-      console.error(`[SyncOrchestrator] Thumbnail generation failed for ${fileId}`, e);
-      await filesDb.update(fileId, { _thumbnailStatus: 'failed' });
+      console.error(`[SyncOrchestrator] Thumbnail fail for ${fileId}`, e);
+      throw e;
     }
   }
 
   private async triggerUpload(fileId: string, file: StoredFile, mediaProxy: any) {
-    if (file._uploadStatus === 'in-progress') return;
     try {
-      console.log(`[SyncOrchestrator] Triggering CDN upload for file ${fileId}`);
-      await filesDb.update(fileId, { _uploadStatus: 'in-progress' });
-
-      if (!file._blob) {
-        console.warn(`[SyncOrchestrator] Cannot upload file ${fileId}: Blob missing`);
-        await filesDb.update(fileId, { _uploadStatus: 'failed', _error: "Blob missing" });
-        return;
-      }
+      if (!file._blob) return;
 
       const blobFile = new File([file._blob], file.fileName, { type: file.mimeType });
-      (blobFile as any).id = fileId; // Attach id for deterministic S3 key
+      (blobFile as any).id = fileId; 
       
       const thumbFile = file._thumbnailBlob ? new File([file._thumbnailBlob], "thumb", { type: file._thumbnailBlob.type }) : undefined;
       if (thumbFile) (thumbFile as any).id = `${fileId}_thumb`;
 
       const result = await mediaProxy.media.uploadMediaPair(blobFile, thumbFile);
       if (result.success && result.urls) {
-        console.log(`[SyncOrchestrator] CDN upload successful for file ${fileId}`, result.urls);
         await filesDb.update(fileId, { 
           cdnUrl: result.urls[0],
-          thumbnailCdnUrl: result.urls[1] || null,
-          _uploadStatus: 'completed' 
+          thumbnailCdnUrl: result.urls[1] || null
         });
-      } else {
-        console.error(`[SyncOrchestrator] CDN upload failed for file ${fileId}: ${result.error}`);
-        await filesDb.update(fileId, { _uploadStatus: 'failed', _error: result.error });
       }
     } catch (e: any) {
-      console.error(`[SyncOrchestrator] CDN upload exception for file ${fileId}`, e);
-      await filesDb.update(fileId, { _uploadStatus: 'failed', _error: e.message });
+      console.error(`[SyncOrchestrator] CDN upload fail for ${fileId}`, e);
+      throw e;
     }
   }
 
@@ -240,6 +256,7 @@ export class SyncOrchestrator {
       ...serverRecord,
       _pendingAction: null,
     });
+    this.needsRescan = true;
     console.info(`[SyncOrchestrator] Successfully synced ${tableName}:${recordId} (server id: ${serverRecord.id})`);
   }
 
