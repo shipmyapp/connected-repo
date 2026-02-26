@@ -1,4 +1,4 @@
-# Plan: Ghost Blob Cleanup Strategy
+# Plan: Ghost Blob Cleanup Strategy (001)
 
 ## Objective
 Prevent the `SyncOrchestrator` from entering infinite error cycles by identifying and cleaning up metadata records that are missing their associated binary data (`_blob`).
