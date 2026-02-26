@@ -8,6 +8,10 @@ export type FileProgressStage =
   | "completed" 
   | "error";
 
+export interface IdentifiedFile extends File {
+  id: string;
+}
+
 export interface FileProgress {
   fileName: string;
   progress: number;

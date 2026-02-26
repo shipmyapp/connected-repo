@@ -179,30 +179,29 @@ export class JournalEntriesDBManager {
       .toArray();
   }
 
-  async getLatestUpdatedAt() {
-    const latest = await clientDb.journalEntries.orderBy("updatedAt").last();
-    return latest;
+  getLatestUpdatedAt() {
+    return clientDb.journalEntries.orderBy("updatedAt").last();
   }
 
-  async count(teamId: string | null = null) {
+  count(teamId: string | null = null) {
     if (teamId) {
-      return await clientDb.journalEntries.where("teamId").equals(teamId).filter(e => e._pendingAction === null).count();
+      return clientDb.journalEntries.where("teamId").equals(teamId).filter(e => e._pendingAction === null).count();
     }
-    return await clientDb.journalEntries.filter(e => !e.teamId && e._pendingAction === null).count();
+    return clientDb.journalEntries.filter(e => !e.teamId && e._pendingAction === null).count();
   }
 
-  async countPending(teamId: string | null = null) {
+  countPending(teamId: string | null = null) {
     if (teamId) {
-      return await clientDb.journalEntries.where("teamId").equals(teamId).filter(e => !!e._pendingAction).count();
+      return clientDb.journalEntries.where("teamId").equals(teamId).filter(e => !!e._pendingAction).count();
     }
-    return await clientDb.journalEntries.filter(e => !e.teamId && !!e._pendingAction).count();
+    return clientDb.journalEntries.filter(e => !e.teamId && !!e._pendingAction).count();
   }
 
-  async getPending(teamId: string | null = null) {
+  getPending(teamId: string | null = null) {
     if (teamId) {
-      return await clientDb.journalEntries.where("teamId").equals(teamId).filter(e => !!e._pendingAction).reverse().toArray();
+      return clientDb.journalEntries.where("teamId").equals(teamId).filter(e => !!e._pendingAction).reverse().toArray();
     }
-    return await clientDb.journalEntries.filter(e => !e.teamId && !!e._pendingAction).reverse().toArray();
+    return clientDb.journalEntries.filter(e => !e.teamId && !!e._pendingAction).reverse().toArray();
   }
 
   async wipeByTeamAppId(teamAppId: string) {

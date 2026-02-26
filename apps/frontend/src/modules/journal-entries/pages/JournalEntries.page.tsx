@@ -29,21 +29,21 @@ export default function JournalEntriesPage() {
 	const teamId = useActiveTeamId();
 
 	// Reactive counts for total count and empty state check
-	const { data: synchronizedCount, isLoading: syncLoading } = useLocalDbValue("journalEntries", () => getDataProxy().journalEntriesDb.count(teamId), 0, [teamId]);
-	const { data: pendingCount, isLoading: pendingLoading } = useLocalDbValue("journalEntries", () => getDataProxy().journalEntriesDb.countPending(teamId), 0, [teamId]);
+	const { data: synchronizedCount, isLoading: syncLoading } = useLocalDbValue("journalEntries", (app) => app.journalEntriesDb.count(teamId), 0, [teamId]);
+	const { data: pendingCount, isLoading: pendingLoading } = useLocalDbValue("journalEntries", (app) => app.journalEntriesDb.countPending(teamId), 0, [teamId]);
 
-	const { data: pendingEntries = [] } = useLocalDb("journalEntries", () => getDataProxy().journalEntriesDb.getPending(teamId), [teamId]);
+	const { data: pendingEntries = [] } = useLocalDb("journalEntries", (app) => app.journalEntriesDb.getPending(teamId), [teamId]);
     const pendingEntryIds = pendingEntries.map(e => e.id);
 
     // Fetch attachments for pending entries
-    const { data: pendingFiles = [] } = useLocalDb("files", () => 
-        getDataProxy().filesDb.getFilesByTableIds(pendingEntryIds),
+    const { data: pendingFiles = [] } = useLocalDb("files", (app) => 
+        app.filesDb.getFilesByTableIds(pendingEntryIds),
         [pendingEntryIds.join(',')]
     );
 
     // Group files by tableId
     const pendingAttachmentsMap = React.useMemo(() => {
-        const map: Record<string, any[]> = {};
+        const map: Record<string, typeof pendingFiles> = {};
         pendingFiles.forEach(f => {
             const list = map[f.tableId] || [];
             list.push(f);

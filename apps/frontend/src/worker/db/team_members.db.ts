@@ -2,8 +2,8 @@ import { TeamAppMemberSelectAll } from "@connected-repo/zod-schemas/team_app.zod
 import { clientDb, notifySubscribers, type WithSync } from "./db.manager";
 
 export class TeamMembersDBManager {
-  async getAll(): Promise<TeamAppMemberSelectAll[]> {
-    return await clientDb.teamMembers.orderBy("email").toArray();
+  getAll() {
+    return clientDb.teamMembers.orderBy("email").toArray();
   }
 
   async saveMembers(members: TeamAppMemberSelectAll[]) {
@@ -15,7 +15,7 @@ export class TeamMembersDBManager {
     notifySubscribers("teamMembers");
   }
 
-  getUserTeamMembers(userId: string): Promise<TeamAppMemberSelectAll[]> {
+  getUserTeamMembers(userId: string) {
     // deletedAt is null
     return clientDb.teamMembers.where("userId").equals(userId).and((item) => item.deletedAt === null).toArray();
   }

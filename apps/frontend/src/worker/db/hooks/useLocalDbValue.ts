@@ -1,7 +1,10 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import type { AppDbTable } from '../db.manager';
+import type { DataWorkerAPI } from '../../data.worker';
+import type { Remote } from 'comlink';
+import { getDataProxy } from '../../worker.proxy';
 
-export function useLocalDbValue<T>(tableName: AppDbTable, fetchFn: () => Promise<T>, initialValue: T, deps: any[] = []) {
+export function useLocalDbValue<T>(tableName: AppDbTable, fetchFn: (app: Remote<DataWorkerAPI>) => Promise<T>, initialValue: T, deps: any[] = []) {
   const [data, setData] = useState<T>(initialValue);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -12,7 +15,8 @@ export function useLocalDbValue<T>(tableName: AppDbTable, fetchFn: () => Promise
   const fetchData = useCallback(async () => {
     try {
       setIsLoading(true);
-      const result = await fetchFnRef.current();
+      const app = await getDataProxy();
+      const result = await fetchFnRef.current(app);
       setData(result);
       setError(null);
     } catch (err) {

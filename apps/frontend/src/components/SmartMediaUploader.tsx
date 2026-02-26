@@ -30,7 +30,7 @@ export const SmartMediaUploader: React.FC<SmartMediaUploaderProps> = ({
     const { getAuthCache } = await import("@frontend/utils/auth.persistence");
     const { getDataProxy } = await import("@frontend/worker/worker.proxy");
     const session = getAuthCache();
-    const app = getDataProxy();
+    const app = await getDataProxy();
 
     const newMediaBatch: MediaFile[] = [];
 
@@ -69,7 +69,7 @@ export const SmartMediaUploader: React.FC<SmartMediaUploaderProps> = ({
 
   const handleRemoveFile = useCallback(async (id: string) => {
     const { getDataProxy } = await import("@frontend/worker/worker.proxy");
-    const app = getDataProxy();
+    const app = await getDataProxy();
 
     onChange(prev => {
       const target = prev.find(f => f.id === id);
@@ -94,8 +94,7 @@ export const SmartMediaUploader: React.FC<SmartMediaUploaderProps> = ({
       try {
         let thumbnailFile: File | null = null;
         const { getMediaProxy, getDataProxy } = await import("@frontend/worker/worker.proxy");
-        const mediaProxy = getMediaProxy();
-        const dataProxy = getDataProxy();
+        const [mediaProxy, dataProxy] = await Promise.all([getMediaProxy(), getDataProxy()]);
 
         if (media.file.type.startsWith("video/")) {
           const { generateVideoThumbnailUI } = await import("../utils/thumbnail-video-ui");

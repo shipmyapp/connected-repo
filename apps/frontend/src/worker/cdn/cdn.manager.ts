@@ -1,13 +1,13 @@
 import { orpcFetch } from "@frontend/utils/orpc.client";
 import axios from "axios";
-import type { FileProgress, UploadResult, CDNProgressUpdate } from "./cdn.types";
+import type { FileProgress, UploadResult, CDNProgressUpdate, IdentifiedFile } from "./cdn.types";
 
 export class CDNManager {
   /**
    * Uploads multiple files by first getting presigned URLs from the backend.
    */
   async uploadFiles(
-    files: File[],
+    files: IdentifiedFile[],
     resourceType: string = "media",
     onProgress?: (update: CDNProgressUpdate) => void
   ): Promise<UploadResult[]> {
@@ -28,7 +28,7 @@ export class CDNManager {
       // Note: orpcFetch will handle credentials/cookies automatically in the worker
       const response = await orpcFetch.cdn.generateBatchPresignedUrls(
         files.map((f) => ({
-          id: (f as any).id, // Pass the ULID if attached to the file object
+          id: f.id, // Pass the ULID attached to the file object
           fileName: f.name,
           resourceType,
           contentType: f.type,

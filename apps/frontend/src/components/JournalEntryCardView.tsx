@@ -8,14 +8,17 @@ import React, { useEffect, useState, useRef } from "react";
 import AttachFileIcon from "@mui/icons-material/AttachFile";
 import { alpha } from "@mui/material";
 
+import { StoredFile } from "@frontend/worker/db/schema.db.types";
+import { WithSync } from "@frontend/worker/db/db.manager";
+
 interface JournalEntryCardViewProps {
-	entries: (JournalEntrySelectAll | any)[];
+	entries: WithSync<JournalEntrySelectAll>[];
 	onEntryClick: (entryId: string) => void;
-	renderExtra?: (entry: any) => React.ReactNode;
-    attachments?: Record<string, any[]>;
+	renderExtra?: (entry: WithSync<JournalEntrySelectAll>) => React.ReactNode;
+    attachments?: Record<string, StoredFile[]>;
 }
 
-function ThumbnailItem({ attachment }: { attachment: any }) {
+function ThumbnailItem({ attachment }: { attachment: StoredFile }) {
     const [url, setUrl] = useState<string | null>(null);
     const trackedUrl = useRef<string | null>(null);
 
@@ -62,7 +65,7 @@ function ThumbnailItem({ attachment }: { attachment: any }) {
     );
 }
 
-function MultipleThumbnailPreview({ attachments }: { attachments: any[] }) {
+function MultipleThumbnailPreview({ attachments }: { attachments: StoredFile[] }) {
     const images = attachments.filter(a => a.mimeType.startsWith('image/') || a.type === 'attachment');
     if (images.length === 0) return null;
 
@@ -194,11 +197,11 @@ export function JournalEntryCardView({ entries, onEntryClick, renderExtra, attac
 										{formatDate(entry.createdAt)}
 									</Typography>
                                     <MultipleThumbnailPreview attachments={attachments[entry.id] || []} />
-									{(entry.attachmentUrls?.length > 0 || entry.attachmentFileIds?.length > 0) && (
+									{(attachments[entry.id]?.length || 0) > 0 && (
 										<Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3, color: 'text.secondary' }}>
 											<AttachFileIcon sx={{ fontSize: 14, transform: 'rotate(45deg)' }} />
 											<Typography variant="caption" fontWeight={600}>
-												{ (entry.attachmentUrls?.length || 0) + (entry.attachmentFileIds?.length || 0) }
+												{ attachments[entry.id]?.length || 0 }
 											</Typography>
 										</Box>
 									)}

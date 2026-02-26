@@ -43,7 +43,8 @@ export function CreateJournalEntryForm() {
 			if (hasPromptValue.current) return;
 			setPromptLoading(true);
 			try {
-				const p = await getDataProxy().promptsDb.getRandomActive(teamId);
+				const app = await getDataProxy();
+				const p = await app.promptsDb.getRandomActive();
 				if (p) {
 					setRandomPrompt(p);
 					hasPromptValue.current = true;
@@ -73,7 +74,7 @@ export function CreateJournalEntryForm() {
 	// Form setup with Zod validation and RHF
 	const {formMethods, RhfFormProvider } = useRhfForm<PendingSyncJournalEntry>({
 		onSubmit: async (data) => {
-			const app = getDataProxy();
+			const app = await getDataProxy();
 			const entryId = data.id;
 			
 			// 1. Prepare and persist files
@@ -105,7 +106,8 @@ export function CreateJournalEntryForm() {
 				
 				// Pick a new prompt for next entry
 				if (writingMode === "prompted") {
-					const next = await getDataProxy().promptsDb.getRandomActive(teamId);
+					const app = await getDataProxy();
+					const next = await app.promptsDb.getRandomActive();
 					if (next) setRandomPrompt(next);
 				}
 
@@ -162,7 +164,8 @@ export function CreateJournalEntryForm() {
 	}, [writingMode, formMethods, randomPrompt]);
 
 	const handleRefreshPrompt = async () => {
-		const next = await getDataProxy().promptsDb.getRandomActive(teamId);
+		const app = await getDataProxy();
+		const next = await app.promptsDb.getRandomActive();
 		if (next) setRandomPrompt(next);
 	};
 

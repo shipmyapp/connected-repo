@@ -10,12 +10,8 @@ import { ORPCError } from "@orpc/server";
 
 // Get all active prompts, optionally filtered by team
 const getAllActive = rpcProtectedProcedure
-	.input(z.object({ teamId: z.ulid().nullable().optional() }))
-	.handler(async ({ input: { teamId } }) => {
+	.handler(async () => {
 		const query: any = { deletedAt: null };
-		if (teamId !== undefined) {
-			query.teamId = teamId;
-		}
 
 		const prompts = await db.prompts
 			.select("*")
@@ -27,12 +23,8 @@ const getAllActive = rpcProtectedProcedure
 
 // Get a random active prompt, optionally filtered by team
 const getRandomActive = rpcProtectedProcedure
-	.input(z.object({ teamId: z.ulid().nullable().optional() }))
-	.handler(async ({ input: { teamId } }) => {
+	.handler(async () => {
 		const query: any = { deletedAt: null };
-		if (teamId !== undefined) {
-			query.teamId = teamId;
-		}
 
 		// Get count of active prompts for this scope
 		const count = await db.prompts.where(query).count();
@@ -82,12 +74,9 @@ const getById = rpcPublicProcedure
 
 // Get prompts by category, optionally filtered by team
 const getByCategory = rpcProtectedProcedure
-	.input(promptGetByCategoryZod.extend({ teamId: z.ulid().nullable().optional() }))
-	.handler(async ({ input: { category, teamId } }) => {
+	.input(promptGetByCategoryZod)
+	.handler(async ({ input: { category } }) => {
 		const query: any = { category, deletedAt: null };
-		if (teamId !== undefined) {
-			query.teamId = teamId;
-		}
 
 		const prompts = await db.prompts
 			.where(query)

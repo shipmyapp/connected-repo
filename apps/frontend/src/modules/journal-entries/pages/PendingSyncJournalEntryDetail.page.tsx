@@ -8,6 +8,7 @@ import { Stack } from "@connected-repo/ui-mui/layout/Stack";
 import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
 import { useLocalDbItem } from "@frontend/worker/db/hooks/useLocalDbItem";
 import { getDataProxy } from "@frontend/worker/worker.proxy";
+import type { StoredFile } from "@frontend/worker/db/schema.db.types";
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router";
 import { JournalEntryDetailView } from "../components/JournalEntryDetailView";
@@ -25,8 +26,8 @@ export default function PendingSyncJournalEntryDetailPage() {
 
 	const { data: journalEntry, isLoading: entryLoading, error: entryError } = useLocalDbItem(
 		"journalEntries",
-		async () => {
-            const entry = await getDataProxy().journalEntriesDb.getById(entryId || "");
+		async (app) => {
+            const entry = await app.journalEntriesDb.getById(entryId || "");
             // Only strictly pending entries should be here
             if (entry && entry._pendingAction === null) return null;
             return entry;
@@ -48,10 +49,10 @@ export default function PendingSyncJournalEntryDetailPage() {
 			if (!entryId) return;
 			try {
                 // Since entryId is used as pendingSyncId in the files table for new entries
-				const files = await getDataProxy().filesDb.getFilesByTableId(entryId);
-				if (!active) return;
+                const app = await getDataProxy();
+				const files = await app.filesDb.getFilesByTableId(entryId);
 				
-				const mapped = files.map(file => {
+				const mapped = files.map((file) => {
 					const isMedia = file.mimeType.startsWith("image/") || file.mimeType === "application/pdf" || file.mimeType.startsWith("video/");
 					
 					return {
@@ -89,7 +90,7 @@ export default function PendingSyncJournalEntryDetailPage() {
 		if (entryId) {
 			try {
 				setIsSyncingState(true);
-				await getDataProxy().sync.processQueue();
+				await (await getDataProxy()).sync.processQueue();
 			} catch (err) {
 				console.error("[PendingSyncDetail] Error retrying sync:", err);
 			} finally {
@@ -102,7 +103,7 @@ export default function PendingSyncJournalEntryDetailPage() {
 		if (entryId) {
 			setIsDeleting(true);
 			try {
-				await getDataProxy().journalEntriesDb.delete(entryId);
+				await (await getDataProxy()).journalEntriesDb.delete(entryId);
 			} finally {
 				setIsDeleting(false);
 			}

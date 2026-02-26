@@ -9,13 +9,16 @@ import { Tooltip, alpha } from "@mui/material";
 import ErrorIcon from "@mui/icons-material/Error";
 import AttachFileIcon from "@mui/icons-material/AttachFile";
 
+import { StoredFile } from "@frontend/worker/db/schema.db.types";
+import { WithSync } from "@frontend/worker/db/db.manager";
+
 interface JournalEntryTableViewProps {
-	entries: JournalEntrySelectAll[];
+	entries: WithSync<JournalEntrySelectAll>[];
 	onEntryClick: (entryId: string) => void;
-    attachments?: Record<string, any[]>;
+    attachments?: Record<string, StoredFile[]>;
 }
 
-function TableThumbnailItem({ attachment }: { attachment: any }) {
+function TableThumbnailItem({ attachment }: { attachment: StoredFile }) {
     const [url, setUrl] = useState<string | null>(null);
     const trackedUrl = useRef<string | null>(null);
 
@@ -62,7 +65,7 @@ function TableThumbnailItem({ attachment }: { attachment: any }) {
     );
 }
 
-function MultipleTableThumbnails({ attachments }: { attachments: any[] }) {
+function MultipleTableThumbnails({ attachments }: { attachments: StoredFile[] }) {
     const images = attachments.filter(a => a.mimeType.startsWith('image/') || a.type === 'attachment');
     if (images.length === 0) return null;
 
@@ -100,7 +103,7 @@ export function JournalEntryTableView({ entries, onEntryClick, attachments = {} 
 		}, []
 	);
 
-	const columns = useMemo<MRT_ColumnDef<JournalEntrySelectAll>[]>(
+	const columns = useMemo<MRT_ColumnDef<WithSync<JournalEntrySelectAll>>[]>(
 		() => [
             {
                 accessorKey: "id",
@@ -114,14 +117,9 @@ export function JournalEntryTableView({ entries, onEntryClick, attachments = {} 
 				accessorKey: "prompt",
 				header: "Prompt",
 				size: 200,
-				Cell: ({ row, cell }) => (
+				Cell: ({ cell }) => (
 					<Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
 						{cell.getValue<string>() || "Journal Entry"}
-						{(row.original as any).status && (['file-upload-failed', 'sync-failed'].includes((row.original as any).status)) && (
-							<Tooltip title={(row.original as any).error || "Sync failed"}>
-								<ErrorIcon color="error" sx={{ fontSize: 18 }} />
-							</Tooltip>
-						)}
 					</Box>
 				),
 			},
@@ -145,23 +143,28 @@ export function JournalEntryTableView({ entries, onEntryClick, attachments = {} 
 				accessorKey: "createdAt",
 				header: "Date",
 				size: 180,
-				Cell: ({ row, cell }) => (
-					<Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-						<Box component="span">
-							{formatDate(cell.getValue<number>())}
-						</Box>
-						{((row.original as any).attachmentUrls?.length > 0 || (row.original as any).attachmentFileIds?.length > 0) && (
-							<Tooltip title={`${((row.original as any).attachmentUrls?.length || 0) + ((row.original as any).attachmentFileIds?.length || 0)} attachments`}>
-								<Box sx={{ display: 'flex', alignItems: 'center', color: 'text.secondary', ml: 1 }}>
-									<AttachFileIcon sx={{ fontSize: 16, transform: 'rotate(45deg)' }} />
-									<Box component="span" sx={{ fontSize: '0.75rem', fontWeight: 600 }}>
-										{((row.original as any).attachmentUrls?.length || 0) + ((row.original as any).attachmentFileIds?.length || 0)}
-									</Box>
-								</Box>
-							</Tooltip>
-						)}
-					</Box>
-				),
+				Cell: ({ row, cell }) => {
+                    const rowAttachments = attachments[row.original.id] || [];
+                    const attachmentCount = rowAttachments.length;
+                    
+                    return (
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                            <Box component="span">
+                                {formatDate(cell.getValue<number>())}
+                            </Box>
+                            {attachmentCount > 0 && (
+                                <Tooltip title={`${attachmentCount} attachments`}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', color: 'text.secondary', ml: 1 }}>
+                                        <AttachFileIcon sx={{ fontSize: 16, transform: 'rotate(45deg)' }} />
+                                        <Box component="span" sx={{ fontSize: '0.75rem', fontWeight: 600 }}>
+                                            {attachmentCount}
+                                        </Box>
+                                    </Box>
+                                </Tooltip>
+                            )}
+                        </Box>
+                    );
+                },
 			},
 		],
 		[formatDate],

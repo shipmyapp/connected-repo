@@ -38,8 +38,8 @@ export function SyncedEntriesList({ viewMode, teamId: propTeamId, excludeUserId 
 	const { isServerReachable, sseStatus } = useConnectivity();
 
 	// Reactive data from local DB with pagination
-	const { data: allEntries = [] } = useLocalDb("journalEntries", () => 
-		getDataProxy().journalEntriesDb.getPaginated((currentPage - 1) * ITEMS_PER_PAGE, ITEMS_PER_PAGE, teamId),
+	const { data: allEntries = [] } = useLocalDb("journalEntries", (app) => 
+		app.journalEntriesDb.getPaginated((currentPage - 1) * ITEMS_PER_PAGE, ITEMS_PER_PAGE, teamId),
 		[currentPage, teamId]
 	);
 
@@ -47,14 +47,14 @@ export function SyncedEntriesList({ viewMode, teamId: propTeamId, excludeUserId 
     const entryIds = entries.map(e => e.id);
 
     // Fetch attachments for these entries
-    const { data: files = [] } = useLocalDb("files", () => 
-        getDataProxy().filesDb.getFilesByTableIds(entryIds),
+    const { data: files = [] } = useLocalDb("files", (app) => 
+        app.filesDb.getFilesByTableIds(entryIds),
         [entryIds.join(',')]
     );
 
     // Group files by tableId
     const attachmentsMap = React.useMemo(() => {
-        const map: Record<string, any[]> = {};
+        const map: Record<string, typeof files> = {};
         files.forEach(f => {
             const list = map[f.tableId] || [];
             list.push(f);
@@ -63,11 +63,11 @@ export function SyncedEntriesList({ viewMode, teamId: propTeamId, excludeUserId 
         return map;
     }, [files]);
 
-	const { data: totalCount = 0 } = useLocalDbValue("journalEntries", () => 
-		excludeUserId 
-			? getDataProxy().journalEntriesDb.getAll(teamId).then(list => list.filter(e => e.authorUserId !== excludeUserId).length)
-			: getDataProxy().journalEntriesDb.count(teamId), 
-		0, [teamId, excludeUserId]);
+	const { data: totalCount = 0 } = useLocalDbValue("journalEntries", (app) => {
+		return excludeUserId 
+			? app.journalEntriesDb.getAll(teamId).then(list => list.filter(e => e.authorUserId !== excludeUserId).length)
+			: app.journalEntriesDb.count(teamId);
+	}, 0, [teamId, excludeUserId]);
 
 	const handleRefreshDeltas = async () => {
 		if (!isServerReachable || isRefreshing || sseStatus === 'connecting' || sseStatus === 'connected') return;
@@ -88,8 +88,9 @@ export function SyncedEntriesList({ viewMode, teamId: propTeamId, excludeUserId 
 		
 		try {
 			setIsExporting(true);
-			const allEntries = await getDataProxy().journalEntriesDb.getAll(teamId);
-			const allFiles = await getDataProxy().filesDb.getAll(teamId);
+			const app = await getDataProxy();
+			const allEntries = await app.journalEntriesDb.getAll(teamId);
+			const allFiles = await app.filesDb.getAll(teamId);
 			
 			if (allEntries.length === 0) {
 				toast.update(toastId, { render: "No entries to export", type: 'warning', autoClose: 3000 });
@@ -97,7 +98,7 @@ export function SyncedEntriesList({ viewMode, teamId: propTeamId, excludeUserId 
 				return;
 			}
 
-			const mediaProxy = getMediaProxy();
+			const mediaProxy = await getMediaProxy();
 			
 			let blob: Blob;
 			if (format === 'csv') {

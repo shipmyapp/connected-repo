@@ -22,7 +22,7 @@ export const generatePresignedUrl = rpcProtectedProcedure
  * Generates multiple presigned URLs for batch uploads.
  */
 export const generateBatchPresignedUrls = rpcProtectedProcedure
-  .input(z.array(generateUrlInput).max(10))
+  .input(z.array(generateUrlInput).max(100))
   .output(z.array(generateUrlOutput))
   .handler(async ({ input, context: { user: { id: userId } } }) => {
     return await Promise.all(

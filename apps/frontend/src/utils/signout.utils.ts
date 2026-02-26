@@ -9,9 +9,14 @@ export const signout = async (mode?: "clear-cache") => {
     }
 
     // Stop SSE monitoring on auth error
-    getSWProxy()
-        .then((sw) => sw.stopMonitoring())
-        .catch((err) => console.error("[AuthError] Failed to stop SSE monitoring:", err));
+    (async () => {
+        try {
+            const sw = await getSWProxy();
+            await sw.stopMonitoring();
+        } catch (err) {
+            console.error("[AuthError] Failed to stop SSE monitoring:", err);
+        }
+    })();
 
     // Sign out and redirect to login
     try {

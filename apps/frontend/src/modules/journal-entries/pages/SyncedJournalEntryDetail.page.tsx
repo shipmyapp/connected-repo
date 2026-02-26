@@ -21,12 +21,12 @@ export default function SyncedJournalEntryDetailPage() {
 
 	const { data: journalEntry, isLoading, error } = useLocalDbItem(
 		"journalEntries",
-		() => getDataProxy().journalEntriesDb.getById(entryId || "")
+		(app) => app.journalEntriesDb.getById(entryId || "")
 	);
 
 	const { data: files, isLoading: isLoadingFiles } = useLocalDb(
 		"files",
-		() => getDataProxy().filesDb.getFilesByTableId(entryId),
+		(app) => app.filesDb.getFilesByTableId(entryId),
 		[entryId]
 	);
 
@@ -34,7 +34,7 @@ export default function SyncedJournalEntryDetailPage() {
 		if (entryId) {
 			setIsDeleting(true);
 			try {
-				await getDataProxy().journalEntriesDb.delete(entryId);
+				await (await getDataProxy()).journalEntriesDb.delete(entryId);
 			} finally {
 				setIsDeleting(false);
 			}

@@ -29,13 +29,13 @@ export class PromptsDBManager {
     return clientDb.prompts.toArray();
   }
 
-  async getRandomActive(teamId: string | null = null) {
+  async getRandomActive() {
     const query = clientDb.prompts.filter(p => !p.deletedAt);
     
     const active = await query.toArray();
     
     if (active.length === 0) {
-      console.warn(`[PromptsDB] No active prompts found for teamId: ${teamId}`);
+      console.warn(`[PromptsDB] No active prompts found`);
       return null;
     }
     return active[Math.floor(Math.random() * active.length)];

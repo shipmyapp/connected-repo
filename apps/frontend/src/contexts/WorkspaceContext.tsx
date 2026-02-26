@@ -39,9 +39,9 @@ export function WorkspaceProvider({ children, sessionInfo: propSessionInfo }: Wo
 	// This hook listens to "teamsApp" updates.
 	const { data: teams = [], isLoading, refetch } = useLocalDb<Team>(
 		"teamsApp",
-		async () => {
+		(app) => {
 			if (!sessionInfo?.user?.id) return Promise.resolve([]);
-			return getDataProxy().teamsAppDb.getAllWithRole(sessionInfo.user.id).then(res => (res as Team[]) || []);
+			return app.teamsAppDb.getAllWithRole(sessionInfo.user.id);
 		},
 		[sessionInfo?.user?.id]
 	);

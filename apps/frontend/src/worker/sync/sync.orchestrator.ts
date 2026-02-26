@@ -2,12 +2,14 @@ import { type Table } from "dexie";
 import { clientDb, subscribe, type AppDbTable } from "../db/db.manager";
 import { filesDb } from "../db/files.db";
 import { journalEntriesDb } from "../../modules/journal-entries/worker/journal-entries.db";
-import { getMediaProxyInternal } from "../worker.context";
 import { orpcFetch } from "../../utils/orpc.client";
 import type { JournalEntrySelectAll } from "@connected-repo/zod-schemas/journal_entry.zod";
-import type { StoredFile } from "../db/schema.db.types";
+import { StoredFile } from "../db/schema.db.types";
+import { IdentifiedFile } from "../cdn/cdn.types";
 import { SSE_MESSAGES_CHANNEL, type SseMessage } from "../../configs/channels.config";
-import { TABLES_TO_SYNC_ENUM, TablesToSync } from "@connected-repo/zod-schemas/enums.zod";
+import { TablesToSync } from "@connected-repo/zod-schemas/enums.zod";
+import { type Remote } from "comlink";
+import { type MediaWorkerAPI } from "../media.worker";
 
 export class SyncOrchestrator {
   private isProcessing = false;
@@ -83,7 +85,7 @@ export class SyncOrchestrator {
 
     // Find all records with a pending action
     const pendingRecords = await table
-      .filter((r: any) => r._pendingAction !== null)
+      .filter((r) => r._pendingAction !== null)
       .toArray();
 
     if (pendingRecords.length === 0) return;
@@ -97,7 +99,7 @@ export class SyncOrchestrator {
       // --- Exponential Backoff Check ---
       const retryCount = this.retryCounts.get(syncKey) || 0;
       if (retryCount > 0) {
-        const lastAttempt = (record as any)._lastSyncAttemptAt || 0;
+        const lastAttempt = record._lastSyncAttemptAt || 0;
         const delay = Math.min(300000, Math.pow(2, retryCount) * 2000); // Max 5 mins
         if (Date.now() - lastAttempt < delay) {
           continue; // Skip for now
@@ -166,30 +168,45 @@ export class SyncOrchestrator {
     let currentFile = file;
 
     // Linear flow determined by data presence
-    const mediaProxy = getMediaProxyInternal();
-
-    // 1. Thumbnail Stage (If needed and missing)
     const isMedia = currentFile.mimeType.startsWith("image/") || currentFile.mimeType === "application/pdf";
-    if (isMedia && !currentFile.thumbnailCdnUrl && !currentFile._thumbnailBlob) {
-      if (!mediaProxy) return; // Block thumbnail stage if worker not ready
-      await this.triggerThumbnail(fileId, currentFile, mediaProxy);
+    const needsMediaProxy = !currentFile.cdnUrl || (isMedia && !currentFile.thumbnailCdnUrl);
+
+    let mediaProxy: Remote<MediaWorkerAPI> | null = null;
+    if (needsMediaProxy) {
+      const { getMediaProxy } = await import("../worker.context");
+      mediaProxy = await getMediaProxy();
+    }
+
+    const tasks: Promise<void>[] = [];
+
+    // 1. Original Upload Track (Only if mediaProxy is available)
+    if (!currentFile.cdnUrl && mediaProxy) {
+      console.log(`[SyncOrchestrator] Starting original upload for ${fileId}`);
+      tasks.push(this.triggerOriginalUpload(fileId, currentFile, mediaProxy));
+    }
+
+    // 2. Thumbnail Track (Only if mediaProxy is available)
+    if (isMedia && !currentFile.thumbnailCdnUrl && mediaProxy) {
+      tasks.push(this.manageThumbnailTrack(fileId, currentFile, mediaProxy));
+    }
+
+    // Wait for all initiated tasks to complete
+    if (tasks.length > 0) {
+      await Promise.all(tasks);
+      // Refresh file state after parallel tasks
       const updated = await filesDb.get(fileId);
       if (!updated) return;
       currentFile = updated;
     }
 
-    // 2. Upload Stage (If missing CDN URL)
-    if (!currentFile.cdnUrl) {
-      if (!mediaProxy) return; // Block upload stage if worker not ready
-      await this.triggerUpload(fileId, currentFile, mediaProxy);
-      const updated = await filesDb.get(fileId);
-      if (!updated) return;
-      currentFile = updated;
-    }
+    // 3. Final Sync Stage (Metadata to backend)
+    // We only sync if original is uploaded AND (if media) thumbnail is uploaded
+    const originalReady = !!currentFile.cdnUrl;
+    const thumbnailReady = !isMedia || !!currentFile.thumbnailCdnUrl;
 
-    // 3. Sync Stage (Metadata to backend)
-    if (currentFile.cdnUrl && currentFile._pendingAction === 'create') {
+    if (originalReady && thumbnailReady && currentFile._pendingAction === 'create') {
         try {
+            console.log(`[SyncOrchestrator] Finishing file sync (Stage 3) for ${fileId}`);
             const { _blob, _thumbnailBlob, _pendingAction, ...syncData } = currentFile;
             const result = await orpcFetch.files.create(syncData);
             await this.handleSuccess('files', currentFile, result);
@@ -200,7 +217,26 @@ export class SyncOrchestrator {
     }
   }
 
-  private async triggerThumbnail(fileId: string, file: StoredFile, mediaProxy: any) {
+  private async manageThumbnailTrack(fileId: string, file: StoredFile, mediaProxy: Remote<MediaWorkerAPI>) {
+    let currentFile = file;
+
+    // A. Generate if missing
+    if (!currentFile._thumbnailBlob) {
+      console.log(`[SyncOrchestrator] Generating thumbnail for ${fileId}`);
+      await this.triggerThumbnailGeneration(fileId, currentFile, mediaProxy);
+      const updated = await filesDb.get(fileId);
+      if (!updated) return;
+      currentFile = updated;
+    }
+
+    // B. Upload if generated but no URL
+    if (currentFile._thumbnailBlob && !currentFile.thumbnailCdnUrl) {
+      console.log(`[SyncOrchestrator] Uploading thumbnail for ${fileId}`);
+      await this.triggerThumbnailUpload(fileId, currentFile, mediaProxy);
+    }
+  }
+
+  private async triggerThumbnailGeneration(fileId: string, file: StoredFile, mediaProxy: Remote<MediaWorkerAPI>) {
     try {
       if (!file._blob) return;
 
@@ -212,30 +248,47 @@ export class SyncOrchestrator {
         });
       }
     } catch (e) {
-      console.error(`[SyncOrchestrator] Thumbnail fail for ${fileId}`, e);
+      console.error(`[SyncOrchestrator] Thumbnail generation fail for ${fileId}`, e);
       throw e;
     }
   }
 
-  private async triggerUpload(fileId: string, file: StoredFile, mediaProxy: any) {
+  private async triggerOriginalUpload(fileId: string, file: StoredFile, mediaProxy: Remote<MediaWorkerAPI>) {
     try {
       if (!file._blob) return;
-
-      const blobFile = new File([file._blob], file.fileName, { type: file.mimeType });
-      (blobFile as any).id = fileId; 
+      const blobFile = Object.assign(
+        new File([file._blob], file.fileName, { type: file.mimeType }),
+        { id: fileId }
+      );
       
-      const thumbFile = file._thumbnailBlob ? new File([file._thumbnailBlob], "thumb", { type: file._thumbnailBlob.type }) : undefined;
-      if (thumbFile) (thumbFile as any).id = `${fileId}_thumb`;
-
-      const result = await mediaProxy.media.uploadMediaPair(blobFile, thumbFile);
+      const result = await mediaProxy.media.uploadSingleFile(blobFile);
       if (result.success && result.urls) {
         await filesDb.update(fileId, { 
-          cdnUrl: result.urls[0],
-          thumbnailCdnUrl: result.urls[1] || null
+          cdnUrl: result.urls[0]
         });
       }
     } catch (e: any) {
-      console.error(`[SyncOrchestrator] CDN upload fail for ${fileId}`, e);
+      console.error(`[SyncOrchestrator] Original upload fail for ${fileId}`, e);
+      throw e;
+    }
+  }
+
+  private async triggerThumbnailUpload(fileId: string, file: StoredFile, mediaProxy: Remote<MediaWorkerAPI>) {
+    try {
+      if (!file._thumbnailBlob) return;
+      const thumbFile = Object.assign(
+        new File([file._thumbnailBlob], "thumb", { type: file._thumbnailBlob.type }),
+        { id: `${fileId}_thumb` }
+      );
+
+      const result = await mediaProxy.media.uploadSingleFile(thumbFile);
+      if (result.success && result.urls) {
+        await filesDb.update(fileId, { 
+          thumbnailCdnUrl: result.urls[0]
+        });
+      }
+    } catch (e: any) {
+      console.error(`[SyncOrchestrator] Thumbnail upload fail for ${fileId}`, e);
       throw e;
     }
   }

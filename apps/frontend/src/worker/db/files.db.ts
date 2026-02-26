@@ -36,12 +36,12 @@ export class FilesDBManager {
   /**
    * Retrieves all files with a 'pending' status.
    */
-  async getPendingActions() {
-    return await clientDb.files.filter(f => f._pendingAction !== null && f._pendingAction !== undefined).toArray();
+  getPendingActions() {
+    return clientDb.files.filter(f => f._pendingAction !== null && f._pendingAction !== undefined).toArray();
   }
 
-  async getSyncPendingFiles() {
-    return await clientDb.files.filter(f => f._pendingAction === 'create' || !f.cdnUrl).toArray();
+  getSyncPendingFiles() {
+    return clientDb.files.filter(f => f._pendingAction === 'create' || !f.cdnUrl).toArray();
   }
 
   /**
@@ -55,7 +55,7 @@ export class FilesDBManager {
   /**
    * Retrieves all files linked to any of the provided table record IDs.
    */
-  async getFilesByTableIds(tableIds: string[]) {
+  getFilesByTableIds(tableIds: string[]) {
     if (tableIds.length === 0) return [];
     return clientDb.files.where("tableId").anyOf(tableIds).toArray();
   }
@@ -73,7 +73,7 @@ export class FilesDBManager {
     notifySubscribers("files");
   }
 
-  async getAll(teamId?: string | null) {
+  getAll(teamId?: string | null) {
     if (teamId === undefined) return clientDb.files.toArray();
     return clientDb.files.where("teamId").equals(teamId || "").toArray();
   }

@@ -16,11 +16,11 @@ export class TeamsAppDBManager {
     return await clientDb.teamsApp.orderBy("name").toArray();
   }
 
-  async getAllWithRole(userId: string): Promise<TeamWithRole[] | null> {
+  async getAllWithRole(userId: string): Promise<TeamWithRole[]> {
     const teamMembers = await teamMembersDb.getUserTeamMembers(userId);
     const teamAppIds = teamMembers.map((teamMember) => teamMember.teamId);
     if (teamAppIds.length === 0) {
-      return null;
+      return [];
     };
     const teamApps = await clientDb.teamsApp.where("id").anyOf(teamAppIds).toArray();
     const teamsAndRole = teamApps.map((teamApp) => {

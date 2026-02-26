@@ -23,7 +23,7 @@ const DashboardPage = () => {
 	const teamId = useActiveTeamId();
 
 	// Use local count for the dashboard
-	const { data: entryCount = 0 } = useLocalDbValue("journalEntries", () => getDataProxy().journalEntriesDb.count(teamId), 0, [teamId]);
+	const { data: entryCount = 0 } = useLocalDbValue("journalEntries", (app) => app.journalEntriesDb.count(teamId), 0, [teamId]);
 
 	return (
 		<Box

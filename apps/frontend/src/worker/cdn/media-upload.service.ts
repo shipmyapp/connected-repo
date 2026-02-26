@@ -1,3 +1,4 @@
+import { IdentifiedFile } from "./cdn.types";
 import { CDNManager } from "./cdn.manager";
 
 export interface MediaProcessingResult {
@@ -47,26 +48,20 @@ export class MediaUploadService {
   }
 
   /**
-   * Performs the actual CDN upload for a pair of files.
-   * Highly robust: handles missing thumbnails or partial failures.
+   * Performs the actual CDN upload for a single file.
    */
-  async uploadMediaPair(original: File, thumbnail?: File): Promise<MediaUploadResult> {
-    const filesToUpload: File[] = [original];
-    if (thumbnail) filesToUpload.push(thumbnail);
-
+  async uploadSingleFile(file: IdentifiedFile): Promise<MediaUploadResult> {
     try {
-      const results = await this.cdnManager.uploadFiles(filesToUpload, "media");
-      
-      const originalResult = results[0];
-      const thumbnailResult = thumbnail ? results[1] : null;
+      const results = await this.cdnManager.uploadFiles([file], "media");
+      const result = results[0];
 
-      if (originalResult?.success) {
+      if (result?.success) {
         return { 
           success: true, 
-          urls: [originalResult.url, thumbnailResult?.url || null]
+          urls: [result.url, null]
         };
       } else {
-        return { success: false, urls: null, error: originalResult?.error || "Original upload failed" };
+        return { success: false, urls: null, error: result?.error || "Upload failed" };
       }
     } catch (error) {
       return { 

@@ -55,35 +55,36 @@ export function useConnectivity(userId?: string) {
 
 		// 1. Service Worker Sync
 		console.info(`[Connectivity] Setting up sync for user: ${userId}`);
-		getSWProxy().then(async (proxy) => {
-			if (!active) return;
-			console.info('[Connectivity] SW Proxy obtained');
-			const sw = proxy
-			const initialStatus = await sw.getStatus() as SSEStatus;
-			console.info(`[Connectivity] Initial SSE status: ${initialStatus}`);
-			setSseStatus(initialStatus);
+		const initSW = async () => {
+			try {
+				const sw = await getSWProxy();
+				if (!active) return;
+				console.info('[Connectivity] SW Proxy obtained');
+				const initialStatus = await sw.getStatus() as SSEStatus;
+				console.info(`[Connectivity] Initial SSE status: ${initialStatus}`);
+				setSseStatus(initialStatus);
 
-			await sw.onStatusChange(Comlink.proxy((status: SSEStatus) => {
-				console.info(`[Connectivity] SSE status changed: ${status}`);
-				if (active) {
-					setSseStatus(status);
-					// If SSE is connected or sync-complete, we can definitely assume server and internet are reachable
-					if (status === 'connected' || status === 'sync-complete') {
-						setIsInternetReachable(true);
-						setIsServerReachable(true);
+				await sw.onStatusChange(Comlink.proxy((status: SSEStatus) => {
+					console.info(`[Connectivity] SSE status changed: ${status}`);
+					if (active) {
+						setSseStatus(status);
+						if (status === 'connected' || status === 'sync-complete') {
+							setIsInternetReachable(true);
+							setIsServerReachable(true);
+						} else if (status === 'disconnected' || status === 'connection-error') {
+							checkActualInternet();
+							checkServerHealth();
+						}
 					}
-					// If SSE drops, verify why
-					else if (status === 'disconnected' || status === 'connection-error') {
-						checkActualInternet();
-						checkServerHealth();
-					}
-				}
-			}));
-			console.info('[Connectivity] Calling startMonitoring...');
-			sw.startMonitoring(env.VITE_API_URL, userId).catch((err: unknown) => console.error('[Connectivity] Failed to start monitoring:', err));
-		}).catch(err => {
-			console.error('[Connectivity] Failed to get SW Proxy:', err);
-		});
+				}));
+				console.info('[Connectivity] Calling startMonitoring...');
+				sw.startMonitoring(env.VITE_API_URL, userId).catch((err: unknown) => console.error('[Connectivity] Failed to start monitoring:', err));
+			} catch (err) {
+				console.error('[Connectivity] Failed to initialize SW Proxy:', err);
+			}
+		};
+
+		initSW();
 
 		// 2. Event Listeners
 		const handleOnline = () => {

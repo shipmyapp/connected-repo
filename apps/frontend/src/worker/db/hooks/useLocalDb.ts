@@ -1,10 +1,13 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import type { AppDbTable } from '../db.manager';
+import type { DataWorkerAPI } from '../../data.worker';
+import type { Remote } from 'comlink';
+import { getDataProxy } from '../../worker.proxy';
 
 /**
  * A reactive hook that fetches data from a local Dexie DB and listens for updates via BroadcastChannel.
  */
-export function useLocalDb<T>(tableName: AppDbTable, fetchFn: () => Promise<T[]>, deps: any[] = []) {
+export function useLocalDb<T>(tableName: AppDbTable, fetchFn: (app: Remote<DataWorkerAPI>) => Promise<T[]>, deps: any[] = []) {
   const [data, setData] = useState<T[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -15,7 +18,8 @@ export function useLocalDb<T>(tableName: AppDbTable, fetchFn: () => Promise<T[]>
   const fetchData = useCallback(async () => {
     try {
       setIsLoading(true);
-      const result = await fetchFnRef.current();
+      const app = await getDataProxy();
+      const result = await fetchFnRef.current(app);
       setData(result);
       setError(null);
     } catch (err) {
