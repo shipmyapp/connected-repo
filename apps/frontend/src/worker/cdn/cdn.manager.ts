@@ -11,95 +11,82 @@ export class CDNManager {
     resourceType: string = "media",
     onProgress?: (update: CDNProgressUpdate) => void
   ): Promise<UploadResult[]> {
-    const fileProgress: FileProgress[] = files.map((f) => ({
-      fileName: f.name,
-      progress: 0,
-      stage: "getting-urls",
-    }));
-
-    const updateProgress = () => {
-      onProgress?.({ fileProgress: [...fileProgress] });
-    };
-
-    updateProgress();
-
     try {
-      // 1. Get presigned URLs for all files
-      // Note: orpcFetch will handle credentials/cookies automatically in the worker
-      const response = await orpcFetch.cdn.generateBatchPresignedUrls(
-        files.map((f) => ({
-          id: f.id, // Pass the ULID attached to the file object
-          fileName: f.name,
-          resourceType,
-          contentType: f.type,
-        }))
-      );
+      // 1. Get presigned URLs for all files in batch
+      const presignedData = await this.getBatchPresignedUrls(files, resourceType);
 
       // 2. Upload files in parallel
       const uploadPromises = files.map(async (file, index) => {
-        const { signedUrl, fetchUrl } = response[index]!;
-        
-        try {
-          fileProgress[index]!.stage = "uploading";
-          updateProgress();
-
-          await axios.put(signedUrl, file, {
-            headers: {
-              "Content-Type": file.type,
-              "x-amz-acl": "public-read"
-            },
-            onUploadProgress: (progressEvent) => {
-              const progress = progressEvent.total
-                ? Math.round((progressEvent.loaded * 100) / progressEvent.total)
-                : 0;
-              fileProgress[index]!.progress = progress;
-              updateProgress();
-            },
-          });
-
-          fileProgress[index]!.stage = "completed";
-          fileProgress[index]!.progress = 100;
-          updateProgress();
-
-          return {
-            success: true,
-            url: fetchUrl,
-            file,
-          };
-        } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : "Upload failed";
-          fileProgress[index]!.stage = "error";
-          fileProgress[index]!.error = errorMsg;
-          updateProgress();
-
-          return {
-            success: false,
-            url: "",
-            file,
-            error: errorMsg,
-          };
-        }
+        const presigned = presignedData[index]!;
+        return this.uploadToUrl(file, presigned, (progress) => {
+           // Aggregate progress if needed, but for now we just track last
+           onProgress?.({ fileProgress: [{ fileName: file.name, progress, stage: 'uploading' }] });
+        });
       });
 
-      const results = await Promise.all(uploadPromises);
-      return results;
+      return Promise.all(uploadPromises);
     } catch (error) {
       console.error("[CDNManager] Batch operation failed:", error);
-      const errorMsg = error instanceof Error ? error.message : "Failed to get upload URLs";
+      const errorMsg = error instanceof Error ? error.message : "Batch upload failed";
       
-      // Mark all as error
-      fileProgress.forEach((p) => {
-        p.stage = "error";
-        p.error = errorMsg;
-      });
-      updateProgress();
-
       return files.map((file) => ({
         success: false,
         url: "",
         file,
         error: errorMsg,
       }));
+    }
+  }
+
+  /**
+   * Internal helper to get batch presigned URLs.
+   */
+  async getBatchPresignedUrls(files: IdentifiedFile[], resourceType: string = "media") {
+    return await orpcFetch.cdn.generateBatchPresignedUrls(
+      files.map((f) => ({
+        id: f.id,
+        fileName: f.name,
+        resourceType,
+        contentType: f.type,
+      }))
+    );
+  }
+
+  /**
+   * Internal helper to upload a single file to a presigned URL.
+   */
+  async uploadToUrl(
+    file: File, 
+    presigned: { signedUrl: string, fetchUrl: string },
+    onProgress?: (progress: number) => void
+  ): Promise<UploadResult> {
+    try {
+      await axios.put(presigned.signedUrl, file, {
+        headers: {
+          "Content-Type": file.type,
+          "x-amz-acl": "public-read"
+        },
+        onUploadProgress: (progressEvent) => {
+          const progress = progressEvent.total
+            ? Math.round((progressEvent.loaded * 100) / progressEvent.total)
+            : 0;
+          onProgress?.(progress);
+        },
+      });
+
+      return {
+        success: true,
+        url: presigned.fetchUrl,
+        file,
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : "Upload failed";
+      return {
+        success: false,
+        url: "",
+        file,
+        error: errorMsg,
+      };
     }
   }
 }

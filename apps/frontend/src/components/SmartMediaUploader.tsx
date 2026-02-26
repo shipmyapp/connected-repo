@@ -88,38 +88,40 @@ export const SmartMediaUploader: React.FC<SmartMediaUploaderProps> = ({
   useEffect(() => {
     const toProcess = value.filter(f => !f.thumbnailUrl && !processingIds.current.has(f.id));
 
-    toProcess.forEach(async (media) => {
+    toProcess.forEach((media) => {
       processingIds.current.add(media.id);
       
-      try {
-        let thumbnailFile: File | null = null;
-        const { getMediaProxy, getDataProxy } = await import("@frontend/worker/worker.proxy");
-        const [mediaProxy, dataProxy] = await Promise.all([getMediaProxy(), getDataProxy()]);
+      (async () => {
+        try {
+          let thumbnailFile: File | null = null;
+          const { getMediaProxy, getDataProxy } = await import("@frontend/worker/worker.proxy");
+          const [mediaProxy, dataProxy] = await Promise.all([getMediaProxy(), getDataProxy()]);
 
-        if (media.file.type.startsWith("video/")) {
-          const { generateVideoThumbnailUI } = await import("../utils/thumbnail-video-ui");
-          thumbnailFile = await generateVideoThumbnailUI(media.file);
-        } else if (media.file.type.startsWith("image/") || media.file.type === "application/pdf") {
-          const result = await mediaProxy.media.generateThumbnail(media.file);
-          thumbnailFile = result.thumbnailFile;
+          if (media.file.type.startsWith("video/")) {
+            const { generateVideoThumbnailUI } = await import("../utils/thumbnail-video-ui");
+            thumbnailFile = await generateVideoThumbnailUI(media.file);
+          } else if (media.file.type.startsWith("image/") || media.file.type === "application/pdf") {
+            const result = await mediaProxy.media.generateThumbnail(media.file);
+            thumbnailFile = result.thumbnailFile;
+          }
+
+          if (thumbnailFile) {
+            const thumbUrl = URL.createObjectURL(thumbnailFile);
+
+            // Persist thumbnail to DB
+            await dataProxy.filesDb.update(media.id, {
+              _thumbnailBlob: thumbnailFile,
+            });
+
+            // Emit atomic update via functional approach to prevent race conditions
+            onChange(prev => prev.map(item => 
+              item.id === media.id ? { ...item, thumbnailUrl: thumbUrl } : item
+            ));
+          }
+        } finally {
+          processingIds.current.delete(media.id);
         }
-
-        if (thumbnailFile) {
-          const thumbUrl = URL.createObjectURL(thumbnailFile);
-
-          // Persist thumbnail to DB
-          await dataProxy.filesDb.update(media.id, {
-            _thumbnailBlob: thumbnailFile,
-          });
-
-          // Emit atomic update via functional approach to prevent race conditions
-          onChange(prev => prev.map(item => 
-            item.id === media.id ? { ...item, thumbnailUrl: thumbUrl } : item
-          ));
-        }
-      } catch (err) {
-        console.error("[SmartMediaUploader] Thumbnail error:", err);
-      }
+      })();
     });
   }, [value, onChange]);
 

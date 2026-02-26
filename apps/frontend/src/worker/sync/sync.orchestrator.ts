@@ -91,34 +91,107 @@ export class SyncOrchestrator {
     if (pendingRecords.length === 0) return;
 
     console.group(`[SyncOrchestrator] Table: ${tableName} (${pendingRecords.length} pending)`);
-    for (const record of pendingRecords) {
-      const syncKey = `${tableName}:${record.id}`;
+    
+    if (tableName === 'files') {
+      const recordsToProcess = (pendingRecords as any as StoredFile[]).filter(r => !this.inFlightSyncs.has(`${tableName}:${r.id}`));
       
-      if (this.inFlightSyncs.has(syncKey)) continue;
-
-      // --- Exponential Backoff Check ---
-      const retryCount = this.retryCounts.get(syncKey) || 0;
-      if (retryCount > 0) {
-        const lastAttempt = record._lastSyncAttemptAt || 0;
-        const delay = Math.min(300000, Math.pow(2, retryCount) * 2000); // Max 5 mins
-        if (Date.now() - lastAttempt < delay) {
-          continue; // Skip for now
+      // 1. Batch Original Uploads
+      const needingOriginalUpload = recordsToProcess.filter(r => !r.cdnUrl && r._blob);
+      if (needingOriginalUpload.length > 0) {
+        console.log(`[SyncOrchestrator] Batching ${needingOriginalUpload.length} original uploads`);
+        const { getMediaProxy } = await import("../worker.context");
+        const mediaProxy = await getMediaProxy();
+        
+        // Process in chunks of 50 (backend now supports up to 100)
+        for (let i = 0; i < needingOriginalUpload.length; i += 50) {
+           const chunk = needingOriginalUpload.slice(i, i + 50);
+           const filesToUpload = chunk.map(r => Object.assign(
+             new File([r._blob!], r.fileName, { type: r.mimeType }),
+             { id: r.id }
+           ));
+           
+           const results = await mediaProxy.media.uploadFiles(filesToUpload);
+           await Promise.all(results.map((res, idx) => {
+             if (res.success && res.cdnUrl) {
+               return filesDb.update(chunk[idx]!.id, { cdnUrl: res.cdnUrl });
+             }
+             return Promise.resolve();
+           }));
         }
       }
 
-      try {
-        this.inFlightSyncs.add(syncKey);
-        await this.syncRecord(tableName, record);
-        this.retryCounts.delete(syncKey); // Success!
-      } catch (err) {
-        console.error(`[SyncOrchestrator] Error syncing ${syncKey}:`, err);
-        const nextRetry = (this.retryCounts.get(syncKey) || 0) + 1;
-        this.retryCounts.set(syncKey, nextRetry);
+      // 2. Batch Thumbnail Uploads
+      const needingThumbnailUpload = recordsToProcess.filter(r => r._thumbnailBlob && !r.thumbnailCdnUrl);
+      if (needingThumbnailUpload.length > 0) {
+        console.log(`[SyncOrchestrator] Batching ${needingThumbnailUpload.length} thumbnail uploads`);
+        const { getMediaProxy } = await import("../worker.context");
+        const mediaProxy = await getMediaProxy();
         
-        // Update record with last attempt timestamp (locally)
-        await (table as Table<any, any>).update(record.id, { _lastSyncAttemptAt: Date.now() });
-      } finally {
-        this.inFlightSyncs.delete(syncKey);
+        for (let i = 0; i < needingThumbnailUpload.length; i += 50) {
+           const chunk = needingThumbnailUpload.slice(i, i + 50);
+           const thumbsToUpload = chunk.map(r => Object.assign(
+             new File([r._thumbnailBlob!], "thumb", { type: r._thumbnailBlob!.type }),
+             { id: `${r.id}_thumb` }
+           ));
+           
+           const results = await mediaProxy.media.uploadFiles(thumbsToUpload);
+           await Promise.all(results.map((res, idx) => {
+             if (res.success && res.cdnUrl) {
+               return filesDb.update(chunk[idx]!.id, { thumbnailCdnUrl: res.cdnUrl });
+             }
+             return Promise.resolve();
+           }));
+        }
+      }
+
+      // 3. Process records individually for remaining stages (Metadata, gen thumbnail)
+      await Promise.all(pendingRecords.map(async (record) => {
+        const syncKey = `${tableName}:${record.id}`;
+        if (this.inFlightSyncs.has(syncKey)) return;
+
+        try {
+          this.inFlightSyncs.add(syncKey);
+          await this.syncRecord(tableName, record);
+          this.retryCounts.delete(syncKey);
+        } catch (err) {
+          console.error(`[SyncOrchestrator] Error syncing ${syncKey}:`, err);
+          const nextRetry = (this.retryCounts.get(syncKey) || 0) + 1;
+          this.retryCounts.set(syncKey, nextRetry);
+          await (table as Table<any, any>).update(record.id, { _lastSyncAttemptAt: Date.now() });
+        } finally {
+          this.inFlightSyncs.delete(syncKey);
+        }
+      }));
+    } else {
+      for (const record of pendingRecords) {
+        const syncKey = `${tableName}:${record.id}`;
+        
+        if (this.inFlightSyncs.has(syncKey)) continue;
+
+        // --- Exponential Backoff Check ---
+        const retryCount = this.retryCounts.get(syncKey) || 0;
+        if (retryCount > 0) {
+          const lastAttempt = record._lastSyncAttemptAt || 0;
+          const delay = Math.min(300000, Math.pow(2, retryCount) * 2000); // Max 5 mins
+          if (Date.now() - lastAttempt < delay) {
+            continue; // Skip for now
+          }
+        }
+
+        try {
+          this.inFlightSyncs.add(syncKey);
+          await this.syncRecord(tableName, record);
+          this.retryCounts.delete(syncKey); // Success!
+        } catch (err) {
+          console.error(`[SyncOrchestrator] Error syncing ${syncKey}:`, err);
+          const nextRetry = (this.retryCounts.get(syncKey) || 0) + 1;
+          this.retryCounts.set(syncKey, nextRetry);
+          
+          // Update record with last attempt timestamp (locally)
+          await (table as Table<any, any>).update(record.id, { _lastSyncAttemptAt: Date.now() });
+        } finally {
+          this.inFlightSyncs.delete(syncKey);
+        }
       }
     }
     console.groupEnd();
@@ -207,7 +280,12 @@ export class SyncOrchestrator {
     if (originalReady && thumbnailReady && currentFile._pendingAction === 'create') {
         try {
             console.log(`[SyncOrchestrator] Finishing file sync (Stage 3) for ${fileId}`);
-            const { _blob, _thumbnailBlob, _pendingAction, ...syncData } = currentFile;
+            const { 
+              _blob, _thumbnailBlob, _pendingAction, _lastSyncAttemptAt,
+              createdAt, updatedAt, createdByUserId, 
+              ...syncData 
+            } = currentFile as any;
+
             const result = await orpcFetch.files.create(syncData);
             await this.handleSuccess('files', currentFile, result);
         } catch (err: any) {
@@ -262,9 +340,9 @@ export class SyncOrchestrator {
       );
       
       const result = await mediaProxy.media.uploadSingleFile(blobFile);
-      if (result.success && result.urls) {
+      if (result.success && result.cdnUrl) {
         await filesDb.update(fileId, { 
-          cdnUrl: result.urls[0]
+          cdnUrl: result.cdnUrl
         });
       }
     } catch (e: any) {
@@ -282,9 +360,9 @@ export class SyncOrchestrator {
       );
 
       const result = await mediaProxy.media.uploadSingleFile(thumbFile);
-      if (result.success && result.urls) {
+      if (result.success && result.cdnUrl) {
         await filesDb.update(fileId, { 
-          thumbnailCdnUrl: result.urls[0]
+          thumbnailCdnUrl: result.cdnUrl
         });
       }
     } catch (e: any) {
