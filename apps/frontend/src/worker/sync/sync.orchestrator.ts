@@ -93,7 +93,21 @@ export class SyncOrchestrator {
     console.group(`[SyncOrchestrator] Table: ${tableName} (${pendingRecords.length} pending)`);
     
     if (tableName === 'files') {
-      const recordsToProcess = (pendingRecords as any as StoredFile[]).filter(r => !this.inFlightSyncs.has(`${tableName}:${r.id}`));
+      const allPendingFiles = (pendingRecords as any as StoredFile[]);
+      
+      // HYDRATION: Ensure Blobs are present from OPFS before batch processing
+      await Promise.all(allPendingFiles.map(async f => {
+        if (f._opfsPath && !f._blob) {
+            const { OPFSManager } = await import("../utils/opfs.manager");
+            f._blob = (await OPFSManager.readFile(f._opfsPath)) || undefined;
+        }
+        if (f._thumbnailOpfsPath && !f._thumbnailBlob) {
+            const { OPFSManager } = await import("../utils/opfs.manager");
+            f._thumbnailBlob = (await OPFSManager.readFile(f._thumbnailOpfsPath)) || undefined;
+        }
+      }));
+
+      const recordsToProcess = allPendingFiles.filter(r => !this.inFlightSyncs.has(`${tableName}:${r.id}`));
       
       // 1. Batch Original Uploads
       const needingOriginalUpload = recordsToProcess.filter(r => !r.cdnUrl && r._blob);

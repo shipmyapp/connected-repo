@@ -24,11 +24,19 @@ The application uses TWO dedicated web workers to maintain UI responsiveness and
 
 ---
 
-### Communication Pattern
+### 🟢 Active Task: Storage Persistence & Protection (002)
+- **Status**: ✅ COMPLETED
+- **Intent**: Ensure "Pending Sync" data durability via OPFS and Background Sync.
+- **Context**: Moved large blobs to OPFS to avoid IDB eviction and added W3C Background Sync for reliability.
 
-1. **UI Thread** calls `getDataProxy()` for regular database operations.
-2. **UI Thread** calls `getMediaProxy()` only if direct media processing is needed (rare).
-3. **Data Worker** (via `SyncOrchestrator`) calls `getMediaProxy()` to offload heavy thumbnailing or upload tasks.
+### Decision Records
+
+| ID | Title | Status | Description |
+|---|---|---|---|
+| 001 | Use OPFS for Attachments | Decided | Move binary blobs from IndexedDB to OPFS to prevent browser eviction and improve performance. |
+| 002 | W3C Background Sync | Decided | Register sync tags in SW to trigger DataWorker sync cycles even after tab closure. |
+| 003 | SHA-256 Checksums | Decided | Store local checksums to verify integrity before/after OPFS operations and during sync. |
+| 004 | Virtual Media Provider | Decided | Serve OPFS media via Service Worker fetch interception to avoid avoid `URL.createObjectURL` overhead. |
 
 > [!IMPORTANT]
 > Always maintain this separation. Do not add database dependencies to the Media Worker. If the Media Worker needs data from the DB, it must be passed as an argument from the Data Worker.

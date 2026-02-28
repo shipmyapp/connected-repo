@@ -43,8 +43,53 @@ self.addEventListener('message', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    Promise.all([
+      self.clients.claim()
+    ])
+  );
 });
+
+// ── Virtual Media Provider ────────────────────────────────────────
+
+const OPFS_MEDIA_PREFIX = '/opfs-media/';
+
+/**
+ * Intercept fetch requests for virtual OPFS media URLs.
+ * Serves files directly from the Origin Private File System.
+ */
+self.addEventListener('fetch', (event: any) => {
+  const url = new URL(event.request.url);
+  
+  if (url.pathname.startsWith(OPFS_MEDIA_PREFIX)) {
+    event.respondWith((async () => {
+      try {
+        const path = url.pathname.slice(OPFS_MEDIA_PREFIX.length);
+        const parts = path.split('/');
+        const fileName = parts.pop()!;
+        
+        let currentDir = await navigator.storage.getDirectory();
+        for (const part of parts) {
+          currentDir = await currentDir.getDirectoryHandle(part);
+        }
+
+        const fileHandle = await currentDir.getFileHandle(fileName);
+        const file = await fileHandle.getFile();
+        
+        return new Response(file, {
+          headers: {
+            'Content-Type': file.type,
+            'Cache-Control': 'public, max-age=31536000', // Cache heavily as IDs are immutable paths
+          }
+        });
+      } catch (error) {
+        console.warn(`[SW] OPFS Virtual Media failed for ${url.pathname}:`, error);
+        return new Response('File not found in OPFS', { status: 404 });
+      }
+    })());
+  }
+});
+
 
 try {
   // Use index.html without leading slash as it's the standard key in the precache manifest

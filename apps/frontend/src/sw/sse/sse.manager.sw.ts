@@ -1,8 +1,3 @@
-import { journalEntriesDb } from '@frontend/modules/journal-entries/worker/journal-entries.db';
-import { promptsDb } from '@frontend/modules/prompts/worker/prompts.db';
-import { teamMembersDb } from '@frontend/worker/db/team_members.db';
-import { teamsAppDb } from '@frontend/worker/db/teams_app.db';
-import { filesDb } from '@frontend/worker/db/files.db';
 import { clientDb, wipeTeamData } from '@frontend/worker/db/db.manager';
 import { orpcFetch, UserAppBackendOutputs } from '@frontend/utils/orpc.client';
 import { SSE_MESSAGES_CHANNEL, type SseMessage } from '@frontend/configs/channels.config';
@@ -47,6 +42,7 @@ export class SSEManager {
         [K in TablesToSync]: (data: TableDataMap[K], operation?: 'create' | 'update' | 'delete' | 'delta') => Promise<void>
     } = {
         journalEntries: async (data, op) => {
+            const { journalEntriesDb } = await import('@frontend/modules/journal-entries/worker/journal-entries.db');
             const ids = data.map(d => typeof d === 'string' ? d : d.id);
             if (op === 'delete') await journalEntriesDb.bulkDelete(ids);
             else {
@@ -55,10 +51,9 @@ export class SSEManager {
             }
         },
         prompts: async (data, op) => {
+            const { promptsDb } = await import('@frontend/modules/prompts/worker/prompts.db');
             const objects = data.filter((d): d is Exclude<typeof d, string> => typeof d !== 'string');
             if (op === 'delete') {
-                // Prompts soft-delete via upsert, so we need the objects. 
-                // If we only have IDs (unlikely for soft-delete), we can't do much here.
                 if (objects.length > 0) await promptsDb.bulkDelete(objects);
             } else {
                 await promptsDb.bulkUpsert(objects);
@@ -70,6 +65,7 @@ export class SSEManager {
                 for (const id of ids) await wipeTeamData(id);
                 await clientDb.teamsApp.bulkDelete(ids);
             } else {
+                const { teamsAppDb } = await import('@frontend/worker/db/teams_app.db');
                 const objects = data.filter((t): t is Exclude<typeof t, string> => typeof t !== 'string');
                 await teamsAppDb.saveTeams(objects);
                 for (const team of objects) {
@@ -86,6 +82,7 @@ export class SSEManager {
                 }
                 await clientDb.teamMembers.bulkDelete(affectedTeamIds);
             } else {
+                const { teamMembersDb } = await import('@frontend/worker/db/team_members.db');
                 const objects = data.filter((m): m is Exclude<typeof m, string> => typeof m !== 'string');
                 await teamMembersDb.saveMembers(objects);
                 for (const member of objects) {
@@ -96,6 +93,7 @@ export class SSEManager {
             }
         },
         files: async (data, op) => {
+            const { filesDb } = await import('@frontend/worker/db/files.db');
             const ids = data.map(d => typeof d === 'string' ? d : d.id);
             if (op === 'delete') await filesDb.bulkDelete(ids);
             else {

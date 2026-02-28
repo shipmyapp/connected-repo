@@ -18,9 +18,9 @@
 ---
 
 ## 2. Active Task
-**Context**: Implementing stability, telemetry, and safety strategies for offline-first sync.
-**Current Status**: Reorganized `.agent/plans` into a 10-step sequential roadmap. Created `/implement-plan` workflow for standardized execution.
-**Intent**: Execute atomic plans sequentially to ensure robust data integrity (starting with Ghost Blob Cleanup).
+**Context**: Background Sync (Service Worker) (Plan 011).
+**Current Status**: Completed Plan 002 (Storage Persistence). Transitioning to Plan 011 to enable Service Worker based background synchronization via an isomorphic sync engine.
+**Intent**: Implement isomorphic `SyncOrchestrator` safe for both DataWorker and Service Worker contexts.
 
 ---
 
@@ -33,6 +33,8 @@
 | [ADR-004] | Direct Imports | Accepted | NO barrel exports to ensure optimal tree-shaking. |
 | [ADR-005] | Files Metadata Idempotency | Accepted | Use .merge() for files creation to capture asynchronous metadata enrichment. |
 | [ADR-006] | Sync Recovery (Lost Files) | Accepted | Flag `isMainFileLost` allows metadata sync even if binary data is purged from storage. |
+| [ADR-007] | OPFS Storage Persistence | Accepted | Move binary blobs from IndexedDB to OPFS to prevent browser eviction and improve performance. |
+| [ADR-008] | Virtual Media Provider | Accepted | Serve OPFS media via Service Worker fetch interception to avoid avoid `URL.createObjectURL` overhead. |
 
 ## Quick Reference
 - **Dev**: `yarn dev`

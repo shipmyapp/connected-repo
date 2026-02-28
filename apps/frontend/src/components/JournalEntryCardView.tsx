@@ -10,6 +10,7 @@ import { alpha } from "@mui/material";
 
 import { StoredFile } from "@frontend/worker/db/schema.db.types";
 import { WithSync } from "@frontend/worker/db/db.manager";
+import { getOpfsMediaUrl } from "@frontend/utils/file-url.utils";
 
 interface JournalEntryCardViewProps {
 	entries: WithSync<JournalEntrySelectAll>[];
@@ -24,17 +25,24 @@ function ThumbnailItem({ attachment }: { attachment: StoredFile }) {
 
     useEffect(() => {
         let previewUrl: string | null = null;
+        
         if (attachment.thumbnailCdnUrl) {
             previewUrl = attachment.thumbnailCdnUrl;
+        } else if (attachment._thumbnailOpfsPath) {
+            previewUrl = getOpfsMediaUrl(attachment._thumbnailOpfsPath) || null;
         } else if (attachment._thumbnailBlob) {
             previewUrl = URL.createObjectURL(attachment._thumbnailBlob);
         } else if (attachment.cdnUrl) {
             previewUrl = attachment.cdnUrl;
+        } else if (attachment._opfsPath) {
+            previewUrl = getOpfsMediaUrl(attachment._opfsPath) || null;
         } else if (attachment._blob) {
             previewUrl = URL.createObjectURL(attachment._blob);
         }
 
-        if (previewUrl && previewUrl !== attachment.thumbnailCdnUrl && previewUrl !== attachment.cdnUrl) {
+        const isObjectUrl = (val: string | null) => val?.startsWith('blob:');
+
+        if (previewUrl && isObjectUrl(previewUrl)) {
             trackedUrl.current = previewUrl;
         }
         setUrl(previewUrl);

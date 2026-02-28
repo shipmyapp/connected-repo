@@ -12,6 +12,7 @@ import { useConnectivity } from "@frontend/sw/sse/useConnectivity.sse.sw";
 import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
 import { useActiveTeamId } from "@frontend/contexts/WorkspaceContext";
+import { getOpfsMediaUrl } from "@frontend/utils/file-url.utils";
 
 export default function SyncedJournalEntryDetailPage() {
 	const { entryId } = useParams<{ entryId: string }>();
@@ -81,9 +82,9 @@ export default function SyncedJournalEntryDetailPage() {
 	}
 
 	const attachments = (files || []).map((file) => ({
-		url: file.cdnUrl || "",
+		url: (file._opfsPath ? getOpfsMediaUrl(file._opfsPath) : file.cdnUrl) || "",
 		name: file.fileName,
-        thumbnailUrl: file.thumbnailCdnUrl || undefined
+        thumbnailUrl: (file._thumbnailOpfsPath ? getOpfsMediaUrl(file._thumbnailOpfsPath) : file.thumbnailCdnUrl) || undefined
 	}));
 
 	return (

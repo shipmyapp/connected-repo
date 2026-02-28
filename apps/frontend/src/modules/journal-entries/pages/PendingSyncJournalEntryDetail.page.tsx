@@ -14,13 +14,15 @@ import { useNavigate, useParams } from "react-router";
 import { JournalEntryDetailView } from "../components/JournalEntryDetailView";
 import { useActiveTeamId } from "@frontend/contexts/WorkspaceContext";
 
+import { getOpfsMediaUrl } from "@frontend/utils/file-url.utils";
+
 export default function PendingSyncJournalEntryDetailPage() {
 	const navigate = useNavigate();
 	const { entryId } = useParams<{ entryId: string }>();
 	const activeTeamId = useActiveTeamId();
 	const [isDeleting, setIsDeleting] = useState(false);
 	const [isSyncingState, setIsSyncingState] = useState(false);
-	const [attachments, setAttachments] = useState<{ url: string; name: string }[]>([]);
+	const [attachments, setAttachments] = useState<{ url: string; name: string; thumbnailUrl?: string }[]>([]);
 	const [redirectStatus, setRedirectStatus] = useState<"none" | "checking" | "redirecting" | "error">("none");
 	const [debugInfo, setDebugInfo] = useState<string | null>(null);
 
@@ -55,14 +57,30 @@ export default function PendingSyncJournalEntryDetailPage() {
 				const mapped = files.map((file) => {
 					const isMedia = file.mimeType.startsWith("image/") || file.mimeType === "application/pdf" || file.mimeType.startsWith("video/");
 					
+                    let url = "";
+                    if (file._opfsPath) {
+                        url = getOpfsMediaUrl(file._opfsPath)!;
+                    } else if (file._blob) {
+                        url = createUrl(file._blob);
+                    }
+
+                    let thumbnailUrl: string | undefined = undefined;
+                    if (file._thumbnailOpfsPath) {
+                        thumbnailUrl = getOpfsMediaUrl(file._thumbnailOpfsPath);
+                    } else if (file._thumbnailBlob) {
+                        thumbnailUrl = createUrl(file._thumbnailBlob);
+                    } else if (isMedia) {
+                        thumbnailUrl = "not-available";
+                    }
+
 					return {
-						url: createUrl(file._blob!),
-						thumbnailUrl: file._thumbnailBlob ? createUrl(file._thumbnailBlob) : (isMedia ? "not-available" as const : undefined),
+						url,
+						thumbnailUrl,
 						name: file.fileName
 					};
 				});
 				
-				setAttachments(mapped);
+				if (active) setAttachments(mapped);
 			} catch (err) {
 				console.error("[PendingSyncDetail] Error fetching local files:", err);
 			}

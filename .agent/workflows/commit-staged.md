@@ -32,7 +32,11 @@ Follow these steps to safely commit staged changes while maintaining documentati
    - If any plan is fully implemented by the current changes, delete the plan file.
    - Update `DEVELOPMENT_PLAN.md` to reflect the completion if necessary.
 
-5. **Generate Commit Message**:
+6. **Stage Workflow Changes**:
+   - Ensure all changes made during the workflow (documentation, tests, plan deletions) are staged.
+   - Run: `git add .` (or specific items to ensure local state matches the intent).
+
+7. **Generate Commit Message**:
    - Analyze context from `git diff --staged -- . ':!package-lock.json' ':!yarn.lock' ':!pnpm-lock.yaml'`.
    - Draft a SEMANTIC commit message based on `.opencode/command/commit.md` (if exists) or standard conventional commits:
      - Header: `<type>(<scope>): <short description>`
@@ -42,8 +46,8 @@ Follow these steps to safely commit staged changes while maintaining documentati
      - Grammar < Brevity.
      - No quotes/backticks in the message content itself.
 
-6. **Execute Commit**:
+8. **Execute Commit**:
    - Run: `git commit -m "HEADER" -m "BODY_LINE_1" -m "BODY_LINE_2" ...`
 
-6. **Cleanup**:
+9. **Cleanup**:
    - Ensure temporary context files are removed.

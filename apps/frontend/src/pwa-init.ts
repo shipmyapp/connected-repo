@@ -1,6 +1,27 @@
 import { registerSW } from 'virtual:pwa-register';
 
+export async function requestStoragePersistence() {
+  if (!navigator.storage || !navigator.storage.persist) {
+    return;
+  }
+
+  const isPersisted = await navigator.storage.persisted();
+  if (isPersisted) {
+    return;
+  }
+
+  const result = await navigator.storage.persist();
+  if (result) {
+    console.info('[Storage] Persistence granted.');
+  } else {
+    console.warn('[Storage] Persistence denied.');
+  }
+}
+
 export function initPWA() {
+  // Request persistence as early as possible
+  requestStoragePersistence();
+
   // Register service worker for PWA functionality
   registerSW({
     onRegistered(r: ServiceWorkerRegistration | undefined) {

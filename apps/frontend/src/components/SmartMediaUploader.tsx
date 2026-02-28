@@ -36,15 +36,7 @@ export const SmartMediaUploader: React.FC<SmartMediaUploaderProps> = ({
 
     for (const file of newFiles) {
         const id = ulid();
-        const media: MediaFile = {
-            id,
-            file,
-            previewUrl: URL.createObjectURL(file),
-        };
-        newMediaBatch.push(media);
-
-        // Persist immediately to DB
-        await app.filesDb.upsertLocal({
+        const fileRecord: any = {
             id,
             tableId,
             tableName,
@@ -62,7 +54,18 @@ export const SmartMediaUploader: React.FC<SmartMediaUploaderProps> = ({
             _thumbnailBlob: null,
             _pendingAction: 'create',
             isMainFileLost: false,
-        });
+        };
+
+        // Persist immediately to DB - this populates _opfsPath
+        await app.filesDb.upsertLocal(fileRecord);
+        
+        const { getOpfsMediaUrl } = await import("@frontend/utils/file-url.utils");
+        const media: MediaFile = {
+            id,
+            file,
+            previewUrl: getOpfsMediaUrl(fileRecord._opfsPath) || URL.createObjectURL(file), 
+        };
+        newMediaBatch.push(media);
     }
 
     onChange(prev => [...prev, ...newMediaBatch]);
@@ -75,8 +78,8 @@ export const SmartMediaUploader: React.FC<SmartMediaUploaderProps> = ({
     onChange(prev => {
       const target = prev.find(f => f.id === id);
       if (target) {
-        URL.revokeObjectURL(target.previewUrl);
-        if (target.thumbnailUrl) URL.revokeObjectURL(target.thumbnailUrl);
+        if (target.previewUrl.startsWith('blob:')) URL.revokeObjectURL(target.previewUrl);
+        if (target.thumbnailUrl?.startsWith('blob:')) URL.revokeObjectURL(target.thumbnailUrl);
       }
       return prev.filter(f => f.id !== id);
     });
@@ -107,12 +110,17 @@ export const SmartMediaUploader: React.FC<SmartMediaUploaderProps> = ({
           }
 
           if (thumbnailFile) {
-            const thumbUrl = URL.createObjectURL(thumbnailFile);
-
-            // Persist thumbnail to DB
+            // Persist thumbnail to DB - this will trigger OPFS save because it's a file
             await dataProxy.filesDb.update(media.id, {
               _thumbnailBlob: thumbnailFile,
             });
+
+            // Retrieve updated record to get _thumbnailOpfsPath
+            const updated = await dataProxy.filesDb.get(media.id);
+            const { getOpfsMediaUrl } = await import("@frontend/utils/file-url.utils");
+            const thumbUrl = updated?._thumbnailOpfsPath 
+                ? getOpfsMediaUrl(updated._thumbnailOpfsPath) 
+                : URL.createObjectURL(thumbnailFile);
 
             // Emit atomic update via functional approach to prevent race conditions
             onChange(prev => prev.map(item => 

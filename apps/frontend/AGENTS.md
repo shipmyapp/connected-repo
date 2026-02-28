@@ -14,9 +14,9 @@
 ---
 
 ## 2. Active Task
-**Context**: Ghost Blob Cleanup (Plan 001).
-**Current Status**: Implemented `cleanupOrphans` in `FilesDBManager` to purge records missing binary data during sync startup.
-**Decision**: Automated background cleanup during `SyncOrchestrator` initialization to prevent infinite retry loops.
+**Context**: Background Sync (Service Worker) (Plan 011).
+**Current Status**: Completed Plan 002 (Storage Persistence). Implementing isomorphic `SyncOrchestrator` to enable SW-based background sync.
+**Decision**: Deferring complex UI-dependent tasks (thumbnails) in SW context while allowing metadata and original file sync.
 
 ---
 
@@ -28,6 +28,7 @@
 | [ADR-F03] | Mobile-First | Accepted | 44x44px touch targets; responsive scaling at `md` breakpoint. |
 | [ADR-F04] | Ghost Blob Cleanup | Accepted | Purge `create` records missing `_blob` during sync startup to prevent queue blockage. |
 | [ADR-F05] | Sync Recovery (Lost Files) | Accepted | Metadata-only sync allowed when `isMainFileLost` set to prevent blockage. |
+| [ADR-F06] | OPFS Media serving | Accepted | Move large binary blobs to OPFS and serve via SW-intercepted `/opfs-media/` URLs to avoid IDB eviction and `URL.createObjectURL` memory leaks. |
 
 ## Technical Guidelines
 

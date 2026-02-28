@@ -49,9 +49,10 @@ export type AppDbTable = keyof Omit<ClientDatabase, keyof Dexie | "version" | "o
 const dbUpdatesChannel = new BroadcastChannel("db-updates");
 const subscribers: Set<(table: AppDbTable) => void> = new Set();
 
-// Listen for updates from other contexts (e.g. Service Worker -> Data Worker)
+// Listen for updates from other contexts (e.g. Data Worker -> UI)
 dbUpdatesChannel.onmessage = (event) => {
   const { table } = event.data;
+  
   if (table) {
     for (const callback of subscribers) {
       callback(table as AppDbTable);
