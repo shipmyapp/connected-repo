@@ -26,49 +26,57 @@ export const SmartMediaUploader: React.FC<SmartMediaUploaderProps> = ({
 }) => {
   const processingIds = useRef(new Set<string>());
 
+  const isAdding = useRef(false);
   const handleAddFiles = useCallback(async (newFiles: File[]) => {
-    const { getAuthCache } = await import("@frontend/utils/auth.persistence");
-    const { getDataProxy } = await import("@frontend/worker/worker.proxy");
-    const session = getAuthCache();
-    const app = await getDataProxy();
+    if (isAdding.current) return;
+    isAdding.current = true;
 
-    const newMediaBatch: MediaFile[] = [];
+    try {
+      const { getAuthCache } = await import("@frontend/utils/auth.persistence");
+      const { getDataProxy } = await import("@frontend/worker/worker.proxy");
+      const session = getAuthCache();
+      const app = await getDataProxy();
 
-    for (const file of newFiles) {
-        const id = ulid();
-        const fileRecord: any = {
-            id,
-            tableId,
-            tableName,
-            type: "attachment",
-            fileName: file.name,
-            mimeType: file.type,
-            teamId,
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-            cdnUrl: null,
-            thumbnailCdnUrl: null,
-            createdByUserId: session?.user?.id || "",
-            deletedAt: null,
-            _blob: file,
-            _thumbnailBlob: null,
-            _pendingAction: 'create',
-            isMainFileLost: false,
-        };
+      const newMediaBatch: MediaFile[] = [];
 
-        // Persist immediately to DB - this populates _opfsPath
-        await app.filesDb.upsertLocal(fileRecord);
-        
-        const { getOpfsMediaUrl } = await import("@frontend/utils/file-url.utils");
-        const media: MediaFile = {
-            id,
-            file,
-            previewUrl: getOpfsMediaUrl(fileRecord._opfsPath) || URL.createObjectURL(file), 
-        };
-        newMediaBatch.push(media);
+      for (const file of newFiles) {
+          const id = ulid();
+          const fileRecord: any = {
+              id,
+              tableId,
+              tableName,
+              type: "attachment",
+              fileName: file.name,
+              mimeType: file.type,
+              teamId,
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+              cdnUrl: null,
+              thumbnailCdnUrl: null,
+              createdByUserId: session?.user?.id || "",
+              deletedAt: null,
+              _blob: file,
+              _thumbnailBlob: null,
+              _pendingAction: 'create',
+              isMainFileLost: false,
+          };
+
+          // Persist immediately to DB - this populates _opfsPath
+          await app.filesDb.upsertLocal(fileRecord);
+          
+          const { getOpfsMediaUrl } = await import("@frontend/utils/file-url.utils");
+          const media: MediaFile = {
+              id,
+              file,
+              previewUrl: getOpfsMediaUrl(fileRecord._opfsPath) || URL.createObjectURL(file), 
+          };
+          newMediaBatch.push(media);
+      }
+
+      onChange(prev => [...prev, ...newMediaBatch]);
+    } finally {
+      isAdding.current = false;
     }
-
-    onChange(prev => [...prev, ...newMediaBatch]);
   }, [onChange, teamId, tableId, tableName]);
 
   const handleRemoveFile = useCallback(async (id: string) => {

@@ -157,7 +157,11 @@ export class SyncOrchestrator {
       }
 
       // 3. Process records individually for remaining stages (Metadata, gen thumbnail)
-      await Promise.all(pendingRecords.map(async (record) => {
+      // RE-FETCH: Batch uploads in Stages 1 & 2 updated the DB. 
+      // We must re-fetch to see new CDN URLs, or Stage 3 will think they are still missing.
+      const freshPending = await filesDb.getPendingActions();
+      
+      await Promise.all(freshPending.map(async (record) => {
         const syncKey = `${tableName}:${record.id}`;
         if (this.inFlightSyncs.has(syncKey)) return;
 
