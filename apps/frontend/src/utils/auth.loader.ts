@@ -1,5 +1,6 @@
 import { userContext } from "@frontend/contexts/UserContext";
 import { setSentryUser } from "@frontend/instrumentation";
+import { toast } from "react-toastify";
 import { authClient } from "@frontend/utils/auth.client";
 import { getAuthCache, saveAuthCache, saveLastLogin } from "@frontend/utils/auth.persistence";
 import { detectUserTimezone } from "@frontend/utils/timezone.utils";
@@ -61,7 +62,6 @@ export async function authLoader({ context }: LoaderFunctionArgs) {
 		try {
 			const detectedTimezone = await detectUserTimezone();
 			if (detectedTimezone && detectedTimezone !== session.user.timezone) {
-				const { toast } = await import("react-toastify");
 				toast.info(`Timezone change detected. Updating timezone to match your current location.`, {
 					position: "top-center",
 					autoClose: 1000,
@@ -83,7 +83,6 @@ export async function authLoader({ context }: LoaderFunctionArgs) {
 			}
 		} catch (timezoneError) {
 			console.error(timezoneError);
-			const { toast } = await import("react-toastify");
 			toast.error("Timezone detection/update failed.");
 		}
 

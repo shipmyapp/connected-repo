@@ -2,6 +2,7 @@
  * Utility for managing files in the Origin Private File System (OPFS).
  * Provides a sandboxed file system for storing binary blobs outside of IndexedDB.
  */
+import { logOfflineError } from "../../utils/offline_errors.client";
 export class OPFSManager {
   private static rootPromise: Promise<FileSystemDirectoryHandle> | null = null;
 
@@ -50,6 +51,7 @@ export class OPFSManager {
       return file;
     } catch (error) {
       console.warn(`[OPFS] Failed to read file at ${path}:`, error);
+      logOfflineError(error, "OPFSManager:readFile");
       return null;
     }
   }
@@ -71,6 +73,7 @@ export class OPFSManager {
       await currentDir.removeEntry(fileName);
     } catch (error) {
       console.warn(`[OPFS] Failed to delete file at ${path}:`, error);
+      logOfflineError(error, "OPFSManager:deleteFile");
     }
   }
 

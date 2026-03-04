@@ -10,6 +10,7 @@ import { SSE_MESSAGES_CHANNEL, type SseMessage } from "../../configs/channels.co
 import { TablesToSync } from "@connected-repo/zod-schemas/enums.zod";
 import { type Remote } from "comlink";
 import { type MediaWorkerAPI } from "../media.worker";
+import { logOfflineError } from "../../utils/offline_errors.client";
 
 export class SyncOrchestrator {
   private isProcessing = false;
@@ -60,6 +61,8 @@ export class SyncOrchestrator {
     }
     if (!this.isOnline()) return;
 
+    // ALWAYS try to sync offline errors immediately regardless of auth state!
+    await this.syncOfflineErrors();
     this.isProcessing = true;
     this.needsRescan = false;
     try {
@@ -70,6 +73,7 @@ export class SyncOrchestrator {
       }
     } catch (err) {
       console.error("[SyncOrchestrator] Global sync error:", err);
+      logOfflineError(err, "SyncOrchestrator:processQueue");
     } finally {
       this.isProcessing = false;
       if (this.needsRescan) {
@@ -93,7 +97,7 @@ export class SyncOrchestrator {
     console.group(`[SyncOrchestrator] Table: ${tableName} (${pendingRecords.length} pending)`);
     
     if (tableName === 'files') {
-      const allPendingFiles = (pendingRecords as any as StoredFile[]);
+      const allPendingFiles = pendingRecords as StoredFile[];
       
       // HYDRATION: Ensure Blobs are present from OPFS before batch processing
       await Promise.all(allPendingFiles.map(async f => {
@@ -127,6 +131,8 @@ export class SyncOrchestrator {
            await Promise.all(results.map((res, idx) => {
              if (res.success && res.cdnUrl) {
                return filesDb.update(chunk[idx]!.id, { cdnUrl: res.cdnUrl });
+             } else if (res.error) {
+               logOfflineError(res.error, "SyncOrchestrator:uploadOriginalBatch");
              }
              return Promise.resolve();
            }));
@@ -150,6 +156,8 @@ export class SyncOrchestrator {
            await Promise.all(results.map((res, idx) => {
              if (res.success && res.cdnUrl) {
                return filesDb.update(chunk[idx]!.id, { thumbnailCdnUrl: res.cdnUrl });
+             } else if (res.error) {
+               logOfflineError(res.error, "SyncOrchestrator:uploadThumbnailBatch");
              }
              return Promise.resolve();
            }));
@@ -162,32 +170,35 @@ export class SyncOrchestrator {
       const freshPending = await filesDb.getPendingActions();
       
       await Promise.all(freshPending.map(async (record) => {
-        const syncKey = `${tableName}:${record.id}`;
+        const fileRecord = record;
+        const syncKey = `${tableName}:${fileRecord.id}`;
         if (this.inFlightSyncs.has(syncKey)) return;
 
         try {
           this.inFlightSyncs.add(syncKey);
           await this.syncRecord(tableName, record);
           this.retryCounts.delete(syncKey);
-        } catch (err) {
+        } catch (err: unknown) {
           console.error(`[SyncOrchestrator] Error syncing ${syncKey}:`, err);
+          logOfflineError(err, `SyncOrchestrator:syncTable:${tableName}`);
           const nextRetry = (this.retryCounts.get(syncKey) || 0) + 1;
           this.retryCounts.set(syncKey, nextRetry);
-          await (table as Table<any, any>).update(record.id, { _lastSyncAttemptAt: Date.now() });
+          await (table as Table<unknown, string>).update(fileRecord.id, { _lastSyncAttemptAt: Date.now() });
         } finally {
           this.inFlightSyncs.delete(syncKey);
         }
       }));
     } else {
       for (const record of pendingRecords) {
-        const syncKey = `${tableName}:${record.id}`;
+        const baseRecord = record as { id: string; _lastSyncAttemptAt?: number; _pendingAction?: string | null };
+        const syncKey = `${tableName}:${baseRecord.id}`;
         
         if (this.inFlightSyncs.has(syncKey)) continue;
 
         // --- Exponential Backoff Check ---
         const retryCount = this.retryCounts.get(syncKey) || 0;
         if (retryCount > 0) {
-          const lastAttempt = record._lastSyncAttemptAt || 0;
+          const lastAttempt = baseRecord._lastSyncAttemptAt || 0;
           const delay = Math.min(300000, Math.pow(2, retryCount) * 2000); // Max 5 mins
           if (Date.now() - lastAttempt < delay) {
             continue; // Skip for now
@@ -198,13 +209,14 @@ export class SyncOrchestrator {
           this.inFlightSyncs.add(syncKey);
           await this.syncRecord(tableName, record);
           this.retryCounts.delete(syncKey); // Success!
-        } catch (err) {
+        } catch (err: unknown) {
           console.error(`[SyncOrchestrator] Error syncing ${syncKey}:`, err);
+          logOfflineError(err, `SyncOrchestrator:syncTable:${tableName}`);
           const nextRetry = (this.retryCounts.get(syncKey) || 0) + 1;
           this.retryCounts.set(syncKey, nextRetry);
           
           // Update record with last attempt timestamp (locally)
-          await (table as Table<any, any>).update(record.id, { _lastSyncAttemptAt: Date.now() });
+          await (table as Table<unknown, string>).update(baseRecord.id, { _lastSyncAttemptAt: Date.now() });
         } finally {
           this.inFlightSyncs.delete(syncKey);
         }
@@ -213,9 +225,10 @@ export class SyncOrchestrator {
     console.groupEnd();
   }
 
-  private async syncRecord(tableName: TablesToSync, record: any) {
-    if (record._pendingAction && record._pendingAction !== 'create') {
-      console.error(`[SyncOrchestrator] Unsupported offline action "${record._pendingAction}" on ${tableName}:${record.id}. Sync model requires online-only for synced records.`);
+  private async syncRecord(tableName: TablesToSync, record: unknown) {
+    const baseRecord = record as { id: string; _pendingAction?: unknown };
+    if (baseRecord._pendingAction && baseRecord._pendingAction !== 'create') {
+      console.error(`[SyncOrchestrator] Unsupported offline action "${baseRecord._pendingAction}" on ${tableName}:${baseRecord.id}. Sync model requires online-only for synced records.`);
       // We don't throw here to avoid blocking the queue, but we don't proceed either.
       return;
     }
@@ -226,26 +239,27 @@ export class SyncOrchestrator {
     }
 
     if (tableName === 'files') {
-      await this.orchestrateFile(record);
+      await this.orchestrateFile(record as StoredFile);
       return;
     }
 
     console.warn(`[SyncOrchestrator] No sync handler for table: ${tableName}`);
   }
 
-  private async orchestrateJournalEntry(record: any) {
-    const entryId = record.id;
-    const action = record._pendingAction;
+  private async orchestrateJournalEntry(record: unknown) {
+    const entryRecord = record as { id: string; _pendingAction?: unknown; [key: string]: unknown };
+    const entryId = entryRecord.id;
+    const action = entryRecord._pendingAction;
 
     // Decoupled: Push entry to backend immediately
     try {
       let result;
       if (action === 'create') {
-        const { _pendingAction, ...data } = record;
-        result = await orpcFetch.journalEntries.create(data);
+        const { _pendingAction, ...data } = entryRecord;
+        result = await orpcFetch.journalEntries.create(data as any); // Safe cast for external orpc type
       }
       await this.handleSuccess('journalEntries', record, result);
-    } catch (err: any) {
+    } catch (err) {
       console.error(`[SyncOrchestrator] Backend sync failed for entry ${entryId}`, err);
       throw err; // Re-throw to be caught by syncTable for retry logic
     }
@@ -278,9 +292,9 @@ export class SyncOrchestrator {
             id: currentFile.id,
             name: currentFile.fileName,
             type: currentFile.mimeType,
-        } as any) as { exists: boolean; fetchUrl: string };
+        } as unknown as IdentifiedFile);
 
-        if (checkResult.exists && checkResult.fetchUrl) {
+        if (checkResult.exists && 'fetchUrl' in checkResult && checkResult.fetchUrl) {
             await filesDb.update(fileId, { cdnUrl: checkResult.fetchUrl });
             // Re-fetch state to continue Stage 3
             const recovered = await filesDb.get(fileId);
@@ -323,15 +337,16 @@ export class SyncOrchestrator {
 
     if (originalReady && thumbnailReady && currentFile._pendingAction === 'create') {
         try {
+            const fileDataToSync = currentFile as StoredFile & { _lastSyncAttemptAt?: number };
             const { 
               _blob, _thumbnailBlob, _pendingAction, _lastSyncAttemptAt,
               createdAt, updatedAt, createdByUserId, 
               ...syncData 
-            } = currentFile as any;
+            } = fileDataToSync;
 
             const result = await orpcFetch.files.create(syncData);
             await this.handleSuccess('files', currentFile, result);
-        } catch (err: any) {
+        } catch (err) {
             console.error(`[SyncOrchestrator] Metadata sync failed for ${fileId}`, err);
             throw err; // Trigger retry backoff
         }
@@ -365,6 +380,8 @@ export class SyncOrchestrator {
         await filesDb.update(fileId, { 
           _thumbnailBlob: result.thumbnailFile
         });
+      } else if (result.error) {
+        logOfflineError(result.error, `SyncOrchestrator:generateThumbnail:${fileId}`);
       }
     } catch (e) {
       console.error(`[SyncOrchestrator] Thumbnail generation fail for ${fileId}`, e);
@@ -385,8 +402,10 @@ export class SyncOrchestrator {
         await filesDb.update(fileId, { 
           cdnUrl: result.cdnUrl
         });
+      } else if (result.error) {
+        logOfflineError(result.error, `SyncOrchestrator:uploadOriginal:${fileId}`);
       }
-    } catch (e: any) {
+    } catch (e) {
       console.error(`[SyncOrchestrator] Original upload fail for ${fileId}`, e);
       throw e;
     }
@@ -405,24 +424,33 @@ export class SyncOrchestrator {
         await filesDb.update(fileId, { 
           thumbnailCdnUrl: result.cdnUrl
         });
+      } else if (result.error) {
+        logOfflineError(result.error, `SyncOrchestrator:uploadThumbnail:${fileId}`);
       }
-    } catch (e: any) {
+    } catch (e) {
       console.error(`[SyncOrchestrator] Thumbnail upload fail for ${fileId}`, e);
       throw e;
     }
   }
 
-  private async handleSuccess(tableName: TablesToSync, localRecord: any, serverRecord: any) {
+  private async handleSuccess(tableName: TablesToSync, localRecord: unknown, serverRecord: unknown) {
     const table = clientDb[tableName];
     const recordIdField = this.getRecordIdField(tableName);
-    const recordId = localRecord[recordIdField];
+    
+    // To safely read the ID without 'any'
+    const recordAsMap = localRecord as Record<string, unknown>;
+    const recordId = recordAsMap[recordIdField] as string;
 
     // Merge with existing local data to preserve blobs/status
-    const existing = await table.get(recordId);
+    const existing = await (table as Table<unknown, string>).get(recordId);
     
-    await table.put({
-      ...existing,
-      ...serverRecord,
+    // Convert records to objects for spreading
+    const existingObj = (existing && typeof existing === 'object') ? existing : {};
+    const serverObj = (serverRecord && typeof serverRecord === 'object') ? serverRecord : {};
+
+    await (table as Table<unknown, string>).put({
+      ...existingObj,
+      ...serverObj,
       _pendingAction: null,
     });
     this.needsRescan = true;
@@ -439,6 +467,28 @@ export class SyncOrchestrator {
     }
   }
 
+  /**
+   * One-way sync for offline errors.
+   * Runs independently of auth context so we can capture failures that happen when offline or logged out.
+   */
+  private async syncOfflineErrors() {
+    try {
+      const dbErrors = clientDb.offlineErrors;
+      if (!dbErrors) return;
+
+      const pendingErrors = await dbErrors.toArray();
+      if (!pendingErrors.length) return;
+
+      await orpcFetch.offlineErrors.batchInsert(pendingErrors);
+
+      // Cleanup local DB on success (one-way throwaway log)
+       const idsToDelete = pendingErrors.map((e) => e.id);
+       await dbErrors.bulkDelete(idsToDelete);
+       
+    } catch (err) {
+      console.error("[SyncOrchestrator] Failed to sync offline errors", err instanceof Error ? err.message : err);
+    }
+  }
 
 }
 

@@ -9,10 +9,17 @@ Use this skill to run tests and resolve failures efficiently across the monorepo
 
 ## Workflow
 
-### 1. Pre-test Build
-Always ensure the environment is ready:
+### 1. Pre-test Build & Setup
+Always ensure the environment and database are ready. Because `pg-tbus` handles its own schema initialization on server start, you MUST run the test server briefly to create its tables after a DB reset:
+
+1. Build packages:
 ```bash
 yarn run test:build
+```
+
+2. Initialize tbus schema for DB testing (Run this briefly then kill it, or wait for it to be ready):
+```bash
+cd apps/backend && yarn run test:server:start
 ```
 
 ### 2. Execution Order

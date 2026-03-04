@@ -12,8 +12,8 @@ import { TeamMemberTable } from "@backend/modules/teams/tables/team_members.tabl
 import { TeamApiTable } from "@backend/modules/teams/tables/teams_api.table";
 import { TeamAppTable } from "@backend/modules/teams/tables/teams_app.table";
 import { UserTable } from "@backend/modules/users/tables/users.table";
+import { OfflineErrorsTable } from "@backend/modules/offline_errors/tables/offline_errors.table";
 import { orchidORM } from "orchid-orm/node-postgres";
-
 // Phase 0 Complete: All database tables registered
 export const db = orchidORM(
 	{
@@ -28,6 +28,7 @@ export const db = orchidORM(
 		teamsApp: TeamAppTable,
 		teamMembers: TeamMemberTable,
 		files: FileTable,
+		offlineErrors: OfflineErrorsTable,
 
 		// API only
 

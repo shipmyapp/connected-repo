@@ -313,4 +313,21 @@ change(async (db) => {
     createdAt: t.timestamps().createdAt,
     updatedAt: t.timestamps().updatedAt,
   }));
+
+
+  await db.createTable('offline_errors', (t) => ({
+    id: t.string().primaryKey(),
+    timestamp: t.timestamp().default(t.sql`now()`),
+    message: t.text(),
+    stack: t.text().nullable(),
+    context: t.string(),
+    userAgent: t.string(),
+    deviceInfo: t.string(),
+    appVersion: t.string(),
+    clientId: t.string().nullable(),
+    teamId: t.string().nullable(),
+    userEmail: t.string().nullable(),
+    createdAt: t.timestamp().default(t.sql`now()`),
+    updatedAt: t.timestamp().default(t.sql`now()`),
+  }));
 });

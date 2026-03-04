@@ -2,8 +2,8 @@ import Dexie, { type Table, type Transaction } from "dexie";
 import type { JournalEntrySelectAll } from "@connected-repo/zod-schemas/journal_entry.zod";
 import type { TeamAppMemberSelectAll, TeamAppSelectAll } from "@connected-repo/zod-schemas/team_app.zod";
 import type { PromptSelectAll } from "@connected-repo/zod-schemas/prompt.zod";
-import type { FileSelectAll } from "@connected-repo/zod-schemas/file.zod";
 import type { StoredFile, SyncMetadata, PendingAction, JournalEntrySyncMetadata } from "./schema.db.types";
+import { OfflineErrorInsert } from "@connected-repo/zod-schemas/offline_errors.zod";
 
 // --- Database Table Types with Sync Metadata ---
 export type WithSync<T> = T & {
@@ -12,6 +12,7 @@ export type WithSync<T> = T & {
 } & Partial<JournalEntrySyncMetadata>;
 
 export class ClientDatabase extends Dexie {
+  offlineErrors!: Table<OfflineErrorInsert, string>;
   journalEntries!: Table<WithSync<JournalEntrySelectAll>, string>;
   prompts!: Table<WithSync<PromptSelectAll>, string>;
   files!: Table<StoredFile, string>;
@@ -30,6 +31,7 @@ export class ClientDatabase extends Dexie {
       teamsApp: "id, name, updatedAt, _pendingAction",
       teamMembers: "id, userId, teamId, email, updatedAt, _pendingAction",
       syncMetadata: "tableName",
+      offlineErrors: "id, timestamp, context"
     })
 
     /**

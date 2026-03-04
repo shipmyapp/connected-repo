@@ -15,13 +15,6 @@ import pkg from "../package.json";
  */
 export async function initInstrumentation() {
   const Sentry = await import("@sentry/react");
-  const { useEffect } = await import("react");
-  const {
-    createRoutesFromChildren,
-    matchRoutes,
-    useLocation,
-    useNavigationType,
-  } = await import("react-router");
 
   Sentry.init({
     dsn: env.VITE_SENTRY_DSN,

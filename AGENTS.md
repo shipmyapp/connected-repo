@@ -18,9 +18,9 @@
 ---
 
 ## 2. Active Task
-**Context**: Background Sync (Service Worker) (Plan 011).
-**Current Status**: Completed Plan 002 (Storage Persistence). Transitioning to Plan 011 to enable Service Worker based background synchronization via an isomorphic sync engine.
-**Intent**: Implement isomorphic `SyncOrchestrator` safe for both DataWorker and Service Worker contexts.
+**Context**: Sync Visibility & Feedback (Plan 004).
+**Current Status**: Completed Plan 003 (Client-Side Error Telemetry). Transitioning to Plan 004 to build out transparency & UI indicators for sync progress.
+**Intent**: Develop UI and state management for sync progress, ensuring the user has visibility on upload/download status without performance degradation.
 
 ---
 
