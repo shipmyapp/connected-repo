@@ -6,7 +6,28 @@ import { recordErrorOtel } from "@backend/utils/record-message.otel.utils";
 import { themeSettingZod } from "@connected-repo/zod-schemas/enums.zod";
 import { uniqueTimeArrayZod, zTimezone } from "@connected-repo/zod-schemas/zod_utils";
 import { betterAuth } from "better-auth";
+import { createAuthMiddleware } from "better-auth/api";
+import { bearer } from "better-auth/plugins";
+import { apple } from "better-auth/social-providers";
 import { orchidAdapter } from "./orchid-adapter/factory.orchid_adapter";
+import { generateAppleClientSecret } from "./lib/apple.lib";
+
+// Apple Client Secret is generated on-the-fly and cached for the process duration
+// (or could be periodically refreshed if the process is long-lived)
+const appleClientSecretFn = (async () => {
+	if (!env.APPLE_CLIENT_ID || !env.APPLE_TEAM_ID || !env.APPLE_KEY_ID || !env.APPLE_PRIVATE_KEY) {
+		return undefined;
+	}
+	return generateAppleClientSecret({
+		clientId: env.APPLE_CLIENT_ID,
+		teamId: env.APPLE_TEAM_ID,
+		keyId: env.APPLE_KEY_ID,
+		privateKey: env.APPLE_PRIVATE_KEY,
+	}).catch((err) => {
+		logger.error({ err }, "Failed to generate Apple Client Secret");
+		return undefined;
+	});
+})();
 
 // TODO: Instrument Better Auth with OpenTelemetry for automatic tracing
 // This will automatically create spans for all auth operations including:
@@ -39,7 +60,63 @@ export const auth = betterAuth({
 	basePath: "/api/auth",
 	database: orchidAdapter(db),
 	emailAndPassword: {
-		enabled: isTest,
+		enabled: true,
+	},
+	plugins: [bearer()],
+	hooks: {
+		before: createAuthMiddleware(async (ctx) => {
+			const appleClientSecret = await appleClientSecretFn;
+
+			// 1. Update static web apple provider if it exists
+			const appleWebProvider = ctx.context.socialProviders.find((p) => p.id === "apple");
+			if (appleWebProvider && appleClientSecret) {
+				(appleWebProvider as any).clientSecret = appleClientSecret;
+			}
+
+			// 2. Add native iOS apple provider dynamically
+			if (env.APPLE_APP_BUNDLE_ID && appleClientSecret) {
+				ctx.context.socialProviders = [
+					...ctx.context.socialProviders,
+					{
+						...apple({
+							clientId: env.APPLE_APP_BUNDLE_ID,
+							clientSecret: appleClientSecret,
+							appBundleIdentifier: env.APPLE_APP_BUNDLE_ID,
+						}),
+						id: "apple_ios",
+					},
+				];
+			}
+
+			// 3. Dynamic Google Client ID for Native Apps
+			// Social sign-in from native apps sends an idToken. We must match the clientId
+			// to the 'aud' (audience) in the token for verification to pass.
+			if (ctx.path.endsWith("/sign-in/social") && ctx.method === "POST") {
+				const body = (ctx as any).body;
+				const idToken = body?.idToken;
+
+				if (idToken) {
+					try {
+						const { decodeJwt } = await import("jose");
+						const payload = decodeJwt(idToken);
+						const aud = payload.aud as string;
+
+						if (
+							aud &&
+							(aud === env.GOOGLE_IOS_CLIENT_ID || aud === env.GOOGLE_ANDROID_CLIENT_ID)
+						) {
+							const googleProvider = ctx.context.socialProviders.find((p) => p.id === "google");
+							if (googleProvider) {
+								(googleProvider as any).clientId = aud;
+								logger.debug({ aud }, "Swapping Google Client ID for native app");
+							}
+						}
+					} catch (err) {
+						// Ignore decode errors, better-auth will handle verification
+					}
+				}
+			}
+		}),
 	},
 	// Leads to session leakage. Probably need to check the adapter implementation first.
 	// experimental: {
@@ -122,8 +199,8 @@ export const auth = betterAuth({
 	},
 	socialProviders: {
 		google: {
-			clientId: env.GOOGLE_CLIENT_ID,
-			clientSecret: env.GOOGLE_CLIENT_SECRET,
+			clientId: env.GOOGLE_WEB_CLIENT_ID,
+			clientSecret: env.GOOGLE_WEB_CLIENT_SECRET,
 			prompt: "select_account",
 			redirectURI: `${env.VITE_API_URL}/api/auth/callback/google`,
 		},

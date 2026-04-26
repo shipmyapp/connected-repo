@@ -44,3 +44,13 @@ export const subscriptionAlertWebhookTaskDef = defineTask({
 		keepInSeconds: 604800, // 7 days retention
 	},
 });
+
+export const systemCronMinuteTaskDef = defineTask({
+	task_name: "system.cron.minute",
+	schema: Type.Object({
+		timestamp: Type.Number(),
+	}),
+	config: {
+		singletonKey: "system-cron-minute",
+	},
+});

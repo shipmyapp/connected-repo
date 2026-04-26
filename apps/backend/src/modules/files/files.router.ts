@@ -1,9 +1,10 @@
 import { db } from "@backend/db/db";
 import { rpcProtectedProcedure } from "@backend/procedures/protected.procedure";
-import { fileCreateInputZod } from "@connected-repo/zod-schemas/file.zod";
+import { fileCreateInputZod, fileSelectAllZod } from "@connected-repo/zod-schemas/file.zod";
 
 const create = rpcProtectedProcedure
     .input(fileCreateInputZod)
+    .output(fileSelectAllZod)
     .handler(async ({ input, context: { user } }) => {
         // We use selective .merge() here to ensure that as metadata (CDN URLs, thumbnails)
         // becomes available asynchronously on the frontend, it's synced/backed up 

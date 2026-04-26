@@ -2,7 +2,6 @@ import './otel.sdk';
 import { createServer as createHttpServer, Server as HttpServer } from 'node:http';
 import { allowedOrigins } from '@backend/configs/allowed_origins.config';
 import { env, isDev, isProd, isStaging, isTest } from '@backend/configs/env.config';
-import { perMinuteCronJobs } from "@backend/cron_jobs/services/per_minute_cron";
 import { startEventBus } from "@backend/events/events.utils";
 import { handleServerClose } from '@backend/utils/graceful_shutdown.utils';
 import { logger } from '@backend/utils/logger.utils';
@@ -40,6 +39,12 @@ try {
         process.send("ready"); // Notify PM2/Coolify
       }
       logger.info({ url: env.VITE_API_URL, port: env.PORT, secure: false }, "Server running");
+
+      // Smoke test: If --smoke-test flag is present, exit successfully
+      if (process.argv.includes("--smoke-test")) {
+        logger.info("Smoke test passed, exiting...");
+        process.exit(0);
+      }
     }
   );
 
@@ -47,7 +52,7 @@ try {
   // TODO: Setup otel/sentry to track cron-jobs properly.
   // Start the cron job and event-bus
   startEventBus().then(() => {
-    perMinuteCronJobs.start();
+    // perMinuteCronJobs.start();
   });
 
   handleServerClose(server)

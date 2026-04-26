@@ -14,9 +14,9 @@
 ---
 
 ## 2. Active Task
-**Context**: Background Sync (Service Worker) (Plan 011).
-**Current Status**: Completed Plan 002 (Storage Persistence). Implementing isomorphic `SyncOrchestrator` to enable SW-based background sync.
-**Decision**: Deferring complex UI-dependent tasks (thumbnails) in SW context while allowing metadata and original file sync.
+**Context**: Robust Boilerplate Standardization (Plan 005).
+**Current Status**: Restoring advanced patterns from `recent-changes.md`.
+**Intent**: Implement OPFS storage, SW fetch interception, and enforce mutation safety.
 
 ---
 

@@ -1,4 +1,5 @@
-import { subscriptionAlertWebhookTaskDef, userCreatedEventDef, userReminderTaskDef } from "@backend/events/events.schema";
+import { subscriptionAlertWebhookTaskDef, systemCronMinuteTaskDef, userCreatedEventDef, userReminderTaskDef } from "@backend/events/events.schema";
+import { scheduleJournalEntryReminders } from "@backend/modules/journal-entries/services/schedule_reminders.journal_entries.service";
 import { reminderNotificationJournalEntryHandler } from "@backend/modules/journal-entries/notifications/reminder.notifications.journal_entries";
 import { userCreatedNotificationHandler } from "@backend/modules/users/notifications/user_created.notifications.user";
 import { subscriptionAlertWebhookHandler } from "@backend/modules/webhook_calls/handlers/subscription_alert_webhook.handler";
@@ -46,8 +47,30 @@ export const startEventBus = async () => {
 				handler: subscriptionAlertWebhookHandler,
 			})
 		);
+		tbus.registerTask(
+			createTaskHandler({
+				taskDef: systemCronMinuteTaskDef,
+				handler: async () => {
+					logger.info("Executing system.cron.minute...");
+					await scheduleJournalEntryReminders();
+
+					// Schedule next run in 60 seconds (Recursive pattern)
+					// We use a singletonKey in the task definition to prevent multiple chains
+					await tbus.send(
+						systemCronMinuteTaskDef.from(
+							{ timestamp: Date.now() },
+							{ startAfterSeconds: 60 }
+						)
+					);
+				}
+			})
+		);
 
 		await tbus.start();
+
+		// Trigger the initial cron task if none is active
+		// The singletonKey handles idempotency if one is already scheduled
+		await tbus.send(systemCronMinuteTaskDef.from({ timestamp: Date.now() }));
 
 	} catch (error) {
 		logger.error(error, "Failed to start pg-tbus event bus");

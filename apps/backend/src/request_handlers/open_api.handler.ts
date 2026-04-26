@@ -36,6 +36,12 @@ export const openApiHandler = new OpenAPIHandler(openApiRouter, {
 				servers: [{ url: "/api" }],
 				components: {
 					securitySchemes: {
+						sessionCookie: {
+							type: "apiKey",
+							in: "cookie",
+							name: "__Secure-better-auth.session_token",
+							description: "Better Auth session cookie used by user-authenticated routes.",
+						},
 						"x-team-id": {
 							type: "apiKey",
 							in: "header",

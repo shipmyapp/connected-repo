@@ -32,4 +32,4 @@ This skill provides a structured approach to reviewing code changes before they 
 - **Review the diff**: Always base the review on the output of `git diff --staged`.
 - **Provide Actionable Feedback**: Suggestions should be concrete and easy to implement.
 - **Focus on High-Impact Issues**: Prioritize architectural flaws and data integrity over styling nitpicks.
-- **Reference Project Rules**: Ensure compliance with `TypeScript Strictness`, `Worker Isolation`, and `Bundle Excellence`.
+- **Reference Project Rules**: Ensure compliance with `TypeScript Strictness`, `Worker Isolation`, `Bundle Excellence`, `Code Quality`, and `Database Migrations`.

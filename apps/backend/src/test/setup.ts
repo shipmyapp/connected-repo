@@ -5,7 +5,18 @@ import type { ActiveSessionSelectAll } from '@backend/modules/auth/tables/sessio
 import { createUserAndLogin } from '@backend/test/utils/user-auth.utils';
 import type { UserSelectAll } from '@connected-repo/zod-schemas/user.zod';
 import { testTransaction } from 'orchid-orm';
-import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, vi } from 'vitest';
+
+// Mock tbus to avoid database dependency in unit tests
+vi.mock('@backend/events/tbus', () => ({
+  tbus: {
+    publish: vi.fn().mockResolvedValue({}),
+    send: vi.fn().mockResolvedValue({}),
+    registerTask: vi.fn(),
+    registerHandler: vi.fn(),
+    start: vi.fn().mockResolvedValue({}),
+  },
+}));
 
 export let defaultContext: undefined | {
   reqHeaders: Headers;

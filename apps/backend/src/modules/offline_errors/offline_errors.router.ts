@@ -3,10 +3,12 @@ import { rpcPublicProcedure } from '@backend/procedures/public.procedure';
 import { batchInsertOfflineErrorsZod } from '@connected-repo/zod-schemas/offline_errors.zod';
 import { auth } from '@backend/modules/auth/auth.config';
 import { transformSessionAndUserData } from '@backend/utils/session.utils';
+import { z } from "zod";
 
 const batchInsert = rpcPublicProcedure
 	.route({ method: 'POST', path: '/errors' })
 	.input(batchInsertOfflineErrorsZod)
+	.output(z.object({ success: z.boolean() }))
 	.handler(async ({ input, context }) => {
 		if (!input?.length) {
 			return { success: true };

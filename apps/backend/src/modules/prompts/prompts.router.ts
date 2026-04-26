@@ -5,11 +5,13 @@ import { z } from "zod";
 import {
 	promptGetByCategoryZod,
 	promptGetByIdZod,
+	promptSelectAllZod,
 } from "@connected-repo/zod-schemas/prompt.zod";
 import { ORPCError } from "@orpc/server";
 
 // Get all active prompts, optionally filtered by team
 const getAllActive = rpcProtectedProcedure
+	.output(z.array(promptSelectAllZod))
 	.handler(async () => {
 		const query: any = { deletedAt: null };
 
@@ -23,6 +25,7 @@ const getAllActive = rpcProtectedProcedure
 
 // Get a random active prompt, optionally filtered by team
 const getRandomActive = rpcProtectedProcedure
+	.output(promptSelectAllZod)
 	.handler(async () => {
 		const query: any = { deletedAt: null };
 
@@ -59,6 +62,7 @@ const getRandomActive = rpcProtectedProcedure
 // Get prompt by ID
 const getById = rpcPublicProcedure
 	.input(promptGetByIdZod)
+	.output(promptSelectAllZod)
 	.handler(async ({ input: { id } }) => {
 		const prompt = await db.prompts.find(id);
 
@@ -75,6 +79,7 @@ const getById = rpcPublicProcedure
 // Get prompts by category, optionally filtered by team
 const getByCategory = rpcProtectedProcedure
 	.input(promptGetByCategoryZod)
+	.output(z.array(promptSelectAllZod))
 	.handler(async ({ input: { category } }) => {
 		const query: any = { category, deletedAt: null };
 

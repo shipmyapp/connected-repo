@@ -8,6 +8,7 @@ import type { InferRouterInputs, InferRouterOutputs, RouterClient } from '@orpc/
 import { cdnRouter } from '@backend/modules/cdn/cdn.user_app.router';
 import { teamsAppRouter } from '@backend/modules/teams/teams_app.router';
 import { offlineErrorsRouter } from '@backend/modules/offline_errors/offline_errors.router';
+import { z } from "zod";
 
 // Phase 1: Basic health check and testing endpoints
 // Modules will be added in later phases
@@ -15,6 +16,12 @@ import { offlineErrorsRouter } from '@backend/modules/offline_errors/offline_err
 // Health check endpoint
 const healthCheck = rpcPublicProcedure
 	.route({ method: 'GET' })
+	.output(z.object({
+		status: z.string(),
+		timestamp: z.string(),
+		phase: z.number(),
+		message: z.string(),
+	}))
 	.handler(async () => {
 		return {
 			status: 'ok',

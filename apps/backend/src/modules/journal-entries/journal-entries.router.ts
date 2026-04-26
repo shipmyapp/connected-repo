@@ -6,11 +6,14 @@ import {
 	journalEntryDeleteZod,
 	journalEntryGetByIdZod,
 	journalEntryGetByUserZod,
+	journalEntrySelectAllZod,
 } from "@connected-repo/zod-schemas/journal_entry.zod";
+import { userSelectAllZod } from "@connected-repo/zod-schemas/user.zod";
 
 // Get all journal entries for the authenticated user, optionally filtered by team
 const getAll = rpcProtectedProcedure
 	.input(z.object({ teamId: z.ulid().nullable().optional() }))
+	.output(z.array(journalEntrySelectAllZod.extend({ author: userSelectAllZod.optional() })))
 	.handler(async ({ input: { teamId }, context: { user } }) => {
 		const query: any = { authorUserId: user.id };
 		if (teamId !== undefined) {
@@ -29,6 +32,7 @@ const getAll = rpcProtectedProcedure
 // Get journal entry by ID
 const getById = rpcProtectedProcedure
 	.input(journalEntryGetByIdZod.extend({ teamId: z.ulid().nullable().optional() }))
+	.output(journalEntrySelectAllZod)
 	.handler(async ({ input: { id, teamId }, context: { user } }) => {
 		const query: any = { id, authorUserId: user.id };
 		if (teamId !== undefined) {
@@ -45,6 +49,7 @@ const getById = rpcProtectedProcedure
 // Create journal entry
 const create = rpcProtectedProcedure
 	.input(journalEntryCreateInputZod)
+	.output(journalEntrySelectAllZod)
 	.handler(async ({ input, context: { user } }) => {
 
 		let newJournalEntry = await db.journalEntries.create({
@@ -62,6 +67,7 @@ const create = rpcProtectedProcedure
 // Get journal entries by user
 const getByUser = rpcProtectedProcedure
 	.input(journalEntryGetByUserZod)
+	.output(z.array(journalEntrySelectAllZod.extend({ author: userSelectAllZod.optional() })))
 	.handler(async ({ input }) => {
 		const journalEntries = await db.journalEntries
 			.select("*", {
@@ -76,6 +82,7 @@ const getByUser = rpcProtectedProcedure
 // Update journal entry
 const update = rpcProtectedProcedure
 	.input(journalEntryCreateInputZod.extend({ id: z.ulid() }))
+	.output(journalEntrySelectAllZod)
 	.handler(async ({ input, context: { user } }) => {
 		const { id, ...updates } = input;
 		
@@ -91,6 +98,7 @@ const update = rpcProtectedProcedure
 // Delete journal entry
 const deleteEntry = rpcProtectedProcedure
 	.input(journalEntryDeleteZod.extend({ teamId: z.ulid().nullable().optional() }))
+	.output(z.object({ success: z.boolean() }))
 	.handler(async ({ input: { id, teamId }, context: { user } }) => {
 		const query: any = { id, authorUserId: user.id };
 		if (teamId !== undefined) {

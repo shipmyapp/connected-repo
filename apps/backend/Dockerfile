@@ -27,6 +27,55 @@ COPY --from=prepare /app/out/full/ .
 RUN --mount=type=cache,target=/app/node_modules/.cache/turbo \
     npx turbo run build --filter=@connected-repo/backend
 
+# Validate environment config (fails build if required env vars are missing/invalid)
+# We use dummy values to satisfy the schema for the build-time check
+RUN cd apps/backend && \
+    PORT=3000 \
+    VITE_API_URL=http://localhost:3000 \
+    WEBAPP_URL=http://localhost:5173 \
+    DB_HOST=localhost \
+    DB_PORT=5432 \
+    DB_USER=user \
+    DB_PASSWORD=pass \
+    DB_NAME=db \
+    DB_SCHEMA=public \
+    BETTER_AUTH_SECRET=12345678901234567890123456789012 \
+    SESSION_SECRET=12345678901234567890123456789012 \
+    CRON_JOB_TOKEN=12345678901234567890123456789012 \
+    OTEL_SERVICE_NAME=backend \
+    S3_ENDPOINT=http://localhost:9000 \
+    S3_REGION=us-east-1 \
+    S3_ACCESS_KEY_ID=key \
+    S3_SECRET_ACCESS_KEY=secret \
+    S3_BUCKET_NAME=bucket \
+    GOOGLE_WEB_CLIENT_ID=123.apps.googleusercontent.com \
+    GOOGLE_WEB_CLIENT_SECRET=secret \
+    node dist/configs/env.config.js
+
+# Smoke test server (fails build if server crashes on boot)
+RUN cd apps/backend && \
+    PORT=3000 \
+    VITE_API_URL=http://localhost:3000 \
+    WEBAPP_URL=http://localhost:5173 \
+    DB_HOST=localhost \
+    DB_PORT=5432 \
+    DB_USER=user \
+    DB_PASSWORD=pass \
+    DB_NAME=db \
+    DB_SCHEMA=public \
+    BETTER_AUTH_SECRET=12345678901234567890123456789012 \
+    SESSION_SECRET=12345678901234567890123456789012 \
+    CRON_JOB_TOKEN=12345678901234567890123456789012 \
+    OTEL_SERVICE_NAME=backend \
+    S3_ENDPOINT=http://localhost:9000 \
+    S3_REGION=us-east-1 \
+    S3_ACCESS_KEY_ID=key \
+    S3_SECRET_ACCESS_KEY=secret \
+    S3_BUCKET_NAME=bucket \
+    GOOGLE_WEB_CLIENT_ID=123.apps.googleusercontent.com \
+    GOOGLE_WEB_CLIENT_SECRET=secret \
+    node dist/server.js --smoke-test
+
 # Stage 3: Installer - Install only production dependencies
 FROM base AS installer
 WORKDIR /app
@@ -58,14 +107,14 @@ COPY --from=builder --chown=nodejs:nodejs /app/apps/backend/package.json ./apps/
 COPY --from=builder --chown=nodejs:nodejs /app/packages/zod-schemas/dist ./packages/zod-schemas/dist
 COPY --from=builder --chown=nodejs:nodejs /app/packages/typescript-config ./packages/typescript-config
 
+# Add entrypoint script
+COPY --chown=nodejs:nodejs apps/backend/scripts/docker-entrypoint.sh /usr/local/bin/
 USER root
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 # Remove declaration files from migrations directory to prevent rake-db errors
 RUN find ./apps/backend/dist/db/migrations -type f \( -name "*.d.ts" -o -name "*.d.ts.map" \) -delete
 # Install curl for the healthcheck
 RUN apk add --no-cache curl
-
-# NOTE: The entrypoint.sh COPY and chmod commands were removed because the file was deleted.
-# The startup logic has been moved to the CMD instruction at the bottom.
 
 USER nodejs
 
@@ -99,10 +148,5 @@ HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
 
 STOPSIGNAL SIGTERM
 
-# ============================================================================
-# START COMMAND
-# Replaces the old entrypoint.sh logic:
-# 1. Run database migrations first (blocking)
-# 2. Start the server via 'exec' to ensure Node is PID 1
-# ============================================================================
-CMD ["sh", "-c", "node dist/db/db_script.js up && exec node dist/server.js"]
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["node", "dist/server.js"]

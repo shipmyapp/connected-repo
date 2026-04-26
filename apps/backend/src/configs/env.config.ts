@@ -50,8 +50,10 @@ const envSchema = z.object({
 	DB_PASSWORD: zString.min(1),
 	DB_NAME: zString.min(1),
 	DB_SCHEMA: zString.min(1),
-	GOOGLE_CLIENT_ID: zString.min(1).includes(".apps.googleusercontent.com"),
-	GOOGLE_CLIENT_SECRET: zString.min(1),
+	GOOGLE_WEB_CLIENT_ID: zString.min(1).includes(".apps.googleusercontent.com"),
+	GOOGLE_WEB_CLIENT_SECRET: zString.min(1),
+	GOOGLE_IOS_CLIENT_ID: zString.optional(),
+	GOOGLE_ANDROID_CLIENT_ID: zString.optional(),
 	INTERNAL_API_SECRET: zString.min(32, "Internal API secret must be at least 32 characters").optional(),
 	IS_E2E_TEST: z.stringbool().optional(),
 	NODE_ENV: NODE_ENV_ZOD,
@@ -72,6 +74,11 @@ const envSchema = z.object({
 	S3_SECRET_ACCESS_KEY: zString.min(1),
 	S3_BUCKET_NAME: zString.min(1),
 	S3_PUBLIC_URL: z.preprocess((val) => (val === "" ? undefined : val), z.url().optional()),
+	APPLE_CLIENT_ID: zString.optional(),
+	APPLE_TEAM_ID: zString.optional(),
+	APPLE_KEY_ID: zString.optional(),
+	APPLE_PRIVATE_KEY: zString.optional(),
+	APPLE_APP_BUNDLE_ID: zString.optional(),
 });
 
 // ----------------------------------------

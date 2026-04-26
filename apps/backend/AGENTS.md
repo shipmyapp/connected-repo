@@ -13,9 +13,9 @@
 ---
 
 ## 2. Active Task
-**Context**: Backend idempotency enforcement.
-**Current Status**: Implemented `.onConflictDoNothing()` for journal entries and selective `.merge()` for files metadata.
-**Intent**: Prevent duplicate records from network retries and enable async metadata enrichment.
+**Context**: Robust Boilerplate Standardization (Plan 005).
+**Current Status**: Restoring advanced patterns from `recent-changes.md`.
+**Intent**: Implement Hybrid Auth, Smart CSRF, and event-driven task scheduling.
 
 ---
 

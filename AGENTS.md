@@ -17,24 +17,24 @@
 
 ---
 
-## 2. Active Task
-**Context**: Sync Visibility & Feedback (Plan 004).
-**Current Status**: Completed Plan 003 (Client-Side Error Telemetry). Transitioning to Plan 004 to build out transparency & UI indicators for sync progress.
-**Intent**: Develop UI and state management for sync progress, ensuring the user has visibility on upload/download status without performance degradation.
+## Layer 2: Active Task
+- **Objective**: Standardize and restore robust boilerplate patterns (Plan 005).
+- **Status**: In Progress.
+- **Context**: Restoring advanced architectural patterns (Hybrid Auth, Smart CSRF, Bimodal Docs, Worker Isolation) identified from `recent-changes.md` to ensure the OneQ boilerplate is production-ready.
 
----
+## Layer 3: Decision Records
 
-## 3. Decision Records
 | ID | Title | Status | Description |
 |---|---|---|---|
-| [ADR-001] | Bimodal Documentation | Accepted | Split human-friendly and agent-optimized docs. |
-| [ADR-002] | Worker Isolation | Accepted | Proxy pattern for UI-Worker communication. |
-| [ADR-003] | Offline Mutation Safety | Accepted | Synced records require online connection for edits. |
-| [ADR-004] | Direct Imports | Accepted | NO barrel exports to ensure optimal tree-shaking. |
-| [ADR-005] | Files Metadata Idempotency | Accepted | Use .merge() for files creation to capture asynchronous metadata enrichment. |
-| [ADR-006] | Sync Recovery (Lost Files) | Accepted | Flag `isMainFileLost` allows metadata sync even if binary data is purged from storage. |
-| [ADR-007] | OPFS Storage Persistence | Accepted | Move binary blobs from IndexedDB to OPFS to prevent browser eviction and improve performance. |
-| [ADR-008] | Virtual Media Provider | Accepted | Serve OPFS media via Service Worker fetch interception to avoid avoid `URL.createObjectURL` overhead. |
+| [ADR-001] | Pivot to OneQ | Accepted | App returns to its ultra-minimalist journaling roots. |
+| [ADR-002] | Snake Case Columns in Raw SQL | Accepted | Always use snake_case in raw SQL Orchid ORM migrations. |
+| [ADR-003] | Hybrid Auth (Cookies + Bearer) | Accepted | Support both web and mobile auth via Better Auth bearer plugin. |
+| [ADR-004] | Smart CSRF Exception | Accepted | Exclude Bearer-token requests from CSRF checks for mobile compatibility. |
+| [ADR-005] | OPFS Storage Persistence | Accepted | Move binary blobs from IndexedDB to OPFS to prevent browser eviction and improve performance. |
+| [ADR-006] | Direct Imports | Accepted | NO barrel exports to ensure optimal tree-shaking. |
+| [ADR-007] | Files Metadata Idempotency | Accepted | Use .merge() for files creation to capture asynchronous metadata enrichment. |
+| [ADR-008] | Sync Recovery (Lost Files) | Accepted | Flag `isMainFileLost` allows metadata sync even if binary data is purged from storage. |
+| [ADR-009] | Virtual Media Provider | Accepted | Serve OPFS media via Service Worker fetch interception to avoid avoid `URL.createObjectURL` overhead. |
 
 ## Quick Reference
 - **Dev**: `yarn dev`

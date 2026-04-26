@@ -1,13 +1,13 @@
 import { scheduleJournalEntryReminders } from "@backend/modules/journal-entries/services/schedule_reminders.journal_entries.service";
 import { logger } from '@backend/utils/logger.utils';
-import * as cron from 'node-cron';
+import { createTask, ScheduledTask } from "node-cron";
 
 // Mutex flag to prevent concurrent cron job execution
 let isCronJobRunning = false;
 
 // Schedule to run every minute
 // TODO: Add scheduled tasks here as needed (e.g., user reminders via pg-tbus)
-export const perMinuteCronJobs: cron.ScheduledTask = cron.schedule(
+export const perMinuteCronJobs: ScheduledTask = createTask(
 	'* * * * *',
 	async () => {
 		// Check if previous job is still running

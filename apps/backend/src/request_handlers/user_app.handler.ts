@@ -1,6 +1,7 @@
 import { allowedOrigins } from '@backend/configs/allowed_origins.config';
 import { isDev, isProd, isStaging } from '@backend/configs/env.config';
 import { userAppRouter } from '@backend/routers/user_app/user_app.router';
+import { auth } from '@backend/modules/auth/auth.config';
 import { logger } from '@backend/utils/logger.utils';
 import { trace } from '@opentelemetry/api';
 import { LoggingHandlerPlugin } from '@orpc/experimental-pino';
@@ -31,7 +32,29 @@ export const userAppHandler = new RPCHandler(userAppRouter, {
       logRequestAbort: false,
     }),
     // CSRF protection (disabled in development for easier testing)
-    ...(isProd || isStaging ? [new SimpleCsrfProtectionHandlerPlugin()] : []),
+    ...(isProd || isStaging
+      ? [
+          new SimpleCsrfProtectionHandlerPlugin({
+            exclude: async ({ context }) => {
+              // Exclude requests using VALID Bearer tokens (typically from mobile apps)
+              const authHeader = context.reqHeaders?.get('authorization')?.trim();
+              if (authHeader && /^bearer\s+/i.test(authHeader)) {
+                try {
+                  // his calls auth.api.getSession on every request with a Bearer token. This introduces excessive latency or DB load, as Better Auth might fetch the session again in its own middleware.
+                  // const session = await auth.api.getSession({
+                  //   headers: context.reqHeaders,
+                  // });
+                  // return !!session;
+                  return true;
+                } catch (e) {
+                  return false;
+                }
+              }
+              return false;
+            },
+          }),
+        ]
+      : []),
     // Strict GET method plugin (queries must use GET)
     new StrictGetMethodPlugin(),
   ],
