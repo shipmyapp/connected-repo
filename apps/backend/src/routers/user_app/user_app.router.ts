@@ -2,13 +2,14 @@ import { journalEntriesRouter } from '@backend/modules/journal-entries/journal-e
 import { promptsRouter } from '@backend/modules/prompts/prompts.router';
 import { filesRouter } from '@backend/modules/files/files.router';
 import { rpcPublicProcedure } from '@backend/procedures/public.procedure';
-import { usersRouter } from '@backend/routers/user_app/users.user_app.router';
+import { usersRouter } from '@backend/modules/users/users.user_app.router';
 import { syncRouter } from '@backend/modules/sync/sync.router';
 import type { InferRouterInputs, InferRouterOutputs, RouterClient } from '@orpc/server';
 import { cdnRouter } from '@backend/modules/cdn/cdn.user_app.router';
 import { teamsAppRouter } from '@backend/modules/teams/teams_app.router';
 import { offlineErrorsRouter } from '@backend/modules/offline_errors/offline_errors.router';
 import { z } from "zod";
+import { meRouter } from '@backend/modules/users/me.user_app.router';
 
 // Phase 1: Basic health check and testing endpoints
 // Modules will be added in later phases
@@ -32,15 +33,16 @@ const healthCheck = rpcPublicProcedure
 	})
 		
 export const ReactAppRouter = {
+	cdn: cdnRouter,
+	files: filesRouter,
 	health: healthCheck,
-	users: usersRouter,
 	journalEntries: journalEntriesRouter,
+	offlineErrors: offlineErrorsRouter,
+	me: meRouter, 
 	prompts: promptsRouter,
 	sync: syncRouter,
-	cdn: cdnRouter,
 	teams: teamsAppRouter,
-	files: filesRouter,
-	offlineErrors: offlineErrorsRouter,
+	users: usersRouter,
 };
 
 export type ReactAppRouter = RouterClient<typeof ReactAppRouter>;

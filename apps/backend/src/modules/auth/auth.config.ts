@@ -256,6 +256,12 @@ export const auth = betterAuth({
 					input: uniqueTimeArrayZod,
 					output: uniqueTimeArrayZod,
 				}
+			},
+			defaultTeamAppId: {
+				type: "string",
+				required: false,
+				defaultValue: null,
+				input: false,
 			}
 		},
 		modelName: "users",

@@ -17,6 +17,7 @@ export const teamAppMandatoryZod = z.object({
 export const teamAppOptionalZod = z.object({
   logoUrl: zString.nullable(),
   createdByUserId: z.uuid(),
+  personalTeamForUserId: z.uuid().nullable(),
   deletedAt: zTimeEpoch.nullable(),
 });
 

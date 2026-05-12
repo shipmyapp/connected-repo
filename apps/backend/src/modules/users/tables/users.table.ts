@@ -4,6 +4,7 @@ import { userCreatedEventDef } from "@backend/events/events.schema";
 import { orchidToTbusQueryAdapter } from "@backend/events/events.utils";
 import { tbus } from "@backend/events/tbus";
 import { TeamMemberTable } from "@backend/modules/teams/tables/team_members.table";
+import { TeamAppTable } from "@backend/modules/teams/tables/teams_app.table";
 
 export class UserTable extends BaseTable {
 	readonly table = "users";
@@ -30,6 +31,10 @@ export class UserTable extends BaseTable {
 		teamMembers: this.hasMany(() => TeamMemberTable, {
 			columns: ["id"],
 			references: ["userId"],
+		}),
+		teams: this.hasMany(() => TeamAppTable, {
+			through: "team_members",
+			source: "team"
 		}),
 	}
 

@@ -134,6 +134,46 @@ const updateMemberRole = rpcProtectedProcedure
 		return await db.teamMembers.where({ id }).selectAll().take().update({ role });
 	});
 
+const getDefaultTeam = rpcProtectedProcedure
+	.output(teamAppSelectAllZod)
+	.handler(async ({ context: { user } }) => {
+		const userId = user.id;
+
+		// 1. If user already has a default team, return it
+		if (user.defaultTeamAppId) {
+			const team = await db.teamsApp.where({ id: user.defaultTeamAppId }).takeOptional();
+			if (team) return team;
+		}
+
+		// 2. No default team set, or it was deleted. Check for an existing personal team.
+		let personalTeam = await db.teamsApp.where({ personalTeamForUserId: userId }).takeOptional();
+
+		if (!personalTeam) {
+			// 3. Create a new personal team
+			const firstName = user.name.split(" ")[0] || "Personal";
+			const teamName = `${firstName}'s Team`;
+
+			personalTeam = await db.teamsApp.create({
+					name: teamName,
+					createdByUserId: userId,
+					personalTeamForUserId: userId,
+					members: {
+						create: [{							
+							userId,
+							email: user.email,
+							role: "Owner",
+							joinedAt: Date.now(),
+						}]
+					}
+				});
+		}
+
+		// 4. Update user's default team
+		await db.users.where({ id: userId }).update({ defaultTeamAppId: personalTeam.id });
+
+		return personalTeam;
+	});
+
 export const teamsAppRouter = {
 	getMyTeams,
 	createTeam,
@@ -141,4 +181,5 @@ export const teamsAppRouter = {
 	addTeamMember,
 	removeTeamMember,
 	updateMemberRole,
+	getDefaultTeam,
 };

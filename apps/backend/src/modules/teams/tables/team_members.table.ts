@@ -2,6 +2,8 @@ import { env, isTest } from "@backend/configs/env.config";
 import { BaseTable } from "@backend/db/base_table";
 import { syncService } from "@backend/modules/sync/sync.service";
 import { TeamAppMemberSelectAll, teamAppMemberSelectAllZod } from "@connected-repo/zod-schemas/team_app.zod";
+import { TeamAppTable } from "./teams_app.table";
+import { UserTable } from "@backend/modules/users/tables/users.table";
 
 // Group by TeamAppId and push to person who has been edited/added and owners/admins of the team
 const pushTeamMembersToSync = (operation: "create" | "update" | "delete", entries: TeamAppMemberSelectAll[]) => {
@@ -53,6 +55,17 @@ export class TeamMemberTable extends BaseTable {
 
   // Disable soft delete during non-E2E tests to avoid SQL syntax errors when using onConflictDoNothing()
   readonly softDelete = true;
+
+  relations = {
+    team: this.belongsTo(() => TeamAppTable, {
+      columns: ["teamId"],
+      references: ["id"],
+    }),
+    user: this.belongsTo(() => UserTable, {
+      columns: ["userId"],
+      references: ["id"],
+    }),
+  }
 
   init() {
     this.afterCreate(teamAppMemberSelectAllZod.keyof().options, (entries) => {

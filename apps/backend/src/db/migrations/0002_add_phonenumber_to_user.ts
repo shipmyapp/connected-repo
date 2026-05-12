@@ -3,7 +3,7 @@ import { change } from '../db_script';
 change(async (db) => {
 
   await db.changeTable('teams_app', (t) => ({
-    defaultForUserId: t.add(t.uuid().foreignKey('users', 'id', {
+    personalTeamForUserId: t.add(t.uuid().foreignKey('users', 'id', {
       onUpdate: 'RESTRICT',
       onDelete: 'CASCADE',
     }).nullable()),
