@@ -257,7 +257,7 @@ export const auth = betterAuth({
 					output: uniqueTimeArrayZod,
 				}
 			},
-			defaultTeamAppId: {
+			activeTeamAppId: {
 				type: "string",
 				required: false,
 				defaultValue: null,

@@ -20,7 +20,7 @@ export class UserTable extends BaseTable {
 		timezone: t.string().default("Etc/UTC"),
 		themeSetting: t.themeSettingEnum(),
 		journalReminderTimes: t.array(t.string()).default([]),
-		defaultTeamAppId: t.ulid().foreignKey("teams_app", "id", {
+		activeTeamAppId: t.ulid().foreignKey("teams_app", "id", {
 			onDelete: "RESTRICT",
 			onUpdate: "RESTRICT",
 		}).nullable(),

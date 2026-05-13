@@ -60,7 +60,7 @@ const transformUserData = (rawUser: BetterAuthSession["user"]): UserSelectAll =>
 		journalReminderTimes: rawUser.journalReminderTimes,
 		phoneNumber: rawUser.phoneNumber ?? null,
 		phoneNumberVerified: rawUser.phoneNumberVerified ?? false,
-		defaultTeamAppId: rawUser.defaultTeamAppId ?? null,
+		activeTeamAppId: rawUser.activeTeamAppId ?? null,
 		createdAt: new Date(rawUser.createdAt).getTime(),
 		updatedAt: new Date(rawUser.updatedAt).getTime(),
 	};

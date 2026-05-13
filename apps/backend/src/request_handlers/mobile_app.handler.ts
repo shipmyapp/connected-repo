@@ -14,7 +14,7 @@ export const mobileAppHandler = new OpenAPIHandler(userAppRouter, {
 		new CORSPlugin({
 			origin: '*', // or env.API_ALLOWED_ORIGINS if you want restrictions
 			allowMethods: ['GET', 'POST', 'OPTIONS'],
-			allowHeaders: ['content-type', 'authorization', 'x-team-id', 'x-csrf-token', 'sentry-trace', 'baggage'],
+			allowHeaders: ['content-type', 'authorization', 'x-csrf-token', 'sentry-trace', 'baggage'],
             // Needed for flutter web
 			credentials: false, // No cookies/credentials needed for API key auth
 		}),
@@ -44,18 +44,9 @@ export const mobileAppHandler = new OpenAPIHandler(userAppRouter, {
 							name: "__Secure-better-auth.session_token",
 							description: "Better Auth session cookie used by user-authenticated routes.",
 						},
-						"x-team-id": {
-							type: "apiKey",
-							in: "header",
-							name: "x-team-id",
-							description: "Team ID for authentication",
-						},
 					},
 				},
 				security: [
-					{
-						"x-team-id": [],
-					},
 				],
 			},
 		}),

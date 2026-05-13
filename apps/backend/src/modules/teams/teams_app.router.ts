@@ -148,9 +148,9 @@ const getDefaultTeam = rpcProtectedProcedure
 	.handler(async ({ context: { user } }) => {
 		const userId = user.id;
 
-		// 1. If user already has a default team, return it
-		if (user.defaultTeamAppId) {
-			const team = await db.teamsApp.where({ id: user.defaultTeamAppId }).takeOptional();
+		// 1. If user already has an active team, return it
+		if (user.activeTeamAppId) {
+			const team = await db.teamsApp.where({ id: user.activeTeamAppId }).takeOptional();
 			if (team) return team;
 		}
 
@@ -169,8 +169,8 @@ const getDefaultTeam = rpcProtectedProcedure
 
 		}
 
-		// 4. Update user's default team
-		await db.users.where({ id: userId }).update({ defaultTeamAppId: personalTeam.id });
+		// 4. Update user's active team
+		await db.users.where({ id: userId }).update({ activeTeamAppId: personalTeam.id });
 
 		return personalTeam;
 	});

@@ -30,22 +30,14 @@ async function generateOpenApi() {
 					name: "__Secure-better-auth.session_token",
 					description: "Better Auth session cookie used by user-authenticated routes.",
 				},
-				"x-team-id": {
-					type: "apiKey",
-					in: "header",
-					name: "x-team-id",
-					description: "Team ID for authentication",
-				},
 			},
 		},
 		security: [
 			{
 				bearerAuth: [],
-				"x-team-id": [],
 			},
 			{
 				sessionCookie: [],
-				"x-team-id": [],
 			}
 		],
 	});

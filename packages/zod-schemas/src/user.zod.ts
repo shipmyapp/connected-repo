@@ -20,7 +20,7 @@ export const userOptionalZod = z.object({
   email: z.email().nullable(),
   phoneNumber: zString.nullable(),
   image: z.url().nullable(),
-  defaultTeamAppId: z.string().nullable(),
+  activeTeamAppId: z.string().nullable(),
 });
 
 export const userCreateInputZod = userMandatoryZod.extend(userOptionalZod.partial().shape);

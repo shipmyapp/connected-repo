@@ -12,7 +12,7 @@ change(async (db) => {
   await db.changeTable('users', (t) => ({
     phoneNumber: t.add(t.string().nullable().unique()),
     phoneNumberVerified: t.add(t.boolean().default(false)),
-    defaultTeamAppId: t.add(t.string(26).foreignKey('teams_app', 'id', {
+    activeTeamAppId: t.add(t.string(26).foreignKey('teams_app', 'id', {
       onUpdate: 'RESTRICT',
       onDelete: 'RESTRICT',
     }).nullable()),
