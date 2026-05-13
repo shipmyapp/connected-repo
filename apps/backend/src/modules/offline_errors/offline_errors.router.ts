@@ -6,7 +6,7 @@ import { transformSessionAndUserData } from '@backend/utils/session.utils';
 import { z } from "zod";
 
 const batchInsert = rpcPublicProcedure
-	.route({ method: 'POST', path: '/errors' })
+	.route({ method: 'POST', tags: ["Offline Errors"] })
 	.input(batchInsertOfflineErrorsZod)
 	.output(z.object({ success: z.boolean() }))
 	.handler(async ({ input, context }) => {

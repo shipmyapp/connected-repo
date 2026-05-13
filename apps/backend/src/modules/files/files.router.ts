@@ -3,6 +3,7 @@ import { rpcProtectedProcedure } from "@backend/procedures/protected.procedure";
 import { fileCreateInputZod, fileSelectAllZod } from "@connected-repo/zod-schemas/file.zod";
 
 const create = rpcProtectedProcedure
+    .route({ method: "POST", tags: ["Files"] })
     .input(fileCreateInputZod)
     .output(fileSelectAllZod)
     .handler(async ({ input, context: { user } }) => {

@@ -18,10 +18,10 @@ export const openApiHandler = new OpenAPIHandler(openApiRouter, {
 			credentials: false, // No cookies/credentials needed for API key auth
 		}),
 		new LoggingHandlerPlugin({
-      logger,
-      logRequestResponse: !isProd, // Only log in dev/staging
-      logRequestAbort: true,
-    }),
+			logger,
+			logRequestResponse: !isProd, // Only log in dev/staging
+			logRequestAbort: true,
+		}),
 		new OpenAPIReferencePlugin({
 			docsProvider: "scalar",
 			docsPath: "/",

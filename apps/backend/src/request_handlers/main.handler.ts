@@ -1,12 +1,13 @@
 import { betterAuthHandler } from '@backend/request_handlers/better_auth.handler';
 import { cronJobsHandler } from '@backend/request_handlers/cron_jobs.handler';
 import { openApiHandler } from '@backend/request_handlers/open_api.handler';
-import { reactAppHandler as reactAppHandler } from '@backend/request_handlers/user_app.handler';
+import { reactAppHandler } from '@backend/request_handlers/user_app.handler';
 import type { NodeHttpRequest, NodeHttpResponse } from '@orpc/standard-server-node';
 import { decrementActiveRequests, getServerHealth, incrementActiveRequests } from '@backend/utils/graceful_shutdown.utils';
 import { logger } from '@backend/utils/logger.utils';
 import { trace } from '@opentelemetry/api';
 import { env, isDev, isTest } from '@backend/configs/env.config';
+import { mobileAppHandler } from './mobile_app.handler';
 
 /**
  * Main request dispatcher that orchestrates all handlers and pre-checks.
@@ -86,7 +87,14 @@ export async function mainRequestDispatcher(
       prefix: '/user-app',
     });
 
-    if (!reactAppResult.matched) {
+    // 9. Mobile App Routes (/mobile-app/*)
+    const mobileAppResult = await mobileAppHandler.handle(req, res, {
+      context: {},
+      prefix: '/mobile-app',
+    });
+    if (mobileAppResult.matched) return;
+
+    if (!mobileAppResult.matched) {
       if (!res.writableEnded) {
         res.statusCode = 404;
         res.end('No procedure matched');

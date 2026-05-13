@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import { signout } from './signout.utils';
 import { RPCLink } from '@orpc/client/fetch';
 import { SimpleCsrfProtectionLinkPlugin } from '@orpc/client/plugins';
-import type { ReactAppRouter, ReactAppRouterInputs, ReactAppRouterOutputs } from "../../../backend/src/routers/user_app/user_app.router";
+import type { UserAppRouter, UserAppRouterInputs, UserAppRouterOutputs } from "../../../backend/src/routers/user_app/user_app.router";
 
 interface ClientContext {
   something?: string
@@ -68,13 +68,13 @@ const link = new RPCLink<ClientContext>({
   ]
 })
 
-export const orpcFetch: ReactAppRouter = createORPCClient(link);
+export const orpcFetch: UserAppRouter = createORPCClient(link);
 
 /**
  * @public
  */
-export type ReactAppBackendInputs = ReactAppRouterInputs;
+export type UserAppBackendInputs = UserAppRouterInputs;
 /**
  * @public
  */
-export type ReactAppBackendOutputs = ReactAppRouterOutputs;
+export type UserAppBackendOutputs = UserAppRouterOutputs;

@@ -33,26 +33,38 @@ export class UserTable extends BaseTable {
 			references: ["userId"],
 		}),
 		teams: this.hasMany(() => TeamAppTable, {
-			through: "team_members",
+			through: "teamMembers",
 			source: "team"
 		}),
 	}
 
 	init() {
-		this.afterCreate(["email", "emailVerified", "id", "name"], async (users, queryCtx) => {
+		this.afterCreate(["email", "emailVerified", "id", "name", "phoneNumber"], async (users, queryCtx) => {
 			// Publish the user.created event for each new user (with Orchid query context)
 			await Promise.all(
 				users.map(async (user) => {
 					// 1. Claim any memberships added by email but without userId
-					await db.teamMembers
-						.where({ email: user.email, userId: null })
-						.update({
-							userId: user.id,
-							joinedAt: Date.now(),
-						});
+					if (user.email) {
+						await db.teamMembers
+							.where({ email: user.email, userId: null })
+							.update({
+								userId: user.id,
+								joinedAt: Date.now(),
+							});
+					}
+
+					// 2. Claim any memberships added by phoneNumber but without userId
+					if (user.phoneNumber) {
+						await db.teamMembers
+							.where({ phoneNumber: user.phoneNumber, userId: null })
+							.update({
+								userId: user.id,
+								joinedAt: Date.now(),
+							});
+					}
 
 					if (user.email && user.emailVerified){
-						// 2. Publish event
+						// 3. Publish event
 						const eventData = {
 							userId: user.id,
 							email: user.email,
@@ -67,4 +79,5 @@ export class UserTable extends BaseTable {
 			);
 		});
 	}
+
 }

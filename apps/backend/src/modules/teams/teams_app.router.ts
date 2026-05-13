@@ -1,9 +1,13 @@
 import { db } from "@backend/db/db";
-import { teamAppCreateInputZod, teamAppMemberRoleZod, teamAppMemberSelectAllZod, teamAppSelectAllZod, teamWithRoleZod } from "@connected-repo/zod-schemas/team_app.zod";
+import { teamAppCreateInputZod, teamAppMemberAddInputZod, teamAppMemberRoleZod, teamAppMemberSelectAllZod, teamAppSelectAllZod, teamWithRoleZod } from "@connected-repo/zod-schemas/team_app.zod";
+
 import { rpcProtectedProcedure } from "@backend/procedures/protected.procedure";
 import { z } from "zod";
+import { createTeamService } from "./services/create_team.teams.service";
+
 
 const getMyTeams = rpcProtectedProcedure
+	.route({ method: "GET", tags: ["Teams"] })
 	.output(z.array(teamWithRoleZod))
 	.handler(async ({ context: { user } }) => {
 		const userId = user.id;
@@ -19,7 +23,18 @@ const getMyTeams = rpcProtectedProcedure
 				});
 		}
 
-		// 2. Join teams with team_members to get user role
+		// 2. Claim any memberships added by phoneNumber but without userId
+		if (user.phoneNumber) {
+			await db.teamMembers
+				.where({ phoneNumber: user.phoneNumber, userId: null })
+				.update({ 
+					userId,
+					joinedAt: Date.now()
+				});
+		}
+
+
+		// 3. Join teams with team_members to get user role
 		const teamsWithRoles = await db.teamsApp
 			.join("members")
 			.where({ "members.userId": userId })
@@ -33,30 +48,18 @@ const getMyTeams = rpcProtectedProcedure
 	});
 
 const createTeam = rpcProtectedProcedure
+	.route({ method: "POST", tags: ["Teams"] })
 	.input(teamAppCreateInputZod)
 	.output(teamAppSelectAllZod)
 	.handler(async ({ input, context: { user } }) => {
 		const userId = user.id;
 
-		return await db.$transaction(async () => {
-			const teamApp = await db.teamsApp.create({
-				...input,
-				createdByUserId: userId,
-			});
+		return await createTeamService(userId, user.email, user.phoneNumber, input);
 
-			await db.teamMembers.create({
-				teamId: teamApp.id,
-				userId,
-				email: user.email,
-				role: "Owner",
-				joinedAt: Date.now(),
-			});
-
-			return teamApp;
-		});
 	});
 
 const getTeamMembers = rpcProtectedProcedure
+	.route({ method: "GET", tags: ["Teams"] })
 	.input(z.object({ teamId: z.ulid() }))
 	.output(z.array(teamAppMemberSelectAllZod))
 	.handler(async ({ input: { teamId }, context: { user } }) => {
@@ -68,14 +71,11 @@ const getTeamMembers = rpcProtectedProcedure
 	});
 
 const addTeamMember = rpcProtectedProcedure
-	.input(z.object({
-		teamId: z.ulid(),
-		email: z.string().email(),
-		role: teamAppMemberRoleZod
-	}))
+	.route({ method: "POST", tags: ["Teams"] })
+	.input(teamAppMemberAddInputZod)
 	.output(teamAppMemberSelectAllZod)
 	.handler(async ({ input, context: { user } }) => {
-		const { teamId, email } = input;
+		const { teamId, email, phoneNumber } = input;
 
 		// Verify current user is Owner or Admin
 		const actor = await db.teamMembers.where({ teamId, userId: user.id }).takeOptional();
@@ -84,7 +84,12 @@ const addTeamMember = rpcProtectedProcedure
 		}
 
 		// Try to find if user already exists on platform
-		const targetUser = await db.users.where({ email }).takeOptional();
+		let targetUser = null;
+		if (email) {
+			targetUser = await db.users.where({ email }).takeOptional();
+		} else if (phoneNumber) {
+			targetUser = await db.users.where({ phoneNumber }).takeOptional();
+		}
 
 		return await db.teamMembers.create({
 			...input,
@@ -93,7 +98,9 @@ const addTeamMember = rpcProtectedProcedure
 		});
 	});
 
+
 const removeTeamMember = rpcProtectedProcedure
+	.route({ method: "DELETE", tags: ["Teams"] })
 	.input(z.object({ id: z.ulid() }))
 	.output(z.object({ success: z.boolean() }))
 	.handler(async ({ input: { id }, context: { user } }) => {
@@ -116,6 +123,7 @@ const removeTeamMember = rpcProtectedProcedure
 	});
 
 const updateMemberRole = rpcProtectedProcedure
+	.route({ method: "PUT", tags: ["Teams"] })
 	.input(z.object({
 		id: z.ulid(),
 		role: teamAppMemberRoleZod
@@ -135,6 +143,7 @@ const updateMemberRole = rpcProtectedProcedure
 	});
 
 const getDefaultTeam = rpcProtectedProcedure
+	.route({ method: "GET", tags: ["Teams"] })
 	.output(teamAppSelectAllZod)
 	.handler(async ({ context: { user } }) => {
 		const userId = user.id;
@@ -153,19 +162,11 @@ const getDefaultTeam = rpcProtectedProcedure
 			const firstName = user.name.split(" ")[0] || "Personal";
 			const teamName = `${firstName}'s Team`;
 
-			personalTeam = await db.teamsApp.create({
-					name: teamName,
-					createdByUserId: userId,
-					personalTeamForUserId: userId,
-					members: {
-						create: [{							
-							userId,
-							email: user.email,
-							role: "Owner",
-							joinedAt: Date.now(),
-						}]
-					}
-				});
+			personalTeam = await createTeamService(userId, user.email, user.phoneNumber, {
+				name: teamName,
+				personalTeamForUserId: userId,
+			});
+
 		}
 
 		// 4. Update user's default team

@@ -2,7 +2,6 @@ import { journalEntriesRouter } from '@backend/modules/journal-entries/journal-e
 import { promptsRouter } from '@backend/modules/prompts/prompts.router';
 import { filesRouter } from '@backend/modules/files/files.router';
 import { rpcPublicProcedure } from '@backend/procedures/public.procedure';
-import { usersRouter } from '@backend/modules/users/users.user_app.router';
 import { syncRouter } from '@backend/modules/sync/sync.router';
 import type { InferRouterInputs, InferRouterOutputs, RouterClient } from '@orpc/server';
 import { cdnRouter } from '@backend/modules/cdn/cdn.user_app.router';
@@ -16,7 +15,7 @@ import { meRouter } from '@backend/modules/users/me.user_app.router';
 
 // Health check endpoint
 const healthCheck = rpcPublicProcedure
-	.route({ method: 'GET' })
+	.route({ method: 'GET', tags: ["Health Check"] })
 	.output(z.object({
 		status: z.string(),
 		timestamp: z.string(),
@@ -32,7 +31,7 @@ const healthCheck = rpcPublicProcedure
 		}
 	})
 		
-export const ReactAppRouter = {
+export const userAppRouter = {
 	cdn: cdnRouter,
 	files: filesRouter,
 	health: healthCheck,
@@ -42,9 +41,8 @@ export const ReactAppRouter = {
 	prompts: promptsRouter,
 	sync: syncRouter,
 	teams: teamsAppRouter,
-	users: usersRouter,
 };
 
-export type ReactAppRouter = RouterClient<typeof ReactAppRouter>;
-export type ReactAppRouterInputs = InferRouterInputs<typeof ReactAppRouter>
-export type ReactAppRouterOutputs = InferRouterOutputs<typeof ReactAppRouter>;
+export type UserAppRouter = RouterClient<typeof userAppRouter>;
+export type UserAppRouterInputs = InferRouterInputs<typeof userAppRouter>
+export type UserAppRouterOutputs = InferRouterOutputs<typeof userAppRouter>;

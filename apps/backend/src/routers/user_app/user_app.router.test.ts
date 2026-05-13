@@ -1,14 +1,14 @@
-import { ReactAppRouter } from '@backend/routers/user_app/user_app.router';
+import { userAppRouter } from '@backend/routers/user_app/user_app.router';
 import { defaultContext } from '@backend/test/setup';
 import { createRouterClient, type RouterClient } from '@orpc/server';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 describe('User App Router', () => {
-	let defaultClient: RouterClient<typeof ReactAppRouter>;
-	const unauthClient = createRouterClient(ReactAppRouter);
+	let defaultClient: RouterClient<typeof userAppRouter>;
+	const unauthClient = createRouterClient(userAppRouter);
 
 	beforeEach(() => {
-		defaultClient = createRouterClient(ReactAppRouter, {
+		defaultClient = createRouterClient(userAppRouter, {
 			context: defaultContext,
 		});
 	});

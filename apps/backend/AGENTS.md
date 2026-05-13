@@ -65,3 +65,7 @@ export const create = rpcProtectedProcedure
 
 ### Testing
 - **Vitest**: Test all CRUD operations. Use `createTestUserAndSession` for auth context.
+
+## Quick Reference
+- **DB**: `yarn db g <name>`, `yarn db up`, `yarn db seed`
+- **OpenAPI**: `yarn gen:openapi`

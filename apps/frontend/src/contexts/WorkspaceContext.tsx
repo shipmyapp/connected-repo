@@ -1,5 +1,5 @@
 import { orpc } from "@frontend/utils/orpc.tanstack.client";
-import type { ReactAppBackendOutputs } from "@frontend/utils/orpc.client";
+import type { UserAppBackendOutputs } from "@frontend/utils/orpc.client";
 import { createContext, useContext, useEffect, useState, useMemo, type ReactNode } from "react";
 import { useSessionInfo, type SessionInfo } from "./UserContext";
 import { useQuery } from "@tanstack/react-query";
@@ -7,7 +7,7 @@ import { useLocalDb } from "@frontend/worker/db/hooks/useLocalDb";
 import { getDataProxy } from "@frontend/worker/worker.proxy";
 import { DB_UPDATES_CHANNEL, DbUpdateMessage } from "@frontend/configs/channels.config";
 
-export type Team = ReactAppBackendOutputs["teams"]["getMyTeams"][number];
+export type Team = UserAppBackendOutputs["teams"]["getMyTeams"][number];
 
 export interface Workspace {
 	id: string;

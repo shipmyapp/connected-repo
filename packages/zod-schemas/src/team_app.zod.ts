@@ -61,6 +61,17 @@ export type TeamAppMemberSelectAll = z.infer<typeof teamAppMemberSelectAllZod>;
 export const teamAppMemberRoleZod = teamMemberRoleZod;
 export type TeamAppMemberRole = z.infer<typeof teamAppMemberRoleZod>;
 
+export const teamAppMemberAddInputZod = z.object({
+  teamId: z.ulid(),
+  email: z.email().optional().nullable(),
+  phoneNumber: zString.optional().nullable(),
+  role: teamMemberRoleZod,
+}).refine(data => data.email || data.phoneNumber, {
+  message: "Either email or phone number must be provided",
+  path: ["email"],
+});
+export type TeamAppMemberAddInput = z.infer<typeof teamAppMemberAddInputZod>;
+
 export const teamWithRoleZod = teamAppSelectAllZod.extend({
   joinedAt: zTimeEpoch.nullable(),
   userRole: teamMemberRoleZod,

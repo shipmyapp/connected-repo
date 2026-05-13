@@ -1,5 +1,5 @@
 import { clientDb, wipeTeamData } from '@frontend/worker/db/db.manager';
-import { orpcFetch, ReactAppBackendOutputs } from '@frontend/utils/orpc.client';
+import { orpcFetch, UserAppBackendOutputs } from '@frontend/utils/orpc.client';
 import { SSE_MESSAGES_CHANNEL, type SseMessage } from '@frontend/configs/channels.config';
 import { TABLES_TO_SYNC_ENUM, TablesToSync } from '@connected-repo/zod-schemas/enums.zod';
 import { journalEntriesDb } from '@frontend/modules/journal-entries/worker/journal-entries.db';
@@ -8,7 +8,7 @@ import { teamsAppDb } from '@frontend/worker/db/teams_app.db';
 import { teamMembersDb } from '@frontend/worker/db/team_members.db';
 import { filesDb } from '@frontend/worker/db/files.db';
 
-type HeartbeatStream = ReactAppBackendOutputs["sync"]["heartbeatSync"];
+type HeartbeatStream = UserAppBackendOutputs["sync"]["heartbeatSync"];
 
 // Extract the individual event object from the stream's iterator
 export type HeartbeatEvent = HeartbeatStream extends AsyncIterable<infer T> ? T : never;

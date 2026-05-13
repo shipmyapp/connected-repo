@@ -1,7 +1,6 @@
 import { allowedOrigins } from '@backend/configs/allowed_origins.config';
 import { isDev, isProd, isStaging } from '@backend/configs/env.config';
-import { ReactAppRouter } from '@backend/routers/user_app/user_app.router';
-import { auth } from '@backend/modules/auth/auth.config';
+import { userAppRouter } from '@backend/routers/user_app/user_app.router';
 import { logger } from '@backend/utils/logger.utils';
 import { trace } from '@opentelemetry/api';
 import { LoggingHandlerPlugin } from '@orpc/experimental-pino';
@@ -9,7 +8,7 @@ import { onError } from '@orpc/server';
 import { RPCHandler } from '@orpc/server/node';
 import { CORSPlugin, RequestHeadersPlugin, ResponseHeadersPlugin, SimpleCsrfProtectionHandlerPlugin, StrictGetMethodPlugin } from '@orpc/server/plugins';
 
-export const reactAppHandler = new RPCHandler(ReactAppRouter, {
+export const reactAppHandler = new RPCHandler(userAppRouter, {
   plugins: [
     // Request headers plugin for accessing headers in context
     new RequestHeadersPlugin(),

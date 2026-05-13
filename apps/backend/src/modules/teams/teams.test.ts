@@ -3,6 +3,8 @@ import { defaultContext } from '@backend/test/setup';
 import { createRouterClient, type RouterClient } from '@orpc/server';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { db } from '@backend/db/db';
+import { createTeamService } from './services/create_team.teams.service';
+
 
 describe('Teams App Endpoints', () => {
 	let defaultClient: RouterClient<typeof teamsAppRouter>;
@@ -36,9 +38,8 @@ describe('Teams App Endpoints', () => {
 
 		it('should return existing personal team if it exists but is not set as default', async () => {
 			// Create a personal team manually
-			const team = await db.teamsApp.create({
+			const team = await createTeamService(defaultContext!.user.id, defaultContext!.user.email, defaultContext!.user.phoneNumber, {
 				name: "Manual Team",
-				createdByUserId: defaultContext!.user.id,
 				personalTeamForUserId: defaultContext!.user.id,
 			});
 			
@@ -55,9 +56,8 @@ describe('Teams App Endpoints', () => {
 		});
 
 		it('should return existing default team if set', async () => {
-			const team = await db.teamsApp.create({
+			const team = await createTeamService(defaultContext!.user.id, defaultContext!.user.email, defaultContext!.user.phoneNumber, {
 				name: "Existing Default",
-				createdByUserId: defaultContext!.user.id,
 			});
 			await db.users.where({ id: defaultContext!.user.id }).update({ defaultTeamAppId: team.id });
 

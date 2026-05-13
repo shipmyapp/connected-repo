@@ -58,6 +58,7 @@
 		"check-types": "tsc --noEmit",
 		"clean": "rm -rf node_modules && rm -rf dist",
 		"db": "tsx src/db/db_script.ts",
+		"gen:openapi": "tsx src/scripts/generate_openapi.ts",
 		"dev": "tsx watch --clear-screen=false src/server.ts",
 		"dev:inspect": "tsx watch --inspect src/server.ts",
 		"format": "biome format . --write",
