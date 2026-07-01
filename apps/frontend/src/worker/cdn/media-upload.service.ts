@@ -1,6 +1,6 @@
-import { IdentifiedFile } from "./cdn.types";
-import { CDNManager } from "./cdn.manager";
 import { pLimit } from "../../utils/promise.utils";
+import { CDNManager } from "./cdn.manager";
+import type { IdentifiedFile } from "./cdn.types";
 
 export interface MediaProcessingResult {
   thumbnailFile: File | null;
@@ -13,8 +13,8 @@ export interface MediaUploadResult {
   error?: string;
 }
 
-// Module-level semaphore to preserve resource limits across all instances 
-// while avoiding Comlink proxying issues that occur with class properties.
+// Module-level semaphore to preserve resource limits across all instances
+// while avoiding Comlink proxying issues with class properties.
 const mediaWorkerSemaphore = pLimit(3);
 
 export class MediaUploadService {
@@ -46,39 +46,44 @@ export class MediaUploadService {
 
         return { thumbnailFile };
       } catch (error) {
-        return { 
-          thumbnailFile: null, 
-          error: error instanceof Error ? error.message : "Thumbnail generation failed" 
+        return {
+          thumbnailFile: null,
+          error: error instanceof Error ? error.message : "Thumbnail generation failed",
         };
       }
     });
   }
 
   /**
-   * Performs the actual CDN upload for a single file.
+   * Uploads a single file to the CDN via a presigned URL.
    */
-  async uploadSingleFile(file: IdentifiedFile): Promise<MediaUploadResult> {
-    const results = await this.uploadFiles([file]);
-    return results[0]!;
+  async uploadSingleFile(item: IdentifiedFile): Promise<MediaUploadResult> {
+    const [result] = await this.uploadFiles([item]);
+    return result ?? { success: false, cdnUrl: null, error: "Empty upload result" };
   }
 
   /**
    * Performs the actual CDN upload for multiple files in batch.
-   * Gets all presigned URLs in one go, then uploads with a concurrency limit.
+   * Fetches all presigned URLs in one request, then uploads with a concurrency limit.
    */
-  async uploadFiles(files: IdentifiedFile[]): Promise<MediaUploadResult[]> {
-    if (files.length === 0) return [];
+  async uploadFiles(items: IdentifiedFile[]): Promise<MediaUploadResult[]> {
+    if (items.length === 0) return [];
 
     try {
-      // 1. Get ALL presigned URLs in a single request (Batching)
-      const presignedData = await this.cdnManager.getBatchPresignedUrls(files, "media");
+      const presignedData = await this.cdnManager.getBatchPresignedUrls(items, "media");
 
-      // 2. Upload them in parallel, but LIMITED by the semaphore (Resource safety)
-      const uploadPromises = files.map((file, index) => {
-        const presigned = presignedData[index]!;
-        
+      const uploadPromises = items.map((item, index) => {
+        const presigned = presignedData[index];
+        if (!presigned) {
+          return Promise.resolve({
+            success: false,
+            cdnUrl: null,
+            error: "No presigned URL returned for file",
+          });
+        }
+
         return mediaWorkerSemaphore(async () => {
-          const result = await this.cdnManager.uploadToUrl(file, presigned);
+          const result = await this.cdnManager.uploadToUrl(item.file, presigned);
           return {
             success: result.success,
             cdnUrl: result.success ? result.url : null,
@@ -91,7 +96,7 @@ export class MediaUploadService {
     } catch (error) {
       console.error("[MediaUploadService] Batch upload error:", error);
       const errorMsg = error instanceof Error ? error.message : "Batch upload failed";
-      return files.map(() => ({
+      return items.map(() => ({
         success: false,
         cdnUrl: null,
         error: errorMsg,

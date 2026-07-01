@@ -1,15 +1,21 @@
-export type FileProgressStage = 
-  | "pending" 
-  | "validating" 
-  | "compressing" 
-  | "getting-urls" 
-  | "uploading" 
+export type FileProgressStage =
+  | "pending"
+  | "validating"
+  | "compressing"
+  | "getting-urls"
+  | "uploading"
   | "success"
-  | "completed" 
+  | "completed"
   | "error";
 
-export interface IdentifiedFile extends File {
+/**
+ * A user-supplied `File` paired with a stable `id` we generate on the main
+ * thread. Plain object so it survives structured-cloning through Comlink
+ * without relying on custom properties being preserved on host objects.
+ */
+export interface IdentifiedFile {
   id: string;
+  file: File;
 }
 
 export interface FileProgress {

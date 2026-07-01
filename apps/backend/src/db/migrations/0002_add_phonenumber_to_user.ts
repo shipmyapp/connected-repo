@@ -24,9 +24,4 @@ change(async (db) => {
   await db.changeTable('team_members', (t) => ({
     phoneNumber: t.add(t.string().nullable()),
   }));
-
-  await db.changeTable('offline_errors', (t) => ({
-    createdAt: t.change(t.timestamp().default(t.sql`now()`), t.timestamp().default(t.sql`clock_timestamp() AT TIME ZONE 'UTC'`)),
-    updatedAt: t.change(t.timestamp().default(t.sql`now()`), t.timestamp().default(t.sql`clock_timestamp() AT TIME ZONE 'UTC'`)),
-  }));
 });

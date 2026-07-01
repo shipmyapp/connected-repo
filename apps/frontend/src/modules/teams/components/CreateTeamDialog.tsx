@@ -1,7 +1,8 @@
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField } from "@mui/material";
-import React, { useState } from "react";
 import { orpc } from "@frontend/utils/orpc.tanstack.client";
+import { Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField } from "@mui/material";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import type React from "react";
+import { useState } from "react";
 import { toast } from "react-toastify";
 
 interface CreateTeamDialogProps {

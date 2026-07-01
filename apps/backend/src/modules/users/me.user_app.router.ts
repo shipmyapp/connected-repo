@@ -1,7 +1,6 @@
 import { db } from "@backend/db/db";
 import { rpcProtectedProcedure } from "@backend/procedures/protected.procedure";
 import { userWithTeamsZod } from "@connected-repo/zod-schemas/user.zod";
-import { z } from "zod";
 
 const profile = rpcProtectedProcedure
     .route({ method: "GET", tags: ["Me"] })

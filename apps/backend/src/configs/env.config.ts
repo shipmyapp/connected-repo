@@ -1,8 +1,8 @@
+import fs from "node:fs";
+import path from "node:path";
 import { NODE_ENV_ZOD } from "@connected-repo/zod-schemas/node_env";
 import { zString } from "@connected-repo/zod-schemas/zod_utils";
 import dotenv from "dotenv";
-import fs from "node:fs";
-import path from "node:path";
 import { z } from "zod";
 
 // Load environment variables based on NODE_ENV
@@ -39,33 +39,47 @@ if (nodeEnv === "test") {
 	dotenv.config({ path: `.env.${nodeEnv}.local`, override: true });
 }
 
+const optionalUrl = z.preprocess((val) => (val === "" ? undefined : val), z.url().optional());
+const optionalString = z.preprocess((val) => (val === "" ? undefined : val), z.string().optional());
+
 const envSchema = z.object({
 	ALLOWED_ORIGINS: zString.optional(),
 	BETTER_AUTH_SECRET: zString.min(32, "Better Auth secret must be at least 32 characters"),
-	CRON_JOB_ALLOWED_ORIGIN: z.preprocess((val) => (val === "" ? undefined : val), z.url().optional()),
-	CRON_JOB_TOKEN: zString.min(32, "Cron job token must be at least 32 characters"),
 	DB_HOST: zString.min(1),
 	DB_PORT: zString.min(1),
 	DB_USER: zString.min(1),
 	DB_PASSWORD: zString.min(1),
 	DB_NAME: zString.min(1),
 	DB_SCHEMA: zString.min(1),
+	// pg pool size. Default 25 — node-postgres default of 10 is too tight under
+	// concurrent oRPC traffic on a shared cluster. Tune via env per environment.
+	DB_POOL_SIZE: z.coerce.number().int().min(1).default(25),
 	GOOGLE_WEB_CLIENT_ID: zString.min(1).includes(".apps.googleusercontent.com"),
 	GOOGLE_WEB_CLIENT_SECRET: zString.min(1),
 	GOOGLE_IOS_CLIENT_ID: zString.optional(),
 	GOOGLE_ANDROID_CLIENT_ID: zString.optional(),
+	HOST: optionalString,
 	INTERNAL_API_SECRET: zString.min(32, "Internal API secret must be at least 32 characters").optional(),
 	IS_E2E_TEST: z.stringbool().optional(),
+	LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal", "silent"]).optional(),
 	NODE_ENV: NODE_ENV_ZOD,
 	OTEL_SERVICE_NAME: zString.min(1),
 	OTEL_TRACE_EXPORTER_URL: z.url().optional(),
+	PG_TBUS_CONCURRENCY: z.coerce.number().int().min(1).default(3),
 	PORT: z.coerce.number().default(3000),
-	PROD_COOKIE_DOMAIN: z.preprocess((val) => (val === "" ? undefined : val), z.string().optional()),
+	PROD_COOKIE_DOMAIN: optionalString,
 	SESSION_SECRET: zString.min(32, "Session secret must be at least 32 characters"),
-	SUPRSEND_API_KEY: z.preprocess((val) => (val === "" ? undefined : val), z.string().optional()),
-	SUPRSEND_API_SECRET: z.preprocess((val) => (val === "" ? undefined : val), z.string().optional()),
-	VITE_SENTRY_DSN: z.preprocess((val) => (val === "" ? undefined : val), z.url().optional()),
-	VITE_SENTRY_ENV: zString.optional(),
+	NOVU_SECRET_KEY: optionalString,
+	NOVU_API_URL: optionalUrl,
+	// Backend-native Sentry env names. Frontend keeps its own VITE_SENTRY_* keys.
+	SENTRY_DSN: optionalUrl,
+	SENTRY_ENVIRONMENT: optionalString,
+	SENTRY_RELEASE: optionalString,
+	SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).optional(),
+	SENTRY_PROFILES_SAMPLE_RATE: z.coerce.number().min(0).max(1).optional(),
+	// Comma-separated list of emails/phones with super-admin access (see rpcSuperAdminProcedure).
+	SUPER_ADMIN_EMAILS: optionalString,
+	SUPER_ADMIN_PHONE_NUMBERS: optionalString,
 	VITE_API_URL: z.url(),
 	WEBAPP_URL: z.url(),
 	S3_ENDPOINT: z.url(),
@@ -73,7 +87,7 @@ const envSchema = z.object({
 	S3_ACCESS_KEY_ID: zString.min(1),
 	S3_SECRET_ACCESS_KEY: zString.min(1),
 	S3_BUCKET_NAME: zString.min(1),
-	S3_PUBLIC_URL: z.preprocess((val) => (val === "" ? undefined : val), z.url().optional()),
+	S3_PUBLIC_URL: optionalUrl,
 	APPLE_CLIENT_ID: zString.optional(),
 	APPLE_TEAM_ID: zString.optional(),
 	APPLE_KEY_ID: zString.optional(),

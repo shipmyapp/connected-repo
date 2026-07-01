@@ -1,1 +1,1 @@
-export { default as Divider, type DividerProps } from "@mui/material/Divider";
+export { type DividerProps, default as Divider } from "@mui/material/Divider";

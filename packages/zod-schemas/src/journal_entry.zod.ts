@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { apiProductRequestLogSelectAllZod, openapiRequestInputZod } from "./api_product_request_log.zod.js";
 import { zSmallint, zString, zTimeEpoch, zTimestamps } from "./zod_utils.js";
-import { fileSelectAllZod } from "./file.zod.js";
 
 export const journalEntryMandatoryZod = z.object({
 	content: zString.min(1, "Content is required").max(50000),

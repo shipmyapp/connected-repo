@@ -1,4 +1,4 @@
-import { JoinConfig } from "@better-auth/core/db/adapter";
+import type { JoinConfig } from "@better-auth/core/db/adapter";
 
 /**
  * Applies better-auth JoinConfig to an Orchid ORM query.

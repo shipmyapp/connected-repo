@@ -1,13 +1,13 @@
 import { db } from "@backend/db/db";
 import { rpcProtectedProcedure } from "@backend/procedures/protected.procedure";
 import { rpcPublicProcedure } from "@backend/procedures/public.procedure";
-import { z } from "zod";
 import {
 	promptGetByCategoryZod,
 	promptGetByIdZod,
 	promptSelectAllZod,
 } from "@connected-repo/zod-schemas/prompt.zod";
 import { ORPCError } from "@orpc/server";
+import { z } from "zod";
 
 // Get all active prompts, optionally filtered by team
 const getAllActive = rpcProtectedProcedure

@@ -1,5 +1,4 @@
 import { env, isDev } from "@frontend/configs/env.config";
-import * as Sentry from "@sentry/react";
 import { useEffect } from "react";
 import {
   createRoutesFromChildren,
@@ -68,10 +67,13 @@ export async function initInstrumentation() {
 /**
  * Lazily capture a message in Sentry.
  */
-export async function captureSentryMessage(message: string, options?: any) {
+export async function captureSentryMessage(
+  message: string,
+  options?: Parameters<typeof import("@sentry/react").captureMessage>[1],
+) {
   const Sentry = await import("@sentry/react");
   return Sentry.captureMessage(message, options);
-};
+}
 
 /**
  * Lazily set the Sentry user.

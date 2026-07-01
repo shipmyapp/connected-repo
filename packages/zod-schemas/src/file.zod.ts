@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { zTimeEpoch, zTimestamps } from "./zod_utils";
 import { FILE_TABLE_NAME_ENUM, FILE_TYPE_ENUM } from "./enums.zod";
+import { zTimeEpoch, zTimestamps } from "./zod_utils";
 
 export const fileMandatoryZod = z.object({
     id: z.ulid(),

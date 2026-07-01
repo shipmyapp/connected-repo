@@ -8,18 +8,14 @@ import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { Container } from "@connected-repo/ui-mui/layout/Container";
 import { Stack } from "@connected-repo/ui-mui/layout/Stack";
 import { JournalEntriesEmptyState } from "@frontend/components/JournalEntriesEmptyState";
-import { getDataProxy } from "@frontend/worker/worker.proxy";
-import React, { useState } from "react";
-import { useNavigate } from "react-router";
-import { SyncedEntriesList } from "../components/SyncedEntriesList.journal-entries";
-import { useLocalDbValue } from "@frontend/worker/db/hooks/useLocalDbValue";
-import { useActiveTeamId } from "@frontend/contexts/WorkspaceContext";
-import { useLocalDb } from "@frontend/worker/db/hooks/useLocalDb";
 import { JournalEntryCardView } from "@frontend/components/JournalEntryCardView";
 import { JournalEntryTableView } from "@frontend/components/JournalEntryTableView";
-import { Collapse, IconButton, Tooltip } from "@mui/material";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import { JournalEntrySelectAll } from "@connected-repo/zod-schemas/journal_entry.zod";
+import { useActiveTeamId } from "@frontend/contexts/WorkspaceContext";
+import { orpc } from "@frontend/utils/orpc.tanstack.client";
+import { useQuery } from "@tanstack/react-query";
+import type React from "react";
+import { useState } from "react";
+import { useNavigate } from "react-router";
 
 export type ViewMode = "card" | "table";
 
@@ -28,39 +24,20 @@ export default function JournalEntriesPage() {
 	const [viewMode, setViewMode] = useState<ViewMode>("card");
 	const teamId = useActiveTeamId();
 
-	// Reactive counts for total count and empty state check
-	const { data: synchronizedCount, isLoading: syncLoading } = useLocalDbValue("journalEntries", (app) => app.journalEntriesDb.count(teamId), 0, [teamId]);
-	const { data: pendingCount, isLoading: pendingLoading } = useLocalDbValue("journalEntries", (app) => app.journalEntriesDb.countPending(teamId), 0, [teamId]);
+	const { data: entries = [], isLoading } = useQuery(
+		orpc.journalEntries.getAll.queryOptions({ input: { teamId } }),
+	);
 
-	const { data: pendingEntries = [] } = useLocalDb("journalEntries", (app) => app.journalEntriesDb.getPending(teamId), [teamId]);
-    const pendingEntryIds = pendingEntries.map(e => e.id);
-
-    // Fetch attachments for pending entries
-    const { data: pendingFiles = [] } = useLocalDb("files", (app) => 
-        app.filesDb.getFilesByTableIds(pendingEntryIds),
-        [pendingEntryIds.join(',')]
-    );
-
-    // Group files by tableId
-    const pendingAttachmentsMap = React.useMemo(() => {
-        const map: Record<string, typeof pendingFiles> = {};
-        pendingFiles.forEach(f => {
-            const list = map[f.tableId] || [];
-            list.push(f);
-            map[f.tableId] = list;
-        });
-        return map;
-    }, [pendingFiles]);
-
-	const isLoading = syncLoading || pendingLoading;
-	const totalCount = synchronizedCount + pendingCount;
-    const [isPendingExpanded, setIsPendingExpanded] = useState(true);
+	const totalCount = entries.length;
 
 	const handleViewModeChange = (_event: React.MouseEvent<HTMLElement>, newMode: ViewMode | null) => {
 		if (newMode !== null) {
 			setViewMode(newMode);
 		}
 	};
+
+	const navigateToDetail = (entryId: string) =>
+		navigate(teamId ? `/teams/${teamId}/journal-entries/${entryId}` : `/journal-entries/${entryId}`);
 
 	if (isLoading && totalCount === 0) {
 		return <LoadingSpinner text="Loading journal entries..." />;
@@ -76,10 +53,13 @@ export default function JournalEntriesPage() {
 
 	return (
 		<Container maxWidth="xl" sx={{ p: 0 }}>
-			{/* Header Section */}
 			<Box sx={{ mb: 3, display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 3 }}>
 				<Box>
-					<Typography variant="h2" component="h1" sx={{ fontSize: { xs: "1.75rem", md: "2.25rem" }, fontWeight: 800, mb: 0.5, letterSpacing: '-0.02em' }}>
+					<Typography
+						variant="h2"
+						component="h1"
+						sx={{ fontSize: { xs: "1.75rem", md: "2.25rem" }, fontWeight: 800, mb: 0.5, letterSpacing: "-0.02em" }}
+					>
 						My Journal
 					</Typography>
 					<Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
@@ -88,83 +68,43 @@ export default function JournalEntriesPage() {
 				</Box>
 
 				<Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 0.5 }}>
-					<ToggleButtonGroup 
-						value={viewMode} 
-						exclusive 
+					<ToggleButtonGroup
+						value={viewMode}
+						exclusive
 						onChange={handleViewModeChange}
 						size="small"
-						sx={{ 
-							bgcolor: 'background.paper',
+						sx={{
+							bgcolor: "background.paper",
 							borderRadius: 2,
-							'& .MuiToggleButton-root': {
-								border: 'none',
+							"& .MuiToggleButton-root": {
+								border: "none",
 								borderRadius: 2,
 								mx: 0.25,
 								my: 0.25,
 								px: 1,
-								'&.Mui-selected': {
-									bgcolor: 'action.selected',
-									color: 'primary.main',
-								}
-							}
+								"&.Mui-selected": {
+									bgcolor: "action.selected",
+									color: "primary.main",
+								},
+							},
 						}}
 					>
-						<ToggleButton value="card"><GridViewIcon sx={{ fontSize: 18 }} /></ToggleButton>
-						<ToggleButton value="table"><TableRowsIcon sx={{ fontSize: 18 }} /></ToggleButton>
+						<ToggleButton value="card">
+							<GridViewIcon sx={{ fontSize: 18 }} />
+						</ToggleButton>
+						<ToggleButton value="table">
+							<TableRowsIcon sx={{ fontSize: 18 }} />
+						</ToggleButton>
 					</ToggleButtonGroup>
 				</Stack>
 			</Box>
 
 			<Stack spacing={2} key={teamId || "personal"}>
-				{pendingCount > 0 && (
-                    <Box sx={{ width: '100%', mb: 2 }}>
-                        <Box 
-                            sx={{ 
-                                display: 'flex', 
-                                alignItems: 'center',
-                                mb: 1,
-                                cursor: 'pointer',
-                                userSelect: 'none'
-                            }}
-                            onClick={() => setIsPendingExpanded(!isPendingExpanded)}
-                        >
-                            <IconButton 
-                                size="small" 
-                                sx={{ 
-                                    transform: isPendingExpanded ? 'rotate(0deg)' : 'rotate(-90deg)',
-                                    transition: 'transform 0.25s',
-                                    mr: 1
-                                }}
-                            >
-                                <ExpandMoreIcon fontSize="small" />
-                            </IconButton>
-                            <Typography variant="h5" sx={{ fontWeight: 700, color: 'warning.main' }}>
-                                Pending Sync
-                                <Box component="span" sx={{ ml: 1.5, color: 'text.secondary', fontWeight: 500, fontSize: '0.9rem' }}>
-                                    ({pendingCount})
-                                </Box>
-                            </Typography>
-                        </Box>
-                        <Collapse in={isPendingExpanded}>
-                            {viewMode === "card" ? (
-                                <JournalEntryCardView 
-                                    entries={pendingEntries} 
-                                    onEntryClick={(entryId: string) => navigate(teamId ? `/teams/${teamId}/journal-entries/pending-sync/${entryId}` : `/journal-entries/pending-sync/${entryId}`)}
-                                    attachments={pendingAttachmentsMap}
-                                />
-                            ) : (
-                                <JournalEntryTableView 
-                                    entries={pendingEntries} 
-                                    onEntryClick={(entryId: string) => navigate(teamId ? `/teams/${teamId}/journal-entries/pending-sync/${entryId}` : `/journal-entries/pending-sync/${entryId}`)}
-                                    attachments={pendingAttachmentsMap}
-                                />
-                            )}
-                        </Collapse>
-                    </Box>
-                )}
-				<SyncedEntriesList 
-					viewMode={viewMode} 
-				/>
+				{viewMode === "card" ? (
+					<JournalEntryCardView entries={entries} onEntryClick={navigateToDetail} />
+				) : (
+					<JournalEntryTableView entries={entries} onEntryClick={navigateToDetail} />
+				)}
 			</Stack>
 		</Container>
 	);

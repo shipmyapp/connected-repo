@@ -8,11 +8,11 @@ import { Card } from "@connected-repo/ui-mui/layout/Card";
 import { Container } from "@connected-repo/ui-mui/layout/Container";
 import { Stack } from "@connected-repo/ui-mui/layout/Stack";
 import { useSessionInfo } from "@frontend/contexts/UserContext";
-import { useWorkspace, useActiveTeamId } from "@frontend/contexts/WorkspaceContext";
-import { useLocalDbValue } from "@frontend/worker/db/hooks/useLocalDbValue";
-import { getDataProxy } from "@frontend/worker/worker.proxy";
+import { useActiveTeamId, useWorkspace } from "@frontend/contexts/WorkspaceContext";
+import { orpc } from "@frontend/utils/orpc.tanstack.client";
 import BusinessIcon from "@mui/icons-material/Business";
 import PersonIcon from "@mui/icons-material/Person";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 
 const DashboardPage = () => {
@@ -22,8 +22,11 @@ const DashboardPage = () => {
 	const { activeWorkspace } = useWorkspace();
 	const teamId = useActiveTeamId();
 
-	// Use local count for the dashboard
-	const { data: entryCount = 0 } = useLocalDbValue("journalEntries", (app) => app.journalEntriesDb.count(teamId), 0, [teamId]);
+	// Pull the live count of entries from the backend.
+	const { data: entries = [] } = useQuery(
+		orpc.journalEntries.getAll.queryOptions({ input: { teamId } })
+	);
+	const entryCount = entries.length;
 
 	return (
 		<Box

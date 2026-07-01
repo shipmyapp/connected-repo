@@ -8,9 +8,9 @@
  */
 import { LoadingSpinner } from "@connected-repo/ui-mui/components/LoadingSpinner";
 import { ThemeContextProvider, useThemeMode } from "@connected-repo/ui-mui/theme/ThemeContext";
-import { CustomErrorBoundary, ErrorFallback } from "@frontend/components/error_fallback";
-import { usePWAInstall } from "@frontend/sw/usePwaInstall.sw";
+import { CustomErrorBoundary } from "@frontend/components/error_fallback";
 import { router } from "@frontend/router";
+import { usePWAInstall } from "@frontend/sw/usePwaInstall.sw";
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { ErrorBoundary } from "@sentry/react";

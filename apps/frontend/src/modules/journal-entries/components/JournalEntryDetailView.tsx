@@ -1,10 +1,7 @@
-import { Chip } from "@connected-repo/ui-mui/data-display/Chip";
 import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
 import { Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from "@connected-repo/ui-mui/feedback/Dialog";
 import { Button } from "@connected-repo/ui-mui/form/Button";
 import { TextField } from "@connected-repo/ui-mui/form/TextField";
-import { Alert } from "@connected-repo/ui-mui/feedback/Alert";
-import { ErrorAlert } from "@connected-repo/ui-mui/components/ErrorAlert";
 import { ArrowBackIcon } from "@connected-repo/ui-mui/icons/ArrowBackIcon";
 import { CalendarTodayIcon } from "@connected-repo/ui-mui/icons/CalendarTodayIcon";
 import { DeleteIcon } from "@connected-repo/ui-mui/icons/DeleteIcon";
@@ -12,19 +9,13 @@ import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { Card, CardContent } from "@connected-repo/ui-mui/layout/Card";
 import { Divider } from "@connected-repo/ui-mui/layout/Divider";
 import { Stack } from "@connected-repo/ui-mui/layout/Stack";
-import { Tooltip, IconButton, keyframes } from "@mui/material";
-import SyncIcon from "@mui/icons-material/Sync";
+import FilePresentIcon from "@mui/icons-material/FilePresent";
+import HideImageIcon from "@mui/icons-material/HideImage";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import VideoFileIcon from "@mui/icons-material/VideoFile";
-import HideImageIcon from "@mui/icons-material/HideImage";
-import FilePresentIcon from "@mui/icons-material/FilePresent";
+import { IconButton, Tooltip } from "@mui/material";
 import { useState } from "react";
 import { useNavigate } from "react-router";
-
-const spin = keyframes`
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-`;
 
 interface JournalEntryDetailViewProps {
 	entry: {
@@ -32,28 +23,22 @@ interface JournalEntryDetailViewProps {
 		prompt?: string | null;
 		content: string;
 		createdAt: number | string | Date;
-		_pendingAction?: 'create' | 'update' | 'delete' | null;
 	};
 	onDelete: () => Promise<void>;
 	isDeleting?: boolean;
 	canDelete?: boolean;
 	deleteDisabledReason?: string | null;
 	attachments?: { url: string; thumbnailUrl?: string; name: string }[];
-	onRetry?: () => Promise<void>;
-	isSyncing?: boolean;
 }
 
-export function JournalEntryDetailView({ 
-	entry, 
-	onDelete, 
+export function JournalEntryDetailView({
+	entry,
+	onDelete,
 	isDeleting = false,
 	canDelete = true,
 	deleteDisabledReason = null,
 	attachments = [],
-	onRetry,
-	isSyncing = false
 }: JournalEntryDetailViewProps) {
-	const status = entry._pendingAction === null ? "synced" : (isSyncing ? "syncing" : "pending");
 	const navigate = useNavigate();
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 	const [confirmationText, setConfirmationText] = useState("");
@@ -95,29 +80,6 @@ export function JournalEntryDetailView({
 			minute: "2-digit",
 		});
 	};
-
-	const getStatusConfig = (status: string) => {
-		switch (status) {
-			case "synced":
-				return { label: "Synced", color: "success" as const };
-			case "syncing":
-				return { label: "Syncing", color: "warning" as const };
-			case "file-upload-pending":
-				return { label: "File Upload Pending", color: "info" as const };
-			case "file-upload-in-progress":
-				return { label: "Uploading Files", color: "info" as const };
-			case "file-upload-completed":
-				return { label: "Files Uploaded", color: "success" as const };
-			case "file-upload-failed":
-				return { label: "File Upload Failed", color: "error" as const };
-			case "sync-failed":
-				return { label: "Sync Failed", color: "error" as const };
-			default:
-				return { label: status, color: "default" as const };
-		}
-	};
-
-	const statusConfig = getStatusConfig(status);
 
 	const getFileIcon = (fileName: string) => {
 		const ext = fileName.split('.').pop()?.toLowerCase();
@@ -162,17 +124,11 @@ export function JournalEntryDetailView({
 					{/* Header Section */}
 					<Stack
 						direction="row"
-						justifyContent="space-between"
+						justifyContent="flex-end"
 						alignItems="center"
 						spacing={2}
 						sx={{ mb: 3 }}
 					>
-						<Chip 
-							label={statusConfig.label} 
-							color={statusConfig.color} 
-							size="small" 
-							sx={{ fontWeight: 600, fontSize: "0.75rem" }} 
-						/>
 						<Tooltip title={!canDelete ? deleteDisabledReason : "Delete Entry"}>
 							<IconButton
 								color="error"
@@ -287,9 +243,9 @@ export function JournalEntryDetailView({
 									gap: 2 
 								}}
 							>
-								{attachments.map((file, index) => (
-									<Box 
-										key={index}
+								{attachments.map((file) => (
+									<Box
+										key={file.url || file.name}
 										sx={{ 
 											position: "relative",
 											borderRadius: 2,

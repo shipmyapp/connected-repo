@@ -1,5 +1,5 @@
 import { LoadingSpinner } from "@connected-repo/ui-mui/components/LoadingSpinner";
-import { MediaUploader, type MediaFile } from "@connected-repo/ui-mui/components/MediaUploader";
+import type { MediaFile } from "@connected-repo/ui-mui/components/MediaUploader";
 import { SuccessAlert } from "@connected-repo/ui-mui/components/SuccessAlert";
 import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
 import { Collapse } from "@connected-repo/ui-mui/feedback/Collapse";
@@ -11,15 +11,20 @@ import { IconButton } from "@connected-repo/ui-mui/navigation/IconButton";
 import { RhfSubmitButton } from "@connected-repo/ui-mui/rhf-form/RhfSubmitButton";
 import { RhfTextField } from "@connected-repo/ui-mui/rhf-form/RhfTextField";
 import { useRhfForm } from "@connected-repo/ui-mui/rhf-form/useRhfForm";
-import { PendingSyncJournalEntry, pendingSyncJournalEntryZod } from "@connected-repo/zod-schemas/journal_entry.zod";
+import {
+	type JournalEntryCreateInput,
+	journalEntryCreateInputZod,
+} from "@connected-repo/zod-schemas/journal_entry.zod";
 import { useActiveTeamId } from "@frontend/contexts/WorkspaceContext";
-import { useSessionInfo } from "@frontend/contexts/UserContext";
-import { getDataProxy } from "@frontend/worker/worker.proxy";
+import { orpcFetch } from "@frontend/utils/orpc.client";
+import { orpc } from "@frontend/utils/orpc.tanstack.client";
+import { getMediaProxy } from "@frontend/worker/worker.proxy";
 import { zodResolver } from "@hookform/resolvers/zod";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import EditNoteIcon from "@mui/icons-material/EditNote";
 import RefreshIcon from "@mui/icons-material/Refresh";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { ulid } from "ulid";
 import { SmartMediaUploader } from "./SmartMediaUploader";
 
@@ -27,157 +32,164 @@ type WritingMode = "prompted" | "free";
 
 export function CreateJournalEntryForm() {
 	const teamId = useActiveTeamId();
-    const { user } = useSessionInfo();
+	const queryClient = useQueryClient();
 	const [success, setSuccess] = useState("");
 	const [writingMode, setWritingMode] = useState<WritingMode>("prompted");
 	const [attachments, setAttachments] = useState<MediaFile[]>([]);
 
+	// Random prompt query — refetch returns a new random pick from the backend.
+	const {
+		data: randomPrompt,
+		isLoading: promptLoading,
+		refetch: refetchPrompt,
+	} = useQuery({
+		...orpc.prompts.getRandomActive.queryOptions({}),
+		// Don't auto-refetch on focus or reconnect — only on explicit refresh /
+		// after successful creation.
+		staleTime: Infinity,
+		refetchOnWindowFocus: false,
+		refetchOnReconnect: false,
+		retry: false,
+	});
 
-	const [randomPrompt, setRandomPrompt] = useState<any>(null);
-	const [promptLoading, setPromptLoading] = useState(false);
-	const hasPromptValue = useRef(false);
-
-	// Initial pick on mount or when data arriving
-	useEffect(() => {
-		const pickInitial = async () => {
-			if (hasPromptValue.current) return;
-			setPromptLoading(true);
-			try {
-				const app = await getDataProxy();
-				const p = await app.promptsDb.getRandomActive();
-				if (p) {
-					setRandomPrompt(p);
-					hasPromptValue.current = true;
-				}
-			} finally {
-				setPromptLoading(false);
-			}
-		};
-
-		pickInitial();
-
-		// Listen for data arriving if we started with nothing
-		const channel = new BroadcastChannel("db-updates");
-		const handleMessage = (e: MessageEvent) => {
-			if (e.data?.table === "prompts" && !hasPromptValue.current) {
-				pickInitial();
-			}
-		};
-
-		channel.addEventListener("message", handleMessage);
-		return () => {
-			channel.removeEventListener("message", handleMessage);
-			channel.close();
-		};
-	}, [teamId]);
-
-	// Form setup with Zod validation and RHF
-	const {formMethods, RhfFormProvider } = useRhfForm<PendingSyncJournalEntry>({
+	const { formMethods, RhfFormProvider } = useRhfForm<JournalEntryCreateInput>({
 		onSubmit: async (data) => {
-			const app = await getDataProxy();
 			const entryId = data.id;
-			
-			// 1. Prepare and persist files
-			// Note: Files are already persisted by SmartMediaUploader!
-			const fileIds = attachments.map((a) => a.id);
-
-			// 2. Prepare entry data
-			const submitData: any = {
-				...data,
-				attachmentFileIds: fileIds,
-				teamId: teamId,
-				prompt: writingMode === "free" ? null : data.prompt,
-				promptId: writingMode === "free" ? null : randomPrompt?.id ?? null,
-				createdAt: Date.now(),
-				status: fileIds.length > 0 ? "file-upload-pending" : "file-upload-completed",
-				errorCount: 0,
-			};
 
 			try {
-                // Use unified DB manager
-				await app.journalEntriesDb.handleLocalCreate(submitData);
+				// 1. Upload attachments (and any generated thumbnails) to the CDN,
+				//    then register File rows pointing at the resulting URLs.
+				if (attachments.length > 0) {
+					const mediaProxy = await getMediaProxy();
 
-				// Cleanup state (revoke URLs)
-				attachments.forEach(a => {
+					// Upload main files + thumbnails in one batched presigned-URL
+					// round-trip. Thumbnail ids derive from the main id so we can
+					// recover the pairing after the batched response comes back.
+					const mainUploads = attachments.map((a) => ({ id: a.id, file: a.file }));
+					const thumbUploads = attachments
+						.filter((a) => a.thumbnailFile)
+						.map((a) => ({ id: `${a.id}-thumb`, file: a.thumbnailFile as File }));
+
+					const uploadResults = await mediaProxy.media.uploadFiles([
+						...mainUploads,
+						...thumbUploads,
+					]);
+
+					const mainResults = uploadResults.slice(0, mainUploads.length);
+					const thumbResults = uploadResults.slice(mainUploads.length);
+
+					// Index thumbnail results back onto attachment id.
+					const thumbCdnUrlById = new Map<string, string>();
+					thumbUploads.forEach((thumb, i) => {
+						const result = thumbResults[i];
+						if (result?.success && result.cdnUrl) {
+							// Strip the `-thumb` suffix to recover the parent attachment id.
+							thumbCdnUrlById.set(thumb.id.replace(/-thumb$/, ""), result.cdnUrl);
+						}
+					});
+
+					await Promise.all(
+						attachments.map(async (attachment, idx) => {
+							const upload = mainResults[idx];
+							if (!upload?.success || !upload.cdnUrl) {
+								throw new Error(
+									`Upload failed for ${attachment.file.name}: ${upload?.error || "unknown error"}`,
+								);
+							}
+
+							await orpcFetch.files.create({
+								id: attachment.id,
+								tableName: "journalEntries",
+								tableId: entryId,
+								type: "attachment",
+								fileName: attachment.file.name,
+								mimeType: attachment.file.type,
+								teamId: teamId ?? null,
+								cdnUrl: upload.cdnUrl,
+								thumbnailCdnUrl: thumbCdnUrlById.get(attachment.id) ?? null,
+								isMainFileLost: false,
+							});
+						}),
+					);
+				}
+
+				// 2. Persist the entry itself.
+				await orpcFetch.journalEntries.create({
+					id: entryId,
+					content: data.content,
+					prompt: writingMode === "free" ? null : data.prompt ?? null,
+					promptId: writingMode === "free" ? null : randomPrompt?.id ?? null,
+					teamId: teamId ?? null,
+				});
+
+				// 3. Cleanup attachment state and revoke preview URLs.
+				attachments.forEach((a) => {
 					URL.revokeObjectURL(a.previewUrl);
 					if (a.thumbnailUrl) URL.revokeObjectURL(a.thumbnailUrl);
 				});
 				setAttachments([]);
-				
-				// Pick a new prompt for next entry
+
+				// 4. Invalidate dependent queries and reset the form.
+				queryClient.invalidateQueries({
+					queryKey: orpc.journalEntries.getAll.queryOptions({ input: { teamId } }).queryKey,
+				});
+
 				if (writingMode === "prompted") {
-					const app = await getDataProxy();
-					const next = await app.promptsDb.getRandomActive();
-					if (next) setRandomPrompt(next);
+					await refetchPrompt();
 				}
 
 				formMethods.reset({
 					id: ulid(),
-					prompt: null, // Will be set by effect
+					prompt: null,
 					content: "",
-					teamId: teamId,
-					status: "file-upload-pending",
-					errorCount: 0,
-					createdAt: Date.now()
+					teamId: teamId ?? null,
 				});
 
 				setSuccess("Journal entry created successfully!");
-				
 				setTimeout(() => setSuccess(""), 5000);
 			} catch (error) {
-				console.error("[CreateJournalEntryForm] Writing to local-db failed:", error);
-				formMethods.setError(
-					"root.unexpected",
-					{
-						type: "local-database",
-						message: error instanceof Error
-							? error.message
-							: "Unknown error when saving data to local-db"
-					}
-				)
-			} 
+				console.error("[CreateJournalEntryForm] Create failed:", error);
+				formMethods.setError("root.unexpected", {
+					type: "create-failed",
+					message:
+						error instanceof Error ? error.message : "Failed to save journal entry",
+				});
+			}
 		},
 		formConfig: {
-			// @ts-expect-error
-			resolver: zodResolver(pendingSyncJournalEntryZod),
+			resolver: zodResolver(journalEntryCreateInputZod),
 			defaultValues: {
 				prompt: null,
-				content: undefined,
+				content: "",
 				id: ulid(),
-				teamId: teamId,
-				status: "file-upload-pending",
-				errorCount: 0,
-				createdAt: new Date().getTime()
+				teamId: teamId ?? null,
 			},
 		},
 	});
-	
+
 	useEffect(() => {
-		// Clear prompt when switching to free mode
 		if (writingMode === "free") {
 			formMethods.setValue("prompt", null);
-		} 
-		// Auto-populate prompt when random prompt loads and in prompted mode
-		else if (writingMode === "prompted" && randomPrompt?.text) {
+		} else if (writingMode === "prompted" && randomPrompt?.text) {
 			formMethods.setValue("prompt", randomPrompt.text);
 		}
 	}, [writingMode, formMethods, randomPrompt]);
 
 	const handleRefreshPrompt = async () => {
-		const app = await getDataProxy();
-		const next = await app.promptsDb.getRandomActive();
-		if (next) setRandomPrompt(next);
+		await refetchPrompt();
 	};
 
-	const handleModeChange = (_event: React.MouseEvent<HTMLElement>, newMode: WritingMode | null) => {
+	const handleModeChange = (
+		_event: React.MouseEvent<HTMLElement>,
+		newMode: WritingMode | null,
+	) => {
 		if (newMode !== null) {
 			setWritingMode(newMode);
 		}
 	};
 
 	return (
-		<Box sx={{ width: '100%', maxWidth: '100%' }}>
-			{/* Header with Title and Mode Toggle */}
+		<Box sx={{ width: "100%", maxWidth: "100%" }}>
 			<Box
 				sx={{
 					display: "flex",
@@ -185,11 +197,9 @@ export function CreateJournalEntryForm() {
 					justifyContent: "space-between",
 					alignItems: { xs: "flex-start", sm: "center" },
 					gap: 1.5,
-					mb: 3
+					mb: 3,
 				}}
 			>
-
-				{/* Writing Mode Toggle */}
 				<ToggleButtonGroup
 					value={writingMode}
 					exclusive
@@ -236,17 +246,17 @@ export function CreateJournalEntryForm() {
 
 			<RhfFormProvider>
 				<Stack spacing={2.5}>
-					{/* Random Prompt Section - Only show in prompted mode */}
 					<Collapse in={writingMode === "prompted"} timeout={300}>
 						<Box
 							sx={{
 								p: 2.5,
-								background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.main}08 0%, ${theme.palette.secondary.main}08 100%)`,
+								background: (theme) =>
+									`linear-gradient(135deg, ${theme.palette.primary.main}08 0%, ${theme.palette.secondary.main}08 100%)`,
 								borderRadius: 2.5,
 								position: "relative",
-								borderLeft: '4px solid',
-								borderLeftColor: 'primary.main',
-								boxShadow: '0 4px 12px 0 rgba(0,0,0,0.02)'
+								borderLeft: "4px solid",
+								borderLeftColor: "primary.main",
+								boxShadow: "0 4px 12px 0 rgba(0,0,0,0.02)",
 							}}
 						>
 							<Box
@@ -258,9 +268,7 @@ export function CreateJournalEntryForm() {
 								}}
 							>
 								<Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-									<AutoAwesomeIcon
-										sx={{ color: "primary.main", fontSize: 16, opacity: 0.7 }}
-									/>
+									<AutoAwesomeIcon sx={{ color: "primary.main", fontSize: 16, opacity: 0.7 }} />
 									<Typography
 										variant="overline"
 										sx={{
@@ -307,7 +315,7 @@ export function CreateJournalEntryForm() {
 											fontSize: { xs: "1rem", sm: "1.125rem" },
 										}}
 									>
-										{randomPrompt?.text ? `"${randomPrompt.text}"` : "Initializing your prompt..."}
+										{randomPrompt?.text ? `"${randomPrompt.text}"` : "Unable to load prompt."}
 									</Typography>
 									{randomPrompt?.category && (
 										<Box sx={{ mt: 1.5, display: "flex" }}>
@@ -335,7 +343,6 @@ export function CreateJournalEntryForm() {
 						</Box>
 					</Collapse>
 
-					{/* Hidden prompt field */}
 					<input type="hidden" {...formMethods.register("prompt")} />
 
 					<RhfTextField
@@ -343,30 +350,24 @@ export function CreateJournalEntryForm() {
 						label={writingMode === "prompted" ? "Your Response" : "Your Thoughts"}
 						multiline
 						rows={10}
-						placeholder={writingMode === "prompted"
-							? "Start typing your reflection..."
-							: "What's on your mind today?"
+						placeholder={
+							writingMode === "prompted"
+								? "Start typing your reflection..."
+								: "What's on your mind today?"
 						}
-						sx={{ 
+						sx={{
 							"& .MuiOutlinedInput-root": {
 								borderRadius: 2,
-								bgcolor: 'background.paper',
-								'&:hover': {
-									borderColor: 'primary.light'
-								}
-							}
+								bgcolor: "background.paper",
+								"&:hover": {
+									borderColor: "primary.light",
+								},
+							},
 						}}
 					/>
 
-					<Box sx={{ bgcolor: 'background.paper', borderRadius: 2, p: 1.5, border: '1px dashed', borderColor: 'divider' }}>
-						<SmartMediaUploader
-							value={attachments}
-							onChange={setAttachments}
-							maxFiles={20}
-							teamId={teamId}
-							tableId={formMethods.getValues("id")}
-							tableName="journalEntries"
-						/>
+					<Box sx={{ bgcolor: "background.paper", borderRadius: 2, p: 1.5, border: "1px dashed", borderColor: "divider" }}>
+						<SmartMediaUploader value={attachments} onChange={setAttachments} maxFiles={20} />
 					</Box>
 
 					<Box sx={{ pt: 1 }}>
@@ -378,13 +379,13 @@ export function CreateJournalEntryForm() {
 								color: "primary",
 								size: "medium",
 								fullWidth: true,
-								sx: { 
-									py: 1.5, 
-									borderRadius: 2, 
+								sx: {
+									py: 1.5,
+									borderRadius: 2,
 									fontWeight: 700,
-									fontSize: '0.9375rem',
-									boxShadow: '0 4px 12px 0 rgba(0,0,0,0.08)'
-								}
+									fontSize: "0.9375rem",
+									boxShadow: "0 4px 12px 0 rgba(0,0,0,0.08)",
+								},
 							}}
 						/>
 					</Box>

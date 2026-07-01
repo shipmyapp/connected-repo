@@ -1,16 +1,15 @@
-import type { RpcContextWithHeaders } from '@backend/procedures/public.procedure';
-import { transformSessionAndUserData } from '@backend/utils/session.utils';
-import { type MiddlewareNextFn, ORPCError } from '@orpc/server';
-import * as Sentry from '@sentry/node';
-import { auth } from './auth.config';
-import { db } from '@backend/db/db';
+import type { RpcContextWithHeaders } from "@backend/procedures/public.procedure";
+import { transformSessionAndUserData } from "@backend/utils/session.utils";
+import { type MiddlewareNextFn, ORPCError } from "@orpc/server";
+import * as Sentry from "@sentry/node";
+import { auth } from "./auth.config";
 
-export const rpcAuthMiddleware = async ({ 
-	context, 
-	next 
+export const rpcAuthMiddleware = async ({
+	context,
+	next,
 }: {
-	context: RpcContextWithHeaders, 
-	next: MiddlewareNextFn<unknown>
+	context: RpcContextWithHeaders;
+	next: MiddlewareNextFn<unknown>;
 }) => {
 	const reqHeaders = context.reqHeaders;
 
@@ -19,15 +18,15 @@ export const rpcAuthMiddleware = async ({
 	});
 
 	if (!sessionData?.session.id || !sessionData?.user.id) {
-		throw new ORPCError('UNAUTHORIZED', {
+		throw new ORPCError("UNAUTHORIZED", {
 			status: 401,
-			message: 'User is not authenticated'
+			message: "User is not authenticated",
 		});
 	}
 
 	const { session, user } = transformSessionAndUserData(sessionData);
 
-	// Set user context in Sentry for this request
+	// Set user context in Sentry for this request.
 	Sentry.setUser({
 		id: user.id,
 		email: user.email ?? undefined,
@@ -35,17 +34,14 @@ export const rpcAuthMiddleware = async ({
 		username: user.name,
 	});
 
-	// Fetch user's team memberships for sync filtering and permissions
-	const teamMembers = await db.teamMembers.where({ userId: user.id }).selectAll();
-
+	// Team memberships are loaded LAZILY inside `rpcProtectedActiveTeamProcedure`
+	// for the one active team. Eager-loading every membership here scaled poorly
+	// with users in many teams and most endpoints never used it.
 	return next({
 		context: {
 			...context,
 			session,
-			user: {
-				...user,
-				teamMembers,
-			},
+			user,
 		},
 	});
 };

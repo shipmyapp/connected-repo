@@ -1,25 +1,25 @@
 import { isProd } from "@backend/configs/env.config";
 import { openApiRouter } from "@backend/routers/open_api/open_api.router";
+import { handleBoundaryError } from "@backend/utils/errorParser";
 import { logger } from "@backend/utils/logger.utils";
-import { trace } from '@opentelemetry/api';
+import { trace } from "@opentelemetry/api";
 import { LoggingHandlerPlugin } from "@orpc/experimental-pino";
 import { OpenAPIHandler } from "@orpc/openapi/node";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
-import { onError } from "@orpc/server";
 import { CORSPlugin, RequestHeadersPlugin } from "@orpc/server/plugins";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 
 export const openApiHandler = new OpenAPIHandler(openApiRouter, {
 	plugins: [
 		new CORSPlugin({
-			origin: '*', // or env.API_ALLOWED_ORIGINS if you want restrictions
-			allowMethods: ['GET', 'POST', 'OPTIONS'],
+			origin: "*",
+			allowMethods: ["GET", "POST", "OPTIONS"],
 			allowHeaders: ["x-team-id", "x-api-key", "content-type"],
-			credentials: false, // No cookies/credentials needed for API key auth
+			credentials: false,
 		}),
 		new LoggingHandlerPlugin({
 			logger,
-			logRequestResponse: !isProd, // Only log in dev/staging
+			logRequestResponse: !isProd,
 			logRequestAbort: true,
 		}),
 		new OpenAPIReferencePlugin({
@@ -67,31 +67,18 @@ export const openApiHandler = new OpenAPIHandler(openApiRouter, {
 		new RequestHeadersPlugin(),
 	],
 	interceptors: [
-		({ request, next }) => {
-			const span = trace.getActiveSpan()
+		async ({ request, next }) => {
+			const span = trace.getActiveSpan();
 
-			request.signal?.addEventListener('abort', () => {
-				span?.addEvent('aborted', { reason: String(request.signal?.reason) })
-			})
+			request.signal?.addEventListener("abort", () => {
+				span?.addEvent("aborted", { reason: String(request.signal?.reason) });
+			});
 
-			return next()
+			try {
+				return await next();
+			} catch (error) {
+				throw handleBoundaryError(error, "open_api");
+			}
 		},
-		// Server-side error logging
-		onError((error) => {
-			logger.error(error, "OpenAPI error");
-		}),
 	],
-  clientInterceptors: [
-    // Client-side error transformation
-		// Commented as leads to double logging.
-    // onError((error) => {
-    //   const parsed = orpcErrorParser(error as Error);
-    //   throw new ORPCError(parsed.code, {
-    //     status: parsed.httpStatus,
-    //     message: parsed.userFriendlyMessage,
-    //     data: parsed.details,
-    //     cause: error,
-    //   });
-    // }),
-  ],
 });

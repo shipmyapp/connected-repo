@@ -1,5 +1,5 @@
 import { useFormState } from "react-hook-form";
-import { Button, ButtonProps } from "../form/Button";
+import { Button, type ButtonProps } from "../form/Button";
 
 export interface RhfSubmitButtonProps {
   props?: ButtonProps;

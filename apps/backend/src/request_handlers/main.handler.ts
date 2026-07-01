@@ -1,12 +1,13 @@
+import { env, isDev, } from '@backend/configs/env.config';
 import { betterAuthHandler } from '@backend/request_handlers/better_auth.handler';
-import { cronJobsHandler } from '@backend/request_handlers/cron_jobs.handler';
 import { openApiHandler } from '@backend/request_handlers/open_api.handler';
+import { superAdminHandler } from '@backend/request_handlers/super_admin.handler';
 import { reactAppHandler } from '@backend/request_handlers/user_app.handler';
-import type { NodeHttpRequest, NodeHttpResponse } from '@orpc/standard-server-node';
+import { captureBackendException } from '@backend/utils/backend-error-tracking.utils';
 import { decrementActiveRequests, getServerHealth, incrementActiveRequests } from '@backend/utils/graceful_shutdown.utils';
 import { logger } from '@backend/utils/logger.utils';
 import { trace } from '@opentelemetry/api';
-import { env, isDev, isTest } from '@backend/configs/env.config';
+import type { NodeHttpRequest, NodeHttpResponse } from '@orpc/standard-server-node';
 import { mobileAppHandler } from './mobile_app.handler';
 
 /**
@@ -51,7 +52,7 @@ export async function mainRequestDispatcher(
     }
 
     // 4. Root Path / Health Check
-    if (requestUrl === '/' || requestUrl?.startsWith('/?')) {
+    if (requestUrl === '/' || requestUrl === '/health' || requestUrl?.startsWith('/?')) {
       res.statusCode = 200;
       res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify({
@@ -74,15 +75,15 @@ export async function mainRequestDispatcher(
     });
     if (openApiResult.matched) return;
 
-    // 7. Cron Jobs Routes (/cron/*)
-    const cronResult = await cronJobsHandler.handle(req, res, {
+    // 7. Super-Admin Routes (/super-admin/*)
+    const superAdminResult = await superAdminHandler.handle(req, res, {
       context: {},
-      prefix: '/cron',
+      prefix: '/super-admin',
     });
-    if (cronResult.matched) return;
+    if (superAdminResult.matched) return;
 
     // 8. oRPC User App Routes (/user-app/*)
-    const reactAppResult = await reactAppHandler.handle(req, res, {
+    const _reactAppResult = await reactAppHandler.handle(req, res, {
       context: {},
       prefix: '/user-app',
     });
@@ -102,16 +103,19 @@ export async function mainRequestDispatcher(
     }
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
+    captureBackendException(err, {
+      context: { url: requestUrl, method },
+      tags: { handler: "main_request_dispatcher" },
+    });
     logger.error({ err, url: requestUrl, method }, "Unhandled request error");
-    console.error(`[CRITICAL] Unhandled Error at ${method} ${requestUrl}:`, err);
 
     if (!res.writableEnded) {
       res.statusCode = 500;
       res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ 
-        error: 'Internal Server Error', 
+      res.end(JSON.stringify({
+        error: 'Internal Server Error',
         message: err.message,
-        stack: isDev ? err.stack : undefined 
+        stack: isDev ? err.stack : undefined,
       }));
     }
   } finally {

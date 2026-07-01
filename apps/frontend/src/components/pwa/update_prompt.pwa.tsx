@@ -1,9 +1,9 @@
+import { useRegisterSW } from 'virtual:pwa-register/react';
 import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
 import { Snackbar } from "@connected-repo/ui-mui/feedback/Snackbar";
 import { Button } from "@connected-repo/ui-mui/form/Button";
 import { Stack } from "@connected-repo/ui-mui/layout/Stack";
 import { useTheme } from "@mui/material/styles";
-import { useRegisterSW } from 'virtual:pwa-register/react';
 
 export function PwaUpdatePrompt() {
   const theme = useTheme();

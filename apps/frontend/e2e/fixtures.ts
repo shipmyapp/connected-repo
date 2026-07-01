@@ -6,7 +6,7 @@ import { dismissPwaToast, setupPwaDismissal } from './playwright.utils';
  * This effectively acts as a global beforeEach hook.
  */
 export const test = base.extend<{
-  autoDismissPwa: void;
+  autoDismissPwa: undefined;
 }>({
   autoDismissPwa: [
     async ({ context, page }, use) => {

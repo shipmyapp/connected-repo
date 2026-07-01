@@ -3,7 +3,8 @@ import { useThemeMode } from "@connected-repo/ui-mui/theme/ThemeContext";
 import { PwaInstallPrompt } from "@frontend/components/pwa/install_prompt.pwa";
 import { PwaUpdatePrompt } from "@frontend/components/pwa/update_prompt.pwa";
 import type { SessionInfo } from "@frontend/contexts/UserContext";
-import { OfflineBanner } from "@frontend/sw/sse/OfflineBanner.sse.sw";
+import { userContext, useSessionInfo } from "@frontend/contexts/UserContext";
+import { useWorkspace, WorkspaceProvider } from "@frontend/contexts/WorkspaceContext";
 import { useMediaQuery } from "@mui/material";
 import Fade from "@mui/material/Fade";
 import { useTheme } from "@mui/material/styles";
@@ -11,8 +12,6 @@ import { useEffect, useState } from "react";
 import { Outlet, useLoaderData } from "react-router";
 import { DesktopNavbar } from "./DesktopNavbar";
 import { MobileNavbar } from "./MobileNavbar";
-import { useWorkspace, WorkspaceProvider } from "@frontend/contexts/WorkspaceContext";
-import { userContext, useSessionInfo } from "@frontend/contexts/UserContext";
 
 export const AppLayoutContent = () => {
 	const { activeWorkspace } = useWorkspace();
@@ -81,7 +80,6 @@ export const AppLayout = () => {
 					}}
 				>
 					{isMobile ? <MobileNavbar /> : <DesktopNavbar />}
-					<OfflineBanner />
 
 					{/* Main content area */}
 					<Box

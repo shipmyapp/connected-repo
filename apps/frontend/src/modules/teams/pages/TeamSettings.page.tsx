@@ -1,18 +1,18 @@
-import { Container } from "@connected-repo/ui-mui/layout/Container";
-import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
-import { Box } from "@connected-repo/ui-mui/layout/Box";
-import { Stack } from "@connected-repo/ui-mui/layout/Stack";
-import { Button } from "@connected-repo/ui-mui/form/Button";
 import { LoadingSpinner } from "@connected-repo/ui-mui/components/LoadingSpinner";
+import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
+import { Button } from "@connected-repo/ui-mui/form/Button";
+import { Box } from "@connected-repo/ui-mui/layout/Box";
+import { Container } from "@connected-repo/ui-mui/layout/Container";
+import { Stack } from "@connected-repo/ui-mui/layout/Stack";
+import { useWorkspace } from "@frontend/contexts/WorkspaceContext";
+import { orpc } from "@frontend/utils/orpc.tanstack.client";
 import AddIcon from "@mui/icons-material/Add";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import React, { useState } from "react";
-import { useNavigate, useParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { orpc } from "@frontend/utils/orpc.tanstack.client";
-import { MembersList } from "../components/MembersList";
+import { useState } from "react";
+import { useNavigate, useParams } from "react-router";
 import { AddMemberDialog } from "../components/AddMemberDialog";
-import { useWorkspace } from "@frontend/contexts/WorkspaceContext";
+import { MembersList } from "../components/MembersList";
 
 export default function TeamSettingsPage() {
 	const navigate = useNavigate();

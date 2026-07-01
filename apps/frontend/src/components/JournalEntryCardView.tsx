@@ -3,95 +3,65 @@ import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
 import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { Card, CardContent } from "@connected-repo/ui-mui/layout/Card";
 import { Stack } from "@connected-repo/ui-mui/layout/Stack";
-import { JournalEntrySelectAll } from "@connected-repo/zod-schemas/journal_entry.zod";
-import React, { useEffect, useState, useRef } from "react";
+import type { FileSelectAll } from "@connected-repo/zod-schemas/file.zod";
+import type { JournalEntrySelectAll } from "@connected-repo/zod-schemas/journal_entry.zod";
 import AttachFileIcon from "@mui/icons-material/AttachFile";
-import { alpha } from "@mui/material";
-
-import { StoredFile } from "@frontend/worker/db/schema.db.types";
-import { WithSync } from "@frontend/worker/db/db.manager";
-import { getOpfsMediaUrl } from "@frontend/utils/file-url.utils";
+import type React from "react";
 
 interface JournalEntryCardViewProps {
-	entries: WithSync<JournalEntrySelectAll>[];
+	entries: JournalEntrySelectAll[];
 	onEntryClick: (entryId: string) => void;
-	renderExtra?: (entry: WithSync<JournalEntrySelectAll>) => React.ReactNode;
-    attachments?: Record<string, StoredFile[]>;
+	renderExtra?: (entry: JournalEntrySelectAll) => React.ReactNode;
+	attachments?: Record<string, FileSelectAll[]>;
 }
 
-function ThumbnailItem({ attachment }: { attachment: StoredFile }) {
-    const [url, setUrl] = useState<string | null>(null);
-    const trackedUrl = useRef<string | null>(null);
+function ThumbnailItem({ attachment }: { attachment: FileSelectAll }) {
+	const url = attachment.thumbnailCdnUrl || attachment.cdnUrl;
+	if (!url) return null;
 
-    useEffect(() => {
-        let previewUrl: string | null = null;
-        
-        if (attachment.thumbnailCdnUrl) {
-            previewUrl = attachment.thumbnailCdnUrl;
-        } else if (attachment._thumbnailOpfsPath) {
-            previewUrl = getOpfsMediaUrl(attachment._thumbnailOpfsPath) || null;
-        } else if (attachment._thumbnailBlob) {
-            previewUrl = URL.createObjectURL(attachment._thumbnailBlob);
-        } else if (attachment.cdnUrl) {
-            previewUrl = attachment.cdnUrl;
-        } else if (attachment._opfsPath) {
-            previewUrl = getOpfsMediaUrl(attachment._opfsPath) || null;
-        } else if (attachment._blob) {
-            previewUrl = URL.createObjectURL(attachment._blob);
-        }
-
-        const isObjectUrl = (val: string | null) => val?.startsWith('blob:');
-
-        if (previewUrl && isObjectUrl(previewUrl)) {
-            trackedUrl.current = previewUrl;
-        }
-        setUrl(previewUrl);
-
-        return () => {
-            if (trackedUrl.current) {
-                URL.revokeObjectURL(trackedUrl.current);
-                trackedUrl.current = null;
-            }
-        };
-    }, [attachment]);
-
-    if (!url) return null;
-
-    return (
-        <Box 
-            component="img"
-            src={url}
-            sx={{ 
-                width: 24, 
-                height: 24, 
-                borderRadius: 0.5, 
-                objectFit: 'cover',
-                border: '1px solid',
-                borderColor: 'divider'
-            }}
-        />
-    );
+	return (
+		<Box
+			component="img"
+			src={url}
+			alt={attachment.fileName}
+			sx={{
+				width: 24,
+				height: 24,
+				borderRadius: 0.5,
+				objectFit: "cover",
+				border: "1px solid",
+				borderColor: "divider",
+			}}
+		/>
+	);
 }
 
-function MultipleThumbnailPreview({ attachments }: { attachments: StoredFile[] }) {
-    const images = attachments.filter(a => a.mimeType.startsWith('image/') || a.type === 'attachment');
-    if (images.length === 0) return null;
+function MultipleThumbnailPreview({ attachments }: { attachments: FileSelectAll[] }) {
+	const images = attachments.filter(
+		(a) => a.mimeType.startsWith("image/") || a.type === "attachment",
+	);
+	if (images.length === 0) return null;
 
-    return (
-        <Stack direction="row" spacing={0.5} sx={{ ml: 1 }}>
-            {images.slice(0, 4).map(img => (
-                <ThumbnailItem key={img.id} attachment={img} />
-            ))}
-            {images.length > 4 && (
-                <Typography variant="caption" sx={{ alignSelf: 'center', opacity: 0.7 }}>
-                    +{images.length - 4}
-                </Typography>
-            )}
-        </Stack>
-    );
+	return (
+		<Stack direction="row" spacing={0.5} sx={{ ml: 1 }}>
+			{images.slice(0, 4).map((img) => (
+				<ThumbnailItem key={img.id} attachment={img} />
+			))}
+			{images.length > 4 && (
+				<Typography variant="caption" sx={{ alignSelf: "center", opacity: 0.7 }}>
+					+{images.length - 4}
+				</Typography>
+			)}
+		</Stack>
+	);
 }
 
-export function JournalEntryCardView({ entries, onEntryClick, renderExtra, attachments = {} }: JournalEntryCardViewProps) {
+export function JournalEntryCardView({
+	entries,
+	onEntryClick,
+	renderExtra,
+	attachments = {},
+}: JournalEntryCardViewProps) {
 	const truncateContent = (content: string, maxLength = 100) => {
 		if (content.length <= maxLength) return content;
 		return `${content.substring(0, maxLength)}...`;
@@ -148,7 +118,7 @@ export function JournalEntryCardView({ entries, onEntryClick, renderExtra, attac
 						}}
 					>
 						<CardContent sx={{ flexGrow: 1, display: "flex", flexDirection: "column", p: { xs: 2, sm: 2.5, lg: 3 } }}>
-							<Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1, width: '100%' }}>
+							<Box sx={{ mb: 2, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 1, width: "100%" }}>
 								<Chip
 									label={entry.prompt || "Journal Entry"}
 									color="primary"
@@ -157,22 +127,21 @@ export function JournalEntryCardView({ entries, onEntryClick, renderExtra, attac
 										fontWeight: 600,
 										fontSize: "0.75rem",
 										flexShrink: 1,
-										overflow: 'hidden',
-										'& .MuiChip-label': {
-											textOverflow: 'ellipsis',
-											overflow: 'hidden',
-											whiteSpace: 'nowrap',
-										}
+										overflow: "hidden",
+										"& .MuiChip-label": {
+											textOverflow: "ellipsis",
+											overflow: "hidden",
+											whiteSpace: "nowrap",
+										},
 									}}
 								/>
 								{renderExtra && (
-									<Box sx={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+									<Box sx={{ flexShrink: 0, display: "flex", alignItems: "center" }}>
 										{renderExtra(entry)}
 									</Box>
 								)}
 							</Box>
 
-							{/* Content Preview */}
 							<Typography
 								variant="body1"
 								color="text.primary"
@@ -189,7 +158,6 @@ export function JournalEntryCardView({ entries, onEntryClick, renderExtra, attac
 								{truncateContent(entry.content)}
 							</Typography>
 
-							{/* Date Footer */}
 							<Box
 								sx={{
 									display: "flex",
@@ -200,16 +168,16 @@ export function JournalEntryCardView({ entries, onEntryClick, renderExtra, attac
 									borderColor: "divider",
 								}}
 							>
-								<Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+								<Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
 									<Typography variant="caption" color="text.secondary" fontWeight={500}>
 										{formatDate(entry.createdAt)}
 									</Typography>
-                                    <MultipleThumbnailPreview attachments={attachments[entry.id] || []} />
+									<MultipleThumbnailPreview attachments={attachments[entry.id] || []} />
 									{(attachments[entry.id]?.length || 0) > 0 && (
-										<Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3, color: 'text.secondary' }}>
-											<AttachFileIcon sx={{ fontSize: 14, transform: 'rotate(45deg)' }} />
+										<Box sx={{ display: "flex", alignItems: "center", gap: 0.3, color: "text.secondary" }}>
+											<AttachFileIcon sx={{ fontSize: 14, transform: "rotate(45deg)" }} />
 											<Typography variant="caption" fontWeight={600}>
-												{ attachments[entry.id]?.length || 0 }
+												{attachments[entry.id]?.length || 0}
 											</Typography>
 										</Box>
 									)}

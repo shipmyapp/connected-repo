@@ -15,9 +15,8 @@ export function pLimit(concurrency: number) {
   const next = () => {
     activeCount--;
 
-    if (queue.length > 0) {
-      queue.shift()!();
-    }
+    const nextItem = queue.shift();
+    if (nextItem) nextItem();
   };
 
   const run = async <T>(fn: () => Promise<T>): Promise<T> => {

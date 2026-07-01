@@ -1,6 +1,6 @@
 import { orpcFetch } from "@frontend/utils/orpc.client";
 import axios from "axios";
-import type { FileProgress, UploadResult, CDNProgressUpdate, IdentifiedFile } from "./cdn.types";
+import type { CDNProgressUpdate, IdentifiedFile, UploadResult } from "./cdn.types";
 
 export class CDNManager {
   /**
@@ -8,19 +8,26 @@ export class CDNManager {
    */
   async uploadFiles(
     files: IdentifiedFile[],
-    resourceType: string = "media",
-    onProgress?: (update: CDNProgressUpdate) => void
+    resourceType = "media",
+    onProgress?: (update: CDNProgressUpdate) => void,
   ): Promise<UploadResult[]> {
     try {
-      // 1. Get presigned URLs for all files in batch
       const presignedData = await this.getBatchPresignedUrls(files, resourceType);
 
-      // 2. Upload files in parallel
-      const uploadPromises = files.map(async (file, index) => {
-        const presigned = presignedData[index]!;
-        return this.uploadToUrl(file, presigned, (progress) => {
-           // Aggregate progress if needed, but for now we just track last
-           onProgress?.({ fileProgress: [{ fileName: file.name, progress, stage: 'uploading' }] });
+      const uploadPromises = files.map(async (item, index) => {
+        const presigned = presignedData[index];
+        if (!presigned) {
+          return {
+            success: false,
+            url: "",
+            file: item.file,
+            error: "No presigned URL returned for file",
+          };
+        }
+        return this.uploadToUrl(item.file, presigned, (progress) => {
+          onProgress?.({
+            fileProgress: [{ fileName: item.file.name, progress, stage: "uploading" }],
+          });
         });
       });
 
@@ -28,11 +35,11 @@ export class CDNManager {
     } catch (error) {
       console.error("[CDNManager] Batch operation failed:", error);
       const errorMsg = error instanceof Error ? error.message : "Batch upload failed";
-      
-      return files.map((file) => ({
+
+      return files.map((item) => ({
         success: false,
         url: "",
-        file,
+        file: item.file,
         error: errorMsg,
       }));
     }
@@ -41,14 +48,14 @@ export class CDNManager {
   /**
    * Internal helper to get batch presigned URLs.
    */
-  async getBatchPresignedUrls(files: IdentifiedFile[], resourceType: string = "media") {
+  async getBatchPresignedUrls(files: IdentifiedFile[], resourceType = "media") {
     return await orpcFetch.cdn.generateBatchPresignedUrls(
-      files.map((f) => ({
-        id: f.id,
-        fileName: f.name,
+      files.map((item) => ({
+        id: item.id,
+        fileName: item.file.name,
         resourceType,
-        contentType: f.type,
-      }))
+        contentType: item.file.type,
+      })),
     );
   }
 
@@ -56,15 +63,15 @@ export class CDNManager {
    * Internal helper to upload a single file to a presigned URL.
    */
   async uploadToUrl(
-    file: File, 
-    presigned: { signedUrl: string, fetchUrl: string },
-    onProgress?: (progress: number) => void
+    file: File,
+    presigned: { signedUrl: string; fetchUrl: string },
+    onProgress?: (progress: number) => void,
   ): Promise<UploadResult> {
     try {
       await axios.put(presigned.signedUrl, file, {
         headers: {
           "Content-Type": file.type,
-          "x-amz-acl": "public-read"
+          "x-amz-acl": "public-read",
         },
         onUploadProgress: (progressEvent) => {
           const progress = progressEvent.total
@@ -93,13 +100,13 @@ export class CDNManager {
   /**
    * Checks if a file exists on the CDN remote storage.
    */
-  async checkFileExistsInCdn(file: IdentifiedFile) {
+  async checkFileExistsInCdn(item: IdentifiedFile) {
     try {
       const result = await orpcFetch.cdn.checkFileExistsInCdn({
-        id: file.id,
-        fileName: file.name,
+        id: item.id,
+        fileName: item.file.name,
         resourceType: "media",
-        contentType: file.type,
+        contentType: item.file.type,
       });
       return result;
     } catch (error) {

@@ -1,4 +1,4 @@
-import MuiToggleButtonGroup, { ToggleButtonGroupProps as MuiToggleButtonGroupProps } from "@mui/material/ToggleButtonGroup";
+import MuiToggleButtonGroup, { type ToggleButtonGroupProps as MuiToggleButtonGroupProps } from "@mui/material/ToggleButtonGroup";
 
 export type ToggleButtonGroupProps = MuiToggleButtonGroupProps;
 

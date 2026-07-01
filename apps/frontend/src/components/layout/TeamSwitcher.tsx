@@ -1,20 +1,21 @@
 import { Avatar } from "@connected-repo/ui-mui/data-display/Avatar";
 import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
 import { Stack } from "@connected-repo/ui-mui/layout/Stack";
-import { Divider, Menu, MenuItem, ListItemIcon, Button, Box } from "@mui/material";
+import { useWorkspace, type Workspace } from "@frontend/contexts/WorkspaceContext";
+import CreateTeamDialog from "@frontend/modules/teams/components/CreateTeamDialog";
+import AddIcon from "@mui/icons-material/Add";
+import GroupIcon from "@mui/icons-material/Group";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import PersonIcon from "@mui/icons-material/Person";
-import GroupIcon from "@mui/icons-material/Group";
 import SettingsIcon from "@mui/icons-material/Settings";
-import AddIcon from "@mui/icons-material/Add";
-import React, { useState, useEffect } from "react";
+import { Box, Button, Divider, ListItemIcon, Menu, MenuItem } from "@mui/material";
+import type React from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router";
-import { useWorkspace, Workspace } from "@frontend/contexts/WorkspaceContext";
-import CreateTeamDialog from "@frontend/modules/teams/components/CreateTeamDialog";
 
 export default function TeamSwitcher() {
 	const navigate = useNavigate();
-	const { activeWorkspace, setActiveWorkspace, teams, isLoading, user } = useWorkspace();
+	const { activeWorkspace, setActiveWorkspace, teams, user } = useWorkspace();
 	const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 	const [createDialogOpen, setCreateDialogOpen] = useState(false);
 	const open = Boolean(anchorEl);

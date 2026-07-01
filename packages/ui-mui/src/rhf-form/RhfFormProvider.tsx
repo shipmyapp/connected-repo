@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { FieldErrors, type FieldValues, FormProvider, type UseFormReturn } from "react-hook-form";
+import { type FieldErrors, type FieldValues, FormProvider, type UseFormReturn } from "react-hook-form";
 import { NumLockAlert } from "../feedback/NumLockAlert";
 import { FormErrorDisplayer, type FormErrorDisplayerProps } from "./FormErrorDisplayer";
 

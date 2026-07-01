@@ -1,6 +1,6 @@
 import { db } from "@backend/db/db";
 import { getClientIpAddress } from "@backend/utils/client-info.utils";
-import { OpenapiRequestInput } from "@connected-repo/zod-schemas/api_product_request_log.zod";
+import type { OpenapiRequestInput } from "@connected-repo/zod-schemas/api_product_request_log.zod";
 
 /**
  * Create Request Log

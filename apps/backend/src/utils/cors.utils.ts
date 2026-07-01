@@ -1,4 +1,3 @@
-import { isDev, isTest } from "@backend/configs/env.config";
 import { allowedOrigins } from "@backend/configs/allowed_origins.config";
 import type { NodeHttpRequest, NodeHttpResponse } from '@orpc/standard-server-node';
 

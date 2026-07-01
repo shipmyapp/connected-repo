@@ -1,5 +1,5 @@
-import { createTheme } from "@mui/material/styles";
 import type { PaletteMode } from "@mui/material";
+import { createTheme } from "@mui/material/styles";
 import "./theme.types"; // Import type augmentations
 
 /**

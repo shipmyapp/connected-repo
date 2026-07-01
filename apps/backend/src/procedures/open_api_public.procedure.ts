@@ -1,6 +1,6 @@
-import { TeamApiSelectAll } from "@connected-repo/zod-schemas/team_api.zod";
+import type { TeamApiSelectAll } from "@connected-repo/zod-schemas/team_api.zod";
 import { os } from "@orpc/server";
-import { RequestHeadersPluginContext } from "@orpc/server/plugins";
+import type { RequestHeadersPluginContext } from "@orpc/server/plugins";
 import { z } from "zod";
 
 export interface OpenApiContext extends RequestHeadersPluginContext {

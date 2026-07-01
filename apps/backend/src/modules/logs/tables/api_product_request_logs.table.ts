@@ -1,6 +1,6 @@
 import { BaseTable } from "@backend/db/base_table";
 import { UserTable } from "@backend/modules/users/tables/users.table";
-import { DefaultSelect } from "orchid-orm";
+import type { DefaultSelect } from "orchid-orm";
 
 export class ApiProductRequestLogsTable extends BaseTable {
   readonly table = "api_product_request_logs";

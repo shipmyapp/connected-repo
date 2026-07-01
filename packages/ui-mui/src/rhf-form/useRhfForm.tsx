@@ -1,6 +1,6 @@
 import { type ReactNode, useCallback } from "react";
 import { type FieldValues, type UseFormProps, useForm } from "react-hook-form";
-import { FormErrorDisplayerProps } from "./FormErrorDisplayer";
+import type { FormErrorDisplayerProps } from "./FormErrorDisplayer";
 import { RhfFormProvider, type RhfFormProviderProps } from "./RhfFormProvider";
 
 export interface UseRhfFormProps<T extends FieldValues> {

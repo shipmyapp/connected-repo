@@ -5,21 +5,32 @@ export const userCreatedEventDef = defineEvent({
 	schema: Type.Object({
 		userId: Type.String({ format: "uuid" }),
 		email: Type.String(),
-		name: Type.String()
+		name: Type.String(),
 	}),
 });
 
+/**
+ * Example on-demand notification task. Triggered explicitly by application
+ * code via `tbus.send(userReminderTaskDef.from(...))` — no automatic scheduler.
+ */
 export const userReminderTaskDef = defineTask({
 	task_name: "send_user_reminder",
 	schema: Type.Object({
 		userId: Type.String({ format: "uuid" }),
-		email: Type.String({ format: 'email' }),
+		email: Type.String({ format: "email" }),
 		name: Type.String(),
 		reminderTime: Type.String(),
 	}),
+	config: {
+		retryLimit: 3,
+		retryDelay: 60, // 60s, then exponential
+		retryBackoff: true,
+		expireInSeconds: 120,
+		keepInSeconds: 604800, // 7 days
+	},
 });
 
-// Subscription alert webhook task - triggered when usage reaches 90%
+// Triggered when API usage reaches the 90% threshold.
 export const subscriptionAlertWebhookTaskDef = defineTask({
 	task_name: "subscription.alert_webhook",
 	schema: Type.Object({
@@ -38,19 +49,9 @@ export const subscriptionAlertWebhookTaskDef = defineTask({
 	}),
 	config: {
 		retryLimit: 3,
-		retryDelay: 10,        // Start with 60 seconds
-		retryBackoff: true,    // Exponential: 60s, 120s, 240s
-		expireInSeconds: 300,  // 5 minute timeout per attempt
-		keepInSeconds: 604800, // 7 days retention
-	},
-});
-
-export const systemCronMinuteTaskDef = defineTask({
-	task_name: "system.cron.minute",
-	schema: Type.Object({
-		timestamp: Type.Number(),
-	}),
-	config: {
-		singletonKey: "system-cron-minute",
+		retryDelay: 60,
+		retryBackoff: true,
+		expireInSeconds: 300,
+		keepInSeconds: 604800,
 	},
 });

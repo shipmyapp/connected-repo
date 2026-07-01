@@ -1,7 +1,8 @@
 // @ts-ignore - Vite handled URL import for localized worker
+
+import type { PDFDocumentProxy, PDFPageProxy } from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { canvasToBestBlob } from "../../../utils/thumbnail-compression";
-import type { PDFDocumentProxy, PDFPageProxy } from "pdfjs-dist";
 
 /**
  * Generates a thumbnail for a PDF file.

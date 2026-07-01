@@ -1,5 +1,4 @@
 import { db } from "@backend/db/db";
-import { z } from "zod";
 import { rpcProtectedProcedure } from "@backend/procedures/protected.procedure";
 import {
 	journalEntryCreateInputZod,
@@ -9,6 +8,7 @@ import {
 	journalEntrySelectAllZod,
 } from "@connected-repo/zod-schemas/journal_entry.zod";
 import { userSelectAllZod } from "@connected-repo/zod-schemas/user.zod";
+import { z } from "zod";
 
 // Get all journal entries for the authenticated user, optionally filtered by team
 const getAll = rpcProtectedProcedure

@@ -1,11 +1,11 @@
 import { userContext } from "@frontend/contexts/UserContext";
 import { setSentryUser } from "@frontend/instrumentation";
-import { toast } from "react-toastify";
 import { authClient } from "@frontend/utils/auth.client";
 import { getAuthCache, saveAuthCache, saveLastLogin } from "@frontend/utils/auth.persistence";
 import { detectUserTimezone } from "@frontend/utils/timezone.utils";
 import type { LoaderFunctionArgs } from "react-router";
 import { redirect } from "react-router";
+import { toast } from "react-toastify";
 
 /**
  * Auth loader for protected routes

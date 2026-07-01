@@ -5,14 +5,12 @@ import { AppBar } from "@connected-repo/ui-mui/navigation/AppBar";
 import { BottomNavigation } from "@connected-repo/ui-mui/navigation/BottomNavigation";
 import { BottomNavigationAction } from "@connected-repo/ui-mui/navigation/BottomNavigationAction";
 import { Toolbar } from "@connected-repo/ui-mui/navigation/Toolbar";
-import { navItems } from "@frontend/configs/nav.config";
-import { SSEStatusBadge } from "@frontend/sw/sse/StatusBadge.sse.sw";
-import { useLocation, useNavigate } from "react-router";
-import { UserProfileMenu } from "@frontend/components/layout/UserProfileMenu";
 import TeamSwitcher from "@frontend/components/layout/TeamSwitcher";
-import GroupIcon from "@mui/icons-material/Group";
-import PersonIcon from "@mui/icons-material/Person";
+import { UserProfileMenu } from "@frontend/components/layout/UserProfileMenu";
+import { navItems } from "@frontend/configs/nav.config";
 import { useWorkspace } from "@frontend/contexts/WorkspaceContext";
+import GroupIcon from "@mui/icons-material/Group";
+import { useLocation, useNavigate } from "react-router";
 
 export const MobileNavbar = () => {
 	const navigate = useNavigate();
@@ -100,7 +98,6 @@ export const MobileNavbar = () => {
 						>
 							OneQ
 						</Typography>
-						<SSEStatusBadge />
 					</Box>
 
 					{/* Workspace Switcher */}

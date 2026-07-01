@@ -1,94 +1,59 @@
+import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
 import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { Stack } from "@connected-repo/ui-mui/layout/Stack";
-import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
 import { MaterialReactTable } from "@connected-repo/ui-mui/mrt/MaterialReactTable";
-import { JournalEntrySelectAll } from "@connected-repo/zod-schemas/journal_entry.zod";
-import type { MRT_ColumnDef } from "material-react-table";
-import { useCallback, useMemo, useEffect, useState, useRef } from "react";
-import { Tooltip, alpha } from "@mui/material";
-import ErrorIcon from "@mui/icons-material/Error";
+import type { FileSelectAll } from "@connected-repo/zod-schemas/file.zod";
+import type { JournalEntrySelectAll } from "@connected-repo/zod-schemas/journal_entry.zod";
 import AttachFileIcon from "@mui/icons-material/AttachFile";
-
-import { StoredFile } from "@frontend/worker/db/schema.db.types";
-import { WithSync } from "@frontend/worker/db/db.manager";
-import { getOpfsMediaUrl } from "@frontend/utils/file-url.utils";
+import { Tooltip } from "@mui/material";
+import type { MRT_ColumnDef } from "material-react-table";
+import { useCallback, useMemo } from "react";
 
 interface JournalEntryTableViewProps {
-	entries: WithSync<JournalEntrySelectAll>[];
+	entries: JournalEntrySelectAll[];
 	onEntryClick: (entryId: string) => void;
-    attachments?: Record<string, StoredFile[]>;
+	attachments?: Record<string, FileSelectAll[]>;
 }
 
-function TableThumbnailItem({ attachment }: { attachment: StoredFile }) {
-    const [url, setUrl] = useState<string | null>(null);
-    const trackedUrl = useRef<string | null>(null);
+function TableThumbnailItem({ attachment }: { attachment: FileSelectAll }) {
+	const url = attachment.thumbnailCdnUrl || attachment.cdnUrl;
+	if (!url) return null;
 
-    useEffect(() => {
-        let previewUrl: string | null = null;
-
-        if (attachment.thumbnailCdnUrl) {
-            previewUrl = attachment.thumbnailCdnUrl;
-        } else if (attachment._thumbnailOpfsPath) {
-            previewUrl = getOpfsMediaUrl(attachment._thumbnailOpfsPath) || null;
-        } else if (attachment._thumbnailBlob) {
-            previewUrl = URL.createObjectURL(attachment._thumbnailBlob);
-        } else if (attachment.cdnUrl) {
-            previewUrl = attachment.cdnUrl;
-        } else if (attachment._opfsPath) {
-            previewUrl = getOpfsMediaUrl(attachment._opfsPath) || null;
-        } else if (attachment._blob) {
-            previewUrl = URL.createObjectURL(attachment._blob);
-        }
-
-        const isObjectUrl = (val: string | null) => val?.startsWith('blob:');
-
-        if (previewUrl && isObjectUrl(previewUrl)) {
-            trackedUrl.current = previewUrl;
-        }
-        setUrl(previewUrl);
-
-        return () => {
-            if (trackedUrl.current) {
-                URL.revokeObjectURL(trackedUrl.current);
-                trackedUrl.current = null;
-            }
-        };
-    }, [attachment]);
-
-    if (!url) return null;
-
-    return (
-        <Box 
-            component="img"
-            src={url}
-            sx={{ 
-                width: 24, 
-                height: 24, 
-                borderRadius: 0.5, 
-                objectFit: 'cover',
-                border: '1px solid',
-                borderColor: 'divider'
-            }}
-        />
-    );
+	return (
+		<Box
+			component="img"
+			src={url}
+			alt={attachment.fileName}
+			sx={{
+				width: 24,
+				height: 24,
+				borderRadius: 0.5,
+				objectFit: "cover",
+				border: "1px solid",
+				borderColor: "divider",
+			}}
+		/>
+	);
 }
 
-function MultipleTableThumbnails({ attachments }: { attachments: StoredFile[] }) {
-    const images = attachments.filter(a => a.mimeType.startsWith('image/') || a.type === 'attachment');
-    if (images.length === 0) return null;
+function MultipleTableThumbnails({ attachments }: { attachments: FileSelectAll[] }) {
+	const images = attachments.filter(
+		(a) => a.mimeType.startsWith("image/") || a.type === "attachment",
+	);
+	if (images.length === 0) return null;
 
-    return (
-        <Stack direction="row" spacing={0.25}>
-            {images.slice(0, 3).map(img => (
-                <TableThumbnailItem key={img.id} attachment={img} />
-            ))}
-            {images.length > 3 && (
-                <Typography variant="caption" sx={{ alignSelf: 'center', opacity: 0.6, fontSize: '0.65rem' }}>
-                    +{images.length - 3}
-                </Typography>
-            )}
-        </Stack>
-    );
+	return (
+		<Stack direction="row" spacing={0.25}>
+			{images.slice(0, 3).map((img) => (
+				<TableThumbnailItem key={img.id} attachment={img} />
+			))}
+			{images.length > 3 && (
+				<Typography variant="caption" sx={{ alignSelf: "center", opacity: 0.6, fontSize: "0.65rem" }}>
+					+{images.length - 3}
+				</Typography>
+			)}
+		</Stack>
+	);
 }
 
 export function JournalEntryTableView({ entries, onEntryClick, attachments = {} }: JournalEntryTableViewProps) {
@@ -96,7 +61,8 @@ export function JournalEntryTableView({ entries, onEntryClick, attachments = {} 
 		(content: string, maxLength = 100) => {
 			if (content.length <= maxLength) return content;
 			return `${content.substring(0, maxLength)}...`;
-		}, []
+		},
+		[],
 	);
 
 	const formatDate = useCallback(
@@ -108,25 +74,26 @@ export function JournalEntryTableView({ entries, onEntryClick, attachments = {} 
 				hour: "2-digit",
 				minute: "2-digit",
 			});
-		}, []
+		},
+		[],
 	);
 
-	const columns = useMemo<MRT_ColumnDef<WithSync<JournalEntrySelectAll>>[]>(
+	const columns = useMemo<MRT_ColumnDef<JournalEntrySelectAll>[]>(
 		() => [
-            {
-                accessorKey: "id",
-                header: "",
-                size: 50,
-                enableSorting: false,
-                enableColumnFilter: false,
-                Cell: ({ row }) => <MultipleTableThumbnails attachments={attachments[row.original.id] || []} />,
-            },
+			{
+				accessorKey: "id",
+				header: "",
+				size: 50,
+				enableSorting: false,
+				enableColumnFilter: false,
+				Cell: ({ row }) => <MultipleTableThumbnails attachments={attachments[row.original.id] || []} />,
+			},
 			{
 				accessorKey: "prompt",
 				header: "Prompt",
 				size: 200,
 				Cell: ({ cell }) => (
-					<Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+					<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
 						{cell.getValue<string>() || "Journal Entry"}
 					</Box>
 				),
@@ -152,30 +119,28 @@ export function JournalEntryTableView({ entries, onEntryClick, attachments = {} 
 				header: "Date",
 				size: 180,
 				Cell: ({ row, cell }) => {
-                    const rowAttachments = attachments[row.original.id] || [];
-                    const attachmentCount = rowAttachments.length;
-                    
-                    return (
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                            <Box component="span">
-                                {formatDate(cell.getValue<number>())}
-                            </Box>
-                            {attachmentCount > 0 && (
-                                <Tooltip title={`${attachmentCount} attachments`}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', color: 'text.secondary', ml: 1 }}>
-                                        <AttachFileIcon sx={{ fontSize: 16, transform: 'rotate(45deg)' }} />
-                                        <Box component="span" sx={{ fontSize: '0.75rem', fontWeight: 600 }}>
-                                            {attachmentCount}
-                                        </Box>
-                                    </Box>
-                                </Tooltip>
-                            )}
-                        </Box>
-                    );
-                },
+					const rowAttachments = attachments[row.original.id] || [];
+					const attachmentCount = rowAttachments.length;
+
+					return (
+						<Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+							<Box component="span">{formatDate(cell.getValue<number>())}</Box>
+							{attachmentCount > 0 && (
+								<Tooltip title={`${attachmentCount} attachments`}>
+									<Box sx={{ display: "flex", alignItems: "center", color: "text.secondary", ml: 1 }}>
+										<AttachFileIcon sx={{ fontSize: 16, transform: "rotate(45deg)" }} />
+										<Box component="span" sx={{ fontSize: "0.75rem", fontWeight: 600 }}>
+											{attachmentCount}
+										</Box>
+									</Box>
+								</Tooltip>
+							)}
+						</Box>
+					);
+				},
 			},
 		],
-		[formatDate],
+		[attachments, formatDate, truncateContent],
 	);
 
 	return (

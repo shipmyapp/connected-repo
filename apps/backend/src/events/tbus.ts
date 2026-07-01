@@ -1,5 +1,5 @@
 import { env } from "@backend/configs/env.config";
-import createTBus, { type Bus } from 'pg-tbus';
+import createTBus, { type Bus } from "pg-tbus";
 
 export const tbus = createTBus(env.OTEL_SERVICE_NAME, {
 	db: {
@@ -11,9 +11,12 @@ export const tbus = createTBus(env.OTEL_SERVICE_NAME, {
 	},
 	schema: "tbus",
 	worker: {
-		concurrency: 5,
+		// Each worker slot holds a pg connection from this bus's pool. Tight
+		// concurrency leaves more headroom for HTTP request handling.
+		// Tune via PG_TBUS_CONCURRENCY (default 3).
+		concurrency: env.PG_TBUS_CONCURRENCY,
 		intervalInMs: 1000,
-	}
+	},
 });
 
 export type TBus = Bus;

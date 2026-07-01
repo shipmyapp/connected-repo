@@ -1,4 +1,4 @@
-import MuiToggleButton, { ToggleButtonProps as MuiToggleButtonProps } from "@mui/material/ToggleButton";
+import MuiToggleButton, { type ToggleButtonProps as MuiToggleButtonProps } from "@mui/material/ToggleButton";
 
 export type ToggleButtonProps = MuiToggleButtonProps;
 

@@ -1,26 +1,40 @@
-import { userAppRouter } from "@backend/routers/user_app/user_app.router";
 import { isDev, isProd, isStaging } from "@backend/configs/env.config";
+import { userAppRouter } from "@backend/routers/user_app/user_app.router";
+import { handleBoundaryError } from "@backend/utils/errorParser";
 import { logger } from "@backend/utils/logger.utils";
-import { trace } from '@opentelemetry/api';
+import { trace } from "@opentelemetry/api";
 import { LoggingHandlerPlugin } from "@orpc/experimental-pino";
 import { OpenAPIHandler } from "@orpc/openapi/node";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
-import { onError } from "@orpc/server";
-import { CORSPlugin, RequestHeadersPlugin, SimpleCsrfProtectionHandlerPlugin, StrictGetMethodPlugin } from "@orpc/server/plugins";
+import {
+	CORSPlugin,
+	RequestHeadersPlugin,
+	SimpleCsrfProtectionHandlerPlugin,
+	StrictGetMethodPlugin,
+} from "@orpc/server/plugins";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 
+// Mobile app exposes the same router as the React app over OpenAPI / HTTP-JSON.
+// Per ADR-K4 there is intentionally no separate `mobileAppRouter` — the surface
+// stays identical until the apps need to diverge.
 export const mobileAppHandler = new OpenAPIHandler(userAppRouter, {
 	plugins: [
 		new CORSPlugin({
-			origin: '*', // or env.API_ALLOWED_ORIGINS if you want restrictions
-			allowMethods: ['GET', 'POST', 'OPTIONS'],
-			allowHeaders: ['content-type', 'authorization', 'x-csrf-token', 'sentry-trace', 'baggage'],
-            // Needed for flutter web
-			credentials: false, // No cookies/credentials needed for API key auth
+			origin: "*",
+			allowMethods: ["GET", "POST", "OPTIONS"],
+			allowHeaders: [
+				"content-type",
+				"authorization",
+				"x-csrf-token",
+				"sentry-trace",
+				"baggage",
+				"x-team-id",
+			],
+			credentials: false,
 		}),
 		new LoggingHandlerPlugin({
 			logger,
-			logRequestResponse: isDev, // Only log in dev/staging
+			logRequestResponse: isDev,
 			logRequestAbort: true,
 		}),
 		new OpenAPIReferencePlugin({
@@ -37,7 +51,6 @@ export const mobileAppHandler = new OpenAPIHandler(userAppRouter, {
 				servers: [{ url: "/mobile-app" }],
 				components: {
 					securitySchemes: {
-                        // Needed for flutter web
 						sessionCookie: {
 							type: "apiKey",
 							in: "cookie",
@@ -46,64 +59,38 @@ export const mobileAppHandler = new OpenAPIHandler(userAppRouter, {
 						},
 					},
 				},
-				security: [
-				],
+				security: [],
 			},
 		}),
 		new RequestHeadersPlugin(),
-        // CSRF protection (disabled in development for easier testing)
-        ...(isProd || isStaging
-        ? [
-            new SimpleCsrfProtectionHandlerPlugin({
-                exclude: async ({ context }) => {
-                // Exclude requests using VALID Bearer tokens (typically from mobile apps)
-                const authHeader = context.reqHeaders?.get('authorization')?.trim();
-                if (authHeader && /^bearer\s+/i.test(authHeader)) {
-                    try {
-                    // his calls auth.api.getSession on every request with a Bearer token. This introduces excessive latency or DB load, as Better Auth might fetch the session again in its own middleware.
-                    // const session = await auth.api.getSession({
-                    //   headers: context.reqHeaders,
-                    // });
-                    // return !!session;
-                    return true;
-                    } catch (e) {
-                    return false;
-                    }
-                }
-                return false;
-                },
-            }),
-            ]
-        : []),
-        // Strict GET method plugin (queries must use GET)
-        new StrictGetMethodPlugin(),
+		...(isProd || isStaging
+			? [
+					new SimpleCsrfProtectionHandlerPlugin({
+						exclude: async ({ context }) => {
+							const authHeader = context.reqHeaders?.get("authorization")?.trim();
+							if (authHeader && /^bearer\s+/i.test(authHeader)) {
+								return true;
+							}
+							return false;
+						},
+					}),
+				]
+			: []),
+		new StrictGetMethodPlugin(),
 	],
 	interceptors: [
-		({ request, next }) => {
-			const span = trace.getActiveSpan()
+		async ({ request, next }) => {
+			const span = trace.getActiveSpan();
 
-			request.signal?.addEventListener('abort', () => {
-				span?.addEvent('aborted', { reason: String(request.signal?.reason) })
-			})
+			request.signal?.addEventListener("abort", () => {
+				span?.addEvent("aborted", { reason: String(request.signal?.reason) });
+			});
 
-			return next()
+			try {
+				return await next();
+			} catch (error) {
+				throw handleBoundaryError(error, "mobile_app");
+			}
 		},
-		// Server-side error logging
-		onError((error) => {
-			logger.error(error, "OpenAPI error");
-		}),
 	],
-    clientInterceptors: [
-        // Client-side error transformation
-            // Commented as leads to double logging.
-        // onError((error) => {
-        //   const parsed = orpcErrorParser(error as Error);
-        //   throw new ORPCError(parsed.code, {
-        //     status: parsed.httpStatus,
-        //     message: parsed.userFriendlyMessage,
-        //     data: parsed.details,
-        //     cause: error,
-        //   });
-        // }),
-    ],
-})
+});

@@ -1,6 +1,6 @@
-export { default as Dialog, type DialogProps } from "@mui/material/Dialog";
-export { default as DialogActions, type DialogActionsProps } from "@mui/material/DialogActions";
-export { default as DialogContent, type DialogContentProps } from "@mui/material/DialogContent";
-export { default as DialogContentText, type DialogContentTextProps } from "@mui/material/DialogContentText";
-export { default as DialogTitle, type DialogTitleProps } from "@mui/material/DialogTitle";
+export { type DialogProps, default as Dialog } from "@mui/material/Dialog";
+export { type DialogActionsProps, default as DialogActions } from "@mui/material/DialogActions";
+export { type DialogContentProps, default as DialogContent } from "@mui/material/DialogContent";
+export { type DialogContentTextProps, default as DialogContentText } from "@mui/material/DialogContentText";
+export { type DialogTitleProps, default as DialogTitle } from "@mui/material/DialogTitle";
 

@@ -1,11 +1,8 @@
-import { orpc } from "@frontend/utils/orpc.tanstack.client";
 import type { UserAppBackendOutputs } from "@frontend/utils/orpc.client";
-import { createContext, useContext, useEffect, useState, useMemo, type ReactNode } from "react";
-import { useSessionInfo, type SessionInfo } from "./UserContext";
+import { orpc } from "@frontend/utils/orpc.tanstack.client";
 import { useQuery } from "@tanstack/react-query";
-import { useLocalDb } from "@frontend/worker/db/hooks/useLocalDb";
-import { getDataProxy } from "@frontend/worker/worker.proxy";
-import { DB_UPDATES_CHANNEL, DbUpdateMessage } from "@frontend/configs/channels.config";
+import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from "react";
+import type { SessionInfo } from "./UserContext";
 
 export type Team = UserAppBackendOutputs["teams"]["getMyTeams"][number];
 
@@ -32,35 +29,13 @@ interface WorkspaceProviderProps {
 }
 
 export function WorkspaceProvider({ children, sessionInfo: propSessionInfo }: WorkspaceProviderProps) {
-	// Use propSessionInfo directly as it's passed from AppLayout (loader data)
 	const sessionInfo = propSessionInfo;
 
-	// Use local DB as the source of truth for teams. 
-	// This hook listens to "teamsApp" updates.
-	const { data: teams = [], isLoading, refetch } = useLocalDb<Team>(
-		"teamsApp",
-		(app) => {
-			if (!sessionInfo?.user?.id) return Promise.resolve([]);
-			return app.teamsAppDb.getAllWithRole(sessionInfo.user.id);
-		},
-		[sessionInfo?.user?.id]
-	);
-
-	// Also listen for teamMembers updates to ensure role changes are reactive
-	useEffect(() => {
-		const dbUpdatesChannel = new BroadcastChannel(DB_UPDATES_CHANNEL);
-		const handleMessage = (event: MessageEvent<DbUpdateMessage>) => {
-			const { table } = event.data;
-			if (table === "teamMembers") {
-				refetch();
-			}
-		};
-		dbUpdatesChannel.addEventListener('message', handleMessage);
-		return () => {
-			dbUpdatesChannel.removeEventListener('message', handleMessage);
-			dbUpdatesChannel.close();
-		};
-	}, [refetch]);
+	// Fetch teams from the backend via oRPC.
+	const { data: teams = [], isLoading } = useQuery({
+		...orpc.teams.getMyTeams.queryOptions({}),
+		enabled: !!sessionInfo?.user?.id,
+	});
 
 	const personalWorkspace: Workspace = useMemo(() => ({
 		id: sessionInfo?.user?.id || "personal",
@@ -71,16 +46,18 @@ export function WorkspaceProvider({ children, sessionInfo: propSessionInfo }: Wo
 
 	const [activeWorkspace, setActiveWorkspace] = useState<Workspace>(() => {
 		const userId = sessionInfo?.user?.id;
-		if (!userId) return {
-			id: "personal",
-			name: "Personal Space",
-			type: "personal",
-			role: "personal",
-		};
+		if (!userId) {
+			return {
+				id: "personal",
+				name: "Personal Space",
+				type: "personal",
+				role: "personal",
+			};
+		}
 
 		const storageKey = `activeWorkspace_${userId}`;
 		const saved = localStorage.getItem(storageKey);
-		
+
 		if (saved) {
 			try {
 				const parsed = JSON.parse(saved);
@@ -93,11 +70,11 @@ export function WorkspaceProvider({ children, sessionInfo: propSessionInfo }: Wo
 					};
 				}
 				return parsed;
-			} catch (e) {
-				// Fallback handled below
+			} catch {
+				// fallthrough to default
 			}
 		}
-		
+
 		return {
 			id: userId,
 			name: "Personal Space",
@@ -106,7 +83,7 @@ export function WorkspaceProvider({ children, sessionInfo: propSessionInfo }: Wo
 		};
 	});
 
-	// Validation and auto-selection logic
+	// Validation + auto-selection logic.
 	useEffect(() => {
 		if (teams.length === 0 || !sessionInfo?.user?.id) {
 			return;
@@ -117,13 +94,12 @@ export function WorkspaceProvider({ children, sessionInfo: propSessionInfo }: Wo
 		const hasSaved = !!localStorage.getItem(storageKey);
 
 		if (!hasSaved && activeWorkspace.id === personalWorkspace.id) {
-			// Auto-select latest joined team if nothing is saved
 			const sortedTeams = [...teams].sort((a, b) => {
 				const timeA = a.joinedAt || 0;
 				const timeB = b.joinedAt || 0;
 				return timeB - timeA;
 			});
-			
+
 			if (sortedTeams[0]) {
 				const latestTeam = sortedTeams[0];
 				setActiveWorkspace({
@@ -134,32 +110,35 @@ export function WorkspaceProvider({ children, sessionInfo: propSessionInfo }: Wo
 				});
 			}
 		} else if (activeWorkspace.type === "team") {
-			// Validate current team exists and update role if needed
-			const currentTeam = teams.find(t => t.id === activeWorkspace.id);
+			const currentTeam = teams.find((t) => t.id === activeWorkspace.id);
 			if (!currentTeam) {
 				setActiveWorkspace(personalWorkspace);
 			} else if (currentTeam.userRole !== activeWorkspace.role) {
 				setActiveWorkspace({
 					...activeWorkspace,
-					role: currentTeam.userRole
+					role: currentTeam.userRole,
 				});
 			}
 		}
-	}, [teams, sessionInfo?.user?.id, activeWorkspace.id, activeWorkspace.type, personalWorkspace.id]);
+	}, [teams, sessionInfo?.user?.id, activeWorkspace, personalWorkspace]);
 
-	// Sync personal workspace ID if user session changes
+	// Keep personal workspace id aligned with the current session.
 	useEffect(() => {
-		if (sessionInfo?.user?.id && activeWorkspace.type === "personal" && activeWorkspace.id !== sessionInfo.user.id) {
+		if (
+			sessionInfo?.user?.id &&
+			activeWorkspace.type === "personal" &&
+			activeWorkspace.id !== sessionInfo.user.id
+		) {
 			setActiveWorkspace(personalWorkspace);
 		}
-	}, [sessionInfo?.user?.id, activeWorkspace.type, personalWorkspace]);
+	}, [sessionInfo?.user?.id, activeWorkspace, personalWorkspace]);
 
-	// Persist changes to user-specific key
+	// Persist changes per user.
 	useEffect(() => {
 		const userId = sessionInfo?.user?.id;
 		if (userId) {
 			localStorage.setItem(`activeWorkspace_${userId}`, JSON.stringify(activeWorkspace));
-			localStorage.removeItem("activeWorkspace"); // Clean up legacy key
+			localStorage.removeItem("activeWorkspace"); // legacy key cleanup
 		}
 	}, [activeWorkspace, sessionInfo?.user?.id]);
 
@@ -168,7 +147,7 @@ export function WorkspaceProvider({ children, sessionInfo: propSessionInfo }: Wo
 			value={{
 				activeWorkspace,
 				setActiveWorkspace,
-				teams: teams as Team[],
+				teams,
 				isLoading: isLoading && teams.length === 0,
 				user: sessionInfo?.user || null,
 			}}

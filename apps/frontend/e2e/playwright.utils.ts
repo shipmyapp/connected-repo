@@ -1,4 +1,4 @@
-import { type BrowserContext, type Page } from '@playwright/test';
+import type { BrowserContext, Page } from '@playwright/test';
 
 /**
  * Dismisses the PWA installation snackbar/toast if it appears.
@@ -18,7 +18,7 @@ export async function dismissPwaToast(page: Page) {
          return laterButton.click({ force: true }).catch(() => {});
        });
     }
-  } catch (e) {}
+  } catch {}
 }
 
 /**

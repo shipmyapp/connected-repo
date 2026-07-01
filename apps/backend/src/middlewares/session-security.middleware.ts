@@ -1,6 +1,6 @@
-import { RpcAuthenticatedContext } from '@backend/procedures/protected.procedure';
+import type { RpcAuthenticatedContext } from '@backend/procedures/protected.procedure';
 import { generateDeviceFingerprint, getClientIpAddress } from '@backend/utils/client-info.utils';
-import { MiddlewareNextFn, ORPCError } from '@orpc/server';
+import { type MiddlewareNextFn, ORPCError } from '@orpc/server';
 
 export interface SessionSecurityResult {
 	isValid: boolean;

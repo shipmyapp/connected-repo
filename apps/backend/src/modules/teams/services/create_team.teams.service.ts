@@ -1,5 +1,5 @@
 import { db } from "@backend/db/db";
-import { TeamAppCreateInput } from "@connected-repo/zod-schemas/team_app.zod";
+import type { TeamAppCreateInput } from "@connected-repo/zod-schemas/team_app.zod";
 
 export const createTeamService = async (
 	userId: string,

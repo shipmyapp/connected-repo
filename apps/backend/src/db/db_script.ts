@@ -1,4 +1,3 @@
-import { env } from "@backend/configs/env.config.js";
 import { BaseTable } from "@backend/db/base_table";
 import { dbConfig } from "@backend/db/config.db.js";
 import { rakeDb } from "orchid-orm/migrations/node-postgres";
@@ -8,7 +7,10 @@ export const change = rakeDb.run(dbConfig, {
 	dbPath: "./db",
 	migrationId: "serial",
 	migrationsPath: "./migrations",
-	// schema: env.DB_SCHEMA,
+	// `per-migration` wraps each migration file in its own transaction. Safer
+	// rollback than the default per-statement mode when a single file makes
+	// multiple coordinated DDL changes.
+	transaction: "per-migration",
 	commands: {
 		async seed() {
 			const { seed } = await import("./seed/index.js");
@@ -16,8 +18,4 @@ export const change = rakeDb.run(dbConfig, {
 		},
 	},
 	import: (path) => import(path),
-	//   beforeMigrate?(db: Db): Promise<void>;
-	//   afterMigrate?(db: Db): Promise<void>;
-	//   beforeRollback?(db: Db): Promise<void>;
-	//   afterRollback?(db: Db): Promise<void>;
 });

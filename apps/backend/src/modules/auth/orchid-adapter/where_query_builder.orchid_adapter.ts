@@ -1,6 +1,6 @@
-import { Db } from "@backend/db/db";
-import { ModelName } from "@backend/modules/auth/orchid-adapter/model_table_map.orchid_adapter";
-import { type Where } from "better-auth";
+import type { Db } from "@backend/db/db";
+import type { ModelName } from "@backend/modules/auth/orchid-adapter/model_table_map.orchid_adapter";
+import type { Where } from "better-auth";
 
 /**
  * Maps better-auth operators to Orchid ORM operators.

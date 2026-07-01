@@ -2,8 +2,8 @@ import { HeadObjectCommand } from "@aws-sdk/client-s3";
 import { env } from "@backend/configs/env.config";
 import { generatePublicUrl, generateS3Key } from "@backend/utils/cdn.utils";
 import { s3Client } from "@backend/utils/s3.client";
-import { z } from "zod";
-import { generateUrlInput } from "./generate_presigned_url.cdn.services";
+import type { z } from "zod";
+import type { generateUrlInput } from "./generate_presigned_url.cdn.services";
 
 export const checkFileExistsInCdnService = async (input: z.infer<typeof generateUrlInput>, userId: string) => {
     const key = generateS3Key({

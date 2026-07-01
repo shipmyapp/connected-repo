@@ -2,15 +2,14 @@ import { allowedOrigins } from "@backend/configs/allowed_origins.config";
 import { env, isDev, isProd, isTest } from "@backend/configs/env.config";
 import { db } from "@backend/db/db";
 import { logger } from "@backend/utils/logger.utils";
-import { recordErrorOtel } from "@backend/utils/record-message.otel.utils";
 import { themeSettingZod } from "@connected-repo/zod-schemas/enums.zod";
 import { uniqueTimeArrayZod, zTimezone } from "@connected-repo/zod-schemas/zod_utils";
 import { betterAuth } from "better-auth";
 import { createAuthMiddleware } from "better-auth/api";
 import { bearer, phoneNumber } from "better-auth/plugins";
 import { apple } from "better-auth/social-providers";
-import { orchidAdapter } from "./orchid-adapter/factory.orchid_adapter";
 import { generateAppleClientSecret } from "./lib/apple.lib";
+import { orchidAdapter } from "./orchid-adapter/factory.orchid_adapter";
 
 // Apple Client Secret is generated on-the-fly and cached for the process duration
 // (or could be periodically refreshed if the process is long-lived)
@@ -65,7 +64,7 @@ export const auth = betterAuth({
 	plugins: [
 		bearer(),
 		phoneNumber({
-			sendOTP: async ({ phoneNumber, code }, ctx) => {
+			sendOTP: async ({ phoneNumber, code }, _ctx) => {
 				logger.info({ phoneNumber, code }, "Sending phone number OTP");
 				// TODO: Implement actual SMS provider here
 			},
@@ -123,7 +122,7 @@ export const auth = betterAuth({
 								logger.debug({ aud }, "Swapping Google Client ID for native app");
 							}
 						}
-					} catch (err) {
+					} catch (_err) {
 						// Ignore decode errors, better-auth will handle verification
 					}
 				}

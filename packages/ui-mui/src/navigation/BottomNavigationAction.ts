@@ -1,1 +1,1 @@
-export { default as BottomNavigationAction, type BottomNavigationActionProps } from "@mui/material/BottomNavigationAction";
+export { type BottomNavigationActionProps, default as BottomNavigationAction } from "@mui/material/BottomNavigationAction";

@@ -1,18 +1,18 @@
+import { Avatar } from "@connected-repo/ui-mui/data-display/Avatar";
 import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
 import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { Paper } from "@connected-repo/ui-mui/layout/Paper";
-import { Avatar } from "@connected-repo/ui-mui/data-display/Avatar";
-import { Chip } from "@mui/material";
-import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, IconButton, Menu, MenuItem, ListItemIcon, Divider } from "@mui/material";
-import MoreVertIcon from "@mui/icons-material/MoreVert";
-import PersonRemoveIcon from "@mui/icons-material/PersonRemove";
-import PersonIcon from "@mui/icons-material/Person";
-import VerifiedUserIcon from "@mui/icons-material/VerifiedUser";
-import React, { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import type { TeamAppMemberSelectAll } from "@connected-repo/zod-schemas/team_app.zod";
 import { orpc } from "@frontend/utils/orpc.tanstack.client";
+import MoreVertIcon from "@mui/icons-material/MoreVert";
+import PersonIcon from "@mui/icons-material/Person";
+import PersonRemoveIcon from "@mui/icons-material/PersonRemove";
+import VerifiedUserIcon from "@mui/icons-material/VerifiedUser";
+import { Chip, Divider, IconButton, ListItemIcon, Menu, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
+import { useMutation } from "@tanstack/react-query";
+import type React from "react";
+import { useState } from "react";
 import { toast } from "react-toastify";
-import { TeamAppMemberSelectAll } from "@connected-repo/zod-schemas/team_app.zod";
 
 interface MembersListProps {
 	members: TeamAppMemberSelectAll[];

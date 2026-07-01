@@ -1,5 +1,5 @@
 import { BaseTable } from "@backend/db/base_table";
-import { ApiProductSku } from "@connected-repo/zod-schemas/enums.zod";
+import type { ApiProductSku } from "@connected-repo/zod-schemas/enums.zod";
 
 export class TeamApiTable extends BaseTable {
   readonly table = "teams_api";

@@ -1,7 +1,7 @@
-import { OpenApiAuthContext } from "@backend/procedures/open_api_auth.procedure";
+import type { OpenApiAuthContext } from "@backend/procedures/open_api_auth.procedure";
 import { getClientIpAddress } from "@backend/utils/client-info.utils";
 import { isIPWhitelisted } from "@backend/utils/ipChecker.utils";
-import { MiddlewareNextFn, ORPCError } from "@orpc/server";
+import { type MiddlewareNextFn, ORPCError } from "@orpc/server";
 
 /**
  * IP Whitelist Middleware

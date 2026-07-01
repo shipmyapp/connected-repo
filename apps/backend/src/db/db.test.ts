@@ -1,5 +1,5 @@
-import { db } from '@backend/db/db';
 import { randomUUID } from 'node:crypto';
+import { db } from '@backend/db/db';
 import { describe, expect, it } from 'vitest';
 
 describe('Basic Database Test', () => {

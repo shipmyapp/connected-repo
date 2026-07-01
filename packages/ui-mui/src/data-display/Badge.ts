@@ -1,1 +1,1 @@
-export { default as Badge, type BadgeProps } from "@mui/material/Badge";
+export { type BadgeProps, default as Badge } from "@mui/material/Badge";

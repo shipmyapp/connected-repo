@@ -1,7 +1,7 @@
 import { themeSettingZod } from "@zod-schemas/enums.zod.js";
 import { z } from "zod";
-import { uniqueTimeArrayZod, zString, zTimestamps, zTimezone } from "./zod_utils.js";
 import { teamAppSelectAllZod } from "./team_app.zod.js";
+import { uniqueTimeArrayZod, zString, zTimestamps, zTimezone } from "./zod_utils.js";
 
 export const userMandatoryZod = z.object({
   name: zString,

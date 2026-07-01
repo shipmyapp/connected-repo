@@ -1,1 +1,1 @@
-export { default as Collapse, type CollapseProps } from "@mui/material/Collapse";
+export { type CollapseProps, default as Collapse } from "@mui/material/Collapse";

@@ -1,28 +1,32 @@
-import React from 'react';
-import { 
-  Box, 
-  IconButton, 
-  Stack, 
-  Typography, 
-  Paper, 
-  Tooltip, 
-  Badge,
-  useTheme,
-  alpha
-} from '@mui/material';
 import { 
   AddPhotoAlternateOutlined as AddIcon,
   Close as CloseIcon,
+  FilePresent as FileIcon, 
   PictureAsPdf as PdfIcon,
-  VideoFile as VideoIcon,
-  FilePresent as FileIcon
+  VideoFile as VideoIcon
 } from '@mui/icons-material';
+import { 
+  alpha, 
+  Badge,
+  Box, 
+  IconButton, 
+  Paper, 
+  Stack, 
+  Tooltip, 
+  Typography, 
+  useTheme
+} from '@mui/material';
+import React from 'react';
 
 export interface MediaFile {
   id: string;
   file: File;
   previewUrl: string;
+  /** ObjectURL for preview display in the uploader UI. */
   thumbnailUrl?: string;
+  /** The actual thumbnail Blob — kept so the parent form can upload it
+   *  alongside the main file (not just render a local preview). */
+  thumbnailFile?: File;
 }
 
 interface MediaUploaderProps {

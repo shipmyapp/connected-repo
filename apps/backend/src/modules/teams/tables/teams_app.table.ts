@@ -1,7 +1,4 @@
-import { env, isTest } from "@backend/configs/env.config";
 import { BaseTable } from "@backend/db/base_table";
-import { syncService } from "@backend/modules/sync/sync.service";
-import { TeamAppSelectAll, teamAppSelectAllZod } from "@connected-repo/zod-schemas/team_app.zod";
 import { TeamMemberTable } from "./team_members.table";
 
 export class TeamAppTable extends BaseTable {
@@ -32,40 +29,5 @@ export class TeamAppTable extends BaseTable {
       columns: ["id"],
       references: ["teamId"],
     }),
-  }
-
-  init() {
-    this.afterCreate(teamAppSelectAllZod.keyof().options, (entries) => {
-      for (const entry of entries) {
-        syncService.push({
-          type: "data-change-teamsApp",
-          syncToTeamAppIdAllMembers: entry.id,
-          operation: "create",
-          data: [entry],
-        });
-      }
-    });
-
-    this.afterUpdate(teamAppSelectAllZod.keyof().options, (entries) => {
-      for (const entry of entries) {
-        syncService.push({
-          type: "data-change-teamsApp",
-          syncToTeamAppIdAllMembers: entry.id,
-          operation: "update",
-          data: [entry],
-        });
-      }
-    });
-
-    this.afterDelete(teamAppSelectAllZod.keyof().options, (entries) => {
-      for (const entry of entries) {
-        syncService.push({
-          type: "data-change-teamsApp",
-          syncToTeamAppIdAllMembers: entry.id,
-          operation: "delete",
-          data: [entry],
-        });
-      }
-    });
   }
 }

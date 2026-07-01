@@ -1,4 +1,4 @@
-import { chromium, webkit, devices } from '@playwright/test';
+import { chromium, devices, webkit } from '@playwright/test';
 
 async function createAuthState<T extends typeof devices>(deviceConfig: T[keyof T], authFilePath: string) {
 	const browserType = deviceConfig.defaultBrowserType === 'webkit' ? webkit : chromium;

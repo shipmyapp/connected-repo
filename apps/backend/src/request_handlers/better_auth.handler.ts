@@ -1,10 +1,8 @@
-import { allowedOrigins } from "@backend/configs/allowed_origins.config";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import { auth } from '@backend/modules/auth/auth.config';
-import { getClientIpAddress } from '@backend/utils/client-info.utils';
-import { toNodeHandler } from 'better-auth/node';
-import type { NodeHttpRequest, NodeHttpResponse } from '@orpc/standard-server-node';
-import { IncomingMessage, ServerResponse } from "node:http";
 import { handleBetterAuthCors } from "@backend/utils/cors.utils";
+import type { NodeHttpRequest, NodeHttpResponse } from '@orpc/standard-server-node';
+import { toNodeHandler } from 'better-auth/node';
 
 export const betterAuthHandler = {
   handle: async (

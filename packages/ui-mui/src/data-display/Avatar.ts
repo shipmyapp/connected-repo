@@ -1,1 +1,1 @@
-export { default as Avatar, type AvatarProps } from "@mui/material/Avatar";
+export { type AvatarProps, default as Avatar } from "@mui/material/Avatar";

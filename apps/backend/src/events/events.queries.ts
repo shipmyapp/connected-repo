@@ -121,7 +121,7 @@ export async function getTaskStats(
 		failed: all.filter(t => t.status === "failed").length,
 		cancelled: all.filter(t => t.status === "cancelled").length,
 		successRate: all.length > 0
-			? (all.filter(t => t.success === true).length / all.length * 100).toFixed(2) + "%"
+			? `${(all.filter(t => t.success === true).length / all.length * 100).toFixed(2)}%`
 			: "N/A",
 	};
 }

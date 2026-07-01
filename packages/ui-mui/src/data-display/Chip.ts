@@ -1,1 +1,1 @@
-export { default as Chip, type ChipProps } from "@mui/material/Chip";
+export { type ChipProps, default as Chip } from "@mui/material/Chip";

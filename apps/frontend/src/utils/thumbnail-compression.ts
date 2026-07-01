@@ -17,7 +17,7 @@ export async function canvasToBestBlob(canvas: HTMLCanvasElement | OffscreenCanv
       if (blob && blob.size > 0 && blob.type === format.type) {
         return { blob, extension: format.ext };
       }
-    } catch (e) {
+    } catch {
       // Fall through to next format
     }
   }

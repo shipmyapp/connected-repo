@@ -12,8 +12,6 @@ import { IconButton } from "@connected-repo/ui-mui/navigation/IconButton";
 import { Menu } from "@connected-repo/ui-mui/navigation/Menu";
 import { useThemeMode } from "@connected-repo/ui-mui/theme/ThemeContext";
 import type { SessionInfo } from "@frontend/contexts/UserContext";
-import { getSWProxy } from "@frontend/sw/proxy.sw";
-import { authClient } from "@frontend/utils/auth.client";
 import { signout } from "@frontend/utils/signout.utils";
 import { useState } from "react";
 import { useLoaderData, useNavigate } from "react-router";

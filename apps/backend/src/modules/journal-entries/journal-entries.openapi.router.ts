@@ -36,7 +36,7 @@ const createJournalEntryRequest = openApiAuthProcedure
     // Fire-and-forget: we don't await the transaction here to return the log entry immediately.
     // The actual entry creation and usage increment happen asynchronously.
     db.$transaction(async () => {
-      let entry = await db.journalEntries.create(input.data).onConflictDoNothing();
+      const entry = await db.journalEntries.create(input.data).onConflictDoNothing();
       if(entry) {
         await incrementSubscriptionUsage(subscription.subscriptionId, teamApi);
       }

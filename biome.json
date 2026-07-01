@@ -22,7 +22,12 @@
 			"*.js",
 			"*.jsx",
 			"*.css",
-			"*.html"
+			"*.html",
+			"!**/node_modules",
+			"!**/dist",
+			"!**/.turbo",
+			"!**/coverage",
+			"!apps/backend/openapi_pretty.json"
 		],
 		"indentStyle": "tab",
 		"lineWidth": 100

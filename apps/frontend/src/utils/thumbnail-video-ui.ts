@@ -89,7 +89,7 @@ function isFrameVisual(ctx: CanvasRenderingContext2D, width: number, height: num
     
     const avgBrightness = brightnessSum / (data.length / 4);
     return avgBrightness > 15;
-  } catch (e) {
+  } catch {
     return true;
   }
 }
