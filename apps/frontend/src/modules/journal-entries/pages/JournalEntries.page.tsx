@@ -12,9 +12,10 @@ import { JournalEntryCardView } from "@frontend/components/JournalEntryCardView"
 import { JournalEntryTableView } from "@frontend/components/JournalEntryTableView";
 import { useActiveTeamId } from "@frontend/contexts/WorkspaceContext";
 import { orpc } from "@frontend/utils/orpc.tanstack.client";
-import { useQuery } from "@tanstack/react-query";
+import type { FileSelectAll } from "@connected-repo/zod-schemas/file.zod";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import type React from "react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 
 export type ViewMode = "card" | "table";
@@ -24,9 +25,31 @@ export default function JournalEntriesPage() {
 	const [viewMode, setViewMode] = useState<ViewMode>("card");
 	const teamId = useActiveTeamId();
 
-	const { data: entries = [], isLoading } = useQuery(
-		orpc.journalEntries.getAll.queryOptions({ input: { teamId } }),
-	);
+	const { data: entries = [], isLoading } = useQuery({
+		...orpc.journalEntries.getAll.queryOptions(),
+		enabled: !!teamId,
+	});
+
+	// One query per entry — the sync engine has already brought file rows
+	// down locally, but there's no bulk read endpoint yet, so each visible
+	// entry independently fetches its attachments.
+	const fileQueries = useQueries({
+		queries: entries.map((entry) => ({
+			...orpc.files.getByTableId.queryOptions({
+				input: { tableName: "journalEntries" as const, tableId: entry.id },
+			}),
+			enabled: !!teamId,
+		})),
+	});
+
+	const attachments = useMemo(() => {
+		const map: Record<string, FileSelectAll[]> = {};
+		entries.forEach((entry, i) => {
+			const q = fileQueries[i];
+			if (q?.data) map[entry.id] = q.data;
+		});
+		return map;
+	}, [entries, fileQueries]);
 
 	const totalCount = entries.length;
 
@@ -36,8 +59,7 @@ export default function JournalEntriesPage() {
 		}
 	};
 
-	const navigateToDetail = (entryId: string) =>
-		navigate(teamId ? `/teams/${teamId}/journal-entries/${entryId}` : `/journal-entries/${entryId}`);
+	const navigateToDetail = (entryId: string) => navigate(`/journal-entries/${entryId}`);
 
 	if (isLoading && totalCount === 0) {
 		return <LoadingSpinner text="Loading journal entries..." />;
@@ -101,9 +123,17 @@ export default function JournalEntriesPage() {
 
 			<Stack spacing={2} key={teamId || "personal"}>
 				{viewMode === "card" ? (
-					<JournalEntryCardView entries={entries} onEntryClick={navigateToDetail} />
+					<JournalEntryCardView
+						entries={entries}
+						attachments={attachments}
+						onEntryClick={navigateToDetail}
+					/>
 				) : (
-					<JournalEntryTableView entries={entries} onEntryClick={navigateToDetail} />
+					<JournalEntryTableView
+						entries={entries}
+						attachments={attachments}
+						onEntryClick={navigateToDetail}
+					/>
 				)}
 			</Stack>
 		</Container>

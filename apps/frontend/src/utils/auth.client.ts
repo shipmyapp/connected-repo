@@ -39,6 +39,12 @@ export const authClient = createAuthClient({
               input: uniqueTimeArrayZod,
               output: uniqueTimeArrayZod,
             }
+          },
+          activeTeamAppId: {
+            type: "string",
+            required: false,
+            defaultValue: null,
+            input: false,
           }
       }
     }),

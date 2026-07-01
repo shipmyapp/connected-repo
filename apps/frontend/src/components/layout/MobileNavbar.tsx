@@ -1,15 +1,15 @@
+import { Avatar } from "@connected-repo/ui-mui/data-display/Avatar";
 import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
 import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { Paper } from "@connected-repo/ui-mui/layout/Paper";
+import { Stack } from "@connected-repo/ui-mui/layout/Stack";
 import { AppBar } from "@connected-repo/ui-mui/navigation/AppBar";
 import { BottomNavigation } from "@connected-repo/ui-mui/navigation/BottomNavigation";
 import { BottomNavigationAction } from "@connected-repo/ui-mui/navigation/BottomNavigationAction";
 import { Toolbar } from "@connected-repo/ui-mui/navigation/Toolbar";
-import TeamSwitcher from "@frontend/components/layout/TeamSwitcher";
 import { UserProfileMenu } from "@frontend/components/layout/UserProfileMenu";
 import { navItems } from "@frontend/configs/nav.config";
 import { useWorkspace } from "@frontend/contexts/WorkspaceContext";
-import GroupIcon from "@mui/icons-material/Group";
 import { useLocation, useNavigate } from "react-router";
 
 export const MobileNavbar = () => {
@@ -17,50 +17,33 @@ export const MobileNavbar = () => {
 	const location = useLocation();
 	const { activeWorkspace } = useWorkspace();
 
-	const isTeamOwnerAdmin = activeWorkspace.type === 'team' && (activeWorkspace.role === 'Owner' || activeWorkspace.role === 'Admin');
+	const teamSettingsPath = activeWorkspace.id
+		? `/teams/${activeWorkspace.id}/settings`
+		: null;
 
-	// Map paths to bottom nav indices
 	const getBottomNavValue = () => {
-		// Check navigation items first
-		const navIndex = navItems.findIndex(item => item.path === location.pathname);
+		const navIndex = navItems.findIndex(
+			(item) => item.path === location.pathname,
+		);
 		if (navIndex !== -1) return navIndex;
-
-		// Team button index
-		if (isTeamOwnerAdmin && (location.pathname === `/teams/${activeWorkspace.id}` || location.pathname.startsWith(`/teams/${activeWorkspace.id}/settings`))) {
-			return navItems.length;
-		}
-
-		// Profile is after Team (if visible) or after navItems
-		const profileIndex = isTeamOwnerAdmin ? navItems.length + 1 : navItems.length;
-		if (location.pathname === "/profile") return profileIndex;
-
-		return 0; // Default to first nav item (Dashboard)
+		if (location.pathname === "/profile") return navItems.length;
+		return 0;
 	};
 
-	const handleBottomNavChange = (_event: React.SyntheticEvent, newValue: number) => {
-		// If Team is visible, it's at navItems.length
-		if (isTeamOwnerAdmin && newValue === navItems.length) {
-			navigate(`/teams/${activeWorkspace.id}`);
-			return;
-		}
-
-		// Profile index depends on Team visibility
-		const profileIndex = isTeamOwnerAdmin ? navItems.length + 1 : navItems.length;
-		if (newValue === profileIndex) {
+	const handleBottomNavChange = (
+		_event: React.SyntheticEvent,
+		newValue: number,
+	) => {
+		if (newValue === navItems.length) {
 			navigate("/profile");
 			return;
 		}
-
-		// Navigate to the selected nav item
 		const item = navItems[newValue];
-		if (item) {
-			navigate(item.path);
-		}
+		if (item) navigate(item.path);
 	};
 
 	return (
 		<>
-			{/* Top AppBar */}
 			<AppBar
 				position="sticky"
 				elevation={0}
@@ -77,14 +60,13 @@ export const MobileNavbar = () => {
 						justifyContent: "space-between",
 					}}
 				>
-					{/* Logo */}
 					<Box
 						onClick={() => navigate("/dashboard")}
 						sx={{
 							display: "flex",
 							alignItems: "center",
 							cursor: "pointer",
-							gap: 1
+							gap: 1,
 						}}
 					>
 						<Typography
@@ -100,15 +82,55 @@ export const MobileNavbar = () => {
 						</Typography>
 					</Box>
 
-					{/* Workspace Switcher */}
-					<TeamSwitcher />
+					{/* Team indicator — click routes to team profile. */}
+					<Box
+						onClick={() => teamSettingsPath && navigate(teamSettingsPath)}
+						sx={{
+							display: "flex",
+							alignItems: "center",
+							px: 1,
+							py: 0.5,
+							borderRadius: 2,
+							cursor: teamSettingsPath ? "pointer" : "default",
+							"&:hover": teamSettingsPath
+								? { bgcolor: "action.hover" }
+								: undefined,
+						}}
+					>
+						<Stack direction="row" spacing={0.75} alignItems="center">
+							<Avatar
+								sx={{
+									width: 24,
+									height: 24,
+									bgcolor:
+										activeWorkspace.type === "personal"
+											? "primary.main"
+											: "secondary.main",
+									fontSize: "0.8rem",
+								}}
+							>
+								{activeWorkspace.name.charAt(0)}
+							</Avatar>
+							<Typography
+								variant="body2"
+								sx={{
+									fontWeight: 600,
+									maxWidth: 120,
+									overflow: "hidden",
+									textOverflow: "ellipsis",
+									whiteSpace: "nowrap",
+									display: { xs: "none", sm: "block" },
+								}}
+							>
+								{activeWorkspace.name}
+							</Typography>
+						</Stack>
+					</Box>
 
-					{/* User Avatar - triggers menu */}
 					<UserProfileMenu />
 				</Toolbar>
 			</AppBar>
 
-			{/* Bottom Navigation */}
 			<Paper
 				sx={{
 					position: "fixed",
@@ -133,42 +155,20 @@ export const MobileNavbar = () => {
 							transition: "all 0.2s ease-in-out",
 							"&.Mui-selected": {
 								color: "primary.main",
-								"& .MuiSvgIcon-root": {
-									transform: "scale(1.1)",
-								},
+								"& .MuiSvgIcon-root": { transform: "scale(1.1)" },
 							},
-							"&:active": {
-								transform: "scale(0.95)",
-							},
+							"&:active": { transform: "scale(0.95)" },
 						},
 					}}
 				>
-					{/* Navigation items from config */}
 					{navItems.map((item) => (
 						<BottomNavigationAction
 							key={item.path}
 							label={item.label}
 							icon={item.mobileIcon || item.desktopIcon}
-							sx={{
-								"&:hover": {
-									bgcolor: "action.hover",
-								},
-							}}
+							sx={{ "&:hover": { bgcolor: "action.hover" } }}
 						/>
 					))}
-
-					{/* Team item if visible */}
-					{isTeamOwnerAdmin && (
-						<BottomNavigationAction
-							label="Team"
-							icon={<GroupIcon />}
-							sx={{
-								"&:hover": {
-									bgcolor: "action.hover",
-								},
-							}}
-						/>
-					)}
 				</BottomNavigation>
 			</Paper>
 		</>

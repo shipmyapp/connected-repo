@@ -49,13 +49,13 @@ export const journalEntryPushCreatesOutputZod = z.object({
 });
 export type JournalEntryPushCreatesOutput = z.infer<typeof journalEntryPushCreatesOutputZod>;
 
-// ─── pullDelta ───────────────────────────────────────────────────────────
+// ─── pullBundles ───────────────────────────────────────────────────────────
 
-export const journalEntryPullDeltaInputZod = syncDeltaInputZod;
-export type JournalEntryPullDeltaInput = z.infer<typeof journalEntryPullDeltaInputZod>;
+export const journalEntryPullBundlesInputZod = syncDeltaInputZod;
+export type JournalEntryPullBundlesInput = z.infer<typeof journalEntryPullBundlesInputZod>;
 
-export const journalEntryPullDeltaOutputZod = z.object({
+export const journalEntryPullBundlesOutputZod = z.object({
 	rows: z.array(journalEntrySelectAllZod),
 	syncMetadata: syncMetadataZod,
 });
-export type JournalEntryPullDeltaOutput = z.infer<typeof journalEntryPullDeltaOutputZod>;
+export type JournalEntryPullBundlesOutput = z.infer<typeof journalEntryPullBundlesOutputZod>;

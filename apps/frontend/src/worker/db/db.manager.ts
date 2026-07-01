@@ -12,15 +12,18 @@ import type { StoredFile, StoredSyncMetadata, SyncCycleState } from "./schema.db
  * Local mirror of the server's synced tables plus a small amount of
  * client-only state (cursors, file-upload machine, sync cycle telemetry).
  *
+ * The DB is **per-user** — the DB name is `app_db_v1_${userId}`. See
+ * `db.lifecycle.ts` for open/close/switch semantics. On this-device
+ * user-switch, the previous user's DB is dropped before opening the
+ * new one; a user logging back in on the same device rehydrates their
+ * own DB.
+ *
  * Pending vs confirmed rows share the same Dexie table — a row is
- * "pending" when `createdAt` is falsy (`null` / `undefined` / `0`). We
- * cast to `null` when constructing the pending row so callers can rely
- * on `createdAt === null` as the sentinel.
+ * "pending" when `createdAt` is falsy (`null` / `undefined` / `0`).
  *
  * Cross-context reactivity uses a hand-rolled `BroadcastChannel` (see
  * `notifySubscribers`) — Dexie's own `liveQuery` doesn't cross the
- * worker boundary, and Comlink's postMessage overhead per query is
- * higher than the broadcast.
+ * worker boundary.
  */
 
 export type Pending<T extends { createdAt?: number | null }> = Omit<T, "createdAt"> & {
@@ -31,8 +34,10 @@ export type WithSyncStatus<T extends { createdAt?: number | null }> = Pending<T>
 	syncError?: string | null;
 };
 
-const DEXIE_VERSION = 3;
-const DEXIE_DB_NAME = "app_db_v1";
+export const DEXIE_VERSION = 3;
+export const DEXIE_DB_NAME_PREFIX = "app_db_v1_";
+
+export const dbNameFor = (userId: string): string => `${DEXIE_DB_NAME_PREFIX}${userId}`;
 
 export class ClientDatabase extends Dexie {
 	journalEntries!: Table<WithSyncStatus<JournalEntrySelectAll>, string>;
@@ -40,11 +45,11 @@ export class ClientDatabase extends Dexie {
 	files!: Table<StoredFile, string>;
 	teamsApp!: Table<TeamAppSelectAll, string>;
 	teamMembers!: Table<TeamAppMemberSelectAll, string>;
-	syncMetadata!: Table<StoredSyncMetadata, string>;
+	syncMetadata!: Table<StoredSyncMetadata, [string, string]>;
 	syncState!: Table<SyncCycleState, string>;
 
-	constructor() {
-		super(DEXIE_DB_NAME);
+	constructor(dbName: string) {
+		super(dbName);
 
 		this.version(DEXIE_VERSION).stores({
 			// createdAt is the pending-vs-confirmed marker (null = pending).
@@ -54,15 +59,15 @@ export class ClientDatabase extends Dexie {
 			files: "id, tableId, tableName, type, teamId, updatedAt, mainUploadState, thumbnailUploadState, createdAt, syncError",
 			teamsApp: "id, updatedAt",
 			teamMembers: "id, userId, teamId, updatedAt",
-			// keyed by syncedTable — one row per synced table
-			syncMetadata: "syncedTable",
+			// Composite PK: cursors are per-(table, team) so switching teams
+			// doesn't collide. Client sends the correct cursor for the current
+			// active team; the server rejects a cross-team cursor.
+			syncMetadata: "[syncedTable+teamId], syncedTable, teamId",
 			// singleton — key = "app"
 			syncState: "key",
 		});
 	}
 }
-
-export const clientDb = new ClientDatabase();
 
 // ─── Cross-context reactivity ───────────────────────────────────────────
 //
@@ -103,37 +108,6 @@ export const subscribe = (callback: (table: AppDbTable) => void): (() => void) =
 	return () => {
 		subscribers.delete(callback);
 	};
-};
-
-// ─── Team wipe cascade ──────────────────────────────────────────────────
-//
-// Called when a user leaves a team or the active team is deleted. Wipes
-// every synced row scoped to that teamId. Bypasses tombstone semantics —
-// this is a hard local cleanup, not a soft-delete.
-export const wipeTeamData = async (teamId: string): Promise<void> => {
-	await clientDb.transaction(
-		"rw",
-		[
-			clientDb.journalEntries,
-			clientDb.files,
-			clientDb.teamsApp,
-			clientDb.teamMembers,
-			clientDb.syncMetadata,
-		],
-		async () => {
-			await clientDb.journalEntries.where({ teamId }).delete();
-			await clientDb.files.where({ teamId }).delete();
-			await clientDb.teamMembers.where({ teamId }).delete();
-			await clientDb.teamsApp.where({ id: teamId }).delete();
-			// Also drop cursors so a fresh join re-pulls from scratch.
-			await clientDb.syncMetadata.where({ teamId }).delete();
-		},
-	);
-	notifySubscribers("journalEntries");
-	notifySubscribers("files");
-	notifySubscribers("teamMembers");
-	notifySubscribers("teamsApp");
-	notifySubscribers("syncMetadata");
 };
 
 // ─── Type aliases for module DB adapters ────────────────────────────────

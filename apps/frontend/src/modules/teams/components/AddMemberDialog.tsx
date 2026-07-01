@@ -11,10 +11,11 @@ interface AddMemberDialogProps {
 	open: boolean;
 	onClose: () => void;
 	onSuccess: () => void;
-	teamId: string;
 }
 
-export function AddMemberDialog({ open, onClose, onSuccess, teamId }: AddMemberDialogProps) {
+// `teamId` is derived from the `x-team-id` header on the backend, not sent
+// in the body — see teamAppMemberAddInputZod.
+export function AddMemberDialog({ open, onClose, onSuccess }: AddMemberDialogProps) {
 	const [email, setEmail] = useState("");
 	const [role, setRole] = useState<TeamMemberRole>("Member");
 
@@ -30,7 +31,7 @@ export function AddMemberDialog({ open, onClose, onSuccess, teamId }: AddMemberD
 	const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!email) return;
-		mutation.mutate({ teamId, email, role });
+		mutation.mutate({ email, role });
 	};
 
 	return (

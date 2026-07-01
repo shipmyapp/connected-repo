@@ -1,11 +1,9 @@
 import { db } from "@backend/db/db";
-import type { FileSelectAll } from "@connected-repo/zod-schemas/file.zod";
 import type {
 	JournalEntryCreateInputWithRelations,
 	JournalEntryPushCreatesInput,
 	JournalEntryPushCreatesOutput,
 	JournalEntryPushCreatesResult,
-	JournalEntrySelectAllWithRelations,
 } from "@connected-repo/zod-schemas/journal-entries/sync";
 
 /**
@@ -13,8 +11,8 @@ import type {
  * nested `files: FileCreateInput[]`).
  *
  * Fast path — one bulk `createMany` with nested `files: { create }` and
- * `onConflictDoNothing("id")`. The nested create is atomic on its own
- * (single ORM call — verify emitted SQL if pushing high volume).
+ * `onConflictDoNothing("id")`, then one nested-select refetch to echo the
+ * canonical rows (parent + files) back to the client.
  *
  * Slow path — invoked only if the bulk path throws (a NOT NULL / FK /
  * check-constraint failure on some row rolled the whole batch back).
@@ -23,8 +21,8 @@ import type {
  *
  * Idempotency — ULID `id` on parent AND every child file.
  * `onConflictDoNothing("id")` silently skips existing rows on retry. The
- * canonical-row fetch at the end guarantees the response carries the
- * server-owned `updatedAt` for every id (including retries).
+ * canonical-row fetch guarantees the response carries the server-owned
+ * `updatedAt` for every id (including retries).
  */
 export async function pushJournalEntryCreatesService(
 	input: JournalEntryPushCreatesInput,
@@ -36,7 +34,6 @@ export async function pushJournalEntryCreatesService(
 		const bulkResults = await tryBulkInsert(input.creates, authorUserId);
 		return { results: bulkResults };
 	} catch (bulkErr) {
-		// biome-ignore lint/suspicious/noConsole: intentional operational trail — the fast path is a hot codepath, and knowing it failed tells us to inspect the batch shape
 		console.warn(
 			"[journalEntries.pushCreates] bulk path failed; falling back to sequential per-row",
 			bulkErr,
@@ -63,8 +60,6 @@ async function tryBulkInsert(
 	creates: JournalEntryCreateInputWithRelations[],
 	authorUserId: string,
 ): Promise<JournalEntryPushCreatesResult[]> {
-	const parentIds = creates.map((c) => c.id);
-
 	await db.journalEntries
 		.createMany(
 			creates.map(({ files, ...parent }) => ({
@@ -86,13 +81,30 @@ async function tryBulkInsert(
 		)
 		.onConflictDoNothing("id");
 
-	return await echoCanonicalRows(parentIds, creates);
+	// One nested-select query — the `files` relation's `on` clause supplies
+	// the tableName + type filter. Row-missing after this means the id was
+	// silently skipped by the conflict handler AND no prior row exists,
+	// which shouldn't happen but is treated as an error for safety.
+	const parentIds = creates.map((c) => c.id);
+	const rows = await db.journalEntries
+		.where({ id: { in: parentIds } })
+		.select("*", {
+			files: (q) => q.files.selectAll(),
+		});
+	const rowById = new Map(rows.map((r) => [r.id, r]));
+
+	return creates.map((c): JournalEntryPushCreatesResult => {
+		const row = rowById.get(c.id);
+		return row
+			? { ok: true, id: c.id, row }
+			: { ok: false, id: c.id, error: "Row missing after bulk insert" };
+	});
 }
 
 async function insertOne(
 	c: JournalEntryCreateInputWithRelations,
 	authorUserId: string,
-): Promise<JournalEntrySelectAllWithRelations> {
+) {
 	const { files, ...parent } = c;
 
 	await db.journalEntries
@@ -114,52 +126,7 @@ async function insertOne(
 		})
 		.onConflictDoNothing("id");
 
-	const [canonicalParent, canonicalFiles] = await Promise.all([
-		db.journalEntries.find(c.id).selectAll(),
-		db.files
-			.where({ tableName: "journalEntries", type: "attachment", tableId: c.id })
-			.selectAll(),
-	]);
-	return { ...canonicalParent, files: canonicalFiles as FileSelectAll[] };
-}
-
-/**
- * Fetch canonical rows for every id — covers both freshly-inserted rows
- * AND rows silently skipped by `onConflictDoNothing`. Groups the child
- * files by parent id in one pass.
- */
-async function echoCanonicalRows(
-	parentIds: string[],
-	creates: JournalEntryCreateInputWithRelations[],
-): Promise<JournalEntryPushCreatesResult[]> {
-	const [canonicalParents, canonicalFiles] = await Promise.all([
-		db.journalEntries.where({ id: { in: parentIds } }).selectAll(),
-		db.files
-			.where({
-				tableName: "journalEntries",
-				type: "attachment",
-				tableId: { in: parentIds },
-			})
-			.selectAll(),
-	]);
-
-	const filesByParent = new Map<string, FileSelectAll[]>();
-	for (const f of canonicalFiles as FileSelectAll[]) {
-		const arr = filesByParent.get(f.tableId) ?? [];
-		arr.push(f);
-		filesByParent.set(f.tableId, arr);
-	}
-	const parentById = new Map(canonicalParents.map((p) => [p.id, p]));
-
-	return creates.map((c): JournalEntryPushCreatesResult => {
-		const parent = parentById.get(c.id);
-		if (!parent) {
-			return { ok: false, id: c.id, error: "Row missing after bulk insert" };
-		}
-		return {
-			ok: true,
-			id: c.id,
-			row: { ...parent, files: filesByParent.get(c.id) ?? [] },
-		};
+	return await db.journalEntries.find(c.id).select("*", {
+		files: (q) => q.files.selectAll(),
 	});
 }

@@ -1,6 +1,10 @@
 import { allowedOrigins } from "@backend/configs/allowed_origins.config";
 import { isDev } from "@backend/configs/env.config";
 import { superAdminRouter } from "@backend/routers/super_admin/super_admin.router";
+import {
+	TRACE_HEADERS_ALLOW,
+	TRACE_HEADERS_EXPOSE,
+} from "@backend/utils/cors.utils";
 import { handleBoundaryError } from "@backend/utils/errorParser";
 import { logger } from "@backend/utils/logger.utils";
 import { trace } from "@opentelemetry/api";
@@ -18,7 +22,13 @@ export const superAdminHandler = new OpenAPIHandler(superAdminRouter, {
 		new CORSPlugin({
 			origin: [...allowedOrigins],
 			allowMethods: ["GET", "POST", "OPTIONS"],
-			allowHeaders: ["content-type", "authorization", "x-csrf-token"],
+			allowHeaders: [
+				"content-type",
+				"authorization",
+				"x-csrf-token",
+				...TRACE_HEADERS_ALLOW,
+			],
+			exposeHeaders: [...TRACE_HEADERS_EXPOSE],
 			credentials: true,
 		}),
 		new LoggingHandlerPlugin({
@@ -35,7 +45,8 @@ export const superAdminHandler = new OpenAPIHandler(superAdminRouter, {
 				info: {
 					title: "Super Admin API",
 					version: "1.0.0",
-					description: "Admin-only endpoints gated by SUPER_ADMIN_EMAILS / SUPER_ADMIN_PHONE_NUMBERS.",
+					description:
+						"Admin-only endpoints gated by SUPER_ADMIN_EMAILS / SUPER_ADMIN_PHONE_NUMBERS.",
 				},
 				servers: [{ url: "/super-admin" }],
 				components: {

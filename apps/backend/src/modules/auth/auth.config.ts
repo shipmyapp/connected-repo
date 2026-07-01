@@ -3,7 +3,10 @@ import { env, isDev, isProd, isTest } from "@backend/configs/env.config";
 import { db } from "@backend/db/db";
 import { logger } from "@backend/utils/logger.utils";
 import { themeSettingZod } from "@connected-repo/zod-schemas/enums.zod";
-import { uniqueTimeArrayZod, zTimezone } from "@connected-repo/zod-schemas/zod_utils";
+import {
+	uniqueTimeArrayZod,
+	zTimezone,
+} from "@connected-repo/zod-schemas/zod_utils";
 import { betterAuth } from "better-auth";
 import { createAuthMiddleware } from "better-auth/api";
 import { bearer, phoneNumber } from "better-auth/plugins";
@@ -14,7 +17,12 @@ import { orchidAdapter } from "./orchid-adapter/factory.orchid_adapter";
 // Apple Client Secret is generated on-the-fly and cached for the process duration
 // (or could be periodically refreshed if the process is long-lived)
 const appleClientSecretFn = (async () => {
-	if (!env.APPLE_CLIENT_ID || !env.APPLE_TEAM_ID || !env.APPLE_KEY_ID || !env.APPLE_PRIVATE_KEY) {
+	if (
+		!env.APPLE_CLIENT_ID ||
+		!env.APPLE_TEAM_ID ||
+		!env.APPLE_KEY_ID ||
+		!env.APPLE_PRIVATE_KEY
+	) {
 		return undefined;
 	}
 	return generateAppleClientSecret({
@@ -44,7 +52,7 @@ export const auth = betterAuth({
 	advanced: {
 		crossSubDomainCookies: {
 			enabled: Boolean(isProd && env.PROD_COOKIE_DOMAIN),
-			domain: env.PROD_COOKIE_DOMAIN
+			domain: env.PROD_COOKIE_DOMAIN,
 		},
 		defaultCookieAttributes: {
 			httpOnly: true,
@@ -71,15 +79,17 @@ export const auth = betterAuth({
 			signUpOnVerification: {
 				getTempEmail: (phoneNumber) => `${phoneNumber}@temp-local.com`,
 				getTempName: (phoneNumber) => phoneNumber,
-			}
-		})
+			},
+		}),
 	],
 	hooks: {
 		before: createAuthMiddleware(async (ctx) => {
 			const appleClientSecret = await appleClientSecretFn;
 
 			// 1. Update static web apple provider if it exists
-			const appleWebProvider = ctx.context.socialProviders.find((p) => p.id === "apple");
+			const appleWebProvider = ctx.context.socialProviders.find(
+				(p) => p.id === "apple",
+			);
 			if (appleWebProvider && appleClientSecret) {
 				(appleWebProvider as any).clientSecret = appleClientSecret;
 			}
@@ -114,12 +124,18 @@ export const auth = betterAuth({
 
 						if (
 							aud &&
-							(aud === env.GOOGLE_IOS_CLIENT_ID || aud === env.GOOGLE_ANDROID_CLIENT_ID)
+							(aud === env.GOOGLE_IOS_CLIENT_ID ||
+								aud === env.GOOGLE_ANDROID_CLIENT_ID)
 						) {
-							const googleProvider = ctx.context.socialProviders.find((p) => p.id === "google");
+							const googleProvider = ctx.context.socialProviders.find(
+								(p) => p.id === "google",
+							);
 							if (googleProvider) {
 								(googleProvider as any).clientId = aud;
-								logger.debug({ aud }, "Swapping Google Client ID for native app");
+								logger.debug(
+									{ aud },
+									"Swapping Google Client ID for native app",
+								);
 							}
 						}
 					} catch (_err) {
@@ -139,22 +155,34 @@ export const auth = betterAuth({
 		// Level is handled in logger utility.
 		level: isTest ? "error" : "debug",
 		log: (level, message, ...args) => {
-			// Map Better Auth log levels to Pino log levels
+			// better-auth may pass Error objects or plain objects as trailing args.
+			// Extract the first Error separately so pino serializes its stack,
+			// and expose remaining args in a stable `details` field instead of
+			// numeric-key spreading them (which loses everything on Error instances).
+			const firstErr = args.find((a) => a instanceof Error) as
+				| Error
+				| undefined;
+			const otherArgs = args.filter((a) => a !== firstErr);
+			const payload: Record<string, unknown> = {
+				module: "better-auth",
+				details: otherArgs.length ? otherArgs : undefined,
+				err: firstErr,
+			};
 			switch (level) {
 				case "debug":
-					logger.debug({ module: "better-auth", ...args }, message);
+					logger.debug(payload, message);
 					break;
 				case "info":
-					logger.info({ module: "better-auth", ...args }, message);
+					logger.info(payload, message);
 					break;
 				case "warn":
-					logger.warn({ module: "better-auth", ...args }, message);
+					logger.warn(payload, message);
 					break;
 				case "error":
-					logger.error({ module: "better-auth", ...args }, message);
+					logger.error(payload, message);
 					break;
 				default:
-					logger.info({ module: "better-auth", ...args }, message);
+					logger.info(payload, message);
 			}
 		},
 	},
@@ -233,8 +261,8 @@ export const auth = betterAuth({
 				type: "string",
 				validator: {
 					input: zTimezone,
-					output: zTimezone
-				}
+					output: zTimezone,
+				},
 			},
 			themeSetting: {
 				type: "string",
@@ -243,8 +271,8 @@ export const auth = betterAuth({
 				input: true,
 				validator: {
 					input: themeSettingZod,
-					output: themeSettingZod
-				}
+					output: themeSettingZod,
+				},
 			},
 			journalReminderTimes: {
 				type: "string[]",
@@ -254,14 +282,14 @@ export const auth = betterAuth({
 				validator: {
 					input: uniqueTimeArrayZod,
 					output: uniqueTimeArrayZod,
-				}
+				},
 			},
 			activeTeamAppId: {
 				type: "string",
 				required: false,
 				defaultValue: null,
 				input: false,
-			}
+			},
 		},
 		modelName: "users",
 	},

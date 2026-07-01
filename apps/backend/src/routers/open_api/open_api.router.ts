@@ -14,15 +14,18 @@ const healthCheck = openApiPublicProcedure
 			status: z.string(),
 			timestamp: z.string(),
 			dbTimezone: z.string().min(1),
-			backendTimezone: z.string().min(1)
-		})
+			backendTimezone: z.string().min(1),
+		}),
 	)
 	.handler(async () => {
-		const backendTimezone = zTimezone.parse(Intl.DateTimeFormat().resolvedOptions().timeZone);
+		const backendTimezone = zTimezone.parse(
+			Intl.DateTimeFormat().resolvedOptions().timeZone,
+		);
 		try {
 			// Test database connection by running a simple query
 			await db.$query`SELECT 1`;
-			const dbTimezoneResult = await db.$query`SELECT current_setting('timezone') as timezone`;
+			const dbTimezoneResult =
+				await db.$query`SELECT current_setting('timezone') as timezone`;
 			const dbTimezone = zTimezone.parse(dbTimezoneResult.rows[0]?.timezone);
 			if (!dbTimezone) {
 				throw new Error("Failed to retrieve database timezone");
@@ -35,11 +38,11 @@ const healthCheck = openApiPublicProcedure
 				backendTimezone,
 			};
 		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : "Unknown database error";
+			const errorMessage =
+				error instanceof Error ? error.message : "Unknown database error";
 			throw new Error(errorMessage);
 		}
 	});
-
 
 export const openApiRouter = {
 	health: healthCheck,

@@ -8,14 +8,13 @@ import { type MiddlewareNextFn, ORPCError } from "@orpc/server";
  * Checks request IP against team.allowedIPs (exact match or CIDR range, if not empty)
  * Requires apiKeyAuthMiddleware to be run first to attach team to context
  */
-export const ipWhitelistMiddleware = async ({ 
-	context, 
-	next 
-}: { 
-	context: OpenApiAuthContext; 
-	next: MiddlewareNextFn<unknown> 
+export const ipWhitelistMiddleware = async ({
+	context,
+	next,
+}: {
+	context: OpenApiAuthContext;
+	next: MiddlewareNextFn<unknown>;
 }) => {
-
 	const { allowedIPs } = context.teamApi;
 
 	// Check IP whitelist (if configured)

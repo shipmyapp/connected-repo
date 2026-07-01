@@ -8,6 +8,8 @@ import { JournalEntryTable } from "@backend/modules/journal-entries/tables/journ
 import { ApiProductRequestLogsTable } from "@backend/modules/logs/tables/api_product_request_logs.table";
 import { PromptsTable } from "@backend/modules/prompts/tables/prompts.table";
 import { SubscriptionsTable } from "@backend/modules/subscriptions/tables/subscriptions.table";
+import { FeatureFlagTable } from "@backend/modules/system/tables/feature_flags.table";
+import { RateLimitTable } from "@backend/modules/system/tables/rate_limits.table";
 import { TeamMemberTable } from "@backend/modules/teams/tables/team_members.table";
 import { TeamApiTable } from "@backend/modules/teams/tables/teams_api.table";
 import { TeamAppTable } from "@backend/modules/teams/tables/teams_app.table";
@@ -37,6 +39,8 @@ export const db = orchidORM(
 		accounts: AccountTable,
 		verifications: VerificationTable,
 		pgTbusTaskLogs: PgTbusTaskLogTable,
+		featureFlags: FeatureFlagTable,
+		rateLimits: RateLimitTable,
 	},
 );
 

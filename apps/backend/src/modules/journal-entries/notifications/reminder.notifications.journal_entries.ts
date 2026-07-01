@@ -3,9 +3,11 @@ import { logger } from "@backend/utils/logger.utils";
 import { triggerNotification } from "@backend/utils/notifications.utils";
 import type { Static } from "pg-tbus";
 
-export const reminderNotificationJournalEntryHandler = async (
-	{ input }: { input: Static<typeof userReminderTaskDef.schema> },
-) => {
+export const reminderNotificationJournalEntryHandler = async ({
+	input,
+}: {
+	input: Static<typeof userReminderTaskDef.schema>;
+}) => {
 	const { userId, reminderTime } = input;
 
 	try {

@@ -1,5 +1,9 @@
 import { isDev, isProd, isStaging } from "@backend/configs/env.config";
 import { userAppRouter } from "@backend/routers/user_app/user_app.router";
+import {
+	TRACE_HEADERS_ALLOW,
+	TRACE_HEADERS_EXPOSE,
+} from "@backend/utils/cors.utils";
 import { handleBoundaryError } from "@backend/utils/errorParser";
 import { logger } from "@backend/utils/logger.utils";
 import { trace } from "@opentelemetry/api";
@@ -26,10 +30,10 @@ export const mobileAppHandler = new OpenAPIHandler(userAppRouter, {
 				"content-type",
 				"authorization",
 				"x-csrf-token",
-				"sentry-trace",
-				"baggage",
 				"x-team-id",
+				...TRACE_HEADERS_ALLOW,
 			],
+			exposeHeaders: [...TRACE_HEADERS_EXPOSE],
 			credentials: false,
 		}),
 		new LoggingHandlerPlugin({
@@ -55,7 +59,8 @@ export const mobileAppHandler = new OpenAPIHandler(userAppRouter, {
 							type: "apiKey",
 							in: "cookie",
 							name: "__Secure-better-auth.session_token",
-							description: "Better Auth session cookie used by user-authenticated routes.",
+							description:
+								"Better Auth session cookie used by user-authenticated routes.",
 						},
 					},
 				},
@@ -67,7 +72,9 @@ export const mobileAppHandler = new OpenAPIHandler(userAppRouter, {
 			? [
 					new SimpleCsrfProtectionHandlerPlugin({
 						exclude: async ({ context }) => {
-							const authHeader = context.reqHeaders?.get("authorization")?.trim();
+							const authHeader = context.reqHeaders
+								?.get("authorization")
+								?.trim();
 							if (authHeader && /^bearer\s+/i.test(authHeader)) {
 								return true;
 							}

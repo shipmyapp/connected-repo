@@ -52,7 +52,11 @@ export const triggerNotification = async (params: {
 
 	if (result.result?.status === "error") {
 		logger.error(
-			{ workflowId: params.workflowId, subscriberId: params.subscriberId, result },
+			{
+				workflowId: params.workflowId,
+				subscriberId: params.subscriberId,
+				result,
+			},
 			"Novu trigger returned error status",
 		);
 		throw new Error(`Novu trigger failed for workflow "${params.workflowId}"`);

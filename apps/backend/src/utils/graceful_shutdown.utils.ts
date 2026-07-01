@@ -1,5 +1,6 @@
 import type { Server } from "node:http";
 import { db } from "@backend/db/db";
+import { getTbusStartPromise } from "@backend/events/events.utils";
 import { tbus } from "@backend/events/tbus";
 import { otelNodeSdk } from "@backend/otel.sdk";
 import {
@@ -41,7 +42,10 @@ const GRACEFUL_SHUTDOWN_TIMEOUT = Number.parseInt(
 	process.env.GRACEFUL_SHUTDOWN_TIMEOUT || "30000",
 	10,
 );
-const AGENT_TASK_TIMEOUT = Number.parseInt(process.env.AGENT_TASK_TIMEOUT || "300000", 10);
+const AGENT_TASK_TIMEOUT = Number.parseInt(
+	process.env.AGENT_TASK_TIMEOUT || "300000",
+	10,
+);
 
 let isShuttingDown = false;
 let activeRequests = 0;
@@ -80,8 +84,20 @@ export const handleServerClose = (server: Server) => {
 				logger.info("HTTP server closed - no longer accepting connections");
 			});
 
+			// Wait for any in-flight startEventBus() to finish before stopping tbus
+			// or closing the pool. pg-tbus's stop() returns even when start() is
+			// still running migrate(); if we then $close() the pool, the still-
+			// running migrate() blows up with "Cannot use a pool after end".
+			const startPromise = getTbusStartPromise();
+			if (startPromise) {
+				await Promise.race([
+					startPromise,
+					new Promise<void>((resolve) => setTimeout(resolve, 5000)),
+				]);
+			}
+
 			await tbus.stop().catch((error) => {
-				logger.error("Error stopping pg-tbus event bus", error);
+				logger.error({ err: error }, "Error stopping pg-tbus event bus");
 			});
 
 			const httpTimeout = Math.min(GRACEFUL_SHUTDOWN_TIMEOUT, 30000);
@@ -91,7 +107,10 @@ export const handleServerClose = (server: Server) => {
 			const remainingTime = agentTimeout - (Date.now() - shutdownStartTime);
 
 			if (remainingTime > 0 && activeRequests > 0) {
-				logger.info({ remainingTime, activeRequests }, "Waiting for long-running agent tasks...");
+				logger.info(
+					{ remainingTime, activeRequests },
+					"Waiting for long-running agent tasks...",
+				);
 				await waitForActiveRequests(remainingTime);
 			}
 
@@ -104,7 +123,7 @@ export const handleServerClose = (server: Server) => {
 			}
 
 			await db.$close().catch((error) => {
-				logger.error("Error closing database connection", error);
+				logger.error({ err: error }, "Error closing database connection");
 			});
 
 			// Drain Sentry's buffer before OTel shuts down — otherwise the

@@ -23,9 +23,10 @@ const DashboardPage = () => {
 	const teamId = useActiveTeamId();
 
 	// Pull the live count of entries from the backend.
-	const { data: entries = [] } = useQuery(
-		orpc.journalEntries.getAll.queryOptions({ input: { teamId } })
-	);
+	const { data: entries = [] } = useQuery({
+		...orpc.journalEntries.getAll.queryOptions(),
+		enabled: !!teamId,
+	});
 	const entryCount = entries.length;
 
 	return (

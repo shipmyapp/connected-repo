@@ -2,7 +2,10 @@ import { sql } from "@backend/db/base_table";
 import { db } from "@backend/db/db";
 import type { ApiProductRequestLog } from "@backend/modules/logs/tables/api_product_request_logs.table";
 import { findActiveSubscription } from "@backend/modules/subscriptions/services/get_active.subscriptions.service";
-import { API_PRODUCTS, type ApiProductSku } from "@connected-repo/zod-schemas/enums.zod";
+import {
+	API_PRODUCTS,
+	type ApiProductSku,
+} from "@connected-repo/zod-schemas/enums.zod";
 
 /**
  * Check Subscription and Update Log
@@ -12,27 +15,36 @@ export const checkSubscriptionAndUpdateLog = async (
 	logEntry: ApiProductRequestLog,
 	productRoute: string,
 	productSku: ApiProductSku,
-	teamApiId: string, 
-	teamUserReferenceId: string, 
+	teamApiId: string,
+	teamUserReferenceId: string,
 ) => {
 	const subscription = await findActiveSubscription(
-		teamApiId, 
-		teamUserReferenceId, 
-		productSku
+		teamApiId,
+		teamUserReferenceId,
+		productSku,
 	);
 
-	const productRouteCheck = API_PRODUCTS.some(product => product.sku === productSku && product.apiRoute === productRoute);
+	const productRouteCheck = API_PRODUCTS.some(
+		(product) =>
+			product.sku === productSku && product.apiRoute === productRoute,
+	);
 
-	const newLogEntry = subscription && productRouteCheck
-		? logEntry 
-		: await db.apiProductRequestLogs
-			.selectAll()
-			.find(logEntry.apiProductRequestId)
-			.update({
-				status: !subscription ? "No active subscription" : "Invalid API route",
-				responseText: !subscription ? "No active subscription found for this team and user." : "Invalid API route",
-				responseTime: () => sql`EXTRACT(EPOCH FROM NOW()) - EXTRACT(EPOCH FROM "created_at")`,
-			});
+	const newLogEntry =
+		subscription && productRouteCheck
+			? logEntry
+			: await db.apiProductRequestLogs
+					.selectAll()
+					.find(logEntry.apiProductRequestId)
+					.update({
+						status: !subscription
+							? "No active subscription"
+							: "Invalid API route",
+						responseText: !subscription
+							? "No active subscription found for this team and user."
+							: "Invalid API route",
+						responseTime: () =>
+							sql`EXTRACT(EPOCH FROM NOW()) - EXTRACT(EPOCH FROM "created_at")`,
+					});
 
 	return { newLogEntry, subscription };
 };

@@ -25,6 +25,7 @@ import EditNoteIcon from "@mui/icons-material/EditNote";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import type { Resolver } from "react-hook-form";
 import { ulid } from "ulid";
 import { SmartMediaUploader } from "./SmartMediaUploader";
 
@@ -63,12 +64,15 @@ export function CreateJournalEntryForm() {
 					const mediaProxy = await getMediaProxy();
 
 					// Upload main files + thumbnails in one batched presigned-URL
-					// round-trip. Thumbnail ids derive from the main id so we can
-					// recover the pairing after the batched response comes back.
+					// round-trip. Thumbnails get their own fresh ULID (the backend
+					// schema requires a strict ULID and embeds it in the S3 key);
+					// parent pairing is recovered by position.
 					const mainUploads = attachments.map((a) => ({ id: a.id, file: a.file }));
-					const thumbUploads = attachments
-						.filter((a) => a.thumbnailFile)
-						.map((a) => ({ id: `${a.id}-thumb`, file: a.thumbnailFile as File }));
+					const attachmentsWithThumbs = attachments.filter((a) => a.thumbnailFile);
+					const thumbUploads = attachmentsWithThumbs.map((a) => ({
+						id: ulid(),
+						file: a.thumbnailFile as File,
+					}));
 
 					const uploadResults = await mediaProxy.media.uploadFiles([
 						...mainUploads,
@@ -78,13 +82,11 @@ export function CreateJournalEntryForm() {
 					const mainResults = uploadResults.slice(0, mainUploads.length);
 					const thumbResults = uploadResults.slice(mainUploads.length);
 
-					// Index thumbnail results back onto attachment id.
 					const thumbCdnUrlById = new Map<string, string>();
-					thumbUploads.forEach((thumb, i) => {
+					attachmentsWithThumbs.forEach((a, i) => {
 						const result = thumbResults[i];
 						if (result?.success && result.cdnUrl) {
-							// Strip the `-thumb` suffix to recover the parent attachment id.
-							thumbCdnUrlById.set(thumb.id.replace(/-thumb$/, ""), result.cdnUrl);
+							thumbCdnUrlById.set(a.id, result.cdnUrl);
 						}
 					});
 
@@ -131,7 +133,7 @@ export function CreateJournalEntryForm() {
 
 				// 4. Invalidate dependent queries and reset the form.
 				queryClient.invalidateQueries({
-					queryKey: orpc.journalEntries.getAll.queryOptions({ input: { teamId } }).queryKey,
+					queryKey: orpc.journalEntries.getAll.queryOptions().queryKey,
 				});
 
 				if (writingMode === "prompted") {
@@ -157,7 +159,12 @@ export function CreateJournalEntryForm() {
 			}
 		},
 		formConfig: {
-			resolver: zodResolver(journalEntryCreateInputZod),
+			// Cast: `zTimeEpoch` uses `z.coerce.number()` whose input type is
+			// `unknown` while its inferred output is `number`. The form's
+			// generic is set to the output shape (JournalEntryCreateInput),
+			// so the resolver's input-side type doesn't line up. Runtime is
+			// fine — the resolver still coerces correctly.
+			resolver: zodResolver(journalEntryCreateInputZod) as Resolver<JournalEntryCreateInput>,
 			defaultValues: {
 				prompt: null,
 				content: "",

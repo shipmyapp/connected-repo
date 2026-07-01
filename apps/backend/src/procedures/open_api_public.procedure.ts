@@ -5,25 +5,25 @@ import { z } from "zod";
 
 export interface OpenApiContext extends RequestHeadersPluginContext {
 	"x-team-id"?: string;
-  "x-api-key"?: string;
-  team?: TeamApiSelectAll;
+	"x-api-key"?: string;
+	team?: TeamApiSelectAll;
 }
 
 export interface OpenApiContextWithHeaders extends OpenApiContext {
 	reqHeaders: Headers;
 }
 
-const openApiBase = os.$context<OpenApiContext>()
+const openApiBase = os.$context<OpenApiContext>();
 
 export const openApiPublicProcedure = openApiBase
 	.use(({ context, next }) => {
 		const reqHeaders = context.reqHeaders ?? new Headers();
 		// You can add any public middleware logic here if needed
-		return next({ 
+		return next({
 			context: {
-				...context, 
-				reqHeaders
-			} 
+				...context,
+				reqHeaders,
+			},
 		});
 	})
 	.errors({

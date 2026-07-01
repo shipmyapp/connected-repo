@@ -38,8 +38,10 @@ export const apiKeyAuthMiddleware = async ({
 	}
 
 	try {
-		const teamApiFromDb = await db.teamsApi.find(teamApiId).select("*", "apiSecretHash");
-		
+		const teamApiFromDb = await db.teamsApi
+			.find(teamApiId)
+			.select("*", "apiSecretHash");
+
 		const isValid = await verifyApiKey(apiKey, teamApiFromDb.apiSecretHash);
 
 		if (!isValid) {
@@ -54,7 +56,7 @@ export const apiKeyAuthMiddleware = async ({
 				...context,
 				"x-team-id": teamApiId,
 				"x-api-key": apiKey,
-				teamApi: omitKeys(teamApiFromDb, ["apiSecretHash"])
+				teamApi: omitKeys(teamApiFromDb, ["apiSecretHash"]),
 			},
 		});
 	} catch (error) {

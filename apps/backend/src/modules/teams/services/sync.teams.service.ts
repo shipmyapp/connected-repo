@@ -1,11 +1,14 @@
 import { db } from "@backend/db/db";
 import { syncDeltaService } from "@backend/modules/sync/services/sync_delta.sync.service";
-import type { TeamAppSelectAll, TeamAppMemberSelectAll } from "@connected-repo/zod-schemas/team_app.zod";
 import type {
-	TeamsAppPullDeltaInput,
-	TeamsAppPullDeltaOutput,
-	TeamMembersPullDeltaInput,
-	TeamMembersPullDeltaOutput,
+	TeamAppMemberSelectAll,
+	TeamAppSelectAll,
+} from "@connected-repo/zod-schemas/team_app.zod";
+import type {
+	TeamMembersPullBundlesInput,
+	TeamMembersPullBundlesOutput,
+	TeamsAppPullBundlesInput,
+	TeamsAppPullBundlesOutput,
 } from "@connected-repo/zod-schemas/teams/sync";
 
 /**
@@ -19,12 +22,14 @@ import type {
  * from the local cache.
  */
 export async function pullTeamsAppService(
-	input: TeamsAppPullDeltaInput,
+	input: TeamsAppPullBundlesInput,
 	userId: string,
-): Promise<TeamsAppPullDeltaOutput> {
+): Promise<TeamsAppPullBundlesOutput> {
 	const topLevelSyncedAt = Date.now();
 
-	const baseQuery = db.teamsApp.join("members").where({ "members.userId": userId });
+	const baseQuery = db.teamsApp
+		.join("members")
+		.where({ "members.userId": userId });
 
 	const { data, syncMetadata } = await syncDeltaService<TeamAppSelectAll>({
 		// biome-ignore lint/suspicious/noExplicitAny: the join narrows the base-query type in a way orchid's __scopes generic doesn't preserve; runtime shape is unchanged.
@@ -39,22 +44,23 @@ export async function pullTeamsAppService(
 }
 
 /**
- * Downstream anchor. Scoped by the active tenant team via the base default —
- * `team_members` rows for the current tenant.
+ * Downstream anchor. Scoped by the active tenant team via TeamMemberTable's
+ * default scope — no explicit teamId filter needed.
  */
 export async function pullTeamMembersService(
-	input: TeamMembersPullDeltaInput,
-	tenantTeamId: string,
-): Promise<TeamMembersPullDeltaOutput> {
-	const baseQuery = db.teamMembers.where({ teamId: tenantTeamId });
+	input: TeamMembersPullBundlesInput,
+): Promise<TeamMembersPullBundlesOutput> {
+	const baseQuery = db.teamMembers;
 
-	const { data, syncMetadata } = await syncDeltaService<TeamAppMemberSelectAll>({
-		// biome-ignore lint/suspicious/noExplicitAny: same __scopes generic issue as above.
-		baseQuery: baseQuery as any,
-		syncMetadataInput: input.syncMetadata,
-		topLevelSyncedAt: input.topLevelSyncedAt,
-		syncedTable: "teamMembers",
-	});
+	const { data, syncMetadata } = await syncDeltaService<TeamAppMemberSelectAll>(
+		{
+			// biome-ignore lint/suspicious/noExplicitAny: same __scopes generic issue as above.
+			baseQuery: baseQuery as any,
+			syncMetadataInput: input.syncMetadata,
+			topLevelSyncedAt: input.topLevelSyncedAt,
+			syncedTable: "teamMembers",
+		},
+	);
 
 	return { rows: data, syncMetadata };
 }

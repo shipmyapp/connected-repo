@@ -6,34 +6,37 @@ import { s3Client } from "@backend/utils/s3.client";
 import { z } from "zod";
 
 export const generateUrlInput = z.object({
-  id: z.ulid().optional(),
-  contentType: z.string().optional(),
-  fileName: z.string().min(1),
-  resourceType: z.string().default('media'),
-  teamHandle: z.string().optional(),
+	id: z.ulid().optional(),
+	contentType: z.string().optional(),
+	fileName: z.string().min(1),
+	resourceType: z.string().default("media"),
+	teamHandle: z.string().optional(),
 });
 
-export const generatePresignedUrlService = async (input: z.infer<typeof generateUrlInput>, userId: string) => {
-    // Generate S3 key - you can use context.user.id for user isolation if needed
-    const key = generateS3Key({
-      folderName: input.teamHandle ?? userId,
-      fileName: input.fileName,
-      resourceType: input.resourceType,
-      id: input.id,
-    });
+export const generatePresignedUrlService = async (
+	input: z.infer<typeof generateUrlInput>,
+	userId: string,
+) => {
+	// Generate S3 key - you can use context.user.id for user isolation if needed
+	const key = generateS3Key({
+		folderName: input.teamHandle ?? userId,
+		fileName: input.fileName,
+		resourceType: input.resourceType,
+		id: input.id,
+	});
 
-    const command = new PutObjectCommand({
-      Bucket: env.S3_BUCKET_NAME,
-      Key: key,
-      ContentType: input.contentType,
-      ACL: 'public-read',
-    });
+	const command = new PutObjectCommand({
+		Bucket: env.S3_BUCKET_NAME,
+		Key: key,
+		ContentType: input.contentType,
+		ACL: "public-read",
+	});
 
-    const signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 900 });
+	const signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 900 });
 
-    return {
-      signedUrl,
-      key,
-      fetchUrl: generatePublicUrl(key),
-    };
+	return {
+		signedUrl,
+		key,
+		fetchUrl: generatePublicUrl(key),
+	};
 };

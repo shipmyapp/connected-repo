@@ -1,13 +1,25 @@
 import "./otel.sdk";
 
-import { createServer as createHttpServer, Server as HttpServer } from "node:http";
+import {
+	createServer as createHttpServer,
+	Server as HttpServer,
+} from "node:http";
 import { allowedOrigins } from "@backend/configs/allowed_origins.config";
-import { env, isDev, isProd, isStaging, isTest } from "@backend/configs/env.config";
+import {
+	env,
+	isDev,
+	isProd,
+	isStaging,
+	isTest,
+} from "@backend/configs/env.config";
 import { startEventBus } from "@backend/events/events.utils";
 import { captureBackendException } from "@backend/utils/backend-error-tracking.utils";
 import { handleServerClose } from "@backend/utils/graceful_shutdown.utils";
 import { logger } from "@backend/utils/logger.utils";
-import type { NodeHttpRequest, NodeHttpResponse } from "@orpc/standard-server-node";
+import type {
+	NodeHttpRequest,
+	NodeHttpResponse,
+} from "@orpc/standard-server-node";
 import { mainRequestDispatcher } from "./request_handlers/main.handler";
 
 logger.info({ isDev, isProd, isStaging, isTest }, "Environment:");
@@ -38,7 +50,10 @@ try {
 		if (process.send) {
 			process.send("ready"); // Notify PM2/Coolify
 		}
-		logger.info({ url: env.VITE_API_URL, host, port: env.PORT, secure: false }, "Server running");
+		logger.info(
+			{ url: env.VITE_API_URL, host, port: env.PORT, secure: false },
+			"Server running",
+		);
 
 		if (process.argv.includes("--smoke-test")) {
 			logger.info("Smoke test passed, exiting...");

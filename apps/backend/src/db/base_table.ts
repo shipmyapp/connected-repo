@@ -12,6 +12,7 @@ import {
 	WEBHOOK_STATUS_ENUM,
 } from "@connected-repo/zod-schemas/enums.zod";
 import { createBaseTable } from "orchid-orm";
+import { nodePostgresSchemaConfig } from "pqb/node-postgres";
 import { ulid } from "ulid";
 
 /**
@@ -37,8 +38,13 @@ export function parseMicrosecondsToEpochStr(input: unknown): string {
 
 export const BaseTable = createBaseTable({
 	autoForeignKeys: false,
-	nowSQL: `clock_timestamp() AT TIME ZONE 'UTC'`,
+	nowSQL: `clock_timestamp()`,
 	snakeCase: true,
+	// Required since orchid-orm 1.72 when using the node-postgres adapter —
+	// aligns column encoding/parsing with node-postgres's parser table.
+	// Without this, types like int8/numeric/timestamp can decode as the
+	// wrong runtime type (string vs number) silently.
+	schemaConfig: nodePostgresSchemaConfig,
 
 	columnTypes: (t) => ({
 		...t,
@@ -49,12 +55,17 @@ export const BaseTable = createBaseTable({
 		amount: () => t.decimal(15, 2),
 
 		apiProductSkuEnum: () => t.enum("api_product_enum", apiProductSkuEnum),
-		apiRequestMethodEnum: () => t.enum("api_request_method_enum", API_REQUEST_METHOD_ENUM),
-		apiProductRequestStatusEnum: () => t.enum("api_status_enum", API_PRODUCT_REQUEST_STATUS_ENUM),
-		fileTableNameEnum: () => t.enum("file_table_name_enum", FILE_TABLE_NAME_ENUM),
+		apiRequestMethodEnum: () =>
+			t.enum("api_request_method_enum", API_REQUEST_METHOD_ENUM),
+		apiProductRequestStatusEnum: () =>
+			t.enum("api_status_enum", API_PRODUCT_REQUEST_STATUS_ENUM),
+		fileTableNameEnum: () =>
+			t.enum("file_table_name_enum", FILE_TABLE_NAME_ENUM),
 		fileTypeEnum: () => t.enum("file_type_enum", FILE_TYPE_ENUM),
-		pgTbusTaskStatusEnum: () => t.enum("pg_tbus_task_status_enum", PG_TBUS_TASK_STATUS_ENUM),
-		teamMemberRoleEnum: () => t.enum("team_member_role_enum", TEAM_MEMBER_ROLE_ENUM),
+		pgTbusTaskStatusEnum: () =>
+			t.enum("pg_tbus_task_status_enum", PG_TBUS_TASK_STATUS_ENUM),
+		teamMemberRoleEnum: () =>
+			t.enum("team_member_role_enum", TEAM_MEMBER_ROLE_ENUM),
 		themeSettingEnum: () => t.enum("theme_setting_enum", THEME_SETTING_ENUM),
 		timestampNumber: () => t.timestamp().asNumber(),
 		ulid: () => t.string(26),
@@ -130,22 +141,27 @@ export const BaseTable = createBaseTable({
 					})
 					.setOnCreate(() => {
 						const ctx = getRequestContext();
-						if (!ctx) throw new Error("No request context — cannot set createdByTeamMemberId");
+						if (!ctx)
+							throw new Error(
+								"No request context — cannot set createdByTeamMemberId",
+							);
 						return ctx.teamMemberId;
 					}),
-				editedByTeamMemberId: t.string(26).nullable().foreignKey("team_members", "id", {
-					onUpdate: "RESTRICT",
-					onDelete: "SET NULL",
-				}),
+				editedByTeamMemberId: t
+					.string(26)
+					.nullable()
+					.foreignKey("team_members", "id", {
+						onUpdate: "RESTRICT",
+						onDelete: "SET NULL",
+					}),
 				deletedAt: t.timestamp().asNumber().nullable(),
 				createdAt: t.timestamps().createdAt.asNumber(),
 				updatedAt: t.timestamps().updatedAt.parse(parseMicrosecondsToEpochStr),
 			};
 
-			return (options?.omit ? omitKeys(allFields, options.omit) : allFields) as Omit<
-				typeof allFields,
-				OmitKeys
-			>;
+			return (
+				options?.omit ? omitKeys(allFields, options.omit) : allFields
+			) as Omit<typeof allFields, OmitKeys>;
 		},
 	}),
 });

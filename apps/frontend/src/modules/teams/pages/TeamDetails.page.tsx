@@ -25,8 +25,12 @@ export default function TeamDetailsPage() {
 
 	const team = teams.find((t) => t.id === teamId);
 
+	// `getAll` is scoped to the caller's active team on the server. If the
+	// user hasn't made this team active (via the profile-page selector),
+	// the returned entries will be for a different team. The
+	// team-mismatch banner below makes that explicit.
 	const { data: entries = [], isLoading } = useQuery({
-		...orpc.journalEntries.getAll.queryOptions({ input: { teamId: teamId ?? null } }),
+		...orpc.journalEntries.getAll.queryOptions(),
 		enabled: !!teamId,
 	});
 
@@ -87,12 +91,12 @@ export default function TeamDetailsPage() {
 				) : viewMode === "card" ? (
 					<JournalEntryCardView
 						entries={visibleEntries}
-						onEntryClick={(entryId) => navigate(`/teams/${teamId}/journal-entries/${entryId}`)}
+						onEntryClick={(entryId) => navigate(`/journal-entries/${entryId}`)}
 					/>
 				) : (
 					<JournalEntryTableView
 						entries={visibleEntries}
-						onEntryClick={(entryId) => navigate(`/teams/${teamId}/journal-entries/${entryId}`)}
+						onEntryClick={(entryId) => navigate(`/journal-entries/${entryId}`)}
 					/>
 				)}
 			</Stack>

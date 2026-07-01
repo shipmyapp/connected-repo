@@ -61,8 +61,9 @@ export type TeamAppMemberSelectAll = z.infer<typeof teamAppMemberSelectAllZod>;
 export const teamAppMemberRoleZod = teamMemberRoleZod;
 export type TeamAppMemberRole = z.infer<typeof teamAppMemberRoleZod>;
 
+// `teamId` is derived from the `x-team-id` header on the RPC procedure, not
+// from the request body — callers implicitly add members to their active team.
 export const teamAppMemberAddInputZod = z.object({
-  teamId: z.ulid(),
   email: z.email().optional().nullable(),
   phoneNumber: zString.optional().nullable(),
   role: teamMemberRoleZod,

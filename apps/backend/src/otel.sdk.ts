@@ -1,5 +1,10 @@
 // Initialize OpenTelemetry + Sentry before the HTTP server (or any instrumented module) loads.
 import { env, isDev, isProd } from "@backend/configs/env.config";
+import {
+	CompositePropagator,
+	W3CBaggagePropagator,
+	W3CTraceContextPropagator,
+} from "@opentelemetry/core";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { HttpInstrumentation } from "@opentelemetry/instrumentation-http";
 import { PgInstrumentation } from "@opentelemetry/instrumentation-pg";
@@ -8,7 +13,11 @@ import { NodeSDK } from "@opentelemetry/sdk-node";
 import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-node";
 import { ORPCInstrumentation } from "@orpc/otel";
 import * as Sentry from "@sentry/node";
-import { SentryPropagator, SentrySampler, SentrySpanProcessor } from "@sentry/opentelemetry";
+import {
+	SentryPropagator,
+	SentrySampler,
+	SentrySpanProcessor,
+} from "@sentry/opentelemetry";
 import { nodeProfilingIntegration } from "@sentry/profiling-node";
 
 const sentryClient = Sentry.init({
@@ -28,6 +37,10 @@ const sentryClient = Sentry.init({
 		// Sentry's pinoIntegration sends logs as events, which floods the issue list.
 	],
 	enableLogs: false,
+	// Also emit W3C `traceparent` on outbound HTTP so non-Sentry consumers
+	// (Datadog, Honeycomb, Jaeger, etc.) can stitch our traces. Sentry always
+	// emits `sentry-trace` + `baggage` — this adds `traceparent` alongside.
+	propagateTraceparent: true,
 	sendDefaultPii: true,
 	profilesSampleRate: env.SENTRY_PROFILES_SAMPLE_RATE ?? 0,
 	tracesSampleRate: env.SENTRY_TRACES_SAMPLE_RATE ?? (isProd ? 0.1 : 1.0),
@@ -41,7 +54,18 @@ export const otelNodeSdk = new NodeSDK({
 		"deployment.environment": env.SENTRY_ENVIRONMENT || env.NODE_ENV,
 	}),
 	sampler: sentryClient ? new SentrySampler(sentryClient) : undefined,
-	textMapPropagator: new SentryPropagator(),
+	// Composite: emit W3C `traceparent` + `baggage` on every outbound call
+	// (the vendor-neutral standard — Datadog / Honeycomb / OTel all read it),
+	// and also emit Sentry's `sentry-trace` so existing Sentry-instrumented
+	// services continue to stitch. Inbound extraction tries every propagator
+	// in order and uses whichever header is present.
+	textMapPropagator: new CompositePropagator({
+		propagators: [
+			new W3CTraceContextPropagator(),
+			new W3CBaggagePropagator(),
+			new SentryPropagator(),
+		],
+	}),
 	spanProcessors: [
 		new SentrySpanProcessor(),
 		...(env.OTEL_TRACE_EXPORTER_URL

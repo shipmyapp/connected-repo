@@ -1,6 +1,7 @@
 import type { FileSelectAll } from "@connected-repo/zod-schemas/file.zod";
 import { OPFSManager } from "../utils/opfs.manager";
-import { clientDb, notifySubscribers } from "./db.manager";
+import { getClientDb } from "./db.lifecycle";
+import { notifySubscribers } from "./db.manager";
 import type { FileUploadState, StoredFile } from "./schema.db.types";
 
 /**
@@ -18,11 +19,11 @@ import type { FileUploadState, StoredFile } from "./schema.db.types";
  */
 export const filesDb = {
 	async getById(id: string): Promise<StoredFile | undefined> {
-		return await clientDb.files.get(id);
+		return await getClientDb().files.get(id);
 	},
 
 	async getAllForParent(tableName: string, tableId: string): Promise<StoredFile[]> {
-		return await clientDb.files.where({ tableName, tableId }).toArray();
+		return await getClientDb().files.where({ tableName, tableId }).toArray();
 	},
 
 	/**
@@ -70,7 +71,7 @@ export const filesDb = {
 			syncError: null,
 		};
 
-		await clientDb.files.put(stored);
+		await getClientDb().files.put(stored);
 		notifySubscribers("files");
 		return stored;
 	},
@@ -78,9 +79,9 @@ export const filesDb = {
 	/** Server-authoritative overwrite (pull-delta or push-echo). */
 	async bulkUpsertFromServer(rows: FileSelectAll[]): Promise<void> {
 		if (rows.length === 0) return;
-		await clientDb.transaction("rw", clientDb.files, async () => {
+		await getClientDb().transaction("rw", getClientDb().files, async () => {
 			for (const row of rows) {
-				const existing = await clientDb.files.get(row.id);
+				const existing = await getClientDb().files.get(row.id);
 				// Preserve client-only fields when the server row overwrites.
 				const merged: StoredFile = {
 					...row,
@@ -105,7 +106,7 @@ export const filesDb = {
 					thumbnailOpfsPath: existing?.thumbnailOpfsPath ?? null,
 					syncError: existing?.syncError ?? null,
 				};
-				await clientDb.files.put(merged);
+				await getClientDb().files.put(merged);
 			}
 		});
 		notifySubscribers("files");
@@ -140,19 +141,19 @@ export const filesDb = {
 		}
 		if (patch.isMainFileLost !== undefined) cols.isMainFileLost = patch.isMainFileLost;
 
-		await clientDb.files.update(id, cols);
+		await getClientDb().files.update(id, cols);
 		notifySubscribers("files");
 	},
 
 	async getPendingUploads(): Promise<StoredFile[]> {
-		return await clientDb.files
+		return await getClientDb().files
 			.where("mainUploadState")
 			.anyOf(["pending", "uploading", "failed"])
 			.toArray();
 	},
 
 	async getCdnUpdatesNeedingPush(): Promise<StoredFile[]> {
-		return await clientDb.files
+		return await getClientDb().files
 			.filter(
 				(f) =>
 					f.mainUploadState === "uploaded_to_cdn" ||
@@ -166,12 +167,12 @@ export const filesDb = {
 		const cols: Record<string, unknown> = {};
 		if (layer === "main") cols.mainUploadState = "uploaded";
 		if (layer === "thumbnail") cols.thumbnailUploadState = "uploaded";
-		await clientDb.files.update(id, cols);
+		await getClientDb().files.update(id, cols);
 		notifySubscribers("files");
 	},
 
 	async setSyncError(id: string, error: string | null): Promise<void> {
-		await clientDb.files.update(id, { syncError: error });
+		await getClientDb().files.update(id, { syncError: error });
 		notifySubscribers("files");
 	},
 };

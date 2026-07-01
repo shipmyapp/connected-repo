@@ -1,6 +1,6 @@
-import { OPFSManager } from "../utils/opfs.manager";
 import { filesDb } from "../db/files.db";
 import type { StoredFile } from "../db/schema.db.types";
+import { OPFSManager } from "../utils/opfs.manager";
 import { getMediaProxy } from "../worker.context";
 
 /**
@@ -25,7 +25,16 @@ const MAX_ATTEMPTS = 5;
 const BACKOFF_SECONDS = [1, 2, 4, 8, 16];
 const STUCK_UPLOADING_CUTOFF_MS = 5 * 60 * 1_000;
 
-class FileUploadWorker {
+/**
+ * Public surface exported through the DataWorker's Comlink proxy.
+ * Explicit interface so TypeScript can emit a proper declaration —
+ * the class itself has private members (TS4094).
+ */
+export interface FileUploadWorkerApi {
+	run(): Promise<void>;
+}
+
+class FileUploadWorker implements FileUploadWorkerApi {
 	private inFlight = new Set<string>();
 	private isProcessing = false;
 
@@ -206,4 +215,4 @@ class FileUploadWorker {
 	}
 }
 
-export const fileUploadWorker = new FileUploadWorker();
+export const fileUploadWorker: FileUploadWorkerApi = new FileUploadWorker();

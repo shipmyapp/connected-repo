@@ -1,12 +1,11 @@
-import { journalEntriesRouter } from '@backend/modules/journal-entries/journal-entries.router.js';
-import { defaultContext } from '@backend/test/setup';
-import { createJournalEntryFixture } from '@connected-repo/zod-schemas/journal_entry.fixture';
-import { createRouterClient, type RouterClient } from '@orpc/server';
-import { ulid } from 'ulid';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { journalEntriesRouter } from "@backend/modules/journal-entries/journal-entries.router.js";
+import { defaultContext } from "@backend/test/setup";
+import { createJournalEntryFixture } from "@connected-repo/zod-schemas/journal_entry.fixture";
+import { createRouterClient, type RouterClient } from "@orpc/server";
+import { ulid } from "ulid";
+import { beforeEach, describe, expect, it } from "vitest";
 
-
-describe('Journal Entries Endpoints', () => {
+describe("Journal Entries Endpoints", () => {
 	let defaultClient: RouterClient<typeof journalEntriesRouter>;
 	const unauthClient = createRouterClient(journalEntriesRouter);
 
@@ -18,14 +17,14 @@ describe('Journal Entries Endpoints', () => {
 		});
 	});
 
-	describe('getAll', () => {
-		it('should return empty array when user has no journal entries', async () => {
+	describe("getAll", () => {
+		it("should return empty array when user has no journal entries", async () => {
 			const result = await defaultClient.getAll({});
 
 			expect(result).toEqual([]);
 		});
 
-		it('should return user\'s journal entries', async () => {
+		it("should return user's journal entries", async () => {
 			// Create a test journal entry first
 			const createResult = await defaultClient.create(dummyEntry);
 
@@ -40,13 +39,13 @@ describe('Journal Entries Endpoints', () => {
 			expect(result[0]?.authorUserId).toBe(defaultContext?.user.id);
 		});
 
-		it('should fail when user is not authenticated', async () => {
+		it("should fail when user is not authenticated", async () => {
 			await expect(unauthClient.getAll({})).rejects.toThrow();
 		});
 	});
 
-	describe('create', () => {
-		it('should create a journal entry successfully', async () => {
+	describe("create", () => {
+		it("should create a journal entry successfully", async () => {
 			const result = await defaultClient.create(dummyEntry);
 
 			expect(result).toBeDefined();
@@ -58,8 +57,11 @@ describe('Journal Entries Endpoints', () => {
 			expect(result.updatedAt).toBeDefined();
 		});
 
-		it('should create a journal entry without prompt', async () => {
-			const result = await defaultClient.create({ content: dummyEntry.content, id: ulid() });
+		it("should create a journal entry without prompt", async () => {
+			const result = await defaultClient.create({
+				content: dummyEntry.content,
+				id: ulid(),
+			});
 
 			expect(result).toBeDefined();
 			expect(result.content).toBe(dummyEntry.content);
@@ -67,11 +69,11 @@ describe('Journal Entries Endpoints', () => {
 			expect(result.authorUserId).toBe(defaultContext?.user.id);
 		});
 
-		it('should fail when user is not authenticated', async () => {
+		it("should fail when user is not authenticated", async () => {
 			await expect(unauthClient.create(dummyEntry)).rejects.toThrow();
 		});
 
-		it('should be idempotent (return existing record on duplicate id)', async () => {
+		it("should be idempotent (return existing record on duplicate id)", async () => {
 			const entryWithId = { ...dummyEntry, id: ulid() };
 			const firstCall = await defaultClient.create(entryWithId);
 			expect(firstCall).toBeDefined();

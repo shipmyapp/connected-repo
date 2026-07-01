@@ -51,6 +51,10 @@ export async function initInstrumentation() {
     // Enable logs to be sent to Sentry
     enableLogs: true,
     profileLifecycle: "trace",
+    // Also emit W3C `traceparent` on outbound fetches so the backend (and any
+    // downstream) stitches under the vendor-neutral standard, not just Sentry's
+    // own `sentry-trace` header.
+    propagateTraceparent: true,
     tracesSampleRate: isDev ? 0 : 1.0,
     // Set `tracePropagationTargets` to control for which URLs trace propagation should be enabled
     tracePropagationTargets: [

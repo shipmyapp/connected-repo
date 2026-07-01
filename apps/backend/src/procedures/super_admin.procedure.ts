@@ -23,19 +23,22 @@ const superAdminPhones = parseList(env.SUPER_ADMIN_PHONE_NUMBERS);
  * Intentionally simple — no database-backed admin role, no separate auth
  * scheme. If the env lists are empty the gate fails closed (FORBIDDEN).
  */
-export const rpcSuperAdminProcedure = rpcProtectedProcedure.use(({ context, next }) => {
-	const email = context.user.email?.toLowerCase();
-	const phone = context.user.phoneNumber?.toLowerCase();
+export const rpcSuperAdminProcedure = rpcProtectedProcedure.use(
+	({ context, next }) => {
+		const email = context.user.email?.toLowerCase();
+		const phone = context.user.phoneNumber?.toLowerCase();
 
-	const allowed =
-		(email && superAdminEmails.has(email)) || (phone && superAdminPhones.has(phone));
+		const allowed =
+			(email && superAdminEmails.has(email)) ||
+			(phone && superAdminPhones.has(phone));
 
-	if (!allowed) {
-		throw new ORPCError("FORBIDDEN", {
-			status: 403,
-			message: "Super-admin access required",
-		});
-	}
+		if (!allowed) {
+			throw new ORPCError("FORBIDDEN", {
+				status: 403,
+				message: "Super-admin access required",
+			});
+		}
 
-	return next({ context });
-});
+		return next({ context });
+	},
+);

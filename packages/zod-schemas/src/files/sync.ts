@@ -50,13 +50,13 @@ export const filePushCdnUpdatesOutputZod = z.object({
 });
 export type FilePushCdnUpdatesOutput = z.infer<typeof filePushCdnUpdatesOutputZod>;
 
-// ─── files.pullDelta ────────────────────────────────────────────────────
+// ─── files.pullBundles ────────────────────────────────────────────────────
 
-export const filePullDeltaInputZod = syncDeltaInputZod;
-export type FilePullDeltaInput = z.infer<typeof filePullDeltaInputZod>;
+export const filePullBundlesInputZod = syncDeltaInputZod;
+export type FilePullBundlesInput = z.infer<typeof filePullBundlesInputZod>;
 
-export const filePullDeltaOutputZod = z.object({
+export const filePullBundlesOutputZod = z.object({
 	rows: z.array(fileSelectAllZod),
 	syncMetadata: syncMetadataZod,
 });
-export type FilePullDeltaOutput = z.infer<typeof filePullDeltaOutputZod>;
+export type FilePullBundlesOutput = z.infer<typeof filePullBundlesOutputZod>;

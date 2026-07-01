@@ -11,7 +11,9 @@ interface AppleConfig {
  * Generates an Apple Client Secret (JWT) for authentication.
  * Apple requires this secret to be a signed JWT using their private key.
  */
-export async function generateAppleClientSecret(config: AppleConfig): Promise<string> {
+export async function generateAppleClientSecret(
+	config: AppleConfig,
+): Promise<string> {
 	const { clientId, teamId, keyId, privateKey } = config;
 
 	if (!clientId || !teamId || !keyId || !privateKey) {

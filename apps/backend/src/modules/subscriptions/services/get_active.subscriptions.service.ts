@@ -9,20 +9,20 @@ import type { ApiProductSku } from "@connected-repo/zod-schemas/enums.zod";
  * @returns Active subscription or null if not found
  */
 export async function findActiveSubscription(
-  teamApiId: string,
-  teamUserReferenceId: string,
-  apiProductSku: ApiProductSku,
+	teamApiId: string,
+	teamUserReferenceId: string,
+	apiProductSku: ApiProductSku,
 ) {
-  const subscription = await db.subscriptions
-    .where({
-      teamApiId,
-      teamUserReferenceId,
-      apiProductSku,
-      expiresAt: { gt: sql`NOW()` },
-      requestsConsumed: { lt: sql`"max_requests"` },
-    })
-    .order({ createdAt: "DESC" })
-    .takeOptional();
+	const subscription = await db.subscriptions
+		.where({
+			teamApiId,
+			teamUserReferenceId,
+			apiProductSku,
+			expiresAt: { gt: sql`NOW()` },
+			requestsConsumed: { lt: sql`"max_requests"` },
+		})
+		.order({ createdAt: "DESC" })
+		.takeOptional();
 
-  return subscription;
+	return subscription;
 }

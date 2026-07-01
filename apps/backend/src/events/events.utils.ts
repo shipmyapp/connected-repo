@@ -1,11 +1,14 @@
 import {
 	subscriptionAlertWebhookTaskDef,
+	systemTenantStatsRollupTaskDef,
 	userCreatedEventDef,
 	userReminderTaskDef,
 } from "@backend/events/events.schema";
 import { reminderNotificationJournalEntryHandler } from "@backend/modules/journal-entries/notifications/reminder.notifications.journal_entries";
+import { tenantStatsRollupHandler } from "@backend/modules/system/handlers/tenant_stats_rollup.handler";
 import { userCreatedNotificationHandler } from "@backend/modules/users/notifications/user_created.notifications.user";
 import { subscriptionAlertWebhookHandler } from "@backend/modules/webhook_calls/handlers/subscription_alert_webhook.handler";
+import { captureBackendException } from "@backend/utils/backend-error-tracking.utils";
 import { logger } from "@backend/utils/logger.utils";
 import type { Query } from "orchid-orm";
 import { createEventHandler, createTaskHandler } from "pg-tbus";
@@ -27,34 +30,55 @@ export const orchidToTbusQueryAdapter = (queryCtx: Query) => {
 	};
 };
 
-export const startEventBus = async () => {
-	logger.info("Starting pg-tbus event bus...");
+// Tracks the in-flight startEventBus() promise. gracefulShutdown awaits this
+// before calling tbus.stop() / db.$close(). Without it, pg-tbus's stop()
+// returns while start()'s migrate() is still running, we close the pool, and
+// migrate() crashes on pool.connect() with "Cannot use a pool after end".
+let tbusStartPromise: Promise<void> | null = null;
+export const getTbusStartPromise = (): Promise<void> | null => tbusStartPromise;
 
-	try {
-		tbus.registerHandler(
-			createEventHandler({
-				task_name: "user.created",
-				eventDef: userCreatedEventDef,
-				handler: userCreatedNotificationHandler,
-			}),
-		);
+export const startEventBus = (): Promise<void> => {
+	const run = async (): Promise<void> => {
+		try {
+			tbus.registerHandler(
+				createEventHandler({
+					task_name: "user.created",
+					eventDef: userCreatedEventDef,
+					handler: userCreatedNotificationHandler,
+				}),
+			);
 
-		tbus.registerTask(
-			createTaskHandler({
-				taskDef: userReminderTaskDef,
-				handler: reminderNotificationJournalEntryHandler,
-			}),
-		);
+			tbus.registerTask(
+				createTaskHandler({
+					taskDef: userReminderTaskDef,
+					handler: reminderNotificationJournalEntryHandler,
+				}),
+			);
 
-		tbus.registerTask(
-			createTaskHandler({
-				taskDef: subscriptionAlertWebhookTaskDef,
-				handler: subscriptionAlertWebhookHandler,
-			}),
-		);
+			tbus.registerTask(
+				createTaskHandler({
+					taskDef: subscriptionAlertWebhookTaskDef,
+					handler: subscriptionAlertWebhookHandler,
+				}),
+			);
 
-		await tbus.start();
-	} catch (error) {
-		logger.error(error, "Failed to start pg-tbus event bus");
-	}
+			tbus.registerTask(
+				createTaskHandler({
+					taskDef: systemTenantStatsRollupTaskDef,
+					handler: tenantStatsRollupHandler,
+				}),
+			);
+
+			await tbus.start();
+		} catch (error) {
+			logger.error({ err: error }, "Failed to start pg-tbus event bus");
+			captureBackendException(error, {
+				captureAll: true,
+				tags: { handler: "start_event_bus" },
+			});
+		}
+	};
+
+	tbusStartPromise = run();
+	return tbusStartPromise;
 };

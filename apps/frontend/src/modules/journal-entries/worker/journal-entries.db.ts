@@ -1,8 +1,8 @@
 import type { FileSelectAll } from "@connected-repo/zod-schemas/file.zod";
 import type { JournalEntrySelectAll } from "@connected-repo/zod-schemas/journal_entry.zod";
 import type { JournalEntrySelectAllWithRelations } from "@connected-repo/zod-schemas/journal-entries/sync";
+import { getClientDb } from "../../../worker/db/db.lifecycle";
 import {
-	clientDb,
 	notifySubscribers,
 	type StoredJournalEntry,
 } from "../../../worker/db/db.manager";
@@ -14,7 +14,7 @@ import {
  */
 export const journalEntriesDb = {
 	async getAll(teamId: string): Promise<StoredJournalEntry[]> {
-		return await clientDb.journalEntries
+		return await getClientDb().journalEntries
 			.where("[teamId+updatedAt]")
 			.between([teamId, Dexie.minKey], [teamId, Dexie.maxKey])
 			.reverse()
@@ -23,14 +23,14 @@ export const journalEntriesDb = {
 
 	async getPending(teamId: string): Promise<StoredJournalEntry[]> {
 		// Dexie can't index nulls directly; scan the team's rows.
-		return await clientDb.journalEntries
+		return await getClientDb().journalEntries
 			.where({ teamId })
 			.filter((r) => r.createdAt == null)
 			.toArray();
 	},
 
 	async getById(id: string): Promise<StoredJournalEntry | undefined> {
-		return await clientDb.journalEntries.get(id);
+		return await getClientDb().journalEntries.get(id);
 	},
 
 	/**
@@ -44,7 +44,7 @@ export const journalEntriesDb = {
 			createdAt: null,
 			syncError: null,
 		};
-		await clientDb.journalEntries.put(pending);
+		await getClientDb().journalEntries.put(pending);
 		notifySubscribers("journalEntries");
 		return pending;
 	},
@@ -60,7 +60,7 @@ export const journalEntriesDb = {
 			...(parent as JournalEntrySelectAll),
 			syncError: null,
 		};
-		await clientDb.journalEntries.put(stored);
+		await getClientDb().journalEntries.put(stored);
 
 		if (files?.length) {
 			await mergeFilesFromServer(files);
@@ -75,18 +75,18 @@ export const journalEntriesDb = {
 			...r,
 			syncError: null,
 		}));
-		await clientDb.journalEntries.bulkPut(stored);
+		await getClientDb().journalEntries.bulkPut(stored);
 		notifySubscribers("journalEntries");
 	},
 
 	async setSyncError(id: string, error: string | null): Promise<void> {
-		await clientDb.journalEntries.update(id, { syncError: error });
+		await getClientDb().journalEntries.update(id, { syncError: error });
 		notifySubscribers("journalEntries");
 	},
 
 	async wipeByTeamAppId(teamId: string): Promise<void> {
-		await clientDb.journalEntries.where({ teamId }).delete();
-		await clientDb.files
+		await getClientDb().journalEntries.where({ teamId }).delete();
+		await getClientDb().files
 			.where({ teamId, tableName: "journalEntries" as const })
 			.delete();
 		notifySubscribers("journalEntries");
@@ -96,16 +96,16 @@ export const journalEntriesDb = {
 
 async function mergeFilesFromServer(rows: FileSelectAll[]): Promise<void> {
 	// Preserve local-only upload state; overwrite the metadata fields.
-	await clientDb.transaction("rw", clientDb.files, async () => {
+	await getClientDb().transaction("rw", getClientDb().files, async () => {
 		for (const row of rows) {
-			const existing = await clientDb.files.get(row.id);
+			const existing = await getClientDb().files.get(row.id);
 			if (existing) {
-				await clientDb.files.put({
+				await getClientDb().files.put({
 					...existing,
 					...row,
 				});
 			} else {
-				await clientDb.files.put({
+				await getClientDb().files.put({
 					...row,
 					mainUploadState: row.cdnUrl ? "uploaded" : "pending",
 					mainUploadAttempts: 0,

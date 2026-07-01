@@ -47,7 +47,7 @@ export function useLocalDb<T>(
 		} finally {
 			setIsLoading(false);
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
+		// biome-ignore lint/correctness/useExhaustiveDependencies: deps is intentionally a caller-provided list — this hook's whole point is dynamic dependency injection
 	}, deps);
 
 	useEffect(() => {

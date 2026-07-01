@@ -1,22 +1,28 @@
-import { getDataProxy } from "@frontend/worker/worker.proxy";
+import { setActiveTeamIdForRequests } from "@frontend/utils/active_team_header.client";
+import {
+	getDataProxy,
+	getMediaProxy,
+	isMediaProxyReady,
+	terminateWorkers,
+} from "@frontend/worker/worker.proxy";
 
 /**
- * Main-thread sync trigger installer. Replaces the SSE-driven trigger
- * from the pre-pivot architecture. Fires `sync.processQueue()` on:
+ * Main-thread bridge to the DataWorker sync engine. Owns:
  *
- *   1. `visibilitychange` when the tab becomes visible.
- *   2. `focus` on the window.
- *   3. `online` browser event.
- *   4. A 60-second interval (belt-and-braces alongside the interval
- *      inside the DataWorker).
+ *   1. Login/logout wiring — opens the per-user Dexie DB, seeds the
+ *      active team, installs triggers.
+ *   2. Trigger installation — visibilitychange, focus, online,
+ *      60s interval.
+ *   3. Active-team change propagation — profile-page switcher calls
+ *      `setActiveTeam(teamId)` and both the header cache AND the worker
+ *      cache flip in lockstep.
  *
  * The DataWorker's `sync.processQueue()` is idempotent — a trigger
- * arriving while a cycle is in flight sets a rescan bit and the
- * running cycle re-invokes itself on completion, so over-triggering
- * is safe.
+ * arriving during a cycle sets a rescan bit and the running cycle
+ * re-invokes itself, so over-triggering is safe.
  */
 
-let installed = false;
+let triggersInstalled = false;
 let intervalHandle: ReturnType<typeof setInterval> | null = null;
 let removeHandlers: (() => void) | null = null;
 
@@ -25,14 +31,107 @@ async function kick(): Promise<void> {
 		const proxy = await getDataProxy();
 		await proxy.sync.processQueue();
 	} catch (err) {
-		// biome-ignore lint/suspicious/noConsole: worker crash / unreachable state — surface for debugging
 		console.warn("[sync-triggers] failed to kick sync", err);
 	}
 }
 
-export function installSyncTriggers(): void {
-	if (installed) return;
-	installed = true;
+/**
+ * Call from the login flow after the session is established. Opens
+ * the per-user Dexie DB (dropping any other user's DB on this device),
+ * seeds the active team (from `user.activeTeamAppId`), and installs
+ * background triggers. Idempotent for the same userId.
+ */
+export async function initSyncForUser(
+	userId: string,
+	activeTeamAppId: string | null,
+): Promise<void> {
+	// Set the main-thread header cache FIRST, synchronously, so any query
+	// that fires during the await below already carries `x-team-id`.
+	// Setting it after the awaits used to race with `journalEntries.getAll`
+	// on first paint → 403 "Active team id mismatch".
+	setActiveTeamIdForRequests(activeTeamAppId);
+	const proxy = await getDataProxy();
+	await proxy.sync.initForUser(userId);
+	await proxy.sync.setActiveTeamId(activeTeamAppId);
+	installTriggers();
+}
+
+/**
+ * Called by the profile-page team switcher after a successful
+ * `POST /me/active-team-id`. Updates the ORPC header cache AND the
+ * worker cache so subsequent RPCs (including sync round-trips) use
+ * the new team id.
+ */
+export async function setActiveTeam(teamId: string | null): Promise<void> {
+	setActiveTeamIdForRequests(teamId);
+	const proxy = await getDataProxy();
+	await proxy.sync.setActiveTeamId(teamId);
+	// Also push into the media worker if it's already spawned. A cold media
+	// worker will pick up the current value from `getActiveTeamIdForRequests()`
+	// at spawn time (see `getMediaProxy`), so we skip when not ready to avoid
+	// spawning it just to hold a string.
+	if (isMediaProxyReady()) {
+		const mediaProxy = await getMediaProxy();
+		await mediaProxy.setActiveTeamId(teamId);
+	}
+}
+
+/**
+ * Called on logout. The Dexie DB is NOT deleted (that only happens
+ * when a different user signs in on this device). Workers stay alive
+ * so a same-user re-login is instant.
+ */
+export function onLogout(): void {
+	setActiveTeamIdForRequests(null);
+	uninstallTriggers();
+	// Workers are kept alive across logout for same-user re-login. Clear the
+	// media worker's header cache too if it's warm — no need to spawn it
+	// otherwise.
+	if (isMediaProxyReady()) {
+		void getMediaProxy().then((mp) => mp.setActiveTeamId(null));
+	}
+}
+
+/**
+ * Called when the user leaves a team on the server (self-leaves or is
+ * removed by an admin). Purges every local trace of the team — journal
+ * entries, files (+ OPFS blobs), memberships, the teamsApp row, and
+ * the sync cursors for that team.
+ *
+ * If the wiped team was the active team, the active team is cleared
+ * locally. Callers should navigate the user to their team picker (or
+ * their personal team) and call `setActiveTeam(newTeamId)`.
+ */
+export async function wipeLocalTeamData(teamId: string): Promise<void> {
+	const proxy = await getDataProxy();
+	await proxy.sync.wipeTeamData(teamId);
+	// If the active team just got wiped, clear the header cache too.
+	// The worker already cleared its own cache in `wipeTeamData` when
+	// the active team matched.
+	if (typeof window !== "undefined") {
+		// No canonical read of "active team" on the main thread — the
+		// caller is expected to update the workspace context, which will
+		// re-invoke `setActiveTeam(newTeamId)`. Defensive: null here so
+		// no RPC leaks the wiped team id.
+		setActiveTeamIdForRequests(null);
+		if (isMediaProxyReady()) {
+			void getMediaProxy().then((mp) => mp.setActiveTeamId(null));
+		}
+	}
+}
+
+/**
+ * Full teardown for tests / hard resets — terminates the workers.
+ * The DB file stays on disk.
+ */
+export function tearDownSync(): void {
+	uninstallTriggers();
+	terminateWorkers();
+}
+
+function installTriggers(): void {
+	if (triggersInstalled) return;
+	triggersInstalled = true;
 
 	const onVisibility = () => {
 		if (document.visibilityState === "visible") void kick();
@@ -58,34 +157,17 @@ export function installSyncTriggers(): void {
 		window.removeEventListener("online", onOnline);
 	};
 
-	// Fire once on install to catch up any pending state left behind
-	// from a previous session.
+	// Fire once on install to catch up any pending state left behind.
 	void kick();
 }
 
-export function uninstallSyncTriggers(): void {
-	if (!installed) return;
-	installed = false;
+function uninstallTriggers(): void {
+	if (!triggersInstalled) return;
+	triggersInstalled = false;
 	removeHandlers?.();
 	removeHandlers = null;
 	if (intervalHandle) {
 		clearInterval(intervalHandle);
 		intervalHandle = null;
-	}
-}
-
-/**
- * Push the active team id into the DataWorker so `x-team-id` is set on
- * every subsequent RPC. Call this from `WorkspaceContext` whenever the
- * active workspace changes to a team (pass `null` for personal
- * workspace or when signing out).
- */
-export async function pushActiveTeamIdToWorker(teamId: string | null): Promise<void> {
-	try {
-		const proxy = await getDataProxy();
-		await proxy.sync.setActiveTeamId(teamId);
-	} catch (err) {
-		// biome-ignore lint/suspicious/noConsole: setup failure — surface
-		console.warn("[sync-triggers] failed to push active team id", err);
 	}
 }

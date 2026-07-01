@@ -7,4 +7,3 @@ export const seed = async () => {
 
 	console.info("Seeding completed successfully!");
 };
-

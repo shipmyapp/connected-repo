@@ -15,7 +15,10 @@ function normalizeIPv6(ipv6: string): string {
 
 	if (doubleColonIndex !== -1) {
 		// Expand "::" notation
-		const leftParts = ipv6.slice(0, doubleColonIndex).split(":").filter(Boolean);
+		const leftParts = ipv6
+			.slice(0, doubleColonIndex)
+			.split(":")
+			.filter(Boolean);
 		const rightParts = ipv6
 			.slice(doubleColonIndex + 2)
 			.split(":")

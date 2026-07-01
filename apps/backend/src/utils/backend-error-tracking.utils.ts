@@ -21,7 +21,10 @@ export interface CaptureOptions {
 	tags?: Record<string, string>;
 }
 
-export function captureBackendException(error: unknown, options: CaptureOptions = {}) {
+export function captureBackendException(
+	error: unknown,
+	options: CaptureOptions = {},
+) {
 	if (!env.SENTRY_DSN || !Sentry.isInitialized()) return;
 	if (!options.captureAll && !isBuggyError(error)) return;
 

@@ -24,9 +24,9 @@ export default function JournalEntryDetailPage() {
 		error,
 	} = useQuery({
 		...orpc.journalEntries.getById.queryOptions({
-			input: { id: entryId || "", teamId: activeTeamId },
+			input: { id: entryId || "" },
 		}),
-		enabled: !!entryId,
+		enabled: !!entryId && !!activeTeamId,
 	});
 
 	const { data: files = [] } = useQuery({
@@ -51,11 +51,11 @@ export default function JournalEntryDetailPage() {
 	const deleteMutation = useMutation({
 		mutationFn: async () => {
 			if (!entryId) return;
-			await orpcFetch.journalEntries.delete({ id: entryId, teamId: activeTeamId });
+			await orpcFetch.journalEntries.delete({ id: entryId });
 		},
 		onSuccess: () => {
 			queryClient.invalidateQueries({
-				queryKey: orpc.journalEntries.getAll.queryOptions({ input: { teamId: activeTeamId } }).queryKey,
+				queryKey: orpc.journalEntries.getAll.queryOptions().queryKey,
 			});
 			navigate("/journal-entries", { replace: true });
 		},

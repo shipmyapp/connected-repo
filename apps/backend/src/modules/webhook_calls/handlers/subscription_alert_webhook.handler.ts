@@ -30,11 +30,13 @@ export const subscriptionAlertWebhookHandler = async ({
 			timestamp: number;
 		};
 	};
-	trigger: { type: "direct" } | { type: "event"; e: { id: string; name: string; p: number } };
+	trigger:
+		| { type: "direct" }
+		| { type: "event"; e: { id: string; name: string; p: number } };
 }) => {
 	const startTime = Date.now();
 	const logId = ulid();
-	
+
 	// Create initial log entry
 	await db.pgTbusTaskLogs.create({
 		pgTbusTaskLogId: logId,
@@ -61,16 +63,21 @@ export const subscriptionAlertWebhookHandler = async ({
 
 	try {
 		// Get team webhook configuration
-		const team = await db.teamsApi.find(input.teamApiId).select(
-			"subscriptionAlertWebhookBearerToken",
-			"subscriptionAlertWebhookUrl"
-		);
+		const team = await db.teamsApi
+			.find(input.teamApiId)
+			.select(
+				"subscriptionAlertWebhookBearerToken",
+				"subscriptionAlertWebhookUrl",
+			);
 
 		if (!team.subscriptionAlertWebhookUrl) {
-			logger.warn({
-				logId,
-				teamApiId: input.teamApiId,
-			}, "No webhook URL configured for team, skipping webhook");
+			logger.warn(
+				{
+					logId,
+					teamApiId: input.teamApiId,
+				},
+				"No webhook URL configured for team, skipping webhook",
+			);
 
 			// Update log as completed (no webhook configured is not a failure)
 			await db.pgTbusTaskLogs.find(logId).update({
@@ -81,7 +88,11 @@ export const subscriptionAlertWebhookHandler = async ({
 				willRetry: false,
 			});
 
-			return { success: true, skipped: true, reason: "No webhook URL configured" };
+			return {
+				success: true,
+				skipped: true,
+				reason: "No webhook URL configured",
+			};
 		}
 
 		const webhookUrl = team.subscriptionAlertWebhookUrl;
@@ -92,17 +103,16 @@ export const subscriptionAlertWebhookHandler = async ({
 			timeout: 30000, // 30 second timeout
 			...(bearerToken
 				? {
-					headers: {
-						"Authorization": `Bearer ${bearerToken}`,
-						"Content-Type": "application/json",
-					},
-				}
+						headers: {
+							Authorization: `Bearer ${bearerToken}`,
+							"Content-Type": "application/json",
+						},
+					}
 				: {
-					headers: {
-						"Content-Type": "application/json",
-					},
-				}
-			),
+						headers: {
+							"Content-Type": "application/json",
+						},
+					}),
 		});
 
 		const duration = Date.now() - startTime;
@@ -126,34 +136,35 @@ export const subscriptionAlertWebhookHandler = async ({
 			statusCode: response.status,
 			duration,
 		};
-
 	} catch (error) {
 		const duration = Date.now() - startTime;
 		const isAxiosError = axios.isAxiosError(error);
-		
+
 		const errorMessage = isAxiosError
 			? error.message
 			: error instanceof Error
 				? error.message
 				: "Unknown error";
-		
-		const errorCode = isAxiosError
-			? error.code ?? "HTTP_ERROR"
-			: "INTERNAL_ERROR";
-		
-		const statusCode = isAxiosError && error.response
-			? error.response.status
-			: null;
 
-		logger.error({
-			logId,
-			error: errorMessage,
-			errorCode,
-			statusCode,
-			duration,
-			subscriptionId: input.subscriptionId,
-			teamApiId: input.teamApiId,
-		}, "Webhook failed");
+		const errorCode = isAxiosError
+			? (error.code ?? "HTTP_ERROR")
+			: "INTERNAL_ERROR";
+
+		const statusCode =
+			isAxiosError && error.response ? error.response.status : null;
+
+		logger.error(
+			{
+				logId,
+				error: errorMessage,
+				errorCode,
+				statusCode,
+				duration,
+				subscriptionId: input.subscriptionId,
+				teamApiId: input.teamApiId,
+			},
+			"Webhook failed",
+		);
 
 		// Update log with failure
 		await db.pgTbusTaskLogs.find(logId).update({
@@ -163,13 +174,14 @@ export const subscriptionAlertWebhookHandler = async ({
 			errorMessage,
 			errorCode,
 			responseStatusCode: statusCode,
-			response: isAxiosError && error.response
-				? {
-					statusCode: error.response.status,
-					statusText: error.response.statusText,
-					data: error.response.data,
-				}
-				: null,
+			response:
+				isAxiosError && error.response
+					? {
+							statusCode: error.response.status,
+							statusText: error.response.statusText,
+							data: error.response.data,
+						}
+					: null,
 			willRetry: true, // pg-tbus will retry based on config
 		});
 

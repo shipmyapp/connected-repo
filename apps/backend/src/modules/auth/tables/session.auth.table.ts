@@ -6,52 +6,60 @@ import { ulid } from "ulid";
 export class SessionTable extends BaseTable {
 	readonly table = "sessions";
 
-	columns = this.setColumns((t) => ({
-		id: t.string().default(() => ulid()).primaryKey(),
-		token: t.string().unique(),
-		userId: t.uuid().nullable(),
-		ipAddress: t.string().nullable(),
-		userAgent: t.text().nullable(),
-		browser: t.string().nullable(),
-		os: t.string().nullable(),
-		device: t.string().nullable(),
-		deviceFingerprint: t.string().nullable(),
-		markedInvalidAt: t.timestampNumber().nullable(),
-		expiresAt: t.timestampNumber(),
-		...t.timestampsAsNumbers(),
-	}),
-	(t) => [
-		t.index([
-			"id", 
-			{ column: "expiresAt", order: "DESC" }, 
-			{ column: "markedInvalidAt", order: "DESC" }
-		])
-	]);
+	columns = this.setColumns(
+		(t) => ({
+			id: t
+				.string()
+				.default(() => ulid())
+				.primaryKey(),
+			token: t.string().unique(),
+			userId: t.uuid().nullable(),
+			ipAddress: t.string().nullable(),
+			userAgent: t.text().nullable(),
+			browser: t.string().nullable(),
+			os: t.string().nullable(),
+			device: t.string().nullable(),
+			deviceFingerprint: t.string().nullable(),
+			markedInvalidAt: t.timestampNumber().nullable(),
+			expiresAt: t.timestampNumber(),
+			...t.timestampsAsNumbers(),
+		}),
+		(t) => [
+			t.index([
+				"id",
+				{ column: "expiresAt", order: "DESC" },
+				{ column: "markedInvalidAt", order: "DESC" },
+			]),
+		],
+	);
 
 	relations = {
 		user: this.belongsTo(() => UserTable, {
 			columns: ["userId"],
 			references: ["id"],
 			// Foreign Key is set to false to preserve userId data in event of user deletion.
-			foreignKey: false
+			foreignKey: false,
 		}),
 	};
 
 	scopes = this.setScopes({
-		default: (q) => q.where({ 
-			expiresAt: {
-				gt: sql`NOW()`
-			},
-			markedInvalidAt: null 
-		}),
-	})
-};
+		default: (q) =>
+			q.where({
+				expiresAt: {
+					gt: sql`NOW()`,
+				},
+				markedInvalidAt: null,
+			}),
+	});
+}
 
 type NonNullableFields<T> = {
-  [P in keyof T]: NonNullable<T[P]>;
+	[P in keyof T]: NonNullable<T[P]>;
 };
 
-type NonNullableField<T, K extends keyof T> = T &
-NonNullableFields<Pick<T, K>>;
+type NonNullableField<T, K extends keyof T> = T & NonNullableFields<Pick<T, K>>;
 
-export type ActiveSessionSelectAll = NonNullableField<Selectable<SessionTable>, "userId">;
+export type ActiveSessionSelectAll = NonNullableField<
+	Selectable<SessionTable>,
+	"userId"
+>;

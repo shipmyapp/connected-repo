@@ -1,5 +1,9 @@
 import { isProd } from "@backend/configs/env.config";
 import { openApiRouter } from "@backend/routers/open_api/open_api.router";
+import {
+	TRACE_HEADERS_ALLOW,
+	TRACE_HEADERS_EXPOSE,
+} from "@backend/utils/cors.utils";
 import { handleBoundaryError } from "@backend/utils/errorParser";
 import { logger } from "@backend/utils/logger.utils";
 import { trace } from "@opentelemetry/api";
@@ -14,7 +18,13 @@ export const openApiHandler = new OpenAPIHandler(openApiRouter, {
 		new CORSPlugin({
 			origin: "*",
 			allowMethods: ["GET", "POST", "OPTIONS"],
-			allowHeaders: ["x-team-id", "x-api-key", "content-type"],
+			allowHeaders: [
+				"x-team-id",
+				"x-api-key",
+				"content-type",
+				...TRACE_HEADERS_ALLOW,
+			],
+			exposeHeaders: [...TRACE_HEADERS_EXPOSE],
 			credentials: false,
 		}),
 		new LoggingHandlerPlugin({
@@ -40,7 +50,8 @@ export const openApiHandler = new OpenAPIHandler(openApiRouter, {
 							type: "apiKey",
 							in: "cookie",
 							name: "__Secure-better-auth.session_token",
-							description: "Better Auth session cookie used by user-authenticated routes.",
+							description:
+								"Better Auth session cookie used by user-authenticated routes.",
 						},
 						"x-team-id": {
 							type: "apiKey",

@@ -3,8 +3,8 @@ import { db } from "@backend/db/db";
 export async function seedPrompts() {
 	console.info("Seeding prompts...");
 
-	// Clear existing prompts
-	await db.prompts.where({}).delete();
+	// Clear existing prompts (soft-delete — `.all()` opts into the unbounded update)
+	await db.prompts.all().delete();
 
 	const prompts = [
 		// Reflection & Gratitude
@@ -192,7 +192,7 @@ export async function seedPrompts() {
 		},
 	];
 
-	const promptsWithActive = prompts.map(prompt => ({ ...prompt }));
+	const promptsWithActive = prompts.map((prompt) => ({ ...prompt }));
 	await db.prompts.createMany(promptsWithActive);
 
 	console.info(`✓ Seeded ${prompts.length} journal prompts`);

@@ -2,8 +2,8 @@ import { db } from "@backend/db/db";
 import { syncDeltaService } from "@backend/modules/sync/services/sync_delta.sync.service";
 import type { FileSelectAll } from "@connected-repo/zod-schemas/file.zod";
 import type {
-	FilePullDeltaInput,
-	FilePullDeltaOutput,
+	FilePullBundlesInput,
+	FilePullBundlesOutput,
 	FilePushCdnUpdateResult,
 	FilePushCdnUpdatesInput,
 	FilePushCdnUpdatesOutput,
@@ -26,11 +26,11 @@ export async function pushFilesCdnUpdatesService(
 	if (input.updates.length === 0) return { results: [] };
 
 	const ids = input.updates.map((u) => u.id);
-
-	const patchedIds = new Set<string>();
-	const missingIds = new Set<string>();
+	const results: FilePushCdnUpdateResult[] = [];
 
 	await db.$transaction(async () => {
+		// `forUpdate` serialises concurrent writers so the "only write if
+		// null" compare-and-set below is atomic across devices.
 		const existing = await db.files
 			.where({ id: { in: ids } })
 			.forUpdate()
@@ -42,16 +42,16 @@ export async function pushFilesCdnUpdatesService(
 		for (const patch of input.updates) {
 			const current = byId.get(patch.id);
 			if (!current) {
-				missingIds.add(patch.id);
+				results.push({
+					ok: false,
+					id: patch.id,
+					error: "File row not found — parent bundle likely hasn't landed yet",
+				});
 				continue;
 			}
-			patchedIds.add(patch.id);
 
 			const cols: Record<string, unknown> = {};
-
-			if (patch.cdnUrl && current.cdnUrl == null) {
-				cols.cdnUrl = patch.cdnUrl;
-			}
+			if (patch.cdnUrl && current.cdnUrl == null) cols.cdnUrl = patch.cdnUrl;
 			if (patch.thumbnailCdnUrl && current.thumbnailCdnUrl == null) {
 				cols.thumbnailCdnUrl = patch.thumbnailCdnUrl;
 			}
@@ -59,38 +59,27 @@ export async function pushFilesCdnUpdatesService(
 				cols.isMainFileLost = true;
 			}
 
-			if (Object.keys(cols).length > 0) {
-				await db.files.find(patch.id).update(cols);
-			}
+			// UPDATE ... RETURNING skips the refetch. If nothing changed
+			// (no-op patch), echo the pre-image we already have locked.
+			const row =
+				Object.keys(cols).length > 0
+					? ((await db.files
+							.find(patch.id)
+							.selectAll()
+							.update(cols)) as FileSelectAll)
+					: current;
+			results.push({ ok: true, id: patch.id, row });
 		}
-	});
-
-	const canonical = await db.files.where({ id: { in: Array.from(patchedIds) } }).selectAll();
-	const canonicalById = new Map(canonical.map((r) => [r.id, r as FileSelectAll]));
-
-	const results: FilePushCdnUpdateResult[] = input.updates.map((u) => {
-		if (missingIds.has(u.id)) {
-			return {
-				ok: false,
-				id: u.id,
-				error: "File row not found — parent bundle likely hasn't landed yet",
-			};
-		}
-		const row = canonicalById.get(u.id);
-		if (!row) {
-			return { ok: false, id: u.id, error: "Row missing after update" };
-		}
-		return { ok: true, id: u.id, row };
 	});
 
 	return { results };
 }
 
 export async function pullFilesService(
-	input: FilePullDeltaInput,
-	tenantTeamId: string,
-): Promise<FilePullDeltaOutput> {
-	const baseQuery = db.files.where({ teamId: tenantTeamId });
+	input: FilePullBundlesInput,
+): Promise<FilePullBundlesOutput> {
+	// Tenant filter applied automatically by FileTable's default scope.
+	const baseQuery = db.files;
 
 	const { data, syncMetadata } = await syncDeltaService<FileSelectAll>({
 		// biome-ignore lint/suspicious/noExplicitAny: __scopes generic mismatch when narrowing bare table query

@@ -1,155 +1,114 @@
 import type { UserAppBackendOutputs } from "@frontend/utils/orpc.client";
 import { orpc } from "@frontend/utils/orpc.tanstack.client";
-import { useQuery } from "@tanstack/react-query";
-import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from "react";
+import {
+	initSyncForUser,
+	setActiveTeam as syncSetActiveTeam,
+} from "@frontend/utils/sync-triggers";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createContext, type ReactNode, useContext, useEffect } from "react";
+import { toast } from "react-toastify";
 import type { SessionInfo } from "./UserContext";
 
 export type Team = UserAppBackendOutputs["teams"]["getMyTeams"][number];
 
+// Kept for backwards compatibility with existing consumers. Every user
+// always has an active team (personal on signup), so `activeWorkspace` is
+// never undefined once the session is loaded.
 export interface Workspace {
 	id: string;
 	name: string;
+	// A workspace is "personal" iff it is the user's personal team on the
+	// server (row where personalTeamForUserId === user.id).
 	type: "personal" | "team";
-	role: Team["userRole"] | "personal";
+	role: Team["userRole"];
 }
 
 interface WorkspaceContextType {
 	activeWorkspace: Workspace;
-	setActiveWorkspace: (workspace: Workspace) => void;
 	teams: Team[];
 	isLoading: boolean;
 	user: SessionInfo["user"];
+	setActiveTeam: (teamAppId: string) => Promise<void>;
+	isSwitching: boolean;
 }
 
-const WorkspaceContext = createContext<WorkspaceContextType | undefined>(undefined);
+const WorkspaceContext = createContext<WorkspaceContextType | undefined>(
+	undefined,
+);
 
 interface WorkspaceProviderProps {
 	children: ReactNode;
 	sessionInfo?: SessionInfo | null;
 }
 
-export function WorkspaceProvider({ children, sessionInfo: propSessionInfo }: WorkspaceProviderProps) {
-	const sessionInfo = propSessionInfo;
+// Fallback for the brief window between mount and getMyTeams resolving.
+// Renders as a neutral chip; nothing team-scoped is fetched until teams
+// arrive because the `x-team-id` header cache is empty.
+const PLACEHOLDER_WORKSPACE: Workspace = {
+	id: "",
+	name: "Loading…",
+	type: "personal",
+	role: "Owner",
+};
 
-	// Fetch teams from the backend via oRPC.
+export function WorkspaceProvider({
+	children,
+	sessionInfo,
+}: WorkspaceProviderProps) {
+	const queryClient = useQueryClient();
+	const userId = sessionInfo?.user?.id;
+	const activeTeamAppId = sessionInfo?.user?.activeTeamAppId ?? null;
+
 	const { data: teams = [], isLoading } = useQuery({
 		...orpc.teams.getMyTeams.queryOptions({}),
-		enabled: !!sessionInfo?.user?.id,
+		enabled: !!userId,
 	});
 
-	const personalWorkspace: Workspace = useMemo(() => ({
-		id: sessionInfo?.user?.id || "personal",
-		name: "Personal Space",
-		type: "personal",
-		role: "personal",
-	}), [sessionInfo?.user?.id]);
+	// Push the initial header + worker cache once the session is known.
+	// `initSyncForUser` is idempotent for the same userId so re-runs are safe.
+	useEffect(() => {
+		if (!userId) return;
+		void initSyncForUser(userId, activeTeamAppId);
+	}, [userId, activeTeamAppId]);
 
-	const [activeWorkspace, setActiveWorkspace] = useState<Workspace>(() => {
-		const userId = sessionInfo?.user?.id;
-		if (!userId) {
-			return {
-				id: "personal",
-				name: "Personal Space",
-				type: "personal",
-				role: "personal",
-			};
-		}
+	const setActiveTeamMutation = useMutation(
+		orpc.teams.setActiveTeam.mutationOptions({
+			onSuccess: async ({ activeTeamAppId: newId }) => {
+				// 1. Propagate to both header cache + worker cache atomically.
+				await syncSetActiveTeam(newId);
+				// 2. Refresh session so `sessionInfo.user.activeTeamAppId`
+				//    reflects the new value; drives navbar + gating.
+				await queryClient.invalidateQueries();
+			},
+			onError: (err) => {
+				toast.error(err.message || "Failed to switch team");
+			},
+		}),
+	);
 
-		const storageKey = `activeWorkspace_${userId}`;
-		const saved = localStorage.getItem(storageKey);
-
-		if (saved) {
-			try {
-				const parsed = JSON.parse(saved);
-				if (parsed.type === "personal" && parsed.id !== userId) {
-					return {
-						id: userId,
-						name: "Personal Space",
-						type: "personal",
-						role: "personal",
-					};
-				}
-				return parsed;
-			} catch {
-				// fallthrough to default
-			}
-		}
-
+	const activeWorkspace: Workspace = (() => {
+		if (!activeTeamAppId || teams.length === 0) return PLACEHOLDER_WORKSPACE;
+		const active = teams.find((t) => t.id === activeTeamAppId);
+		if (!active) return PLACEHOLDER_WORKSPACE;
 		return {
-			id: userId,
-			name: "Personal Space",
-			type: "personal",
-			role: "personal",
+			id: active.id,
+			name: active.name,
+			type: active.personalTeamForUserId === userId ? "personal" : "team",
+			role: active.userRole,
 		};
-	});
-
-	// Validation + auto-selection logic.
-	useEffect(() => {
-		if (teams.length === 0 || !sessionInfo?.user?.id) {
-			return;
-		}
-
-		const userId = sessionInfo.user.id;
-		const storageKey = `activeWorkspace_${userId}`;
-		const hasSaved = !!localStorage.getItem(storageKey);
-
-		if (!hasSaved && activeWorkspace.id === personalWorkspace.id) {
-			const sortedTeams = [...teams].sort((a, b) => {
-				const timeA = a.joinedAt || 0;
-				const timeB = b.joinedAt || 0;
-				return timeB - timeA;
-			});
-
-			if (sortedTeams[0]) {
-				const latestTeam = sortedTeams[0];
-				setActiveWorkspace({
-					id: latestTeam.id,
-					name: latestTeam.name,
-					type: "team",
-					role: latestTeam.userRole,
-				});
-			}
-		} else if (activeWorkspace.type === "team") {
-			const currentTeam = teams.find((t) => t.id === activeWorkspace.id);
-			if (!currentTeam) {
-				setActiveWorkspace(personalWorkspace);
-			} else if (currentTeam.userRole !== activeWorkspace.role) {
-				setActiveWorkspace({
-					...activeWorkspace,
-					role: currentTeam.userRole,
-				});
-			}
-		}
-	}, [teams, sessionInfo?.user?.id, activeWorkspace, personalWorkspace]);
-
-	// Keep personal workspace id aligned with the current session.
-	useEffect(() => {
-		if (
-			sessionInfo?.user?.id &&
-			activeWorkspace.type === "personal" &&
-			activeWorkspace.id !== sessionInfo.user.id
-		) {
-			setActiveWorkspace(personalWorkspace);
-		}
-	}, [sessionInfo?.user?.id, activeWorkspace, personalWorkspace]);
-
-	// Persist changes per user.
-	useEffect(() => {
-		const userId = sessionInfo?.user?.id;
-		if (userId) {
-			localStorage.setItem(`activeWorkspace_${userId}`, JSON.stringify(activeWorkspace));
-			localStorage.removeItem("activeWorkspace"); // legacy key cleanup
-		}
-	}, [activeWorkspace, sessionInfo?.user?.id]);
+	})();
 
 	return (
 		<WorkspaceContext.Provider
 			value={{
 				activeWorkspace,
-				setActiveWorkspace,
 				teams,
 				isLoading: isLoading && teams.length === 0,
 				user: sessionInfo?.user || null,
+				setActiveTeam: async (teamAppId) => {
+					await setActiveTeamMutation.mutateAsync({ teamAppId });
+				},
+				isSwitching: setActiveTeamMutation.isPending,
 			}}
 		>
 			{children}
@@ -165,7 +124,9 @@ export const useWorkspace = () => {
 	return context;
 };
 
+// Returns the id of the active team, or `null` while it's loading. Callers
+// that must have a team id (team-scoped queries) should gate on this.
 export const useActiveTeamId = () => {
 	const { activeWorkspace } = useWorkspace();
-	return activeWorkspace.type === "team" ? activeWorkspace.id : null;
+	return activeWorkspace.id || null;
 };

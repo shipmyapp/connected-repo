@@ -27,10 +27,10 @@ export const syncMetadataZod = z.object({
 export type SyncMetadata = z.infer<typeof syncMetadataZod>;
 
 /**
- * Standard input for every per-table `pullDelta` route.
+ * Standard input for every per-table `pullBundles` route.
  *
  * `topLevelSyncedAt` is the snapshot ceiling: minted by wave-1
- * `teams.pullDelta` as `Date.now()` and threaded through every subsequent
+ * `teams.pullBundles` as `Date.now()` and threaded through every subsequent
  * table pull in the same cycle. Downstream services filter
  * `updatedAt < topLevelSyncedAt` to keep the whole cycle consistent —
  * writes landing during the cycle become visible only in the next one.

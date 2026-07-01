@@ -39,12 +39,21 @@ if (nodeEnv === "test") {
 	dotenv.config({ path: `.env.${nodeEnv}.local`, override: true });
 }
 
-const optionalUrl = z.preprocess((val) => (val === "" ? undefined : val), z.url().optional());
-const optionalString = z.preprocess((val) => (val === "" ? undefined : val), z.string().optional());
+const optionalUrl = z.preprocess(
+	(val) => (val === "" ? undefined : val),
+	z.url().optional(),
+);
+const optionalString = z.preprocess(
+	(val) => (val === "" ? undefined : val),
+	z.string().optional(),
+);
 
 const envSchema = z.object({
 	ALLOWED_ORIGINS: zString.optional(),
-	BETTER_AUTH_SECRET: zString.min(32, "Better Auth secret must be at least 32 characters"),
+	BETTER_AUTH_SECRET: zString.min(
+		32,
+		"Better Auth secret must be at least 32 characters",
+	),
 	DB_HOST: zString.min(1),
 	DB_PORT: zString.min(1),
 	DB_USER: zString.min(1),
@@ -59,16 +68,23 @@ const envSchema = z.object({
 	GOOGLE_IOS_CLIENT_ID: zString.optional(),
 	GOOGLE_ANDROID_CLIENT_ID: zString.optional(),
 	HOST: optionalString,
-	INTERNAL_API_SECRET: zString.min(32, "Internal API secret must be at least 32 characters").optional(),
+	INTERNAL_API_SECRET: zString
+		.min(32, "Internal API secret must be at least 32 characters")
+		.optional(),
 	IS_E2E_TEST: z.stringbool().optional(),
-	LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal", "silent"]).optional(),
+	LOG_LEVEL: z
+		.enum(["trace", "debug", "info", "warn", "error", "fatal", "silent"])
+		.optional(),
 	NODE_ENV: NODE_ENV_ZOD,
 	OTEL_SERVICE_NAME: zString.min(1),
 	OTEL_TRACE_EXPORTER_URL: z.url().optional(),
 	PG_TBUS_CONCURRENCY: z.coerce.number().int().min(1).default(3),
 	PORT: z.coerce.number().default(3000),
 	PROD_COOKIE_DOMAIN: optionalString,
-	SESSION_SECRET: zString.min(32, "Session secret must be at least 32 characters"),
+	SESSION_SECRET: zString.min(
+		32,
+		"Session secret must be at least 32 characters",
+	),
 	NOVU_SECRET_KEY: optionalString,
 	NOVU_API_URL: optionalUrl,
 	// Backend-native Sentry env names. Frontend keeps its own VITE_SENTRY_* keys.

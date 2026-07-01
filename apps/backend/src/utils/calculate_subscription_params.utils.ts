@@ -1,4 +1,7 @@
-import { API_PRODUCTS, type ApiProductSku } from "@connected-repo/zod-schemas/enums.zod";
+import {
+	API_PRODUCTS,
+	type ApiProductSku,
+} from "@connected-repo/zod-schemas/enums.zod";
 
 /**
  * Get product configuration by SKU
@@ -16,7 +19,10 @@ export function getProductConfig(sku: ApiProductSku) {
  * @returns Object with maxRequests and validityDays
  * @throws Error if SKU is not found
  */
-export function calculateSubscriptionParams(sku: ApiProductSku, quantity: number) {
+export function calculateSubscriptionParams(
+	sku: ApiProductSku,
+	quantity: number,
+) {
 	const product = getProductConfig(sku);
 
 	if (!product) {

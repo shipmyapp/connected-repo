@@ -30,7 +30,8 @@ export interface SyncDeltaOptions {
  * `numeric / 1000000` keeps the microsecond precision through the cast
  * (no double-to-float truncation).
  */
-const toPgTimestamp = (usStr: string) => sql`to_timestamp(${usStr}::numeric / 1000000)`;
+const toPgTimestamp = (usStr: string) =>
+	sql`to_timestamp(${usStr}::numeric / 1000000)`;
 
 /**
  * Generic pull-delta engine. Implements the two-cursor protocol:
@@ -43,7 +44,7 @@ const toPgTimestamp = (usStr: string) => sql`to_timestamp(${usStr}::numeric / 10
  * tie-breaker at identical `updatedAt`).
  *
  * `topLevelSyncedAt` is a turn-scoped snapshot ceiling minted by the wave-1
- * anchor (`teams.pullDelta`) as `Date.now()`. Every downstream table filters
+ * anchor (`teams.pullBundles`) as `Date.now()`. Every downstream table filters
  * `updatedAt < topLevelSyncedAt` so a single sync cycle sees a consistent
  * snapshot even across multiple round-trips. Writes that land during the
  * cycle become visible only in the next one.
@@ -51,7 +52,9 @@ const toPgTimestamp = (usStr: string) => sql`to_timestamp(${usStr}::numeric / 10
  * Soft-deleted rows are INCLUDED in the output (tombstones) so the client can
  * evict them from the local Dexie cache.
  */
-export async function syncDeltaService<T extends { id: string; updatedAt: string }>({
+export async function syncDeltaService<
+	T extends { id: string; updatedAt: string },
+>({
 	baseQuery,
 	syncMetadataInput,
 	topLevelSyncedAt,
@@ -80,7 +83,9 @@ export async function syncDeltaService<T extends { id: string; updatedAt: string
 	// pre-applied is preserved.
 	const scopedBaseQuery = baseQuery.includeDeleted();
 
-	let query = scopedBaseQuery.order({ updatedAt: "DESC", id: "DESC" }).limit(limit);
+	let query = scopedBaseQuery
+		.order({ updatedAt: "DESC", id: "DESC" })
+		.limit(limit);
 
 	if (!isTopLevelAnchor) {
 		query = query.where({ updatedAt: { lt: new Date(topLevelSyncedAt) } });
@@ -109,7 +114,10 @@ export async function syncDeltaService<T extends { id: string; updatedAt: string
 		query = query.where({ OR: orQuery });
 	}
 
-	const [rawList, totalCount] = await Promise.all([query.selectAll(), scopedBaseQuery.count()]);
+	const [rawList, totalCount] = await Promise.all([
+		query.selectAll(),
+		scopedBaseQuery.count(),
+	]);
 	const data = rawList as T[];
 
 	let advancedFromCursorId = fromCursorId;
@@ -123,7 +131,8 @@ export async function syncDeltaService<T extends { id: string; updatedAt: string
 	if (firstItem) {
 		const rowGtToCursor =
 			firstItem.updatedAt > (toCursorUpdatedAt ?? "0") ||
-			(firstItem.updatedAt === toCursorUpdatedAt && firstItem.id > (toCursorId ?? ""));
+			(firstItem.updatedAt === toCursorUpdatedAt &&
+				firstItem.id > (toCursorId ?? ""));
 		if (rowGtToCursor) {
 			advancedToCursorId = firstItem.id;
 			advancedToCursorUpdatedAt = firstItem.updatedAt;
@@ -134,7 +143,8 @@ export async function syncDeltaService<T extends { id: string; updatedAt: string
 		const rowLtFromCursor =
 			fromCursorUpdatedAt === null ||
 			lastItem.updatedAt < fromCursorUpdatedAt ||
-			(lastItem.updatedAt === fromCursorUpdatedAt && lastItem.id < (fromCursorId ?? ""));
+			(lastItem.updatedAt === fromCursorUpdatedAt &&
+				lastItem.id < (fromCursorId ?? ""));
 		if (rowLtFromCursor) {
 			advancedFromCursorId = lastItem.id;
 			advancedFromCursorUpdatedAt = lastItem.updatedAt;

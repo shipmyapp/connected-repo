@@ -5,7 +5,7 @@ import { Novu } from "@novu/api";
 // without notifications configured (e.g. CI, local dev without an account).
 export const novu = env.NOVU_SECRET_KEY
 	? new Novu({
-		secretKey: env.NOVU_SECRET_KEY,
-		serverURL: env.NOVU_API_URL,
-	})
+			secretKey: env.NOVU_SECRET_KEY,
+			serverURL: env.NOVU_API_URL,
+		})
 	: null;

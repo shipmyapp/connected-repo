@@ -1,5 +1,6 @@
 import { userContext } from "@frontend/contexts/UserContext";
 import { setSentryUser } from "@frontend/instrumentation";
+import { setActiveTeamIdForRequests } from "@frontend/utils/active_team_header.client";
 import { authClient } from "@frontend/utils/auth.client";
 import { getAuthCache, saveAuthCache, saveLastLogin } from "@frontend/utils/auth.persistence";
 import { detectUserTimezone } from "@frontend/utils/timezone.utils";
@@ -22,6 +23,9 @@ export async function authLoader({ context }: LoaderFunctionArgs) {
 			user: cached.user,
 			isRegistered: true,
 		};
+		// Seed the header cache before any component mounts — otherwise
+		// team-scoped queries can fire before WorkspaceContext's effect runs.
+		setActiveTeamIdForRequests(cached.user.activeTeamAppId ?? null);
 		context.set(userContext, sessionInfo);
 		return sessionInfo;
 	}
@@ -42,6 +46,7 @@ export async function authLoader({ context }: LoaderFunctionArgs) {
 					isRegistered: true,
 				};
 
+				setActiveTeamIdForRequests(cached.user.activeTeamAppId ?? null);
 				context.set(userContext, sessionInfo);
 				return sessionInfo;
 			}
@@ -92,6 +97,12 @@ export async function authLoader({ context }: LoaderFunctionArgs) {
 			isRegistered: true, // better-auth handles registration
 		};
 
+		// Seed the `x-team-id` header cache BEFORE any component mounts.
+		// The RPC link's headers callback is synchronous — if this isn't
+		// set by the time the first team-scoped query fires, the backend
+		// rejects with 403 "Active team id mismatch".
+		setActiveTeamIdForRequests(session.user.activeTeamAppId ?? null);
+
 		setSentryUser({
 			email: session.user.email,
 			username: session.user.name,
@@ -121,6 +132,7 @@ export async function authLoader({ context }: LoaderFunctionArgs) {
 					user: cached.user,
 					isRegistered: true,
 				};
+				setActiveTeamIdForRequests(cached.user.activeTeamAppId ?? null);
 				context.set(userContext, sessionInfo);
 				return sessionInfo;
 			}

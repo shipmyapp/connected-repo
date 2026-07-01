@@ -1,11 +1,14 @@
 import type { userCreatedEventDef } from "@backend/events/events.schema";
 import { logger } from "@backend/utils/logger.utils";
-import { triggerNotification, upsertSubscriber } from "@backend/utils/notifications.utils";
+import {
+	triggerNotification,
+	upsertSubscriber,
+} from "@backend/utils/notifications.utils";
 import type { Static } from "pg-tbus";
 
-export const userCreatedNotificationHandler = async (
-	props: { input: Static<typeof userCreatedEventDef.schema> },
-) => {
+export const userCreatedNotificationHandler = async (props: {
+	input: Static<typeof userCreatedEventDef.schema>;
+}) => {
 	const { userId, name, email } = props.input;
 
 	try {

@@ -35,6 +35,8 @@
 | [ADR-007] | Files Metadata Idempotency | Accepted | Use .merge() for files creation to capture asynchronous metadata enrichment. |
 | [ADR-008] | Sync Recovery (Lost Files) | Accepted | Flag `isMainFileLost` allows metadata sync even if binary data is purged from storage. |
 | [ADR-009] | Virtual Media Provider | Accepted | Serve OPFS media via Service Worker fetch interception to avoid avoid `URL.createObjectURL` overhead. |
+| [ADR-010] | Token Bucket Rate Limiting | Accepted | Use an optimistic locking Token Bucket in Postgres to prevent table bloat and eliminate background cleanup cron jobs. |
+| [ADR-011] | Pull Bundles Renaming | Accepted | Rename sync table procedures from `pullDelta` to `pullBundles`. |
 
 ## Quick Reference
 - **Dev**: `yarn dev`

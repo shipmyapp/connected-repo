@@ -4,7 +4,7 @@ import { RPCLink } from '@orpc/client/fetch';
 import { SimpleCsrfProtectionLinkPlugin } from '@orpc/client/plugins';
 import { toast } from 'react-toastify';
 import type { UserAppRouter, UserAppRouterInputs, UserAppRouterOutputs } from "../../../backend/src/routers/user_app/user_app.router";
-import { getActiveTeamIdForRequests } from "./active_team_header.client";
+import { getActiveTeamIdReady } from "./active_team_header.client";
 import { signout } from './signout.utils';
 
 interface ClientContext {
@@ -13,8 +13,12 @@ interface ClientContext {
 
 const link = new RPCLink<ClientContext>({
   url: `${env.VITE_API_URL}/user-app`,
-  headers: ({ context }) => {
-    const teamId = getActiveTeamIdForRequests();
+  // Async by design: awaits the header-cache readiness signal so no
+  // request goes out before the cache has been seeded at least once
+  // (authLoader on main, dataProxy.sync.setActiveTeamId on worker).
+  // After the first seed, this resolves near-instantly.
+  headers: async ({ context }) => {
+    const teamId = await getActiveTeamIdReady();
     const headers: Record<string, string> = {
       Authorization: 'Bearer token',
     };

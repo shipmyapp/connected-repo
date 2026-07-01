@@ -1,44 +1,58 @@
 import type { TablesToSync } from "@connected-repo/zod-schemas/enums.zod";
-import { orpcFetch } from "../../utils/orpc.client";
 import { journalEntriesDb } from "../../modules/journal-entries/worker/journal-entries.db";
 import { promptsDb } from "../../modules/prompts/worker/prompts.db";
+import { orpcFetch } from "../../utils/orpc.client";
+import { initDb } from "../db/db.lifecycle";
 import { subscribe } from "../db/db.manager";
 import { filesDb } from "../db/files.db";
 import { syncMetadataDb } from "../db/sync_metadata.db";
+import { wipeTeamData } from "../db/team_data.wipe";
 import { teamMembersDb } from "../db/team_members.db";
 import { teamsAppDb } from "../db/teams_app.db";
-import { getActiveTeamId, setActiveTeamId as _setActiveTeamId } from "./active_team";
+import { setActiveTeamId as _setActiveTeamId, getActiveTeamId } from "./active_team";
 import { fileUploadWorker } from "./file_upload.worker";
+
+/**
+ * Public Comlink-facing surface. Explicit interface so TypeScript can
+ * emit a proper declaration for the exported DataWorker API — the class
+ * itself has private members and can't be re-exported anonymously
+ * (TS4094).
+ */
+export interface SyncOrchestratorApi {
+	initForUser(userId: string): Promise<void>;
+	stop(): void;
+	setActiveTeamId(id: string | null): void;
+	wipeTeamData(teamId: string): Promise<void>;
+	processQueue(): Promise<void>;
+}
 
 /**
  * Sync orchestrator (no SSE).
  *
+ * Lifecycle:
+ *   `initForUser(userId)` MUST be called before any sync operation.
+ *   The per-user Dexie DB is opened (and any other user's DB on the
+ *   same device is dropped) during init. Teams are joined/left via the
+ *   normal team-management routes; the client updates `activeTeamId`
+ *   from the profile-page team switcher.
+ *
  * Wave-1 anchor mints `topLevelSyncedAt` server-side; every downstream
  * pull echoes it back so the whole cycle sees a consistent snapshot
- * ceiling.
+ * ceiling. Cursors are per-team so switching between teams doesn't
+ * collide.
  *
- * Push and pull run as separate pipelines within one cycle. Push covers
- * `journalEntries.pushCreates` (creates + nested files metadata) and
- * `files.pushCdnUpdates` (post-upload URL patches). Pull covers every
- * synced table in wave order.
- *
- * Trigger sources (removed with the SSE cleanup, replaced by):
- *   1. `visibilitychange` / `focus` on the main thread (via
- *      `dataProxy.sync.processQueue()`).
- *   2. Browser `online` event on the main thread.
- *   3. Post-write kick from `OnlineFirstAdapter` when the online path
- *      falls back to offline.
+ * Trigger sources (replacing the SSE trigger from pre-pivot):
+ *   1. `visibilitychange` / `focus` on the main thread.
+ *   2. Browser `online` event.
+ *   3. Post-write kick from `OnlineFirstAdapter` when fallback occurs.
  *   4. `subscribe()` DB-write callback in this worker.
- *   5. A slow interval (60s) as a safety net.
- *
- * Concurrency is controlled by an `isProcessing` flag + `needsRescan`
- * bit. A second trigger arriving during a cycle sets the bit; the
- * current cycle re-runs on completion.
+ *   5. Slow interval (60s) as a safety net.
  */
-class SyncOrchestrator {
+class SyncOrchestrator implements SyncOrchestratorApi {
 	private isProcessing = false;
 	private needsRescan = false;
 	private intervalHandle: ReturnType<typeof setInterval> | null = null;
+	private initialisedForUserId: string | null = null;
 
 	private readonly WAVE_ORDER: TablesToSync[] = [
 		"teamsApp",
@@ -48,8 +62,23 @@ class SyncOrchestrator {
 		"files",
 	];
 
-	start(): void {
-		if (this.intervalHandle) return;
+	/**
+	 * Open the per-user Dexie DB (drops any previous user's DB on this
+	 * device) and register the workers' background triggers. Idempotent
+	 * for the same userId; a different userId reboots the DB and clears
+	 * the active team.
+	 */
+	async initForUser(userId: string): Promise<void> {
+		if (this.initialisedForUserId === userId) return;
+
+		await initDb(userId);
+		this.initialisedForUserId = userId;
+
+		// Clear active team on user switch — the main thread will push
+		// the fresh team id in via `setActiveTeamId` after user login.
+		_setActiveTeamId(null);
+
+		if (this.intervalHandle) return; // triggers already registered
 
 		// Trigger #4: any local write fans out here via BroadcastChannel.
 		subscribe((table) => {
@@ -87,6 +116,19 @@ class SyncOrchestrator {
 	}
 
 	/**
+	 * Purge every local trace of a team. Called when the user leaves a
+	 * team on the server (removed by an admin, or self-leaves). If the
+	 * wiped team was active, callers should follow up with
+	 * `setActiveTeamId(newTeamId)` before the next trigger fires.
+	 */
+	async wipeTeamData(teamId: string): Promise<void> {
+		await wipeTeamData(teamId);
+		if (getActiveTeamId() === teamId) {
+			_setActiveTeamId(null);
+		}
+	}
+
+	/**
 	 * Entry point for every trigger. Locks against concurrent runs; if a
 	 * trigger arrives while a cycle is in flight, we set `needsRescan`
 	 * and the current cycle re-invokes itself on completion.
@@ -96,6 +138,7 @@ class SyncOrchestrator {
 			this.needsRescan = true;
 			return;
 		}
+		if (!this.initialisedForUserId) return; // pre-login
 		if (!self.navigator?.onLine) return;
 
 		const teamId = getActiveTeamId();
@@ -126,40 +169,48 @@ class SyncOrchestrator {
 		}
 	}
 
-	private async runCycle(_teamId: string): Promise<void> {
+	private async runCycle(teamId: string): Promise<void> {
+		const expectedUserId = this.initialisedForUserId;
+		if (!expectedUserId) return;
+
 		// Kick off file uploads in parallel — they don't need the sync
 		// wave order and can run alongside the pull pipeline.
 		void fileUploadWorker.run();
 
 		// Wave 1 — anchor: mints `topLevelSyncedAt` and pulls team rows.
-		const topLevelSyncedAt = await this.pullTeamsApp();
+		const topLevelSyncedAt = await this.pullTeamsApp(teamId, expectedUserId);
+		if (topLevelSyncedAt === null) return; // DB swapped, abort cycle.
 
 		// Push and pull run as two parallel pipelines walking the remaining
 		// waves. Match the tezi model: `Future.wait([push, pull])`.
-		await Promise.all([this.runPushPipeline(), this.runPullPipeline(topLevelSyncedAt)]);
+		await Promise.all([
+			this.runPushPipeline(teamId, expectedUserId),
+			this.runPullPipeline(teamId, topLevelSyncedAt, expectedUserId),
+		]);
 	}
 
 	// ─── Pull pipeline ─────────────────────────────────────────────────
 
-	private async pullTeamsApp(): Promise<number> {
-		const cursor = await syncMetadataDb.getCursor("teamsApp");
-		const res = await orpcFetch.teams.pullDelta({
+	private async pullTeamsApp(teamId: string, expectedUserId: string): Promise<number | null> {
+		const cursor = await syncMetadataDb.getCursor("teamsApp", teamId);
+		const res = await orpcFetch.teams.pullBundles({
 			syncMetadata: cursor ?? null,
 		});
+		if (this.initialisedForUserId !== expectedUserId) return null;
 		await teamsAppDb.bulkUpsert(res.rows);
-		await syncMetadataDb.saveCursor("teamsApp", res.syncMetadata);
-		await syncMetadataDb.saveTopLevelSyncedAt(res.topLevelSyncedAt);
+		await syncMetadataDb.saveCursor("teamsApp", teamId, res.syncMetadata);
+		await syncMetadataDb.saveTopLevelSyncedAt(teamId, res.topLevelSyncedAt);
 		return res.topLevelSyncedAt;
 	}
 
-	private async runPullPipeline(topLevelSyncedAt: number): Promise<void> {
+	private async runPullPipeline(teamId: string, topLevelSyncedAt: number, expectedUserId: string): Promise<void> {
 		// Waves after the anchor. Run sequentially — order preserves the
 		// dependency: team members reference teams, journal entries
 		// reference teams and members, files reference journal entries.
 		for (const table of this.WAVE_ORDER) {
 			if (table === "teamsApp") continue;
 			try {
-				await this.pullTable(table, topLevelSyncedAt);
+				await this.pullTable(table, teamId, topLevelSyncedAt, expectedUserId);
 			} catch (err) {
 				// biome-ignore lint/suspicious/noConsole: table-level failures shouldn't kill the whole cycle
 				console.warn(`[SyncOrchestrator] pull ${table} failed`, err);
@@ -167,8 +218,13 @@ class SyncOrchestrator {
 		}
 	}
 
-	private async pullTable(table: TablesToSync, topLevelSyncedAt: number): Promise<void> {
-		const cursor = await syncMetadataDb.getCursor(table);
+	private async pullTable(
+		table: TablesToSync,
+		teamId: string,
+		topLevelSyncedAt: number,
+		expectedUserId: string,
+	): Promise<void> {
+		const cursor = await syncMetadataDb.getCursor(table, teamId);
 		const input = {
 			syncMetadata: cursor ?? null,
 			topLevelSyncedAt,
@@ -176,51 +232,52 @@ class SyncOrchestrator {
 
 		if (table === "teamMembers") {
 			const res = await orpcFetch.teams.pullMembersDelta(input);
+			if (this.initialisedForUserId !== expectedUserId) return;
 			await teamMembersDb.bulkUpsert(res.rows);
-			await syncMetadataDb.saveCursor(table, res.syncMetadata);
+			await syncMetadataDb.saveCursor(table, teamId, res.syncMetadata);
 			return;
 		}
 		if (table === "prompts") {
-			const res = await orpcFetch.prompts.pullDelta(input);
+			const res = await orpcFetch.prompts.pullBundles(input);
+			if (this.initialisedForUserId !== expectedUserId) return;
 			await promptsDb.bulkUpsert(res.rows);
-			await syncMetadataDb.saveCursor(table, res.syncMetadata);
+			await syncMetadataDb.saveCursor(table, teamId, res.syncMetadata);
 			return;
 		}
 		if (table === "journalEntries") {
-			const res = await orpcFetch.journalEntries.pullDelta(input);
+			const res = await orpcFetch.journalEntries.pullBundles(input);
+			if (this.initialisedForUserId !== expectedUserId) return;
 			await journalEntriesDb.bulkUpsertFromServer(res.rows);
-			await syncMetadataDb.saveCursor(table, res.syncMetadata);
+			await syncMetadataDb.saveCursor(table, teamId, res.syncMetadata);
 			return;
 		}
 		if (table === "files") {
-			const res = await orpcFetch.files.pullDelta(input);
+			const res = await orpcFetch.files.pullBundles(input);
+			if (this.initialisedForUserId !== expectedUserId) return;
 			await filesDb.bulkUpsertFromServer(res.rows);
-			await syncMetadataDb.saveCursor(table, res.syncMetadata);
+			await syncMetadataDb.saveCursor(table, teamId, res.syncMetadata);
 			return;
 		}
 	}
 
 	// ─── Push pipeline ─────────────────────────────────────────────────
 
-	private async runPushPipeline(): Promise<void> {
+	private async runPushPipeline(teamId: string, expectedUserId: string): Promise<void> {
 		try {
-			await this.pushJournalEntryCreates();
+			await this.pushJournalEntryCreates(teamId, expectedUserId);
 		} catch (err) {
 			// biome-ignore lint/suspicious/noConsole: same rationale as pull failures
 			console.warn("[SyncOrchestrator] pushJournalEntryCreates failed", err);
 		}
 		try {
-			await this.pushFileCdnUpdates();
+			await this.pushFileCdnUpdates(expectedUserId);
 		} catch (err) {
-			// biome-ignore lint/suspicious/noConsole:
+			// biome-ignore lint/suspicious/noConsole: intentional — surface push failure so devs know CDN upgrade path stalled
 			console.warn("[SyncOrchestrator] pushFileCdnUpdates failed", err);
 		}
 	}
 
-	private async pushJournalEntryCreates(): Promise<void> {
-		const teamId = getActiveTeamId();
-		if (!teamId) return;
-
+	private async pushJournalEntryCreates(teamId: string, expectedUserId: string): Promise<void> {
 		const pending = await journalEntriesDb.getPending(teamId);
 		if (pending.length === 0) return;
 
@@ -255,6 +312,7 @@ class SyncOrchestrator {
 		);
 
 		const res = await orpcFetch.journalEntries.pushCreates({ creates });
+		if (this.initialisedForUserId !== expectedUserId) return;
 
 		for (const result of res.results) {
 			if (result.ok && result.row) {
@@ -265,7 +323,7 @@ class SyncOrchestrator {
 		}
 	}
 
-	private async pushFileCdnUpdates(): Promise<void> {
+	private async pushFileCdnUpdates(expectedUserId: string): Promise<void> {
 		const rows = await filesDb.getCdnUpdatesNeedingPush();
 		if (rows.length === 0) return;
 
@@ -278,6 +336,7 @@ class SyncOrchestrator {
 		}));
 
 		const res = await orpcFetch.files.pushCdnUpdates({ updates });
+		if (this.initialisedForUserId !== expectedUserId) return;
 
 		for (const result of res.results) {
 			const row = rows.find((r) => r.id === result.id);
@@ -299,4 +358,4 @@ class SyncOrchestrator {
 	}
 }
 
-export const syncOrchestrator = new SyncOrchestrator();
+export const syncOrchestrator: SyncOrchestratorApi = new SyncOrchestrator();

@@ -64,7 +64,7 @@ const routerObjectWithNavbar: ReactRouterWithNavbar[] = [
 					},
 					{
 						path: "profile",
-						Component: lazy(() => import("@frontend/pages/Dashboard.page")), // TODO: Create Profile page
+						Component: lazy(() => import("@frontend/pages/Profile.page")),
 					},
 				],
 			},

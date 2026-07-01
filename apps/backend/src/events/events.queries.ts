@@ -1,12 +1,12 @@
 /**
  * Query utilities for pg-tbus task monitoring
  * Provides visibility into pending, active, and failed tasks
- * 
+ *
  * Note: pg-tbus maintains internal tables for task state.
  * Direct queries to pg-tbus tables:
  * - pg_tbus_tasks: All tasks with their current state
  * - pg_tbus_events: Event log
- * 
+ *
  * This module provides helper functions to query these tables.
  */
 
@@ -20,9 +20,7 @@ import { db } from "@backend/db/db";
 export async function queryPendingTasks(taskName?: string) {
 	// Query pg_tbus_task_log table for pending tasks
 	// This is our audit log that tracks task execution
-	const query = db.pgTbusTaskLogs
-		.selectAll()
-		.where({ status: "pending" });
+	const query = db.pgTbusTaskLogs.selectAll().where({ status: "pending" });
 
 	if (taskName) {
 		return query.where({ taskName });
@@ -36,9 +34,7 @@ export async function queryPendingTasks(taskName?: string) {
  * @param taskName - Optional filter by task name
  */
 export async function queryActiveTasks(taskName?: string) {
-	const query = db.pgTbusTaskLogs
-		.selectAll()
-		.where({ status: "active" });
+	const query = db.pgTbusTaskLogs.selectAll().where({ status: "active" });
 
 	if (taskName) {
 		return query.where({ taskName });
@@ -53,9 +49,7 @@ export async function queryActiveTasks(taskName?: string) {
  * @param since - Optional timestamp to filter recent failures (epoch ms)
  */
 export async function queryFailedTasks(taskName?: string, since?: number) {
-	let query = db.pgTbusTaskLogs
-		.selectAll()
-		.where({ status: "failed" });
+	let query = db.pgTbusTaskLogs.selectAll().where({ status: "failed" });
 
 	if (taskName) {
 		query = query.where({ taskName });
@@ -103,7 +97,7 @@ export async function queryTasksByTeam(teamApiId: string, limit: number = 100) {
  */
 export async function getTaskStats(
 	taskName?: string,
-	since: number = Date.now() - 24 * 60 * 60 * 1000
+	since: number = Date.now() - 24 * 60 * 60 * 1000,
 ) {
 	let query = db.pgTbusTaskLogs.where({ createdAt: { gte: new Date(since) } });
 
@@ -115,14 +109,15 @@ export async function getTaskStats(
 
 	return {
 		total: all.length,
-		pending: all.filter(t => t.status === "pending").length,
-		active: all.filter(t => t.status === "active").length,
-		completed: all.filter(t => t.status === "completed").length,
-		failed: all.filter(t => t.status === "failed").length,
-		cancelled: all.filter(t => t.status === "cancelled").length,
-		successRate: all.length > 0
-			? `${(all.filter(t => t.success === true).length / all.length * 100).toFixed(2)}%`
-			: "N/A",
+		pending: all.filter((t) => t.status === "pending").length,
+		active: all.filter((t) => t.status === "active").length,
+		completed: all.filter((t) => t.status === "completed").length,
+		failed: all.filter((t) => t.status === "failed").length,
+		cancelled: all.filter((t) => t.status === "cancelled").length,
+		successRate:
+			all.length > 0
+				? `${((all.filter((t) => t.success === true).length / all.length) * 100).toFixed(2)}%`
+				: "N/A",
 	};
 }
 

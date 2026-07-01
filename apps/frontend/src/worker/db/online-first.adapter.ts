@@ -1,5 +1,5 @@
-import type { AppDbTable } from "./db.manager";
 import { getDataProxy } from "../worker.proxy";
+import type { AppDbTable } from "./db.manager";
 
 /**
  * Result of an online-first write attempt.

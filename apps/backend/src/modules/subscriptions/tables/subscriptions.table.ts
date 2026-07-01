@@ -2,35 +2,36 @@ import { BaseTable } from "@backend/db/base_table";
 import { UserTable } from "@backend/modules/users/tables/users.table";
 
 export class SubscriptionsTable extends BaseTable {
-  readonly table = "subscriptions";
+	readonly table = "subscriptions";
 
-  columns = this.setColumns((t) => ({
-    subscriptionId: t.ulidWithDefault().primaryKey(),
-    
-    expiresAt: t.timestampNumber(),
-    maxRequests: t.integer(),
-    apiProductSku: t.apiProductSkuEnum(),
-    apiProductQuantity: t.smallint(),
-    requestsConsumed: t.integer(),
-    teamApiId: t.uuid(),
-    teamUserReferenceId: t.string(),
+	columns = this.setColumns(
+		(t) => ({
+			subscriptionId: t.ulidWithDefault().primaryKey(),
 
-    billingInvoiceNumber: t.string().nullable(),
-    billingInvoiceDate: t.timestampNumber().nullable(),
-    notifiedAt90PercentUse: t.timestampNumber().nullable(),
-    paymentReceivedDate: t.timestampNumber().nullable(),
-    paymentTransactionId: t.string().nullable(),
+			expiresAt: t.timestampNumber(),
+			maxRequests: t.integer(),
+			apiProductSku: t.apiProductSkuEnum(),
+			apiProductQuantity: t.smallint(),
+			requestsConsumed: t.integer(),
+			teamApiId: t.uuid(),
+			teamUserReferenceId: t.string(),
 
-    ...t.timestampsAsNumbers(),
-    }), 
-    (t) => t.index(['teamApiId', 'teamUserReferenceId', 'apiProductSku'])
-  );
+			billingInvoiceNumber: t.string().nullable(),
+			billingInvoiceDate: t.timestampNumber().nullable(),
+			notifiedAt90PercentUse: t.timestampNumber().nullable(),
+			paymentReceivedDate: t.timestampNumber().nullable(),
+			paymentTransactionId: t.string().nullable(),
 
-  relations = {
-    user: this.belongsTo(() => UserTable, {
-      columns: ["teamUserReferenceId"],
-      references: ["id"],
-      foreignKey: false // Disable foreign key constraint so that detail is not lost from subscriptions.
-    }),
-  }
+			...t.timestampsAsNumbers(),
+		}),
+		(t) => t.index(["teamApiId", "teamUserReferenceId", "apiProductSku"]),
+	);
+
+	relations = {
+		user: this.belongsTo(() => UserTable, {
+			columns: ["teamUserReferenceId"],
+			references: ["id"],
+			foreignKey: false, // Disable foreign key constraint so that detail is not lost from subscriptions.
+		}),
+	};
 }
