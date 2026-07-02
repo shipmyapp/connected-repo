@@ -112,13 +112,17 @@ ENV BACKEND_UPSTREAM=backend:3000
 # vars, then `nginx -t` to verify the rendered /etc/nginx/conf.d/default.conf
 # parses. Catches template typos, missing envsubst variables, bad script
 # ordering (.sh vs .envsh), and syntax errors in the nginx template BEFORE
-# the image ships — instead of the container crash-looping on first deploy
-# and forcing us to read production logs to diagnose.
+# the image ships — instead of the container crash-looping on first deploy.
 #
-# SENTRY_DSN is passed as a realistic-looking value so the tunnel derivation
-# runs its real code path, not just the sentinel branch.
+# BACKEND_UPSTREAM is set to 127.0.0.1:3000 (guaranteed resolvable) because
+# nginx does eager DNS resolution at config parse time and `backend:3000`
+# isn't resolvable in the build sandbox. Runtime still uses backend:3000
+# via the ENV directive above / Dokploy override.
+#
+# SENTRY_DSN uses a realistic-looking value so the tunnel derivation runs
+# its real code path, not just the sentinel branch.
 RUN SENTRY_DSN='https://public@o0.ingest.sentry.io/1' \
-    BACKEND_UPSTREAM='backend:3000' \
+    BACKEND_UPSTREAM='127.0.0.1:3000' \
     /docker-entrypoint.sh nginx -t
 
 EXPOSE 80
