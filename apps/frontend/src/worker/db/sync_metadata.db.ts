@@ -32,7 +32,7 @@ export const syncMetadataDb = {
 			lastTopLevelSyncedAt: existing?.lastTopLevelSyncedAt ?? null,
 		};
 		await getClientDb().syncMetadata.put(next);
-		notifySubscribers("syncMetadata");
+		notifySubscribers("syncMetadata", "sync");
 	},
 
 	async saveTopLevelSyncedAt(teamId: string, topLevelSyncedAt: number): Promise<void> {
@@ -43,7 +43,7 @@ export const syncMetadataDb = {
 				...existing,
 				lastTopLevelSyncedAt: topLevelSyncedAt,
 			});
-			notifySubscribers("syncMetadata");
+			notifySubscribers("syncMetadata", "sync");
 		}
 	},
 
@@ -60,7 +60,7 @@ export const syncMetadataDb = {
 		const existing =
 			(await getClientDb().syncState.get("app")) ?? { key: "app" as const };
 		await getClientDb().syncState.put({ ...existing, ...patch, key: "app" });
-		notifySubscribers("syncState");
+		notifySubscribers("syncState", "sync");
 	},
 
 	/**
@@ -70,13 +70,13 @@ export const syncMetadataDb = {
 	 */
 	async wipeForTeam(teamId: string): Promise<void> {
 		await getClientDb().syncMetadata.where({ teamId }).delete();
-		notifySubscribers("syncMetadata");
+		notifySubscribers("syncMetadata", "sync");
 	},
 
 	async wipeAll(): Promise<void> {
 		await getClientDb().syncMetadata.clear();
 		await getClientDb().syncState.clear();
-		notifySubscribers("syncMetadata");
-		notifySubscribers("syncState");
+		notifySubscribers("syncMetadata", "sync");
+		notifySubscribers("syncState", "sync");
 	},
 };

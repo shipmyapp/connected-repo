@@ -58,9 +58,9 @@ export async function wipeTeamDataFromDb(teamId: string): Promise<void> {
 	// leak disk space but don't corrupt the DB.
 	await Promise.all(opfsPaths.map((p) => OPFSManager.deleteFile(p)));
 
-	notifySubscribers("journalEntries");
-	notifySubscribers("files");
-	notifySubscribers("teamMembers");
-	notifySubscribers("teamsApp");
-	notifySubscribers("syncMetadata");
+	notifySubscribers("journalEntries", "sync");
+	notifySubscribers("files", "sync");
+	notifySubscribers("teamMembers", "sync");
+	notifySubscribers("teamsApp", "sync");
+	notifySubscribers("syncMetadata", "sync");
 }

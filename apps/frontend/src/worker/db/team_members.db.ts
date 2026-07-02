@@ -10,6 +10,6 @@ export const teamMembersDb = {
 	async bulkUpsert(rows: TeamAppMemberSelectAll[]): Promise<void> {
 		if (rows.length === 0) return;
 		await getClientDb().teamMembers.bulkPut(rows);
-		notifySubscribers("teamMembers");
+		notifySubscribers("teamMembers", "sync");
 	},
 };

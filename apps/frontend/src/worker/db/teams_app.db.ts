@@ -19,11 +19,11 @@ export const teamsAppDb = {
 	async bulkUpsert(rows: TeamAppSelectAll[]): Promise<void> {
 		if (rows.length === 0) return;
 		await getClientDb().teamsApp.bulkPut(rows);
-		notifySubscribers("teamsApp");
+		notifySubscribers("teamsApp", "sync");
 	},
 
 	async wipe(): Promise<void> {
 		await getClientDb().teamsApp.clear();
-		notifySubscribers("teamsApp");
+		notifySubscribers("teamsApp", "sync");
 	},
 };

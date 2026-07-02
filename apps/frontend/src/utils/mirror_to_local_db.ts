@@ -1,4 +1,3 @@
-import { getDataProxy } from "@frontend/worker/worker.proxy";
 import type { FileSelectAll } from "@connected-repo/zod-schemas/file.zod";
 import type { JournalEntrySelectAll } from "@connected-repo/zod-schemas/journal_entry.zod";
 import type { PromptSelectAll } from "@connected-repo/zod-schemas/prompt.zod";
@@ -6,6 +5,7 @@ import type {
 	TeamAppMemberSelectAll,
 	TeamAppSelectAll,
 } from "@connected-repo/zod-schemas/team_app.zod";
+import { getDataProxy } from "@frontend/worker/worker.proxy";
 
 /**
  * Common seam for "mirror an RPC response into the local Dexie DB".

@@ -17,6 +17,6 @@ export const promptsDb = {
 	async bulkUpsert(rows: PromptSelectAll[]): Promise<void> {
 		if (rows.length === 0) return;
 		await getClientDb().prompts.bulkPut(rows);
-		notifySubscribers("prompts");
+		notifySubscribers("prompts", "sync");
 	},
 };

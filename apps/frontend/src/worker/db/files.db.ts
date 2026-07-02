@@ -147,6 +147,17 @@ export const filesDb = {
 					mainUploadAttempts: existing?.mainUploadAttempts ?? 0,
 					mainLastError: serverHasMain ? null : existing?.mainLastError ?? null,
 					mainLastAttemptAt: existing?.mainLastAttemptAt ?? null,
+					// `mainChecksum` and `mainOpfsPath` are device-local — the
+					// blob physically lives in this device's OPFS at that path.
+					// For rows arriving from the server for the first time
+					// (another device uploaded), `existing` is undefined and
+					// both stay null. That's correct: there's no blob to point
+					// at. Consequence: `FileUploadWorker.runMainUpload` cannot
+					// retry the upload from THIS device — it needs the OPFS
+					// blob. Which is fine, because the CDN URL is already set
+					// (that's how we know the file exists at all). Recovery
+					// from `isMainFileLost === true` on such a row requires
+					// the user to re-pick the file.
 					mainChecksum: existing?.mainChecksum ?? null,
 					mainOpfsPath: existing?.mainOpfsPath ?? null,
 					thumbnailUploadState: serverHasThumb
@@ -165,7 +176,7 @@ export const filesDb = {
 				await getClientDb().files.put(merged);
 			}
 		});
-		notifySubscribers("files");
+		notifySubscribers("files", "sync");
 	},
 
 	async updateUploadState(
@@ -198,7 +209,7 @@ export const filesDb = {
 		if (patch.isMainFileLost !== undefined) cols.isMainFileLost = patch.isMainFileLost;
 
 		await getClientDb().files.update(id, cols);
-		notifySubscribers("files");
+		notifySubscribers("files", "sync");
 	},
 
 	async getPendingUploads(): Promise<StoredFile[]> {
@@ -224,12 +235,56 @@ export const filesDb = {
 		if (layer === "main") cols.mainUploadState = "uploaded";
 		if (layer === "thumbnail") cols.thumbnailUploadState = "uploaded";
 		await getClientDb().files.update(id, cols);
-		notifySubscribers("files");
+		notifySubscribers("files", "sync");
 	},
 
 	async setSyncError(id: string, error: string | null): Promise<void> {
 		await getClientDb().files.update(id, { syncError: error });
-		notifySubscribers("files");
+		notifySubscribers("files", "sync");
+	},
+
+	/**
+	 * One-shot repair for the historical bug where a pull-during-upload
+	 * clobbered the thumbnail URL after `markCdnPushed` had already
+	 * promoted the state to `"uploaded"` — leaving the row permanently
+	 * stranded with `thumbnailUploadState === "uploaded"` but
+	 * `thumbnailCdnUrl === null` on both client and server.
+	 *
+	 * Called once per session from `SyncOrchestrator.initForUser` (after
+	 * the DB opens, before the first pull). Resets those rows back to
+	 * `pending` so the FileUploadWorker regenerates + re-uploads the
+	 * thumbnail from the local OPFS blob on its next run. Only touches
+	 * rows where the OPFS blob is still available (`mainOpfsPath` set) —
+	 * without it the worker has nothing to derive a thumbnail from.
+	 *
+	 * Returns the number of rows reset so callers can log the repair
+	 * for observability.
+	 */
+	async recoverStrandedThumbnails(): Promise<number> {
+		const stranded = await getClientDb()
+			.files.filter(
+				(f) =>
+					f.thumbnailUploadState === "uploaded" &&
+					f.thumbnailCdnUrl == null &&
+					f.mainOpfsPath != null &&
+					canGenerateThumbnail(f.mimeType),
+			)
+			.toArray();
+
+		if (stranded.length === 0) return 0;
+
+		await getClientDb().transaction("rw", getClientDb().files, async () => {
+			for (const row of stranded) {
+				await getClientDb().files.update(row.id, {
+					thumbnailUploadState: "pending",
+					thumbnailUploadAttempts: 0,
+					thumbnailLastError: null,
+					thumbnailLastAttemptAt: null,
+				});
+			}
+		});
+		notifySubscribers("files", "sync");
+		return stranded.length;
 	},
 };
 

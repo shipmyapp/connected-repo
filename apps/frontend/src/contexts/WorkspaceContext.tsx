@@ -74,6 +74,16 @@ export function WorkspaceProvider({
 
 	// Push the initial header + worker cache once the session is known.
 	// `initSyncForUser` is idempotent for the same userId so re-runs are safe.
+	//
+	// Dep-list is load-bearing:
+	//   - `userId` change → wipe + reopen per-user Dexie DB.
+	//   - `activeTeamAppId` change → re-seed the RPC `x-team-id` header +
+	//     worker cache atomically, then kick a new sync cycle.
+	// The `authLoader` `getDefaultTeam` self-heal mutates `session.user.
+	// activeTeamAppId` in place BEFORE this component mounts, so the
+	// initial render sees the resolved value in a single tick and this
+	// effect fires exactly once at bootup. Adding/removing deps here
+	// changes those invariants — double-check before touching.
 	useEffect(() => {
 		if (!userId) return;
 		void initSyncForUser(userId, activeTeamAppId);
