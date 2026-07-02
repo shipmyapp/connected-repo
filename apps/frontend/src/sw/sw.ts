@@ -3,6 +3,7 @@ import { initializeApp } from 'firebase/app';
 import { getMessaging, onBackgroundMessage } from 'firebase/messaging/sw';
 import { cleanupOutdatedCaches, createHandlerBoundToURL, precacheAndRoute } from 'workbox-precaching';
 import { NavigationRoute, registerRoute } from 'workbox-routing';
+import { NetworkOnly } from 'workbox-strategies';
 
 declare const self: ServiceWorkerGlobalScope & {
   __WB_DISABLE_DEV_LOGS?: boolean;
@@ -15,11 +16,15 @@ if (isDev) {
 precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
 
-if (isDev) {
-  self.addEventListener('install', () => {
-    self.skipWaiting();
-  });
-}
+// Skip the "waiting" state as soon as a new SW installs — paired with
+// clients.claim() below, this makes new deploys take effect on the next
+// page load instead of waiting for every tab to close. Matches the
+// autoUpdate registerType in vite.config.ts. Without this, an SW that
+// starts intercepting /api/* incorrectly (like the pre-denylist version)
+// can silently break OAuth flows for days on already-installed browsers.
+// self.addEventListener('install', () => {
+//   self.skipWaiting();
+// });
 
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'SKIP_WAITING') {
@@ -30,6 +35,21 @@ self.addEventListener('message', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
 });
+
+// Defensive NetworkOnly for backend paths — belt-and-suspenders to the
+// NavigationRoute denylist below. That denylist handles navigation-mode
+// requests (like Google's OAuth 302), which is the actual bug we hit. This
+// route additionally guarantees that if a future contributor ever adds a
+// catch-all Workbox handler (e.g. runtimeCaching) above, backend calls still
+// bypass the SW pipeline instead of being silently cached or delayed.
+// Match order matters: register this BEFORE NavigationRoute.
+registerRoute(
+  ({ url }) =>
+    url.pathname.startsWith('/api/') ||
+    url.pathname.startsWith('/super-admin/') ||
+    url.pathname.startsWith('/mobile-app/'),
+  new NetworkOnly(),
+);
 
 try {
   // Use index.html without leading slash as it's the standard key in the precache manifest.
