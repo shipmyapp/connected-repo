@@ -40,7 +40,9 @@ export default defineConfig(({ mode }) => {
 				enabled: true,
 				analyzerMode: "static",
 				fileName: ".dev/stats.html",
-				openAnalyzer: true,
+				// Never auto-open: fails in Docker builds (no xdg-open) and is
+				// noise even locally. Open dist/.dev/stats.html manually.
+				openAnalyzer: false,
 			}),
 			VitePWA({
 				strategies: "injectManifest",
