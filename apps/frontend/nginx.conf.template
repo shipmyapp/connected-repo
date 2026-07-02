@@ -1,0 +1,86 @@
+# Rendered at container start by /docker-entrypoint.d/40-render-nginx-conf.sh
+# — envsubst only expands ${BACKEND_UPSTREAM}; every other $var is Nginx's own.
+
+upstream backend_upstream {
+    server ${BACKEND_UPSTREAM};
+    keepalive 32;
+}
+
+server {
+    listen 80 default_server;
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Trust Dokploy's Traefik in front of us — needed so the backend sees the
+    # original scheme/host via X-Forwarded-* (better-auth cookies + redirects).
+    set_real_ip_from 0.0.0.0/0;
+    real_ip_header X-Forwarded-For;
+    real_ip_recursive on;
+
+    # gzip static assets (Vite output is already highly compressible).
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_types
+        text/plain text/css text/xml
+        application/javascript application/json application/xml application/manifest+json
+        image/svg+xml font/woff2;
+
+    client_max_body_size 25m;
+
+    # Nginx-side healthcheck endpoint (Dockerfile HEALTHCHECK hits this).
+    location = /healthz {
+        access_log off;
+        return 200 "ok\n";
+        add_header Content-Type text/plain;
+    }
+
+    # Reverse proxy: everything under /api/* goes to the backend service on the
+    # internal Docker network. That includes /api/auth/* (better-auth),
+    # /api/novu/* (Novu bridge), /api/user-app/* (oRPC), and every OpenAPI route.
+    # Same origin from the browser's POV → cookies stay first-party and CORS
+    # is bypassed entirely.
+    location /api/ {
+        proxy_pass http://backend_upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header Connection "";
+
+        # oRPC uses long-lived POST responses; give them room.
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+        proxy_buffering off;
+    }
+
+    # PWA service worker: must not be cached, so an updated shell can register.
+    location = /sw.js {
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        add_header Pragma "no-cache";
+        expires 0;
+        try_files $uri =404;
+    }
+
+    # Web manifest — short cache; updates should propagate reasonably fast.
+    location = /manifest.webmanifest {
+        add_header Cache-Control "public, max-age=3600";
+        try_files $uri =404;
+    }
+
+    # Vite hashes filenames under /assets — safe to cache immutably forever.
+    location /assets/ {
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        try_files $uri =404;
+    }
+
+    # SPA fallback: any unknown path serves index.html so React Router handles it.
+    location / {
+        try_files $uri $uri/ /index.html;
+        add_header Cache-Control "no-cache";
+    }
+}

@@ -12,8 +12,14 @@ interface ClientContext {
   something?: string
 }
 
+// When VITE_API_URL is empty (Dokploy same-origin reverse-proxy deploy), the
+// client uses a relative path so fetch resolves against window.location.origin.
+const orpcBaseUrl = env.VITE_API_URL
+  ? `${env.VITE_API_URL}/api/user-app`
+  : "/api/user-app";
+
 const link = new RPCLink<ClientContext>({
-  url: `${env.VITE_API_URL}/user-app`,
+  url: orpcBaseUrl,
   // Async by design: awaits two barriers before every outbound request.
   //   1. `switchGate.waitOpen()` — blocks during a team switch so the
   //      header, worker cache, and backend session cannot disagree.

@@ -57,9 +57,11 @@ export async function initInstrumentation() {
     propagateTraceparent: true,
     tracesSampleRate: isDev ? 0 : 1.0,
     // Set `tracePropagationTargets` to control for which URLs trace propagation should be enabled
+    // Empty VITE_API_URL = same-origin deploy; the /api/ path prefix is the
+    // only reliable marker to propagate traces on since we can't compare hosts.
     tracePropagationTargets: [
       "localhost",
-      env.VITE_API_URL
+      ...(env.VITE_API_URL ? [env.VITE_API_URL] : [/^\/api\//]),
     ],
     // FIXME: Setup tunneling to avoid ad-blocker issues
     // tunnel: "/tunnel",

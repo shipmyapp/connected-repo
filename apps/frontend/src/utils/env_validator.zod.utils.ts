@@ -7,9 +7,18 @@ const optionalString = preprocess(
 );
 const optionalUrl = preprocess((val) => (val === "" ? undefined : val), url().optional());
 
+// Empty string is a valid production value — signals "same-origin/relative"
+// when the frontend is served behind a reverse proxy (Dokploy/nginx setup)
+// that forwards /api/* to the backend on the same domain. Consumers must
+// tolerate an empty base and build relative URLs.
+const apiUrlOrEmpty = preprocess(
+	(val) => (val === "" ? undefined : val),
+	url("API URL must be a valid URL").optional(),
+);
+
 export const envSchemaZod = object({
 	VITE_USER_NODE_ENV: NODE_ENV_ZOD,
-	VITE_API_URL: url("API URL must be a valid URL"),
+	VITE_API_URL: apiUrlOrEmpty,
 	VITE_USER_APP_URL: url("User App Url is required"),
 	VITE_TEST_PASSWORD: string().min(8, "Test password must be at least 8 characters").optional(),
 	VITE_OTEL_SERVICE_NAME: string().min(1),
