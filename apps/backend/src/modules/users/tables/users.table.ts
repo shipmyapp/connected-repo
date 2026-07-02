@@ -27,6 +27,12 @@ export class UserTable extends BaseTable {
 		// `time` values, so the API surface matches Zod's z.iso.time({
 		// precision: -1 }) contract in uniqueTimeArrayZod. Input side is
 		// symmetric: PG accepts "HH:MM" as a valid `time` literal.
+		//
+		// NOTE: orchid's `.array(inner.parse(...))` does NOT fan the inner
+		// parse across array elements; the transform never runs on read.
+		// Consumers that emit this column through a zod output validator
+		// (see notifications.router#getReminderTimes) strip seconds at the
+		// boundary. Left in place documenting intent for a future ORM upgrade.
 		journalReminderTimes: t
 			.array(t.time().parse((v) => v.slice(0, 5)))
 			.default([]),

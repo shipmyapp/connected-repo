@@ -15,10 +15,30 @@ import {
 	journalEntryPushCreatesOutputZod,
 	journalEntrySelectAllWithRelationsZod,
 } from "@connected-repo/zod-schemas/journal-entries/sync";
+import type { UserSelectAll } from "@connected-repo/zod-schemas/user.zod";
 import { userSelectAllZod } from "@connected-repo/zod-schemas/user.zod";
 import { z } from "zod";
 import { pushJournalEntryCreatesService } from "./services/push_creates.journal_entries.service";
 import { pullJournalEntriesService } from "./services/sync.journal_entries.service";
+
+// Postgres `time` values round-trip as `HH:mm:ss` but the zod contract on
+// user.journalReminderTimes is `HH:mm`. The users table's inner column
+// `.parse()` doesn't fire across array elements in orchid, so we strip at
+// the boundary here — mirrors notifications.router#getReminderTimes.
+const normalizeAuthorReminderTimes = <T extends { author?: UserSelectAll }>(
+	entry: T,
+): T => {
+	if (!entry.author?.journalReminderTimes) return entry;
+	return {
+		...entry,
+		author: {
+			...entry.author,
+			journalReminderTimes: entry.author.journalReminderTimes.map((v) =>
+				v.length > 5 ? v.slice(0, 5) : v,
+			),
+		},
+	};
+};
 
 // Get all journal entries for the caller in the active team.
 const getAll = rpcProtectedActiveTeamProcedure
@@ -28,11 +48,12 @@ const getAll = rpcProtectedActiveTeamProcedure
 		),
 	)
 	.handler(async ({ context: { user, activeTeamId } }) => {
-		return await db.journalEntries
+		const rows = await db.journalEntries
 			.select("*", {
 				author: (t) => t.author.selectAll(),
 			})
 			.where({ authorUserId: user.id, teamId: activeTeamId });
+		return rows.map(normalizeAuthorReminderTimes);
 	});
 
 // Get journal entry by ID (scoped to the active team).
@@ -107,12 +128,13 @@ const getByUser = rpcProtectedActiveTeamProcedure
 		),
 	)
 	.handler(async ({ input, context: { activeTeamId } }) => {
-		return await db.journalEntries
+		const rows = await db.journalEntries
 			.select("*", {
 				author: (t) => t.author.selectAll(),
 			})
 			.where({ authorUserId: input.authorUserId, teamId: activeTeamId })
 			.order({ createdAt: "DESC" });
+		return rows.map(normalizeAuthorReminderTimes);
 	});
 
 // Update journal entry

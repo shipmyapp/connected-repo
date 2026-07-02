@@ -31,7 +31,9 @@ export const TopProgressBar = () => {
 				top: 0,
 				left: 0,
 				right: 0,
-				zIndex: (theme) => theme.zIndex.tooltip + 1,
+				// Sit above the app bar but below modals/tooltips so route
+				// transitions don't paint over dialogs or select popovers.
+				zIndex: (theme) => theme.zIndex.appBar + 2,
 			}}
 		>
 			<LinearProgress sx={{ height: 3 }} />

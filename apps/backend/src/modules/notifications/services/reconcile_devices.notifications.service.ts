@@ -24,9 +24,7 @@ export const reconcileUserFcmDevices = async (
 	let liveTokens: Set<string>;
 	try {
 		const res = await novu.subscribers.retrieve(userId);
-		const fcmChannel = res.result.channels?.find(
-			(c) => c.providerId === "fcm",
-		);
+		const fcmChannel = res.result.channels?.find((c) => c.providerId === "fcm");
 		liveTokens = new Set(fcmChannel?.credentials.deviceTokens ?? []);
 	} catch (error) {
 		const status = (error as { statusCode?: number })?.statusCode;

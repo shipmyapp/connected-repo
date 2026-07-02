@@ -81,7 +81,10 @@ export async function reminderDispatchTick(): Promise<void> {
 			);
 
 			logger.info(
-				{ dispatched: dueUsers.length },
+				{
+					dispatched: withEmail.length,
+					skippedNoEmail: dueUsers.length - withEmail.length,
+				},
 				"Reminder dispatch tick",
 			);
 		});

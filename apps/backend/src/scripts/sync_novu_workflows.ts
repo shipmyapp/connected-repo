@@ -20,19 +20,18 @@ if (!env.NOVU_SECRET_KEY) {
 	process.exit(1);
 }
 
-const args = [
-	"novu@latest",
-	"sync",
-	"--bridge-url",
-	bridgeUrl,
-	"--secret-key",
-	env.NOVU_SECRET_KEY,
-];
+const args = ["novu@latest", "sync", "--bridge-url", bridgeUrl];
 if (env.NOVU_API_URL) {
 	args.push("--api-url", env.NOVU_API_URL);
 }
 
 console.info(`Syncing workflows from ${bridgeUrl} → ${env.NOVU_API_URL}`);
 
-const result = spawnSync("npx", args, { stdio: "inherit" });
+// Pass the secret via env, not argv, so it doesn't leak into `ps` output on
+// shared hosts. The Novu CLI reads NOVU_SECRET_KEY from the environment
+// when --secret-key is absent.
+const result = spawnSync("npx", args, {
+	stdio: "inherit",
+	env: { ...process.env, NOVU_SECRET_KEY: env.NOVU_SECRET_KEY },
+});
 process.exit(result.status ?? 0);

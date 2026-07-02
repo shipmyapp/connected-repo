@@ -11,7 +11,14 @@ export const signout = async (mode?: "clear-cache") => {
     // succeeds we've navigated away and the oRPC call would 401. Failures
     // are logged inside revokePushForUser, never thrown, so a broken push
     // cleanup does not block the user from actually logging out.
-    await revokePushForUser();
+    //
+    // Race against a 2s ceiling so a stuck backend can't strand the user on
+    // the signout button. Cleanup is best-effort — the nightly reconcile
+    // (reconcile_fcm_tokens cron) covers whatever leaked.
+    await Promise.race([
+        revokePushForUser(),
+        new Promise((resolve) => setTimeout(resolve, 2000)),
+    ]);
 
     try {
         await authClient.signOut({

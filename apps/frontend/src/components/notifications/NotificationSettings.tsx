@@ -61,6 +61,15 @@ export const NotificationSettings = () => {
 	);
 
 	const handleTogglePush = async (nextOn: boolean) => {
+		// App is online-first, offline-partially-available. The push toggle
+		// requires a live backend round-trip either way (register or revoke),
+		// and — critically for the ON path — calling Notification.requestPermission()
+		// while the network is dead can leave the browser in a permission-default
+		// state that never gets a follow-up register. Refuse fast, don't prompt.
+		if (nextOn && typeof navigator !== "undefined" && !navigator.onLine) {
+			toast.info("You're offline. Reconnect to change push settings.");
+			return;
+		}
 		setPushPending(true);
 		try {
 			if (nextOn) {

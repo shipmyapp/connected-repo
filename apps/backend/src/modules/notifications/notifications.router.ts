@@ -5,10 +5,16 @@ import {
 	revokeFcmDevice,
 } from "@backend/modules/notifications/services/register_device.notifications.service";
 import { rpcProtectedProcedure } from "@backend/procedures/protected.procedure";
+import { rpcSuperAdminProcedure } from "@backend/procedures/super_admin.procedure";
 import { triggerNotification } from "@backend/utils/notifications.utils";
 import { devicePlatformZod } from "@connected-repo/zod-schemas/enums.zod";
-import { uniqueTimeArrayZod, zString } from "@connected-repo/zod-schemas/zod_utils";
+import {
+	uniqueTimeArrayZod,
+	zString,
+} from "@connected-repo/zod-schemas/zod_utils";
 import { z } from "zod";
+
+const TEST_PUSH_WORKFLOW_ID = "test-push";
 
 const registerDevice = rpcProtectedProcedure
 	.input(
@@ -48,14 +54,23 @@ const revokeDevice = rpcProtectedProcedure
 
 const inboxCredentials = rpcProtectedProcedure
 	.output(
-		z.object({
-			subscriberId: z.string(),
-			subscriberHash: z.string(),
-		}).nullable(),
+		z
+			.object({
+				subscriberId: z.string(),
+				subscriberHash: z.string(),
+			})
+			.nullable(),
 	)
 	.handler(async ({ context: { user } }) => {
 		return buildInboxCredentials(user.id);
 	});
+
+// Postgres `time` values round-trip as `HH:mm:ss`; the zod contract is `HH:mm`.
+// The users table declares an inner `.parse()` to strip the seconds but
+// orchid does not fan array-inner parses across elements, so we normalise at
+// the API boundary. Same treatment is applied wherever `journalReminderTimes`
+// is emitted (see journal-entries getAll for the joined-author case).
+const stripSeconds = (t: string): string => (t.length > 5 ? t.slice(0, 5) : t);
 
 const getReminderTimes = rpcProtectedProcedure
 	.output(uniqueTimeArrayZod)
@@ -63,7 +78,7 @@ const getReminderTimes = rpcProtectedProcedure
 		const row = await db.users
 			.select("journalReminderTimes")
 			.findOptional(user.id);
-		return row?.journalReminderTimes ?? [];
+		return (row?.journalReminderTimes ?? []).map(stripSeconds);
 	});
 
 const setReminderTimes = rpcProtectedProcedure
@@ -76,7 +91,10 @@ const setReminderTimes = rpcProtectedProcedure
 		return { times: input.times };
 	});
 
-const testSendPush = rpcProtectedProcedure
+// Behind super-admin gate — any authenticated user calling this could spam
+// their own OS-level push and consume Novu quota. The super-admin procedure
+// also layers a 30 req/min rate limit for a second line of defense.
+const testSendPush = rpcSuperAdminProcedure
 	.input(
 		z.object({
 			title: zString.min(1).max(200).default("Hello from Novu"),
@@ -86,7 +104,7 @@ const testSendPush = rpcProtectedProcedure
 	.output(z.object({ ok: z.literal(true) }))
 	.handler(async ({ input, context: { user } }) => {
 		await triggerNotification({
-			workflowId: "test-push",
+			workflowId: TEST_PUSH_WORKFLOW_ID,
 			subscriberId: user.id,
 			payload: { title: input.title, body: input.body },
 		});

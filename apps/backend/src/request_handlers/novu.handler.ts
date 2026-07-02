@@ -1,4 +1,4 @@
-import { env } from "@backend/configs/env.config";
+import { env, isDev } from "@backend/configs/env.config";
 import { novuWorkflows } from "@backend/novu/workflows";
 import { logger } from "@backend/utils/logger.utils";
 import { Client, NovuRequestHandler } from "@novu/framework";
@@ -7,10 +7,26 @@ import type {
 	NodeHttpResponse,
 } from "@orpc/standard-server-node";
 
+// Novu bridge payloads are workflow definitions + previews, small by design.
+// 1 MiB is generous but bounds an adversarial stream that could otherwise
+// buffer unbounded memory before JSON.parse rejects it.
+const MAX_BODY_BYTES = 1_048_576;
+
+class BodyTooLargeError extends Error {
+	constructor() {
+		super("Novu bridge body exceeds 1 MiB cap");
+		this.name = "BodyTooLargeError";
+	}
+}
+
 const readBody = async (req: NodeHttpRequest): Promise<unknown> => {
 	const chunks: Buffer[] = [];
+	let total = 0;
 	for await (const chunk of req) {
-		chunks.push(chunk as Buffer);
+		const buf = chunk as Buffer;
+		total += buf.length;
+		if (total > MAX_BODY_BYTES) throw new BodyTooLargeError();
+		chunks.push(buf);
 	}
 	if (chunks.length === 0) return undefined;
 	const raw = Buffer.concat(chunks).toString("utf-8");
@@ -40,10 +56,11 @@ const readBody = async (req: NodeHttpRequest): Promise<unknown> => {
 const novuClient = new Client({
 	secretKey: env.NOVU_SECRET_KEY,
 	apiUrl: env.NOVU_API_URL,
-	// The bridge is behind /api/novu on our own host; loosen strictAuthentication
-	// so the initial `novu sync` handshake doesn't 401 before the Secret Key
-	// round-trip is set up.
-	strictAuthentication: false,
+	// Strict HMAC auth in prod/staging/test; only loosened in dev so the
+	// initial `novu sync` handshake doesn't 401 before the Secret Key
+	// round-trip is set up. Anyone who can reach /api/novu with strict OFF
+	// can enumerate workflows and preview steps.
+	strictAuthentication: !isDev,
 });
 
 const requestHandler = new NovuRequestHandler({
@@ -86,6 +103,17 @@ export const novuHandler = {
 		try {
 			await nodeHandler(req, res);
 		} catch (err) {
+			if (err instanceof BodyTooLargeError) {
+				logger.warn(
+					{ url: req.url },
+					"Novu bridge rejected oversized body",
+				);
+				if (!res.writableEnded) {
+					res.statusCode = 413;
+					res.end(JSON.stringify({ error: "Payload too large" }));
+				}
+				return;
+			}
 			logger.error({ err, url: req.url }, "Novu bridge handler failed");
 			if (!res.writableEnded) {
 				res.statusCode = 500;

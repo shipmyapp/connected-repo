@@ -10,6 +10,12 @@ import {
 } from "firebase/messaging";
 
 const REGISTERED_TOKEN_KEY = "push.fcmToken";
+// Timestamp of the last successful backend registration. Used to re-verify
+// once every 24h so an upstream purge (Novu subscriber deletion or nightly
+// reconcile soft-deleting the row) self-heals on the next app boot instead
+// of the client believing forever that it's still registered.
+const REGISTERED_AT_KEY = "push.fcmTokenRegisteredAt";
+const REGISTER_TTL_MS = 24 * 60 * 60 * 1000;
 // Sticky user-intent flag. Browser permission is separate from user intent —
 // the user might have "notifications allowed" at the browser level for the
 // origin but have explicitly toggled push OFF in our Profile UI. Without this
@@ -39,7 +45,17 @@ async function fetchTokenAndRegister(): Promise<string | null> {
 		serviceWorkerRegistration: registration,
 	});
 	if (!token) return null;
-	if (localStorage.getItem(REGISTERED_TOKEN_KEY) === token) return token;
+
+	// Skip the round-trip only if BOTH the token matches AND we re-verified
+	// with the backend recently. The TTL self-heals from upstream purges
+	// (Novu subscriber deletion, reconcile soft-delete) even when the FCM
+	// token itself hasn't rotated.
+	const cachedToken = localStorage.getItem(REGISTERED_TOKEN_KEY);
+	const registeredAtRaw = localStorage.getItem(REGISTERED_AT_KEY);
+	const registeredAt = registeredAtRaw ? Number(registeredAtRaw) : 0;
+	const stale = Date.now() - registeredAt > REGISTER_TTL_MS;
+	if (cachedToken === token && !stale) return token;
+
 	const device = getDeviceEnv();
 	await orpcFetch.notifications.registerDevice({
 		fcmToken: token,
@@ -49,6 +65,7 @@ async function fetchTokenAndRegister(): Promise<string | null> {
 		pwaStandaloneLaunch: device.isStandalone,
 	});
 	localStorage.setItem(REGISTERED_TOKEN_KEY, token);
+	localStorage.setItem(REGISTERED_AT_KEY, String(Date.now()));
 	return token;
 }
 
@@ -110,6 +127,7 @@ export async function revokePushForUser(options?: {
 		const cachedToken = localStorage.getItem(REGISTERED_TOKEN_KEY);
 		if (!cachedToken) return;
 		localStorage.removeItem(REGISTERED_TOKEN_KEY);
+		localStorage.removeItem(REGISTERED_AT_KEY);
 
 		await orpcFetch.notifications.revokeDevice({ fcmToken: cachedToken });
 

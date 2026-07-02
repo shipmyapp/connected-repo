@@ -1,6 +1,6 @@
 import { usePwaInstall } from "@frontend/hooks/usePwaInstall";
 import type { PWAInstallElement } from "@khmyznikov/pwa-install";
-import { createContext, type ReactNode, useContext, useMemo } from "react";
+import { createContext, type ReactNode, useContext } from "react";
 
 /**
  * Shares the `usePwaInstall` state singleton across the tree — the
@@ -25,10 +25,9 @@ export const PwaInstallHost = ({
 	icon,
 }: PwaInstallHostProps) => {
 	const state = usePwaInstall();
-	const value = useMemo(() => state, [state]);
 
 	return (
-		<Ctx.Provider value={value}>
+		<Ctx.Provider value={state}>
 			{children}
 			{/* Web component renders hidden — we drive the UX ourselves.
 			    `disable-chrome` skips its built-in Chromium install dialog;

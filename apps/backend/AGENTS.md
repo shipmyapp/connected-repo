@@ -14,8 +14,8 @@
 
 ## 2. Active Task
 **Context**: Robust Boilerplate Standardization (Plan 005).
-**Current Status**: Restoring advanced patterns from `recent-changes.md`.
-**Intent**: Implement Hybrid Auth, Smart CSRF, and event-driven task scheduling.
+**Current Status**: Completed restoring advanced patterns (Push notifications, Cron scheduling, Security hardening).
+**Intent**: Ready for next phase of MVP development (User Schedules).
 
 ---
 
