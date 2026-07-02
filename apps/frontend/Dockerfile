@@ -2,13 +2,17 @@
 ARG NODE_VERSION=22
 FROM node:${NODE_VERSION}-slim AS base
 
-# Stage 1: Prepare - Prune the monorepo to only include frontend and its dependencies
+# Stage 1: Prepare - Prune the monorepo to include frontend AND backend.
+# Backend is included because the frontend imports oRPC router *types* via a
+# cross-app relative path (../../../backend/src/routers/user_app/user_app.router).
+# Without backend in the pruned tree, TypeScript can't resolve those types and
+# the build fails with a cascade of `unknown` errors.
 FROM base AS prepare
 WORKDIR /app
 RUN corepack enable && corepack prepare yarn@1.22.22 --activate
 RUN yarn global add turbo
 COPY . .
-RUN turbo prune @connected-repo/frontend --docker
+RUN turbo prune @connected-repo/frontend @connected-repo/backend --docker
 
 # Stage 2: Builder - Install dependencies and build
 FROM base AS builder

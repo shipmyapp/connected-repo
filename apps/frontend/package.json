@@ -19,6 +19,7 @@
 		"better-auth": "^1.5.0",
 		"browser-image-compression": "^2.0.2",
 		"comlink": "^4.4.2",
+		"dayjs": "^1.11.19",
 		"dexie": "^4.3.0",
 		"firebase": "^12.15.0",
 		"lit": "^3.3.3",
