@@ -48,7 +48,10 @@ export const LoginPage = () => {
    const handleGoogleLogin = async () => {
     setIsLoading(true);
  		let data: { url?: string } | undefined;
-		const callbackURL = `${env.VITE_USER_APP_URL}/dashboard`;
+		// Same-origin deploys leave VITE_USER_APP_URL empty; fall back to the
+		// visible origin so OAuth callbacks land on the frontend domain.
+		const appOrigin = env.VITE_USER_APP_URL || window.location.origin;
+		const callbackURL = `${appOrigin}/dashboard`;
 		
     try {
 			if(isTest){
@@ -82,7 +85,7 @@ export const LoginPage = () => {
 				data = await authClient.signIn.social({
 					provider: 'google',
 					callbackURL,
-					errorCallbackURL: `${env.VITE_USER_APP_URL}/auth/error`,
+					errorCallbackURL: `${appOrigin}/auth/error`,
 					// newUserCallbackURL: "/welcome",
 					disableRedirect: true,
 				}, {

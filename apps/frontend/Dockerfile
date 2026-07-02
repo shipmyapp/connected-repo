@@ -39,7 +39,10 @@ ARG VITE_SENTRY_ENV=""
 ARG VITE_SENTRY_RELEASE=""
 ARG VITE_SENTRY_ORG=""
 ARG VITE_SENTRY_PROJECT=""
-ARG VITE_SENTRY_AUTH_TOKEN=""
+# VITE_SENTRY_AUTH_TOKEN is a real build-time secret — supplied via BuildKit
+# `--mount=type=secret` on the build RUN below (never as an ARG, so it doesn't
+# leak into image layer history). It uploads sourcemaps to Sentry; it is NOT
+# inlined into the JS bundle.
 ARG VITE_NOVU_APP_IDENTIFIER=""
 ARG VITE_NOVU_API_URL=""
 ARG VITE_NOVU_SOCKET_URL=""
@@ -59,7 +62,6 @@ ENV VITE_USER_NODE_ENV=$VITE_USER_NODE_ENV \
     VITE_SENTRY_RELEASE=$VITE_SENTRY_RELEASE \
     VITE_SENTRY_ORG=$VITE_SENTRY_ORG \
     VITE_SENTRY_PROJECT=$VITE_SENTRY_PROJECT \
-    VITE_SENTRY_AUTH_TOKEN=$VITE_SENTRY_AUTH_TOKEN \
     VITE_NOVU_APP_IDENTIFIER=$VITE_NOVU_APP_IDENTIFIER \
     VITE_NOVU_API_URL=$VITE_NOVU_API_URL \
     VITE_NOVU_SOCKET_URL=$VITE_NOVU_SOCKET_URL \
@@ -71,6 +73,9 @@ ENV VITE_USER_NODE_ENV=$VITE_USER_NODE_ENV \
     VITE_FIREBASE_VAPID_KEY=$VITE_FIREBASE_VAPID_KEY
 
 RUN --mount=type=cache,target=/app/node_modules/.cache/turbo \
+    --mount=type=secret,id=VITE_SENTRY_AUTH_TOKEN \
+    export VITE_SENTRY_AUTH_TOKEN="$(cat /run/secrets/VITE_SENTRY_AUTH_TOKEN 2>/dev/null || true)" && \
+    export SENTRY_UPLOAD_SOURCEMAPS=1 && \
     npx turbo run build --filter=@connected-repo/frontend
 
 # Stage 3: Runner - nginx serving static bundle + reverse proxy to backend

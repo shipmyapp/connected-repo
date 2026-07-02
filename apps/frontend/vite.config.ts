@@ -4,11 +4,27 @@ import react from "@vitejs/plugin-react-swc";
 import { defineConfig, loadEnv } from "vite";
 import { analyzer } from 'vite-bundle-analyzer';
 import { VitePWA } from 'vite-plugin-pwa';
+import pkg from "./package.json";
 import { envValidationVitePlugin } from "./src/utils/env_validation_vite_plugin.utils";
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
 	const env = loadEnv(mode, process.cwd());
+
+	// Sentry release name — MUST match Sentry.init's `release` at runtime, else
+	// uploaded sourcemaps get tagged with a version the runtime never reports
+	// and Sentry silently can't associate errors with them.
+	const sentryRelease = `${env.VITE_OTEL_SERVICE_NAME || "frontend"}@${env.VITE_SENTRY_RELEASE || pkg.version}`;
+
+	// Sourcemap upload is guarded by an explicit marker that only the Docker
+	// prod build sets (see apps/frontend/Dockerfile). Local `yarn build` will
+	// NEVER upload — even if a dev happens to have VITE_SENTRY_AUTH_TOKEN
+	// in their .env — because SENTRY_UPLOAD_SOURCEMAPS is unset locally.
+	const shouldUploadSourcemaps =
+		mode === "production" &&
+		process.env.SENTRY_UPLOAD_SOURCEMAPS === "1" &&
+		Boolean(env.VITE_SENTRY_AUTH_TOKEN);
+
 	return {
 		base: "/",
 		worker: {
@@ -81,19 +97,24 @@ export default defineConfig(({ mode }) => {
 					]
 				}
 			}),
-			// Put the Sentry vite plugin after all other plugins
-			sentryVitePlugin({
-				org: env.VITE_SENTRY_ORG,
-				project: env.VITE_SENTRY_PROJECT,
-
-				// Auth tokens can be obtained from https://sentry.io/orgredirect/organizations/:orgslug/settings/auth-tokens/
-				authToken: env.VITE_SENTRY_AUTH_TOKEN,
-				reactComponentAnnotation: {
-					enabled: true,
-					// you can ignore components from being annotated with this option
-					ignoredComponents: []
-				}
-			}),
+			// Sentry Vite plugin — only include it when a real prod upload is
+			// intended. Conditionally spreading (vs. `disable: true`) keeps its
+			// side-effects (network calls, temp files) fully out of local builds.
+			// Auth token: https://sentry.io/orgredirect/organizations/:orgslug/settings/auth-tokens/
+			...(shouldUploadSourcemaps
+				? [
+						sentryVitePlugin({
+							org: env.VITE_SENTRY_ORG,
+							project: env.VITE_SENTRY_PROJECT,
+							authToken: env.VITE_SENTRY_AUTH_TOKEN,
+							release: { name: sentryRelease },
+							reactComponentAnnotation: {
+								enabled: true,
+								ignoredComponents: [],
+							},
+						}),
+					]
+				: []),
 		],
 		resolve: {
 			alias: {

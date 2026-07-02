@@ -19,7 +19,9 @@ const apiUrlOrEmpty = preprocess(
 export const envSchemaZod = object({
 	VITE_USER_NODE_ENV: NODE_ENV_ZOD,
 	VITE_API_URL: apiUrlOrEmpty,
-	VITE_USER_APP_URL: url("User App Url is required"),
+	// Empty in the same-origin Dokploy deploy — consumers fall back to
+	// window.location.origin so OAuth callbacks stay on the visible domain.
+	VITE_USER_APP_URL: apiUrlOrEmpty,
 	VITE_TEST_PASSWORD: string().min(8, "Test password must be at least 8 characters").optional(),
 	VITE_OTEL_SERVICE_NAME: string().min(1),
 	VITE_SENTRY_DSN: preprocess((val) => (val === "" ? undefined : val), url().optional()),
