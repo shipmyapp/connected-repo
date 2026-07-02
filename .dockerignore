@@ -10,7 +10,11 @@ build
 .turbo
 
 # Development files
-.git
+# NOTE: .git is intentionally NOT ignored — the frontend Dockerfile reads the
+# short commit SHA from it to tag Sentry releases (see apps/frontend/Dockerfile).
+# It only lives in the build stages; the final nginx image doesn't contain it.
+# Once Dokploy PR #4007 (DOKPLOY_COMMIT_SHORT build arg) lands upstream, we can
+# re-ignore .git and pass VITE_SENTRY_RELEASE=$DOKPLOY_COMMIT_SHORT instead.
 .gitignore
 *.md
 !README.md

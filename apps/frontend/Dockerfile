@@ -10,8 +10,18 @@ FROM node:${NODE_VERSION}-slim AS base
 FROM base AS prepare
 WORKDIR /app
 RUN corepack enable && corepack prepare yarn@1.22.22 --activate
+# git captures the short commit SHA below for Sentry release tagging.
+# node:22-slim doesn't ship with it. Once Dokploy PR #4007 lands (exposing
+# DOKPLOY_COMMIT_SHORT as a build arg), we can drop this install + the SHA
+# capture and pass VITE_SENTRY_RELEASE=$DOKPLOY_COMMIT_SHORT via Build-time
+# Arguments instead.
+RUN apt-get update && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
 RUN yarn global add turbo
 COPY . .
+# Capture the short commit SHA. Falls back to "nogit" so the build never fails
+# on this alone (e.g. tar-based builds where .git isn't present).
+RUN git -C /app rev-parse --short=7 HEAD > /app/.build-sha 2>/dev/null || echo "nogit" > /app/.build-sha
 RUN turbo prune @connected-repo/frontend @connected-repo/backend --docker
 
 # Stage 2: Builder - Install dependencies and build
@@ -21,6 +31,7 @@ RUN corepack enable && corepack prepare yarn@1.22.22 --activate
 
 COPY --from=prepare /app/out/json/ .
 COPY --from=prepare /app/out/yarn.lock ./yarn.lock
+COPY --from=prepare /app/.build-sha /app/.build-sha
 
 RUN --mount=type=cache,target=/root/.yarn \
     yarn install --frozen-lockfile --production=false
@@ -75,6 +86,7 @@ ENV VITE_USER_NODE_ENV=$VITE_USER_NODE_ENV \
 RUN --mount=type=cache,target=/app/node_modules/.cache/turbo \
     --mount=type=secret,id=VITE_SENTRY_AUTH_TOKEN \
     export VITE_SENTRY_AUTH_TOKEN="$(cat /run/secrets/VITE_SENTRY_AUTH_TOKEN 2>/dev/null || true)" && \
+    export VITE_SENTRY_RELEASE="$(cat /app/.build-sha)" && \
     export SENTRY_UPLOAD_SOURCEMAPS=1 && \
     npx turbo run build --filter=@connected-repo/frontend
 
