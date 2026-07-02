@@ -99,6 +99,25 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 		this.initialisedForUserId = userId;
 		this.readyResolve();
 
+		// One-shot repair for the historical pull-clobber-push bug that
+		// stranded thumbnails as `state === "uploaded"` but
+		// `thumbnailCdnUrl === null` on both client and server. Resets
+		// those rows back to `pending` so the FileUploadWorker
+		// regenerates and re-uploads from OPFS on its next tick. Safe
+		// no-op for fresh DBs and for users who never hit the bug.
+		try {
+			const repaired = await filesDb.recoverStrandedThumbnails();
+			if (repaired > 0) {
+				// biome-ignore lint/suspicious/noConsole: legitimate one-shot recovery signal
+				console.info(
+					`[SyncOrchestrator] reset ${repaired} stranded thumbnail(s) back to pending`,
+				);
+			}
+		} catch (err) {
+			// biome-ignore lint/suspicious/noConsole: recovery failure shouldn't block init
+			console.warn("[SyncOrchestrator] thumbnail recovery failed", err);
+		}
+
 		// Clear active team on user switch — the main thread will push
 		// the fresh team id in via `setActiveTeamId` after user login.
 		_setActiveTeamId(null);
@@ -107,25 +126,29 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 
 		// Trigger #4: any local write fans out here via BroadcastChannel.
 		//
-		// Two guards keep this from ping-ponging with our own writes:
+		// Guards:
 		//
-		// 1. `teamsApp` / `teamMembers` aren't listened for at all — the
-		//    only writers to those Dexie tables are our own pull pipeline
-		//    and `wipeTeamDataFromDb`, both invoked from inside a running
-		//    cycle. Listening for them guaranteed a self-trigger every
-		//    cycle.
-		// 2. For `journalEntries` / `files` — which CAN be user-written —
-		//    ignore notifications while `isProcessing` is set. Those
-		//    fire from our own bulkUpsert/overwrite calls during a cycle.
-		//    User writes that land during a cycle are still covered: the
-		//    main thread's post-write kick calls `processQueue()` directly
-		//    via Comlink, which sets `needsRescan` from inside the method
-		//    itself; the 60s interval is a further safety net.
-		subscribe((table) => {
-			if (this.isProcessing) return;
-			if (table === "journalEntries" || table === "files") {
-				this.processQueue();
+		// 1. Only react to `journalEntries` / `files` — those are the
+		//    tables with a push pipeline. Writes to `teamsApp`,
+		//    `teamMembers`, `prompts`, `syncMetadata`, `syncState` never
+		//    need a rescan (no push side).
+		// 2. Ignore writes tagged `source === "sync"` — those come from
+		//    our own pull/push pipeline or background upload worker.
+		//    Reacting to them would ping-pong every cycle back onto
+		//    itself.
+		// 3. For genuine `"external"` writes (user file pick, offline
+		//    entry create), if we're mid-cycle set `needsRescan` so the
+		//    finally block re-invokes `processQueue`; otherwise kick a
+		//    fresh cycle immediately. Both branches guarantee the write
+		//    gets pushed without waiting for the 60s safety-net interval.
+		subscribe((table, source) => {
+			if (table !== "journalEntries" && table !== "files") return;
+			if (source === "sync") return;
+			if (this.isProcessing) {
+				this.needsRescan = true;
+				return;
 			}
+			this.processQueue();
 		});
 
 		// Trigger #2: browser `online` event fires in the worker context too.
@@ -488,6 +511,15 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 		const rows = await filesDb.getCdnUpdatesNeedingPush();
 		if (rows.length === 0) return;
 
+		// Belt-and-suspenders. The state gate (`uploaded_to_cdn`) alone
+		// was NOT enough historically: a pull cycle could clobber the
+		// local URL between "worker sets uploaded_to_cdn" and "push runs",
+		// leaving the state gate open but the URL null → push sent
+		// `{id}` only → server-side row stayed null forever.
+		// `filesDb.bulkUpsertFromServer` now null-coalesces the URL so
+		// the clobber can't happen — but we keep the state gate here
+		// too so a regression on either side degrades to "no-op push"
+		// rather than "silently sends null and marks state advanced".
 		const updates = rows.map((r) => ({
 			id: r.id,
 			cdnUrl: r.mainUploadState === "uploaded_to_cdn" ? r.cdnUrl ?? undefined : undefined,

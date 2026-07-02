@@ -84,26 +84,58 @@ export type AppDbTable =
 	| "syncMetadata"
 	| "syncState";
 
+/**
+ * Origin of a Dexie mutation, propagated to subscribers.
+ *
+ *   - `"sync"`     — write came from our own pull/push pipeline or
+ *                    background upload worker (`bulkUpsertFromServer`,
+ *                    `overwriteFromServer`, `markCdnPushed`,
+ *                    `updateUploadState`, wipe cascades, cursor writes).
+ *                    The SyncOrchestrator ignores these — reacting to them
+ *                    would ping-pong every cycle back onto itself.
+ *   - `"external"` — user or UI-driven write (`upsertLocal`,
+ *                    `upsertPending`, etc.). The SyncOrchestrator DOES
+ *                    react so the queued mutation gets pushed promptly.
+ *
+ * Defaults to `"external"` at every callsite so a missed tag errs on
+ * the safe side (may cause an extra harmless cycle; never drops a real
+ * user write).
+ */
+export type NotifySource = "sync" | "external";
+
 const dbUpdatesChannel = new BroadcastChannel("db-updates");
-const subscribers = new Set<(table: AppDbTable) => void>();
+const subscribers = new Set<(table: AppDbTable, source: NotifySource) => void>();
 
 dbUpdatesChannel.onmessage = (event) => {
-	const table = (event.data as { table?: AppDbTable } | undefined)?.table;
+	const data = event.data as
+		| { table?: AppDbTable; source?: NotifySource }
+		| undefined;
+	const table = data?.table;
 	if (!table) return;
-	for (const cb of subscribers) cb(table);
+	const source: NotifySource = data?.source ?? "external";
+	for (const cb of subscribers) cb(table, source);
 };
 
 /**
  * Notify every subscriber in this context AND every other same-origin
  * context that `table` changed. Callers MUST invoke this after every
  * write, otherwise UI hooks won't refetch.
+ *
+ * Pass `source: "sync"` when the write originates from the sync/upload
+ * pipeline so the SyncOrchestrator's subscribe callback can skip it
+ * without dropping subsequent user-driven writes.
  */
-export const notifySubscribers = (table: AppDbTable): void => {
-	for (const cb of subscribers) cb(table);
-	dbUpdatesChannel.postMessage({ table });
+export const notifySubscribers = (
+	table: AppDbTable,
+	source: NotifySource = "external",
+): void => {
+	for (const cb of subscribers) cb(table, source);
+	dbUpdatesChannel.postMessage({ table, source });
 };
 
-export const subscribe = (callback: (table: AppDbTable) => void): (() => void) => {
+export const subscribe = (
+	callback: (table: AppDbTable, source: NotifySource) => void,
+): (() => void) => {
 	subscribers.add(callback);
 	return () => {
 		subscribers.delete(callback);

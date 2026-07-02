@@ -64,9 +64,9 @@ export const journalEntriesDb = {
 
 		if (files?.length) {
 			await mergeFilesFromServer(files);
-			notifySubscribers("files");
+			notifySubscribers("files", "sync");
 		}
-		notifySubscribers("journalEntries");
+		notifySubscribers("journalEntries", "sync");
 	},
 
 	async bulkUpsertFromServer(rows: JournalEntrySelectAll[]): Promise<void> {
@@ -76,12 +76,12 @@ export const journalEntriesDb = {
 			syncError: null,
 		}));
 		await getClientDb().journalEntries.bulkPut(stored);
-		notifySubscribers("journalEntries");
+		notifySubscribers("journalEntries", "sync");
 	},
 
 	async setSyncError(id: string, error: string | null): Promise<void> {
 		await getClientDb().journalEntries.update(id, { syncError: error });
-		notifySubscribers("journalEntries");
+		notifySubscribers("journalEntries", "sync");
 	},
 
 	async wipeByTeamAppId(teamId: string): Promise<void> {
@@ -89,8 +89,8 @@ export const journalEntriesDb = {
 		await getClientDb().files
 			.where({ teamId, tableName: "journalEntries" as const })
 			.delete();
-		notifySubscribers("journalEntries");
-		notifySubscribers("files");
+		notifySubscribers("journalEntries", "sync");
+		notifySubscribers("files", "sync");
 	},
 };
 
