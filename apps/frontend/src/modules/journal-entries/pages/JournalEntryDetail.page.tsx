@@ -5,10 +5,11 @@ import { Alert } from "@connected-repo/ui-mui/feedback/Alert";
 import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { Container } from "@connected-repo/ui-mui/layout/Container";
 import { useActiveTeamId } from "@frontend/contexts/WorkspaceContext";
+import { mirrorToLocalDb } from "@frontend/utils/mirror_to_local_db";
 import { orpcFetch } from "@frontend/utils/orpc.client";
 import { orpc } from "@frontend/utils/orpc.tanstack.client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router";
 import { JournalEntryDetailView } from "../components/JournalEntryDetailView";
 
@@ -29,23 +30,28 @@ export default function JournalEntryDetailPage() {
 		enabled: !!entryId && !!activeTeamId,
 	});
 
-	const { data: files = [] } = useQuery({
-		...orpc.files.getByTableId.queryOptions({
-			input: { tableName: "journalEntries", tableId: entryId || "" },
-		}),
-		enabled: !!entryId,
-	});
+	// Mirror the fetched entry + its files into Dexie so the local mirror
+	// stays consistent with the server without waiting for the next sync
+	// cycle.
+	useEffect(() => {
+		if (!journalEntry) return;
+		const { files, ...entry } = journalEntry;
+		void mirrorToLocalDb({ table: "journalEntries", rows: [entry] });
+		if (files.length > 0) {
+			void mirrorToLocalDb({ table: "files", rows: files });
+		}
+	}, [journalEntry]);
 
 	const attachments = useMemo(
 		() =>
-			files
+			(journalEntry?.files ?? [])
 				.filter((f) => f.cdnUrl)
 				.map((f) => ({
 					url: f.cdnUrl as string,
 					thumbnailUrl: f.thumbnailCdnUrl ?? undefined,
 					name: f.fileName,
 				})),
-		[files],
+		[journalEntry],
 	);
 
 	const deleteMutation = useMutation({

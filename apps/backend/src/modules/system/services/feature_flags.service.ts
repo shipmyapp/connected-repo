@@ -18,12 +18,33 @@ const cache = new Map<string, { value: boolean; expiresAt: number }>();
  *      override or teamId is undefined.
  *   3. `defaultValue` (default `false`) — no row found.
  *
- * **Fail-safe default:** unknown keys resolve to `false`. Guards written as
+ * **Fail-safe default (opt-in features):** unknown keys resolve to `false`.
+ * Guards written as
  *   if (!(await isFeatureEnabled("autonomous.auto_merge_enabled", teamId))) {
  *     throw new ORPCError("FORBIDDEN", ...);
  *   }
  * will therefore keep a new-and-not-yet-flipped feature OFF until someone
  * flips it on explicitly. A typo in the key stays OFF as well.
+ *
+ * **Default-true kill-switch pattern:** for a feature that should be ON in
+ * normal operation and only killed during incidents, pass `defaultValue=true`
+ * so absence of any row means "on". Real example — the subscription alert
+ * webhook enqueue guard in
+ * `modules/subscriptions/services/increment_usage.subscriptions.service.ts`:
+ *
+ *   const webhookEnabled = await isFeatureEnabled(
+ *     "subscriptions.alert_webhook_enabled",
+ *     teamId,       // nullable — falls back to the global row
+ *     true,         // default ON; super-admin flips off to kill-switch
+ *   );
+ *   if (!webhookEnabled) { logger.info(...); return; }
+ *
+ * A super-admin can then create a global row `enabled=false` to stop the whole
+ * system from firing outbound webhooks during an incident, or a
+ * `scope="team", scopeId=<teamId>` row to disable one abusive tenant while
+ * leaving the rest on. The guard sits at the CALL site of the risky action
+ * (the tbus enqueue) — never on the flag CRUD itself. See the docstring block
+ * in `routers/super_admin/super_admin.router.ts` for the write-side pattern.
  *
  * **In-process TTL cache (5s):** resolved values are memoized per
  * (key, teamId, defaultValue) tuple for `TTL_MS` (5 seconds) to avoid a

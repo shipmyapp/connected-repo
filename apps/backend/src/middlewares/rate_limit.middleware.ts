@@ -51,12 +51,30 @@ export interface RateLimitOptions<Ctx> {
  *     }),
  *   );
  *
+ * Bucket key naming convention — MUST use `<scope>:<subject>:<id>` so
+ * different middleware call sites never collide on the same row:
+ *   - `openapi:teamApi:<teamApiId>`        — per API key (open-api procedures)
+ *   - `sensitive:user:<userId>`            — per user, sensitive/destructive ops
+ *   - `super-admin:user:<userId>`          — per super-admin, admin actions
+ *   - `app:user:<userId>`                  — per user, general app procedures
+ *   - `login:ip:<addr>`                    — per source IP, pre-auth surfaces
+ *
+ * Expected callers (who mounts this middleware):
+ *   - `openApiAuthProcedure` — team-API tenants
+ *   - `rpcSensitiveProcedure` — session-security-strict user actions
+ *   - `rpcSuperAdminProcedure` — env-allowlisted operators
+ *   - `rpcProtectedActiveTeamProcedure` — general app traffic (per-user cap)
+ *
  * The middleware is generic in the context so it composes with any
  * upstream procedure (public / protected / api-key).
  *
+ * Placement inside a procedure chain: mount this AFTER auth middleware
+ * (so we know the identity we're bucketing) but BEFORE expensive input
+ * validation or DB reads (so rejected requests spend near-zero CPU).
+ *
  * Storage impl is swappable — `checkAndRecordRateLimit` is a Postgres
- * sliding-window log today; switching to Redis is a service-file change
- * with zero call-site churn.
+ * token-bucket today; switching to Redis is a service-file change with
+ * zero call-site churn.
  */
 // biome-ignore lint/suspicious/noExplicitAny: matches oRPC's Context = Record<PropertyKey, any> constraint. Narrower types like `unknown` reject interface types without index signatures (e.g. OpenApiAuthContext).
 export const createRateLimitMiddleware = <Ctx extends Record<PropertyKey, any>>(

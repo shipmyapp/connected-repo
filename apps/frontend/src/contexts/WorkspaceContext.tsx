@@ -1,5 +1,11 @@
+import {
+	ACTIVE_TEAM_WIPED_CHANNEL,
+	type ActiveTeamWipedMessage,
+} from "@frontend/utils/active_team_wiped.channel";
 import type { UserAppBackendOutputs } from "@frontend/utils/orpc.client";
 import { orpc } from "@frontend/utils/orpc.tanstack.client";
+import { signout } from "@frontend/utils/signout.utils";
+import { switchGate } from "@frontend/utils/switch_gate";
 import {
 	initSyncForUser,
 	setActiveTeam as syncSetActiveTeam,
@@ -75,17 +81,37 @@ export function WorkspaceProvider({
 
 	const setActiveTeamMutation = useMutation(
 		orpc.teams.setActiveTeam.mutationOptions({
+			onMutate: () => {
+				// Close the switch-gate BEFORE the backend session update
+				// fires. The gate blocks every OTHER outbound ORPC (main +
+				// worker) at the link boundary — the `teams.setActiveTeam`
+				// call is exempt in `orpc.client.ts` so this doesn't
+				// deadlock. Requests already past the gate but not yet
+				// dispatched will complete against the OLD `x-team-id`
+				// header; that is safe because they were authorized under
+				// the old team's scope.
+				switchGate.close();
+			},
 			onSuccess: async ({ activeTeamAppId: newId }) => {
-				// 1. Propagate to both header cache + worker cache atomically
-				//    so subsequent requests carry the new team id.
-				await syncSetActiveTeam(newId);
-				// 2. Re-run the router's authLoader so `sessionInfo.user.activeTeamAppId`
-				//    (fed via useLoaderData) reflects the new value. Without this,
-				//    the loader-derived prop stays at the old team and downstream
-				//    consumers (activeWorkspace, useActiveTeamId, page enabled-gates,
-				//    the initSyncForUser effect) remain out of sync with the header,
-				//    causing team-B data to render under a team-A UI.
-				revalidator.revalidate();
+				try {
+					// 1. Propagate to both header cache + worker cache atomically
+					//    so subsequent requests carry the new team id. This is
+					//    what the closed gate is protecting: no other RPC can
+					//    dispatch until both caches are flipped.
+					await syncSetActiveTeam(newId);
+					// 2. Re-run the router's authLoader so `sessionInfo.user.activeTeamAppId`
+					//    (fed via useLoaderData) reflects the new value. Without this,
+					//    the loader-derived prop stays at the old team and downstream
+					//    consumers (activeWorkspace, useActiveTeamId, page enabled-gates,
+					//    the initSyncForUser effect) remain out of sync with the header,
+					//    causing team-B data to render under a team-A UI.
+					revalidator.revalidate();
+				} finally {
+					// Reopen before invalidateQueries so the refetches it
+					// triggers carry the new header instead of stalling on
+					// the gate.
+					switchGate.open();
+				}
 				// 3. Drop team-scoped React Query caches so refetches hit the
 				//    backend under the new team id. Narrowed from a blanket
 				//    invalidateQueries() to avoid nuking unrelated data.
@@ -94,10 +120,76 @@ export function WorkspaceProvider({
 				});
 			},
 			onError: (err) => {
+				// The gate was closed in onMutate but the backend mutation
+				// failed. Reopen so the rest of the app doesn't stall on the
+				// timeout waiting for a switch that never happened.
+				switchGate.open();
 				toast.error(err.message || "Failed to switch team");
 			},
 		}),
 	);
+
+	// Listen for the DataWorker's "your active team is gone" signal.
+	// Fires when the pull pipeline delivers a tombstone for either the
+	// active `teams` row (team deleted) or the current user's
+	// `team_members` row for the active team (membership revoked). The
+	// worker has already dropped the local rows + OPFS blobs and
+	// cleared its own active-team cache; our job is to move the user
+	// somewhere sensible without leaving the header cache pointing at
+	// a wiped team.
+	//
+	// Resolution goes through the same switch-gate flow as a manual
+	// switch (`setActiveTeamMutation.mutateAsync`) — the closed gate
+	// blocks concurrent RPCs until the header cache flips, exactly the
+	// same invariant as the profile-page switcher. Bypassing it would
+	// re-open the "team-A UI over team-B data" race that the gate was
+	// built to eliminate.
+	//
+	// If no teams remain, we force sign-out — the app has no
+	// meaningful state to render without an active team.
+	useEffect(() => {
+		if (!userId) return;
+		if (typeof BroadcastChannel === "undefined") return;
+		const channel = new BroadcastChannel(ACTIVE_TEAM_WIPED_CHANNEL);
+		channel.onmessage = async (event: MessageEvent<ActiveTeamWipedMessage>) => {
+			const msg = event.data;
+			if (!msg || msg.type !== "active-team-wiped") return;
+
+			// Refetch teams so we know what the user still belongs to.
+			// The wiped team is already gone from the server (the tombstone
+			// is exactly how we learned about it), so `getMyTeams` will not
+			// include it.
+			const remaining = await queryClient.fetchQuery(
+				orpc.teams.getMyTeams.queryOptions({}),
+			);
+
+			const fallback = remaining.find((t) => t.id !== msg.wipedTeamId);
+			if (fallback) {
+				try {
+					await setActiveTeamMutation.mutateAsync({
+						teamAppId: fallback.id,
+					});
+					toast.info(
+						`You were removed from the previous workspace. Switched to "${fallback.name}".`,
+					);
+				} catch (err) {
+					console.warn(
+						"[WorkspaceContext] auto-switch after wipe failed",
+						err,
+					);
+				}
+				return;
+			}
+
+			// No remaining teams — force sign-out. `signout` handles the
+			// backend session teardown + redirect to /auth/login.
+			toast.info("You were removed from your workspace. Signing you out.");
+			await signout("clear-cache");
+		};
+		return () => {
+			channel.close();
+		};
+	}, [userId, queryClient, setActiveTeamMutation]);
 
 	const activeWorkspace: Workspace = (() => {
 		if (!activeTeamAppId || teams.length === 0) return PLACEHOLDER_WORKSPACE;

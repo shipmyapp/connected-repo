@@ -1,3 +1,4 @@
+import { orpcFetch } from "@frontend/utils/orpc.client";
 import { filesDb } from "../db/files.db";
 import type { StoredFile } from "../db/schema.db.types";
 import { OPFSManager } from "../utils/opfs.manager";
@@ -6,6 +7,11 @@ import { getMediaProxy } from "../worker.context";
 /**
  * State-machine driver for the local → CDN upload pipeline.
  *
+ * This is the SOLE upload path — both online-picked and offline-picked
+ * files are staged into OPFS via `filesDb.upsertLocal` and drained here.
+ * `CreateJournalEntryForm` and any other picker never talks to the CDN
+ * directly.
+ *
  * Each file row carries its own per-layer state (main + thumbnail). The
  * worker scans for files that need work on every trigger, honours the
  * concurrency limit (`MAX_CONCURRENT`), and drives each row through:
@@ -13,11 +19,19 @@ import { getMediaProxy } from "../worker.context";
  *   pending → uploading → uploaded_to_cdn → uploaded
  *
  * On CDN-upload success we mark the layer `uploaded_to_cdn` locally and
- * kick the sync orchestrator so `files.pushCdnUpdates` runs immediately
- * — that promotes `uploaded_to_cdn` → `uploaded`.
+ * the sync orchestrator's `pushFileCdnUpdates` promotes `uploaded_to_cdn`
+ * → `uploaded` on the next cycle (it runs in parallel with this worker
+ * within `runCycle`).
  *
  * Retries: max 5 attempts, backoff `[1, 2, 4, 8, 16]s`. Recovery on
- * boot re-picks any row stuck in `uploading` older than 5 minutes.
+ * boot re-picks any row stuck in `uploading` older than 5 minutes — but
+ * NEVER a row this worker still has in-flight, to avoid clobbering a
+ * legitimate `uploaded_to_cdn` transition mid-flight.
+ *
+ * The CDN presign + PUT is invoked directly from this worker (no hop
+ * through the MediaWorker). That keeps the raw `Blob` inside the
+ * DataWorker realm — hopping it across a Comlink boundary would clone
+ * every byte just to hand it back for the actual `fetch` PUT.
  */
 
 const MAX_CONCURRENT = 3;
@@ -85,6 +99,12 @@ class FileUploadWorker implements FileUploadWorkerApi {
 		const pending = await filesDb.getPendingUploads();
 		const cutoff = Date.now() - STUCK_UPLOADING_CUTOFF_MS;
 		for (const row of pending) {
+			// NEVER touch a row that this worker still has in-flight — the
+			// worker itself set `uploading` right before the network PUT, so
+			// resetting to `failed` here would race the successful callback
+			// and clobber a legitimate `uploaded_to_cdn` transition.
+			if (this.inFlight.has(row.id)) continue;
+
 			if (
 				row.mainUploadState === "uploading" &&
 				(row.mainLastAttemptAt ?? 0) < cutoff
@@ -138,17 +158,16 @@ class FileUploadWorker implements FileUploadWorkerApi {
 				return;
 			}
 
-			const file = new File([blob], row.fileName, { type: row.mimeType });
-			const mediaProxy = await getMediaProxy();
-			const results = await mediaProxy.cdn.uploadFiles([{ id: row.id, file }]);
-			const result = results[0];
-			if (!result?.success || !result.url) {
-				throw new Error(result?.error ?? "CDN upload failed");
-			}
+			const cdnUrl = await this.presignAndPut({
+				id: row.id,
+				fileName: row.fileName,
+				contentType: row.mimeType,
+				blob,
+			});
 
 			await filesDb.updateUploadState(row.id, "main", {
 				state: "uploaded_to_cdn",
-				cdnUrl: result.url,
+				cdnUrl,
 				lastError: null,
 			});
 		} catch (err) {
@@ -179,6 +198,10 @@ class FileUploadWorker implements FileUploadWorkerApi {
 				return;
 			}
 
+			// Thumbnail generation stays in the MediaWorker — that's where
+			// the `browser-image-compression` / `pdfjs-dist` bundles live and
+			// where the CPU-heavy work belongs. Only the derived thumbnail
+			// blob crosses the Comlink boundary, not the original bytes.
 			const mediaProxy = await getMediaProxy();
 			const sourceFile = new File([sourceBlob], row.fileName, { type: row.mimeType });
 			const thumb = await mediaProxy.media.generateThumbnail(sourceFile);
@@ -192,17 +215,21 @@ class FileUploadWorker implements FileUploadWorkerApi {
 
 			await filesDb.updateUploadState(row.id, "thumbnail", { state: "uploading" });
 
-			const results = await mediaProxy.cdn.uploadFiles([
-				{ id: `${row.id}-thumb`, file: thumb.thumbnailFile },
-			]);
-			const result = results[0];
-			if (!result?.success || !result.url) {
-				throw new Error(result?.error ?? "thumbnail CDN upload failed");
-			}
+			// The thumb's S3 key uniqueness comes from the `thumb_` filename
+			// prefix that `generateThumbnail` bakes into `thumbnailFile.name`
+			// (see `thumbnail-image.ts` / `thumbnail-pdf.ts`), so passing the
+			// bare ULID keeps the presign contract on `z.ulid()` without any
+			// suffix carve-outs.
+			const cdnUrl = await this.presignAndPut({
+				id: row.id,
+				fileName: thumb.thumbnailFile.name,
+				contentType: thumb.thumbnailFile.type,
+				blob: thumb.thumbnailFile,
+			});
 
 			await filesDb.updateUploadState(row.id, "thumbnail", {
 				state: "uploaded_to_cdn",
-				thumbnailCdnUrl: result.url,
+				thumbnailCdnUrl: cdnUrl,
 				lastError: null,
 			});
 		} catch (err) {
@@ -212,6 +239,47 @@ class FileUploadWorker implements FileUploadWorkerApi {
 				lastError: err instanceof Error ? err.message : String(err),
 			});
 		}
+	}
+
+	/**
+	 * The presign + PUT is inlined here so the raw `Blob` never crosses a
+	 * Comlink boundary. `contentType` and `contentLength` are BOTH sent —
+	 * the backend binds them into the signature (see
+	 * `generate_presigned_url.cdn.services.ts`), so the corresponding
+	 * `Content-Type` and `Content-Length` headers MUST match exactly at
+	 * PUT time. `fetch` sets `Content-Length` automatically from the body,
+	 * and we set `Content-Type` explicitly. No `x-amz-acl` — the presign
+	 * intentionally omits ACLs (bucket policy handles public read).
+	 */
+	private async presignAndPut(input: {
+		id: string;
+		fileName: string;
+		contentType: string;
+		blob: Blob;
+	}): Promise<string> {
+		const [presigned] = await orpcFetch.cdn.generateBatchPresignedUrls([
+			{
+				id: input.id,
+				fileName: input.fileName,
+				resourceType: "media",
+				contentType: input.contentType,
+				contentLength: input.blob.size,
+			},
+		]);
+		if (!presigned?.signedUrl || !presigned.fetchUrl) {
+			throw new Error("CDN presign returned no signedUrl");
+		}
+
+		const res = await fetch(presigned.signedUrl, {
+			method: "PUT",
+			body: input.blob,
+			headers: { "Content-Type": input.contentType },
+		});
+		if (!res.ok) {
+			throw new Error(`CDN PUT failed: ${res.status} ${res.statusText}`);
+		}
+
+		return presigned.fetchUrl;
 	}
 }
 

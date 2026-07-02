@@ -38,3 +38,4 @@ yarn-error.log*
 TODO.md
 code-review.md
 .opencode_context.tmp
+diff.patch

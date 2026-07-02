@@ -1,5 +1,9 @@
 import { env } from "@backend/configs/env.config";
-import { rpcProtectedProcedure } from "@backend/procedures/protected.procedure";
+import { createRateLimitMiddleware } from "@backend/middlewares/rate_limit.middleware";
+import {
+	type RpcAuthenticatedContext,
+	rpcProtectedProcedure,
+} from "@backend/procedures/protected.procedure";
 import { ORPCError } from "@orpc/server";
 
 const normalizePhone = (v: string): string => v.replace(/\D/g, "");
@@ -34,8 +38,8 @@ const superAdminPhones = parseList(env.SUPER_ADMIN_PHONE_NUMBERS, normalizePhone
  * NOTE: env values are captured at module load; rotating an admin requires a
  * redeploy. This is intentional (fast path, no DB hit) but must be documented.
  */
-export const rpcSuperAdminProcedure = rpcProtectedProcedure.use(
-	({ context, next }) => {
+export const rpcSuperAdminProcedure = rpcProtectedProcedure
+	.use(({ context, next }) => {
 		const email = context.user.email?.toLowerCase();
 		const phone = normalizePhone(context.user.phoneNumber ?? "");
 
@@ -51,5 +55,18 @@ export const rpcSuperAdminProcedure = rpcProtectedProcedure.use(
 		}
 
 		return next({ context });
-	},
-);
+	})
+	// Bound admin actions so a compromised admin session or runaway script
+	// cannot torch the DB. Placed AFTER the allowlist gate — non-admins get a
+	// 403 without touching the rate_limits table, and legitimate admins get
+	// a generous 30 req/min budget.
+	.use(
+		createRateLimitMiddleware<RpcAuthenticatedContext>({
+			bucketFn: (ctx) => ({
+				key: `super-admin:user:${ctx.user.id}`,
+				limit: 30,
+				windowSeconds: 60,
+			}),
+			label: "super-admin",
+		}),
+	);

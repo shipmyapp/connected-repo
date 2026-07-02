@@ -17,8 +17,9 @@ import type {
  *
  * Slow path — invoked only if the bulk path throws (a NOT NULL / FK /
  * check-constraint failure on some row rolled the whole batch back).
- * Iterates per row so bad rows land as `{ok:false, id, error}` without
- * taking the whole batch down.
+ * Falls back to per-record `db.$transaction` in `Promise.allSettled`
+ * batches of 10 so bad rows land as `{ok:false, id, error}` without
+ * taking the whole batch down, and concurrency stays bounded.
  *
  * Idempotency — ULID `id` on parent AND every child file.
  * `onConflictDoNothing("id")` silently skips existing rows on retry. The
@@ -42,18 +43,31 @@ export async function pushJournalEntryCreatesService(
 		);
 	}
 
+	// Per-record fallback: each row runs in its own `db.$transaction` so a bad
+	// row does not poison siblings. Batches of 10 cap concurrency. Output is
+	// indexed 1:1 with `input.creates` (order preserved).
 	const results: JournalEntryPushCreatesResult[] = [];
-	for (const c of input.creates) {
-		try {
-			const row = await insertOne(c, authorUserId, activeTeamId);
-			results.push({ ok: true, id: c.id, row });
-		} catch (err) {
-			results.push({
-				ok: false,
-				id: c.id,
-				error: err instanceof Error ? err.message : String(err),
-			});
-		}
+	for (let i = 0; i < input.creates.length; i += 10) {
+		const batch = input.creates.slice(i, i + 10);
+		const settled = await Promise.allSettled(
+			batch.map((rec) => db.$transaction(() => insertOne(rec, authorUserId, activeTeamId))),
+		);
+		settled.forEach((result, idx) => {
+			const rec = batch[idx];
+			if(!rec) {
+				throw new Error("[journalEntries.pushCreates] Batch index out of bounds in fallback");
+			}
+			if (result.status === "fulfilled") {
+				results.push({ ok: true, id: rec.id, row: result.value });
+			} else {
+				results.push({
+					ok: false,
+					id: rec.id,
+					error:
+						result.reason instanceof Error ? result.reason.message : String(result.reason),
+				});
+			}
+		});
 	}
 	return { results };
 }

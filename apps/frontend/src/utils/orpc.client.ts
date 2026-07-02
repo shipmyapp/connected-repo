@@ -6,6 +6,7 @@ import { toast } from 'react-toastify';
 import type { UserAppRouter, UserAppRouterInputs, UserAppRouterOutputs } from "../../../backend/src/routers/user_app/user_app.router";
 import { getActiveTeamIdReady } from "./active_team_header.client";
 import { signout } from './signout.utils';
+import { switchGate } from './switch_gate';
 
 interface ClientContext {
   something?: string
@@ -13,11 +14,22 @@ interface ClientContext {
 
 const link = new RPCLink<ClientContext>({
   url: `${env.VITE_API_URL}/user-app`,
-  // Async by design: awaits the header-cache readiness signal so no
-  // request goes out before the cache has been seeded at least once
-  // (authLoader on main, dataProxy.sync.setActiveTeamId on worker).
-  // After the first seed, this resolves near-instantly.
-  headers: async ({ context }) => {
+  // Async by design: awaits two barriers before every outbound request.
+  //   1. `switchGate.waitOpen()` — blocks during a team switch so the
+  //      header, worker cache, and backend session cannot disagree.
+  //      Rejects after the gate's default timeout so a hung switch
+  //      surfaces as a retriable error instead of piling up requests.
+  //      The `teams.setActiveTeam` RPC itself is exempt — it is the
+  //      operation that drives the switch, and gating it would deadlock
+  //      the very code that is meant to reopen the gate.
+  //   2. `getActiveTeamIdReady()` — first-seed signal for the header
+  //      cache (authLoader on main, dataProxy.sync.setActiveTeamId on
+  //      worker). After the first seed, this resolves near-instantly.
+  headers: async ({ context }, path) => {
+    const isSwitchRpc = path[0] === 'teams' && path[1] === 'setActiveTeam';
+    if (!isSwitchRpc) {
+      await switchGate.waitOpen();
+    }
     const teamId = await getActiveTeamIdReady();
     const headers: Record<string, string> = {
       Authorization: 'Bearer token',

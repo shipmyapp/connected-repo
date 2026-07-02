@@ -12,6 +12,44 @@ export interface RateLimitCheckResult {
 }
 
 /**
+ * Debounced high-contention warning. When the optimistic-lock retry loop
+ * exhausts for a given bucket, we log at most once per key per 60s to avoid
+ * flooding the log stream during hot-loop contention (which by design causes
+ * many rapid retries per second).
+ *
+ * Map is process-local — good enough for observability signal ("this key is
+ * hot"); not a strict distributed guarantee. Bounded by unique-keys-per-60s,
+ * with periodic pruning below.
+ */
+const EXHAUSTION_LOG_DEBOUNCE_MS = 60_000;
+const exhaustionLastLoggedAt = new Map<string, number>();
+
+const logExhaustionOncePerMinute = (
+	key: string,
+	limit: number,
+	windowSeconds: number,
+	retries: number,
+): void => {
+	const now = Date.now();
+	const last = exhaustionLastLoggedAt.get(key);
+	if (last !== undefined && now - last < EXHAUSTION_LOG_DEBOUNCE_MS) return;
+	exhaustionLastLoggedAt.set(key, now);
+
+	// Opportunistic prune to keep the Map bounded when the process serves many
+	// distinct hot keys over time. O(n) but only runs when we would have logged.
+	if (exhaustionLastLoggedAt.size > 1000) {
+		for (const [k, t] of exhaustionLastLoggedAt) {
+			if (now - t >= EXHAUSTION_LOG_DEBOUNCE_MS) exhaustionLastLoggedAt.delete(k);
+		}
+	}
+
+	logger.info(
+		{ key, limit, windowSeconds, retries },
+		"[rateLimit] high contention — optimistic-lock retries exhausted (debounced 60s per key)",
+	);
+};
+
+/**
  * Token Bucket rate limiter — Postgres-backed with optimistic locking.
  *
  * Semantics: each `key` holds a bucket of `tokens`. The bucket regenerates
@@ -37,7 +75,7 @@ export const checkAndRecordRateLimit = async (
 				await db.rateLimits.create({
 					key,
 					tokens: limit - 1,
-					lastUpdatedAt: now,
+					lastUpdatedAt: new Date(now),
 				});
 				return {
 					allowed: true,
@@ -74,11 +112,11 @@ export const checkAndRecordRateLimit = async (
 		const updatedCount = await db.rateLimits
 			.where({
 				key,
-				lastUpdatedAt: current.lastUpdatedAt,
+				lastUpdatedAt: new Date(current.lastUpdatedAt),
 			})
 			.update({
 				tokens: tokens - 1,
-				lastUpdatedAt: now,
+				lastUpdatedAt: new Date(now),
 			});
 
 		if (updatedCount === 0) {
@@ -96,5 +134,6 @@ export const checkAndRecordRateLimit = async (
 	}
 
 	logger.warn({ key, limit, windowSeconds, retries: MAX_RETRIES }, "[rateLimit] optimistic lock exhausted — shedding as rate-limited");
+	logExhaustionOncePerMinute(key, limit, windowSeconds, MAX_RETRIES);
 	return { allowed: false, currentCount: limit, limit, retryAfterSeconds: 1 };
 };

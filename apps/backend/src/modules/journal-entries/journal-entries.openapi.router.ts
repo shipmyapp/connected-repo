@@ -1,4 +1,5 @@
 import { db } from "@backend/db/db";
+import { getRequestContext } from "@backend/lib/request-context";
 import { incrementSubscriptionUsage } from "@backend/modules/subscriptions/services/increment_usage.subscriptions.service";
 import { openApiAuthProcedure } from "@backend/procedures/open_api_auth.procedure";
 import { captureBackendException } from "@backend/utils/backend-error-tracking.utils";
@@ -41,12 +42,25 @@ const createJournalEntryRequest = openApiAuthProcedure
 		// The actual entry creation and usage increment happen asynchronously.
 		// Failures are captured to Sentry so they aren't silently swallowed as
 		// floating promise rejections after the success response has been sent.
+		//
+		// `teamApi` (external API-key consumer) and `teams_app` (user workspace)
+		// are independent tenancy models — see `teams_api.table.ts`. OpenAPI
+		// requests don't run inside an active-team ALS scope, so
+		// `getRequestContext()` is typically undefined here and the feature-flag
+		// resolver falls back to the global `subscriptions.alert_webhook_enabled`
+		// row. If a future code path invokes this handler from inside a
+		// tenant-scoped ALS run, the tenant override is respected automatically.
+		const tenantTeamId = getRequestContext()?.tenantTeamId ?? null;
 		db.$transaction(async () => {
 			const entry = await db.journalEntries
 				.create(input.data)
 				.onConflictDoNothing();
 			if (entry) {
-				await incrementSubscriptionUsage(subscription.subscriptionId, teamApi);
+				await incrementSubscriptionUsage(
+					subscription.subscriptionId,
+					teamApi,
+					tenantTeamId,
+				);
 			}
 			return entry;
 		}).catch((err) =>

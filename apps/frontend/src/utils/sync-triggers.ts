@@ -92,13 +92,17 @@ export function onLogout(): void {
 	}
 }
 
-// NOTE: `wipeLocalTeamData` (main-thread bridge) and the matching
-// `SyncOrchestratorApi.wipeTeamData` surface were removed intentionally —
-// they had no callers. The underlying DB helper (`worker/db/team_data.wipe.ts`)
-// is retained as a reusable primitive for when the leave-team /
-// remove-member UI handlers and the pull-delta "you-were-removed" server
-// signal are wired end-to-end. When that lands, restore the orchestrator
-// method + main-thread bridge together so callers pick a single surface.
+// NOTE: There is no explicit main-thread "wipe this team" bridge and
+// deliberately so — the pull pipeline in the DataWorker discovers
+// team-delete and self-membership-revoked tombstones inline (see
+// `SyncOrchestrator.collectTeamTombstones` /
+// `collectSelfMembershipTombstones`) and invokes
+// `wipeTeamDataFromDb(teamId)` from inside the cycle. When the currently
+// active team is the one that got wiped, the orchestrator broadcasts on
+// the `active-team-wiped` channel; `WorkspaceContext` listens and drives
+// the switch-gate flow (auto-switch to another team or force sign-out).
+// Adding a UI-facing wipe helper here would give callers a second entry
+// point that bypasses the switch-gate coordination — resist it.
 
 /**
  * Full teardown for tests / hard resets — terminates the workers.

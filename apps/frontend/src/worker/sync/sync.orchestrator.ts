@@ -1,15 +1,28 @@
 import type { TablesToSync } from "@connected-repo/zod-schemas/enums.zod";
+import type { TeamAppMemberSelectAll, TeamAppSelectAll } from "@connected-repo/zod-schemas/team_app.zod";
 import { journalEntriesDb } from "../../modules/journal-entries/worker/journal-entries.db";
 import { promptsDb } from "../../modules/prompts/worker/prompts.db";
+import {
+	ACTIVE_TEAM_WIPED_CHANNEL,
+	type ActiveTeamWipedMessage,
+} from "../../utils/active_team_wiped.channel";
 import { orpcFetch } from "../../utils/orpc.client";
 import { initDb } from "../db/db.lifecycle";
 import { subscribe } from "../db/db.manager";
 import { filesDb } from "../db/files.db";
 import { syncMetadataDb } from "../db/sync_metadata.db";
+import { wipeTeamDataFromDb } from "../db/team_data.wipe";
 import { teamMembersDb } from "../db/team_members.db";
 import { teamsAppDb } from "../db/teams_app.db";
 import { setActiveTeamId as _setActiveTeamId, getActiveTeamId } from "./active_team";
 import { fileUploadWorker } from "./file_upload.worker";
+
+// Producer-side channel for the "your active team is gone" signal.
+// Guarded because unit-test environments may lack `BroadcastChannel`.
+const activeTeamWipedChannel: BroadcastChannel | null =
+	typeof BroadcastChannel !== "undefined"
+		? new BroadcastChannel(ACTIVE_TEAM_WIPED_CHANNEL)
+		: null;
 
 /**
  * Public Comlink-facing surface. Explicit interface so TypeScript can
@@ -22,6 +35,7 @@ export interface SyncOrchestratorApi {
 	stop(): void;
 	setActiveTeamId(id: string | null): void;
 	processQueue(): Promise<void>;
+	waitForReady(): Promise<void>;
 }
 
 /**
@@ -52,6 +66,15 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 	private intervalHandle: ReturnType<typeof setInterval> | null = null;
 	private initialisedForUserId: string | null = null;
 
+	// Resolves once `initForUser` has opened the per-user Dexie DB.
+	// Used by `mirrorToLocalDb` so callers can fire the mirror before
+	// `initForUser` has been invoked (e.g. `authLoader`) — the write
+	// queues until the DB is open.
+	private readyResolve!: () => void;
+	private readyPromise: Promise<void> = new Promise((resolve) => {
+		this.readyResolve = resolve;
+	});
+
 	private readonly WAVE_ORDER: TablesToSync[] = [
 		"teamsApp",
 		"teamMembers",
@@ -67,10 +90,14 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 	 * the active team.
 	 */
 	async initForUser(userId: string): Promise<void> {
-		if (this.initialisedForUserId === userId) return;
+		if (this.initialisedForUserId === userId) {
+			this.readyResolve();
+			return;
+		}
 
 		await initDb(userId);
 		this.initialisedForUserId = userId;
+		this.readyResolve();
 
 		// Clear active team on user switch — the main thread will push
 		// the fresh team id in via `setActiveTeamId` after user login.
@@ -79,13 +106,24 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 		if (this.intervalHandle) return; // triggers already registered
 
 		// Trigger #4: any local write fans out here via BroadcastChannel.
+		//
+		// Two guards keep this from ping-ponging with our own writes:
+		//
+		// 1. `teamsApp` / `teamMembers` aren't listened for at all — the
+		//    only writers to those Dexie tables are our own pull pipeline
+		//    and `wipeTeamDataFromDb`, both invoked from inside a running
+		//    cycle. Listening for them guaranteed a self-trigger every
+		//    cycle.
+		// 2. For `journalEntries` / `files` — which CAN be user-written —
+		//    ignore notifications while `isProcessing` is set. Those
+		//    fire from our own bulkUpsert/overwrite calls during a cycle.
+		//    User writes that land during a cycle are still covered: the
+		//    main thread's post-write kick calls `processQueue()` directly
+		//    via Comlink, which sets `needsRescan` from inside the method
+		//    itself; the 60s interval is a further safety net.
 		subscribe((table) => {
-			if (
-				table === "journalEntries" ||
-				table === "files" ||
-				table === "teamsApp" ||
-				table === "teamMembers"
-			) {
+			if (this.isProcessing) return;
+			if (table === "journalEntries" || table === "files") {
 				this.processQueue();
 			}
 		});
@@ -108,30 +146,35 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 		}
 	}
 
+	waitForReady(): Promise<void> {
+		return this.readyPromise;
+	}
+
 	setActiveTeamId(id: string | null): void {
 		_setActiveTeamId(id);
 		if (id) this.processQueue();
 	}
 
-	// NOTE: `wipeTeamData(teamId)` orchestrator method was removed — it had
-	// no callers. The DB helper `worker/db/team_data.wipe.ts` is retained
-	// for when leave-team / remove-member handlers and the pull-delta
-	// "you-were-removed" signal are wired. Restore this surface then so
-	// the main-thread bridge and orchestrator API move together.
+	// Team-wipe wiring:
 	//
-	// When restored, the wipe MUST coordinate with an in-flight `runCycle`
-	// or the local DB ends in a mixed state: the wipe transaction deletes
-	// rows while a still-running pull writes freshly-pulled rows back
-	// under the wiped team's cursor. Two acceptable strategies:
-	//   1. Bump a monotonic `generation` counter here, capture it at the
-	//      top of `runCycle`, and re-check it in `isContextStillValid`
-	//      (or between waves) so the cycle aborts cleanly before its
-	//      next write.
-	//   2. Await the current cycle's promise before running the wipe
-	//      transaction (serialising behind the `isProcessing` lock).
-	// Clearing the active team via `_setActiveTeamId(null)` alone is NOT
-	// sufficient — the running cycle has already captured the old teamId
-	// in `runCycle`'s closure and will keep writing under it.
+	//   The pull pipeline itself detects the two "you no longer belong
+	//   here" signals — a tombstoned `teams` row we already have locally,
+	//   or a tombstoned `team_members` row for the current user. Both
+	//   arrive as soft-deleted rows because `sync_delta.sync.service.ts`
+	//   explicitly `.includeDeleted()` on every pull. Detection runs
+	//   INLINE inside `runCycle` (right after the relevant pull's
+	//   bulkUpsert) so the concurrency hazard doesn't exist: we're
+	//   already holding `isProcessing`, so no other cycle can be
+	//   overwriting our wipe.
+	//
+	//   The wipe happens BEFORE the push pipeline runs — otherwise we'd
+	//   push mutations for a team we no longer belong to. If the wiped
+	//   team is the currently-active team, we broadcast on
+	//   `active-team-wiped` so `WorkspaceContext` can drive the switch-
+	//   gate flow (auto-switch to another team the user still belongs
+	//   to, or force sign-out). The orchestrator itself cannot invoke
+	//   the switch — the switch needs the router revalidator and the
+	//   React Query cache, both of which live on the main thread.
 
 	/**
 	 * Entry point for every trigger. Locks against concurrent runs; if a
@@ -175,71 +218,126 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 	}
 
 	private async runCycle(teamId: string): Promise<void> {
-		const expectedUserId = this.initialisedForUserId;
-		if (!expectedUserId) return;
+		// Guard the DB-swap case: `initForUser` must have run and the
+		// active user must still match what we opened the DB for. If a
+		// different user signed in between scheduling and running this
+		// cycle, bail before touching any DB.
+		if (!this.initialisedForUserId) return;
+
+		// Team-switch drift is handled STRUCTURALLY by `switchGate` at the
+		// ORPC link boundary — the gate is closed before the header cache
+		// flips, so no RPC inside this cycle can straddle a switch. The
+		// per-write context-validity checks are therefore redundant. We
+		// still confirm the header cache matches what `processQueue`
+		// captured, in case a switch completed between the capture and
+		// the cycle actually starting.
+		const currentTeamAtStart = getActiveTeamId();
+		if (currentTeamAtStart !== teamId) {
+			// biome-ignore lint/suspicious/noConsole: cycle-start mismatch is a legitimate diagnostic
+			console.warn(
+				`[SyncOrchestrator] active team changed before cycle start (expected=${teamId}, got=${currentTeamAtStart}); aborting`,
+			);
+			return;
+		}
 
 		// Kick off file uploads in parallel — they don't need the sync
 		// wave order and can run alongside the pull pipeline.
 		void fileUploadWorker.run();
 
-		// Wave 1 — anchor: mints `topLevelSyncedAt` and pulls team rows.
-		const topLevelSyncedAt = await this.pullTeamsApp(teamId, expectedUserId);
-		if (topLevelSyncedAt === null) return; // DB swapped or team switched, abort cycle.
+		// Set collects team ids the pull pipeline discovered are gone
+		// (team-deleted tombstone or self-membership-revoked tombstone).
+		// Populated inline by `pullTeamsApp` and `pullTable("teamMembers")`;
+		// drained AFTER the pull pipeline completes and BEFORE the push
+		// pipeline runs so we never push mutations for a wiped team.
+		const teamsToWipe = new Set<string>();
 
-		// Push and pull run as two parallel pipelines walking the remaining
-		// waves. Match the tezi model: `Future.wait([push, pull])`.
-		await Promise.all([
-			this.runPushPipeline(teamId, expectedUserId),
-			this.runPullPipeline(teamId, topLevelSyncedAt, expectedUserId),
-		]);
+		// Wave 1 — anchor: mints `topLevelSyncedAt` and pulls team rows.
+		const topLevelSyncedAt = await this.pullTeamsApp(teamId, teamsToWipe);
+
+		// The push pipeline used to run in parallel with the pull pipeline,
+		// but wipe-driven tombstones force serialisation: we cannot start
+		// pushing until we know which teams (if any) are gone. Doing this
+		// serially costs one extra round-trip on the happy path — an
+		// acceptable price to avoid pushing writes to a team the user was
+		// just booted from.
+		await this.runPullPipeline(teamId, topLevelSyncedAt, teamsToWipe);
+		await this.processTeamWipes(teamId, teamsToWipe);
+		await this.runPushPipeline(teamId);
 	}
 
+	// ─── Team-wipe handling ────────────────────────────────────────────
+
 	/**
-	 * True if the sync context is still what we captured at cycle start.
-	 * If either the user was swapped (DB reboot) or the active team was
-	 * swapped mid-cycle, subsequent RPC responses target a DIFFERENT team
-	 * and MUST NOT be written under the captured `teamId`'s cursor — that
-	 * would advance the old team's cursor past rows we never persisted,
-	 * causing permanent data loss when the user returns to it.
+	 * Drain the `teamsToWipe` set: for each team, purge every local trace
+	 * (rows + OPFS blobs) via `wipeTeamDataFromDb`. If the currently-
+	 * active team is in the set, broadcast on `active-team-wiped` so the
+	 * main thread can drive the switch-gate flow — the orchestrator
+	 * itself has no access to the router revalidator or the React Query
+	 * cache, so it cannot perform the switch here.
 	 */
-	private isContextStillValid(expectedTeamId: string, expectedUserId: string): boolean {
-		if (this.initialisedForUserId !== expectedUserId) return false;
-		if (getActiveTeamId() !== expectedTeamId) {
-			// biome-ignore lint/suspicious/noConsole: surfacing mid-cycle team switch aborts helps diagnose sync gaps
-			console.warn(
-				"[SyncOrchestrator] active team changed mid-cycle; aborting write to preserve old team's cursor",
-			);
-			return false;
+	private async processTeamWipes(
+		activeTeamId: string,
+		teamsToWipe: Set<string>,
+	): Promise<void> {
+		if (teamsToWipe.size === 0) return;
+
+		let activeTeamWiped = false;
+		for (const wipedTeamId of teamsToWipe) {
+			try {
+				await wipeTeamDataFromDb(wipedTeamId);
+				if (wipedTeamId === activeTeamId) activeTeamWiped = true;
+			} catch (err) {
+				// biome-ignore lint/suspicious/noConsole: same rationale as other pull failures
+				console.warn(`[SyncOrchestrator] wipe for team ${wipedTeamId} failed`, err);
+			}
 		}
-		return true;
+
+		if (activeTeamWiped) {
+			// Clear the worker-side cache immediately so the current cycle's
+			// remaining work doesn't try to write against a wiped team.
+			_setActiveTeamId(null);
+			const msg: ActiveTeamWipedMessage = {
+				type: "active-team-wiped",
+				wipedTeamId: activeTeamId,
+			};
+			try {
+				activeTeamWipedChannel?.postMessage(msg);
+			} catch (err) {
+				// biome-ignore lint/suspicious/noConsole: broadcast failures should surface in devtools
+				console.warn("[SyncOrchestrator] failed to broadcast active-team-wiped", err);
+			}
+		}
 	}
 
 	// ─── Pull pipeline ─────────────────────────────────────────────────
 
-	private async pullTeamsApp(teamId: string, expectedUserId: string): Promise<number | null> {
+	private async pullTeamsApp(
+		teamId: string,
+		teamsToWipe: Set<string>,
+	): Promise<number> {
 		const cursor = await syncMetadataDb.getCursor("teamsApp", teamId);
 		const res = await orpcFetch.teams.pullBundles({
 			syncMetadata: cursor ?? null,
 		});
-		if (!this.isContextStillValid(teamId, expectedUserId)) return null;
 		await teamsAppDb.bulkUpsert(res.rows);
+		this.collectTeamTombstones(res.rows, teamsToWipe);
 		await syncMetadataDb.saveCursor("teamsApp", teamId, res.syncMetadata);
 		await syncMetadataDb.saveTopLevelSyncedAt(teamId, res.topLevelSyncedAt);
 		return res.topLevelSyncedAt;
 	}
 
-	private async runPullPipeline(teamId: string, topLevelSyncedAt: number, expectedUserId: string): Promise<void> {
+	private async runPullPipeline(
+		teamId: string,
+		topLevelSyncedAt: number,
+		teamsToWipe: Set<string>,
+	): Promise<void> {
 		// Waves after the anchor. Run sequentially — order preserves the
 		// dependency: team members reference teams, journal entries
 		// reference teams and members, files reference journal entries.
 		for (const table of this.WAVE_ORDER) {
 			if (table === "teamsApp") continue;
-			// Short-circuit if the team was swapped between waves — the next
-			// RPC would target the new team, but its results would be keyed
-			// under the old team's cursor.
-			if (getActiveTeamId() !== teamId) return;
 			try {
-				await this.pullTable(table, teamId, topLevelSyncedAt, expectedUserId);
+				await this.pullTable(table, teamId, topLevelSyncedAt, teamsToWipe);
 			} catch (err) {
 				// biome-ignore lint/suspicious/noConsole: table-level failures shouldn't kill the whole cycle
 				console.warn(`[SyncOrchestrator] pull ${table} failed`, err);
@@ -251,7 +349,7 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 		table: TablesToSync,
 		teamId: string,
 		topLevelSyncedAt: number,
-		expectedUserId: string,
+		teamsToWipe: Set<string>,
 	): Promise<void> {
 		const cursor = await syncMetadataDb.getCursor(table, teamId);
 		const input = {
@@ -261,52 +359,84 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 
 		if (table === "teamMembers") {
 			const res = await orpcFetch.teams.pullMembersDelta(input);
-			if (!this.isContextStillValid(teamId, expectedUserId)) return;
 			await teamMembersDb.bulkUpsert(res.rows);
+			this.collectSelfMembershipTombstones(res.rows, teamsToWipe);
 			await syncMetadataDb.saveCursor(table, teamId, res.syncMetadata);
 			return;
 		}
 		if (table === "prompts") {
 			const res = await orpcFetch.prompts.pullBundles(input);
-			if (!this.isContextStillValid(teamId, expectedUserId)) return;
 			await promptsDb.bulkUpsert(res.rows);
 			await syncMetadataDb.saveCursor(table, teamId, res.syncMetadata);
 			return;
 		}
 		if (table === "journalEntries") {
 			const res = await orpcFetch.journalEntries.pullBundles(input);
-			if (!this.isContextStillValid(teamId, expectedUserId)) return;
 			await journalEntriesDb.bulkUpsertFromServer(res.rows);
 			await syncMetadataDb.saveCursor(table, teamId, res.syncMetadata);
 			return;
 		}
 		if (table === "files") {
 			const res = await orpcFetch.files.pullBundles(input);
-			if (!this.isContextStillValid(teamId, expectedUserId)) return;
 			await filesDb.bulkUpsertFromServer(res.rows);
 			await syncMetadataDb.saveCursor(table, teamId, res.syncMetadata);
 			return;
 		}
 	}
 
+	/**
+	 * Every `teams` row with a non-null `deletedAt` is a tombstone —
+	 * server-side, the team was soft-deleted. The client has been
+	 * `bulkUpsert`ing the tombstone into `teamsApp`; we now flag it for
+	 * wipe so the rest of its local footprint (members, journal entries,
+	 * files, OPFS blobs, sync cursors) goes with it.
+	 */
+	private collectTeamTombstones(
+		rows: TeamAppSelectAll[],
+		teamsToWipe: Set<string>,
+	): void {
+		for (const row of rows) {
+			if (row.deletedAt !== null) teamsToWipe.add(row.id);
+		}
+	}
+
+	/**
+	 * A tombstoned `team_members` row belonging to the CURRENT user is
+	 * the "you were removed" signal. Rows for OTHER users' removals are
+	 * ignored — those get evicted by the bulkUpsert but the team itself
+	 * is still alive for us.
+	 */
+	private collectSelfMembershipTombstones(
+		rows: TeamAppMemberSelectAll[],
+		teamsToWipe: Set<string>,
+	): void {
+		const selfUserId = this.initialisedForUserId;
+		if (!selfUserId) return;
+		for (const row of rows) {
+			if (row.deletedAt !== null && row.userId === selfUserId) {
+				teamsToWipe.add(row.teamId);
+			}
+		}
+	}
+
 	// ─── Push pipeline ─────────────────────────────────────────────────
 
-	private async runPushPipeline(teamId: string, expectedUserId: string): Promise<void> {
+	private async runPushPipeline(teamId: string): Promise<void> {
 		try {
-			await this.pushJournalEntryCreates(teamId, expectedUserId);
+			await this.pushJournalEntryCreates(teamId);
 		} catch (err) {
 			// biome-ignore lint/suspicious/noConsole: same rationale as pull failures
 			console.warn("[SyncOrchestrator] pushJournalEntryCreates failed", err);
 		}
 		try {
-			await this.pushFileCdnUpdates(teamId, expectedUserId);
+			await this.pushFileCdnUpdates();
 		} catch (err) {
 			// biome-ignore lint/suspicious/noConsole: intentional — surface push failure so devs know CDN upgrade path stalled
 			console.warn("[SyncOrchestrator] pushFileCdnUpdates failed", err);
 		}
 	}
 
-	private async pushJournalEntryCreates(teamId: string, expectedUserId: string): Promise<void> {
+	private async pushJournalEntryCreates(teamId: string): Promise<void> {
 		const pending = await journalEntriesDb.getPending(teamId);
 		if (pending.length === 0) return;
 
@@ -344,7 +474,6 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 		);
 
 		const res = await orpcFetch.journalEntries.pushCreates({ creates });
-		if (!this.isContextStillValid(teamId, expectedUserId)) return;
 
 		for (const result of res.results) {
 			if (result.ok && result.row) {
@@ -355,7 +484,7 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 		}
 	}
 
-	private async pushFileCdnUpdates(teamId: string, expectedUserId: string): Promise<void> {
+	private async pushFileCdnUpdates(): Promise<void> {
 		const rows = await filesDb.getCdnUpdatesNeedingPush();
 		if (rows.length === 0) return;
 
@@ -368,7 +497,6 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 		}));
 
 		const res = await orpcFetch.files.pushCdnUpdates({ updates });
-		if (!this.isContextStillValid(teamId, expectedUserId)) return;
 
 		for (const result of res.results) {
 			const row = rows.find((r) => r.id === result.id);

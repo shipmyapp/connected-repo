@@ -1,11 +1,9 @@
 import {
 	subscriptionAlertWebhookTaskDef,
-	systemTenantStatsRollupTaskDef,
 	userCreatedEventDef,
 	userReminderTaskDef,
 } from "@backend/events/events.schema";
 import { reminderNotificationJournalEntryHandler } from "@backend/modules/journal-entries/notifications/reminder.notifications.journal_entries";
-import { tenantStatsRollupHandler } from "@backend/modules/system/handlers/tenant_stats_rollup.handler";
 import { userCreatedNotificationHandler } from "@backend/modules/users/notifications/user_created.notifications.user";
 import { subscriptionAlertWebhookHandler } from "@backend/modules/webhook_calls/handlers/subscription_alert_webhook.handler";
 import { captureBackendException } from "@backend/utils/backend-error-tracking.utils";
@@ -59,13 +57,6 @@ export const startEventBus = (): Promise<void> => {
 				createTaskHandler({
 					taskDef: subscriptionAlertWebhookTaskDef,
 					handler: subscriptionAlertWebhookHandler,
-				}),
-			);
-
-			tbus.registerTask(
-				createTaskHandler({
-					taskDef: systemTenantStatsRollupTaskDef,
-					handler: tenantStatsRollupHandler,
 				}),
 			);
 

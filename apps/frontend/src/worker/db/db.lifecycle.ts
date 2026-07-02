@@ -1,4 +1,5 @@
 import Dexie from "dexie";
+import { OPFSManager } from "../utils/opfs.manager";
 import { ClientDatabase, DEXIE_DB_NAME_PREFIX, dbNameFor } from "./db.manager";
 
 /**
@@ -41,6 +42,19 @@ export async function initDb(userId: string): Promise<ClientDatabase> {
 		const stale = existingNames.filter(
 			(n) => n.startsWith(DEXIE_DB_NAME_PREFIX) && n !== targetName,
 		);
+
+		// If we're transitioning to a DIFFERENT user (either from a signed-in
+		// prior user OR from a cold boot where a stale Dexie DB was left on
+		// disk), the OPFS `files/` tree still holds the previous user's
+		// pending-upload blobs. Wipe it recursively so the incoming user
+		// never sees residual bytes. Skip when the incoming user IS the
+		// prior current user (idempotent init for the same user).
+		const priorUserIsDifferent = currentUserId !== null && currentUserId !== userId;
+		const staleDbExists = stale.length > 0;
+		if (priorUserIsDifferent || staleDbExists) {
+			await OPFSManager.wipeDirectory("files");
+		}
+
 		await Promise.all(stale.map((n) => Dexie.delete(n)));
 
 		const db = new ClientDatabase(targetName);

@@ -18,7 +18,7 @@ import {
 import { useActiveTeamId } from "@frontend/contexts/WorkspaceContext";
 import { orpcFetch } from "@frontend/utils/orpc.client";
 import { orpc } from "@frontend/utils/orpc.tanstack.client";
-import { getMediaProxy } from "@frontend/worker/worker.proxy";
+import { getDataProxy } from "@frontend/worker/worker.proxy";
 import { zodResolver } from "@hookform/resolvers/zod";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import EditNoteIcon from "@mui/icons-material/EditNote";
@@ -58,82 +58,70 @@ export function CreateJournalEntryForm() {
 			const entryId = data.id;
 
 			try {
-				// 1. Upload attachments (and any generated thumbnails) to the CDN,
-				//    then register File rows pointing at the resulting URLs.
+				// 1. Stage every picked file to OPFS and create the local
+				//    `files` rows in `mainUploadState: "pending"`. The
+				//    `FileUploadWorker` (via `sync.processQueue`) then drains
+				//    the queue in the background: presign → PUT → mark
+				//    `uploaded_to_cdn` → `files.pushCdnUpdates`. This is the
+				//    ONE upload path — online and offline follow it
+				//    identically. The form submit no longer blocks on the
+				//    CDN round-trip.
+				const dataProxy = await getDataProxy();
 				if (attachments.length > 0) {
-					const mediaProxy = await getMediaProxy();
-
-					// Upload main files + thumbnails in one batched presigned-URL
-					// round-trip. Thumbnails get their own fresh ULID (the backend
-					// schema requires a strict ULID and embeds it in the S3 key);
-					// parent pairing is recovered by position.
-					const mainUploads = attachments.map((a) => ({ id: a.id, file: a.file }));
-					const attachmentsWithThumbs = attachments.filter((a) => a.thumbnailFile);
-					const thumbUploads = attachmentsWithThumbs.map((a) => ({
-						id: ulid(),
-						file: a.thumbnailFile as File,
-					}));
-
-					const uploadResults = await mediaProxy.media.uploadFiles([
-						...mainUploads,
-						...thumbUploads,
-					]);
-
-					const mainResults = uploadResults.slice(0, mainUploads.length);
-					const thumbResults = uploadResults.slice(mainUploads.length);
-
-					const thumbCdnUrlById = new Map<string, string>();
-					attachmentsWithThumbs.forEach((a, i) => {
-						const result = thumbResults[i];
-						if (result?.success && result.cdnUrl) {
-							thumbCdnUrlById.set(a.id, result.cdnUrl);
-						}
-					});
-
 					await Promise.all(
-						attachments.map(async (attachment, idx) => {
-							const upload = mainResults[idx];
-							if (!upload?.success || !upload.cdnUrl) {
-								throw new Error(
-									`Upload failed for ${attachment.file.name}: ${upload?.error || "unknown error"}`,
-								);
-							}
-
-							await orpcFetch.files.create({
-								id: attachment.id,
+						attachments.map((a) =>
+							dataProxy.filesDb.upsertLocal({
+								id: a.id,
 								tableName: "journalEntries",
 								tableId: entryId,
-								type: "attachment",
-								fileName: attachment.file.name,
-								mimeType: attachment.file.type,
+								fileName: a.file.name,
+								mimeType: a.file.type,
+								blob: a.file,
 								teamId: teamId ?? null,
-								cdnUrl: upload.cdnUrl,
-								thumbnailCdnUrl: thumbCdnUrlById.get(attachment.id) ?? null,
-								isMainFileLost: false,
-							});
-						}),
+							}),
+						),
 					);
 				}
 
-				// 2. Persist the entry itself.
-				// `teamId` is NOT sent — the server derives it from
-				// `ctx.activeTeamId` so a client can't plant/relocate an entry
-				// into another tenant.
+				// 2. Persist the entry itself. Nested file metadata rides
+				//    with the parent so the server writes both parent and
+				//    file rows atomically; `cdnUrl` is NULL and the local
+				//    worker patches it in later via `files.pushCdnUpdates`.
+				//    `teamId` on parent AND nested files is NOT sent — the
+				//    server derives both from `ctx.activeTeamId` so a client
+				//    can't plant/relocate rows into another tenant.
 				await orpcFetch.journalEntries.create({
 					id: entryId,
 					content: data.content,
 					prompt: writingMode === "free" ? null : data.prompt ?? null,
 					promptId: writingMode === "free" ? null : randomPrompt?.id ?? null,
+					files: attachments.map((a) => ({
+						id: a.id,
+						tableName: "journalEntries",
+						tableId: entryId,
+						type: "attachment",
+						fileName: a.file.name,
+						mimeType: a.file.type,
+						cdnUrl: null,
+						thumbnailCdnUrl: null,
+						isMainFileLost: false,
+					})),
 				});
 
-				// 3. Cleanup attachment state and revoke preview URLs.
+				// 3. Kick the sync queue so the FileUploadWorker starts
+				//    draining OPFS immediately (rather than waiting for the
+				//    next visibilitychange / focus / online / 60s trigger).
+				//    `processQueue` is idempotent so an early kick is safe.
+				void dataProxy.sync.processQueue();
+
+				// 4. Cleanup attachment state and revoke preview URLs.
 				attachments.forEach((a) => {
 					URL.revokeObjectURL(a.previewUrl);
 					if (a.thumbnailUrl) URL.revokeObjectURL(a.thumbnailUrl);
 				});
 				setAttachments([]);
 
-				// 4. Invalidate dependent queries and reset the form.
+				// 5. Invalidate dependent queries and reset the form.
 				queryClient.invalidateQueries({
 					queryKey: orpc.journalEntries.getAll.queryOptions().queryKey,
 				});

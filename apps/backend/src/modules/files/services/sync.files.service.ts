@@ -5,7 +5,6 @@ import type { FileSelectAll } from "@connected-repo/zod-schemas/file.zod";
 import type {
 	FilePullBundlesInput,
 	FilePullBundlesOutput,
-	FilePushCdnUpdateResult,
 	FilePushCdnUpdatesInput,
 	FilePushCdnUpdatesOutput,
 } from "@connected-repo/zod-schemas/files/sync";
@@ -42,107 +41,142 @@ const isAllowedCdnUrl = (url: string): boolean => {
  * device already created on the server. Called by the FileUploadWorker
  * after its CDN PUT succeeds.
  *
- * Locks every requested row inside one transaction (`forUpdate`), buckets
- * the patches by field, then writes each bucket. Cross-device concurrency:
- * URL fields are only written if the server column is still null — a
- * completed upload from another device cannot be clobbered. `isMainFileLost`
- * is a one-way flip.
+ * Shape: one SELECT FOR UPDATE locks every requested row, then a single
+ * `updateMany` call writes the patches. Roundtrips drop from
+ * O(2N) (per-row select + update) to O(1) regardless of batch size, and
+ * the lock window stays tight because everything runs in one transaction.
  *
- * Tenant safety: even though `FileTable`'s default scope already filters
- * every read by `tenantTeamId` from the request context, we ALSO pass the
- * caller's `activeTeamId` explicitly and require every candidate row to
- * match. This is defence-in-depth against a future accidental
- * `.unscope('default')` regression turning this into a cross-tenant write
- * (attacker patches another team's `cdnUrl` to a phishing/tracker host).
+ * Per-update semantics:
+ *   * cdnUrl / thumbnailCdnUrl — only fill if the server still has null,
+ *     so a concurrent upload from another device can't be clobbered.
+ *   * isMainFileLost           — one-way flip (false → true). Stays true.
+ *   * row missing              — return ok:false. The worker retries with
+ *     backoff; the row will appear once the parent's bundle lands.
+ *
+ * Tenant safety: `FileTable`'s default scope automatically filters every
+ * read and write by `tenantTeamId` from the request context.
  * URL patches are additionally origin-checked against the server's own
  * CDN allowlist so a compromised device still can't inject a foreign URL.
  */
 export async function pushFilesCdnUpdatesService(
 	input: FilePushCdnUpdatesInput,
-	activeTeamId: string,
 ): Promise<FilePushCdnUpdatesOutput> {
 	if (input.updates.length === 0) return { results: [] };
 
 	const ids = input.updates.map((u) => u.id);
 
-	const results = await db.$transaction(async () => {
+	return await db.$transaction(async () => {
 		// `forUpdate` serialises concurrent writers so the "only write if
-		// null" compare-and-set below is atomic across devices. `teamId`
-		// filter is redundant with the default scope but pinned here so any
-		// future scope regression can't turn this into a cross-tenant write.
+		// null" compare-and-set below is atomic across devices.
+		// Tenant scoping is handled automatically by FileTable's default scope.
+		// Any spoofed id belonging to another team is filtered out here and
+		// falls through to the "row missing" branch below.
 		const existing = await db.files
-			.where({ id: { in: ids }, teamId: activeTeamId })
+			.where({ id: { in: ids } })
 			.forUpdate()
 			.selectAll();
 		const byId = new Map<string, FileSelectAll>(
 			existing.map((r) => [r.id, r as FileSelectAll]),
 		);
 
-		// Run per-row UPDATEs concurrently: each patch targets a distinct id
-		// and `forUpdate` above already locked every row, so parallel writes
-		// are safe and collapse N round-trips into one. `Promise.all` on the
-		// mapped array preserves the original `input.updates` order.
-		const applyPatch = async (
-			patch: FilePushCdnUpdatesInput["updates"][number],
-		): Promise<FilePushCdnUpdateResult> => {
-			const current = byId.get(patch.id);
+		const patches: Array<{
+			id: string;
+			cdnUrl: string | null;
+			thumbnailCdnUrl: string | null;
+			isMainFileLost: boolean;
+		}> = [];
+
+		// Ids whose patch carried a URL that failed the origin allowlist.
+		// Tracked separately so we can still return per-row {ok:false} without
+		// letting the bad URL reach the DB.
+		const rejectedUrlIds = new Set<string>();
+
+		for (const u of input.updates) {
+			const current = byId.get(u.id);
+			if (!current) continue; // handled in the results-iteration below
+
+			// Reject non-allowlisted URLs BEFORE bucketing so a bad host can't
+			// slip into the updateMany payload. We mark the id as rejected and
+			// skip both URL buckets for this row; `isMainFileLost` on the same
+			// patch is still honoured because the flag isn't attacker-controlled
+			// URL content.
+			const cdnUrlBad =
+				u.cdnUrl != null && !isAllowedCdnUrl(u.cdnUrl);
+			const thumbUrlBad =
+				u.thumbnailCdnUrl != null && !isAllowedCdnUrl(u.thumbnailCdnUrl);
+			if (cdnUrlBad || thumbUrlBad) {
+				rejectedUrlIds.add(u.id);
+				continue;
+			}
+
+			let hasChange = false;
+			const patch = {
+				id: u.id,
+				cdnUrl: current.cdnUrl,
+				thumbnailCdnUrl: current.thumbnailCdnUrl,
+				isMainFileLost: current.isMainFileLost,
+			};
+
+			if (u.cdnUrl != null && current.cdnUrl == null) {
+				patch.cdnUrl = u.cdnUrl;
+				hasChange = true;
+			}
+			if (u.thumbnailCdnUrl != null && current.thumbnailCdnUrl == null) {
+				patch.thumbnailCdnUrl = u.thumbnailCdnUrl;
+				hasChange = true;
+			}
+			if (u.isMainFileLost === true && current.isMainFileLost === false) {
+				patch.isMainFileLost = true;
+				hasChange = true;
+			}
+
+			if (hasChange) {
+				patches.push(patch);
+				// Reflect the just-written patches back into the in-memory rows so the
+				// response carries post-patch state without a second SELECT.
+				current.cdnUrl = patch.cdnUrl;
+				current.thumbnailCdnUrl = patch.thumbnailCdnUrl;
+				current.isMainFileLost = patch.isMainFileLost;
+			}
+		}
+
+		// Single round-trip regardless of batch size. Orchid ORM's updateMany
+		// requires all rows to have the same set of non-key columns, which we
+		// guarantee by echoing the current DB state for unmodified fields.
+		// These patches ALL came from the FOR UPDATE snapshot above, so
+		// overwriting with `current` is safe from race conditions.
+		if (patches.length > 0) {
+			await db.files.updateMany(patches);
+		}
+
+		// Preserve per-row ok/error ordering matching `input.updates`.
+		const results = input.updates.map((u) => {
+			const current = byId.get(u.id);
 			if (!current) {
 				// Same error shape for "wrong tenant" and "row missing" so we
 				// don't leak whether the id exists in another team.
 				return {
-					ok: false,
-					id: patch.id,
-					error: "File row not found — parent bundle likely hasn't landed yet",
+					ok: false as const,
+					id: u.id,
+					error:
+						"File row not found — parent bundle likely hasn't landed yet",
 				};
 			}
-
-			if (patch.cdnUrl && !isAllowedCdnUrl(patch.cdnUrl)) {
+			if (rejectedUrlIds.has(u.id)) {
 				return {
-					ok: false,
-					id: patch.id,
-					error: "cdnUrl host is not in the allowed CDN origins",
+					ok: false as const,
+					id: u.id,
+					error: "Not a permitted CDN URL",
 				};
 			}
-			if (
-				patch.thumbnailCdnUrl &&
-				!isAllowedCdnUrl(patch.thumbnailCdnUrl)
-			) {
-				return {
-					ok: false,
-					id: patch.id,
-					error: "thumbnailCdnUrl host is not in the allowed CDN origins",
-				};
-			}
+			// No-op (nothing to patch, or every URL already set) still returns
+			// ok:true with the current server row — the client uses this to
+			// confirm the server-side state.
+			return { ok: true as const, id: u.id, row: current };
+		});
 
-			const cols: Record<string, unknown> = {};
-			if (patch.cdnUrl && current.cdnUrl == null) cols.cdnUrl = patch.cdnUrl;
-			if (patch.thumbnailCdnUrl && current.thumbnailCdnUrl == null) {
-				cols.thumbnailCdnUrl = patch.thumbnailCdnUrl;
-			}
-			if (patch.isMainFileLost === true && current.isMainFileLost === false) {
-				cols.isMainFileLost = true;
-			}
-
-			// UPDATE ... RETURNING skips the refetch. If nothing changed
-			// (no-op patch), echo the pre-image we already have locked.
-			// The `.where({ teamId })` is redundant with the default scope but
-			// pinned so `.find()`'s primary-key shortcut can't slip past a
-			// future scope regression.
-			const row =
-				Object.keys(cols).length > 0
-					? ((await db.files
-							.where({ id: patch.id, teamId: activeTeamId })
-							.take()
-							.selectAll()
-							.update(cols)) as FileSelectAll)
-					: current;
-			return { ok: true, id: patch.id, row };
-		};
-
-		return await Promise.all(input.updates.map(applyPatch));
+		return { results };
 	});
-
-	return { results };
 }
 
 export async function pullFilesService(

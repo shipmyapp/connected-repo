@@ -1,4 +1,3 @@
-import { getDataProxy } from "../worker.proxy";
 import type { AppDbTable } from "./db.manager";
 
 /**
@@ -38,7 +37,7 @@ const DEFAULT_TIMEOUT_MS = 5_000;
  *   1. Local write immediately (UI shows the row).
  *   2. Race the online call against `timeoutMs`.
  *   3. On success: overwrite pending row with canonical server row.
- *   4. On failure: leave pending row, kick sync engine to retry.
+ *   4. On failure: leave pending row; sync-triggers.ts owns retry cadence.
  *
  * The same call site works whether the user is online or offline —
  * the pending row is the fallback, not a separate code path.
@@ -57,8 +56,7 @@ export async function createOnlineFirst<TInput, TServer>(
 	} catch (err) {
 		// biome-ignore lint/suspicious/noConsole: intentional — surface network failures so devs know sync kicked in
 		console.warn("[OnlineFirstAdapter] online path failed; deferring to sync queue", err);
-		const proxy = await getDataProxy();
-		void proxy.sync.processQueue();
+		// Sync is NOT triggered from here — trigger fan-out (sync-triggers.ts) owns retry cadence.
 		return { status: "savedOffline", error: err };
 	}
 }

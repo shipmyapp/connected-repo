@@ -63,8 +63,8 @@ const pushCdnUpdates = rpcProtectedActiveTeamProcedure
 	.route({ method: "POST", tags: ["Files"] })
 	.input(filePushCdnUpdatesInputZod)
 	.output(filePushCdnUpdatesOutputZod)
-	.handler(async ({ input, context: { activeTeamId } }) => {
-		return await pushFilesCdnUpdatesService(input, activeTeamId);
+	.handler(async ({ input }) => {
+		return await pushFilesCdnUpdatesService(input);
 	});
 
 const pullBundles = rpcProtectedActiveTeamProcedure

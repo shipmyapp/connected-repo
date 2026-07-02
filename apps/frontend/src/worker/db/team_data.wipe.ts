@@ -5,24 +5,38 @@ import { notifySubscribers } from "./db.manager";
 /**
  * Purge every local trace of a team.
  *
- * Called when the user leaves a team (or is removed from one) so their
- * local cache stops trying to sync it. Distinct from the per-user DB
- * wipe (`db.lifecycle.ts`) — this is one-team scoped; the DB file stays.
+ * Called from `SyncOrchestrator.runCycle` when a pull wave delivers a
+ * tombstone for either:
+ *   - a `teams` row the client already has locally (team deleted server-
+ *     side), or
+ *   - a `team_members` row for the current user (membership revoked).
  *
- * Wipes, in order:
- *   1. OPFS blobs for every file row in this team (pending uploads that
- *      never got to the CDN — no point keeping the bytes).
- *   2. `files` rows for this team (parent + orphan cleanup).
- *   3. `journal_entries` rows for this team.
- *   4. `team_members` rows for this team.
- *   5. The `teams_app` row itself.
- *   6. Every `sync_metadata` cursor scoped to this team so a rejoin
- *      pulls from scratch.
+ * Distinct from the per-user DB wipe in `db.lifecycle.ts` — this is
+ * one-team scoped; the DB file stays. Distinct from the OPFS wipe on
+ * user-switch — that blasts the whole `files/` tree; this one enumerates
+ * only the paths belonging to this team's file rows.
+ *
+ * Order matters:
+ *   1. Enumerate OPFS paths from the `files` rows BEFORE dropping them
+ *      (once rows are gone, we can't recover the paths).
+ *   2. In one Dexie transaction, delete: journal entries → files →
+ *      team members → the team row itself → every sync_metadata cursor
+ *      scoped to this team. All-or-nothing so a crash mid-wipe doesn't
+ *      leave orphan rows referencing a deleted team.
+ *   3. OPFS blobs are removed AFTER the transaction commits. Failures
+ *      leak disk space but don't corrupt the DB — a subsequent user-
+ *      switch will `wipeDirectory("files")` and reclaim them anyway.
+ *
+ * Notifies subscribers on every touched table so React Query hooks
+ * refetch and the UI reflects the wipe immediately.
  */
-export async function wipeTeamData(teamId: string): Promise<void> {
+export async function wipeTeamDataFromDb(teamId: string): Promise<void> {
 	const db = getClientDb();
 
-	// Fetch OPFS paths BEFORE dropping the file rows.
+	// Enumerate OPFS paths BEFORE the row delete — the paths only exist
+	// on the `files` rows we're about to drop. OPFS paths themselves are
+	// `files/{fileId}/...` (not team-scoped), so we can't derive them
+	// from teamId alone — we have to walk the rows.
 	const teamFiles = await db.files.where({ teamId }).toArray();
 	const opfsPaths = teamFiles.flatMap((f) =>
 		[f.mainOpfsPath, f.thumbnailOpfsPath].filter((p): p is string => !!p),

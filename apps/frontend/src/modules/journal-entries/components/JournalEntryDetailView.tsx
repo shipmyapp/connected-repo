@@ -89,6 +89,72 @@ export function JournalEntryDetailView({
 		return { icon: <FilePresentIcon sx={{ fontSize: 48, color: 'text.secondary' }} />, label: 'File', bgcolor: '#fafafa' };
 	};
 
+	// Renders the attachment preview with a two-step fallback chain:
+	//   thumbnail → main → icon-fallback
+	// Pre-fix legacy rows have a valid `url` but null `thumbnailUrl`
+	// (thumb PUT failed silently). Newer rows may still lose the thumb
+	// object to a bucket policy edit. Either way, showing the main image
+	// beats showing a "no image" glyph.
+	const AttachmentPreview = ({
+		file,
+	}: {
+		file: { url: string; thumbnailUrl?: string; name: string };
+	}) => {
+		const isImage = /\.(jpe?g|png|webp|gif|avif|svg|bmp|tiff?)$/i.test(file.name);
+		const [triedMain, setTriedMain] = useState(false);
+		const [failed, setFailed] = useState(false);
+
+		if (!isImage || failed || !file.url) {
+			const { icon, label, bgcolor } = getFileIcon(file.name);
+			return (
+				<Box
+					sx={{
+						width: "100%",
+						height: "100%",
+						display: "flex",
+						flexDirection: "column",
+						alignItems: "center",
+						justifyContent: "center",
+						bgcolor,
+						gap: 1,
+					}}
+				>
+					{icon}
+					<Typography variant="caption" color="text.secondary" fontWeight={600}>
+						{label}
+					</Typography>
+				</Box>
+			);
+		}
+
+		const src = triedMain ? file.url : file.thumbnailUrl || file.url;
+
+		return (
+			<Box
+				component="img"
+				src={src}
+				alt={file.name}
+				onError={() => {
+					if (
+						!triedMain &&
+						file.thumbnailUrl &&
+						file.thumbnailUrl !== file.url
+					) {
+						setTriedMain(true);
+					} else {
+						setFailed(true);
+					}
+				}}
+				sx={{
+					width: "100%",
+					height: "100%",
+					objectFit: "contain",
+					transition: "transform 0.3s ease-in-out",
+				}}
+			/>
+		);
+	};
+
 	return (
 		<Box>
 			{/* Back Button */}
@@ -264,37 +330,7 @@ export function JournalEntryDetailView({
 										}}
 										onClick={() => window.open(file.url, "_blank")}
 									>
-										{!file.thumbnailUrl ? (
-											<Box
-												sx={{
-													width: "100%",
-													height: "100%",
-													display: "flex",
-													flexDirection: "column",
-													alignItems: "center",
-													justifyContent: "center",
-													bgcolor: getFileIcon(file.name).bgcolor,
-													gap: 1
-												}}
-											>
-												{getFileIcon(file.name).icon}
-												<Typography variant="caption" color="text.secondary" fontWeight={600}>
-													{getFileIcon(file.name).label}
-												</Typography>
-											</Box>
-										) : (
-											<Box
-												component="img"
-												src={file.thumbnailUrl || file.url}
-												alt={file.name}
-												sx={{
-													width: "100%",
-													height: "100%",
-													objectFit: "contain",
-													transition: "transform 0.3s ease-in-out",
-												}}
-											/>
-										)}
+										<AttachmentPreview file={file} />
 										<Box
 											className="overlay"
 											sx={{

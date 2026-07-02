@@ -74,6 +74,32 @@ export class OPFSManager {
 		}
 	}
 
+	/**
+	 * Recursively remove a directory (and all files under it) from OPFS.
+	 * Used on user-switch to blast the entire per-origin `files/` tree so
+	 * the incoming user never sees the previous user's blob residency.
+	 */
+	static async wipeDirectory(path: string): Promise<void> {
+		try {
+			const root = await OPFSManager.getRoot();
+			const parts = path.split("/").filter(Boolean);
+			if (parts.length === 0) return;
+
+			const dirName = parts.pop();
+			if (!dirName) return;
+
+			let currentDir = root;
+			for (const part of parts) {
+				currentDir = await currentDir.getDirectoryHandle(part);
+			}
+
+			await currentDir.removeEntry(dirName, { recursive: true });
+		} catch (error) {
+			// biome-ignore lint/suspicious/noConsole: OPFS wipe misses are recoverable — the DB drop still fires
+			console.warn(`[OPFS] Failed to wipe directory at ${path}:`, error);
+		}
+	}
+
 	static async calculateChecksum(blob: Blob): Promise<string> {
 		const arrayBuffer = await blob.arrayBuffer();
 		const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);

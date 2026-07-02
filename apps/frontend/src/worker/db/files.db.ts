@@ -5,6 +5,24 @@ import { notifySubscribers } from "./db.manager";
 import type { FileUploadState, StoredFile } from "./schema.db.types";
 
 /**
+ * Compact input for the media-pick flow: everything the caller knows at
+ * pick time. Server-owned fields (`createdByUserId`, `teamId`,
+ * `createdAt`, `updatedAt`) are filled with client-side placeholders and
+ * overwritten by the server-authoritative echo (via
+ * `bulkUpsertFromServer` / `mergeFilesFromServer`) once the parent's
+ * `create` / `pushCreates` round-trip lands.
+ */
+export interface UpsertLocalFileInput {
+	id: string;
+	tableName: FileSelectAll["tableName"];
+	tableId: string;
+	fileName: string;
+	mimeType: string;
+	blob: Blob;
+	teamId?: string | null;
+}
+
+/**
  * File rows carry two pieces of state that pure metadata rows do not:
  *
  *   1. Per-layer upload state machine (main + thumbnail) — see
@@ -27,47 +45,57 @@ export const filesDb = {
 	},
 
 	/**
-	 * Local write for an offline-created file. Called by the media pick
-	 * flow. The blob is stripped from the object and written to OPFS
-	 * before Dexie sees the row.
+	 * Local write for a freshly-picked file — the single entry point for
+	 * BOTH online and offline flows. The blob is written to OPFS at a
+	 * deterministic per-id path and only the OPFS path + checksum land in
+	 * Dexie. The row starts in `mainUploadState: "pending"` so the
+	 * `FileUploadWorker` picks it up on the next trigger.
+	 *
+	 * Server-owned fields (`createdByUserId`, `createdAt`, `updatedAt`)
+	 * are stamped with placeholder values that the server-authoritative
+	 * echo overwrites once the parent's create round-trip lands. The
+	 * `thumbnail*` blob is NOT taken here — the worker generates it lazily
+	 * from the main OPFS blob during upload (mirrors tezi).
 	 */
-	async upsertLocal(
-		input: FileSelectAll & { _blob?: Blob; _thumbnailBlob?: Blob | null },
-	): Promise<StoredFile> {
-		const { _blob, _thumbnailBlob, ..._rest } = input;
-		const rest = _rest as FileSelectAll;
-
-		let mainOpfsPath: string | null = null;
-		let mainChecksum: string | null = null;
-		if (_blob) {
-			const ext = _blob.type.split("/").pop() ?? "bin";
-			mainOpfsPath = `files/${rest.id}/original.${ext}`;
-			mainChecksum = await OPFSManager.calculateChecksum(_blob);
-			await OPFSManager.saveFile(mainOpfsPath, _blob);
-		}
-
-		let thumbOpfsPath: string | null = null;
-		let thumbChecksum: string | null = null;
-		if (_thumbnailBlob) {
-			thumbOpfsPath = `files/${rest.id}/thumbnail.jpg`;
-			thumbChecksum = await OPFSManager.calculateChecksum(_thumbnailBlob);
-			await OPFSManager.saveFile(thumbOpfsPath, _thumbnailBlob);
-		}
+	async upsertLocal(input: UpsertLocalFileInput): Promise<StoredFile> {
+		const ext = input.blob.type.split("/").pop() ?? "bin";
+		const mainOpfsPath = `files/${input.id}/original.${ext}`;
+		const mainChecksum = await OPFSManager.calculateChecksum(input.blob);
+		await OPFSManager.saveFile(mainOpfsPath, input.blob);
 
 		const stored: StoredFile = {
-			...rest,
+			id: input.id,
+			tableName: input.tableName,
+			tableId: input.tableId,
+			type: "attachment",
+			fileName: input.fileName,
+			mimeType: input.mimeType,
+			// Placeholders — the server-authoritative echo overwrites these.
+			// `createdByUserId` is a valid-looking sentinel so Dexie's schema
+			// stays happy; the server never trusts it (auth context wins).
+			createdByUserId: "00000000-0000-0000-0000-000000000000",
+			teamId: input.teamId ?? null,
+			cdnUrl: null,
+			thumbnailCdnUrl: null,
+			deletedAt: null,
+			isMainFileLost: false,
+			createdAt: 0,
+			updatedAt: "0",
+			// Client-only upload-state machine — starts pending, worker drives.
 			mainUploadState: "pending",
 			mainUploadAttempts: 0,
 			mainLastError: null,
 			mainLastAttemptAt: null,
 			mainChecksum,
 			mainOpfsPath,
-			thumbnailUploadState: canGenerateThumbnail(rest.mimeType) ? "pending" : "not_attempted",
+			thumbnailUploadState: canGenerateThumbnail(input.mimeType)
+				? "pending"
+				: "not_attempted",
 			thumbnailUploadAttempts: 0,
 			thumbnailLastError: null,
 			thumbnailLastAttemptAt: null,
-			thumbnailChecksum: thumbChecksum,
-			thumbnailOpfsPath: thumbOpfsPath,
+			thumbnailChecksum: null,
+			thumbnailOpfsPath: null,
 			syncError: null,
 		};
 
@@ -83,24 +111,52 @@ export const filesDb = {
 			for (const row of rows) {
 				const existing = await getClientDb().files.get(row.id);
 				// Preserve client-only fields when the server row overwrites.
+				//
+				// `cdnUrl` / `thumbnailCdnUrl` / `isMainFileLost` are client-
+				// owned in the window between "uploaded to CDN" and
+				// "server acknowledged via pushCdnUpdates". If a pull runs
+				// during that window, the server row still has null/false
+				// for these fields — but the local row already has the
+				// authoritative post-PUT values queued for push. Falling
+				// back to `existing` when the server value is empty keeps
+				// the queued push intact; otherwise the next pushCdnUpdates
+				// sees a null and sends nothing, permanently stranding the
+				// upload.
+				const mergedCdnUrl = row.cdnUrl ?? existing?.cdnUrl ?? null;
+				const mergedThumbCdnUrl =
+					row.thumbnailCdnUrl ?? existing?.thumbnailCdnUrl ?? null;
+
+				// Server-heals-stuck-local. If the server row already has a
+				// CDN URL, force the corresponding local state to `uploaded`
+				// and clear any error. Without this, a per-device transient
+				// failure (`failed` / `abandoned` / `lost`) stays sticky
+				// forever even after the same file was uploaded on another
+				// device and mirrored down.
+				const serverHasMain = row.cdnUrl != null;
+				const serverHasThumb = row.thumbnailCdnUrl != null;
+
 				const merged: StoredFile = {
 					...row,
-					mainUploadState:
-						existing?.mainUploadState ?? (row.cdnUrl ? "uploaded" : "pending"),
+					cdnUrl: mergedCdnUrl,
+					thumbnailCdnUrl: mergedThumbCdnUrl,
+					isMainFileLost:
+						row.isMainFileLost || existing?.isMainFileLost || false,
+					mainUploadState: serverHasMain
+						? "uploaded"
+						: existing?.mainUploadState ?? "pending",
 					mainUploadAttempts: existing?.mainUploadAttempts ?? 0,
-					mainLastError: existing?.mainLastError ?? null,
+					mainLastError: serverHasMain ? null : existing?.mainLastError ?? null,
 					mainLastAttemptAt: existing?.mainLastAttemptAt ?? null,
 					mainChecksum: existing?.mainChecksum ?? null,
 					mainOpfsPath: existing?.mainOpfsPath ?? null,
-					thumbnailUploadState:
-						existing?.thumbnailUploadState ??
-						(row.thumbnailCdnUrl
-							? "uploaded"
-							: canGenerateThumbnail(row.mimeType)
-								? "pending"
-								: "not_attempted"),
+					thumbnailUploadState: serverHasThumb
+						? "uploaded"
+						: existing?.thumbnailUploadState ??
+							(canGenerateThumbnail(row.mimeType) ? "pending" : "not_attempted"),
 					thumbnailUploadAttempts: existing?.thumbnailUploadAttempts ?? 0,
-					thumbnailLastError: existing?.thumbnailLastError ?? null,
+					thumbnailLastError: serverHasThumb
+						? null
+						: existing?.thumbnailLastError ?? null,
 					thumbnailLastAttemptAt: existing?.thumbnailLastAttemptAt ?? null,
 					thumbnailChecksum: existing?.thumbnailChecksum ?? null,
 					thumbnailOpfsPath: existing?.thumbnailOpfsPath ?? null,

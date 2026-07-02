@@ -36,13 +36,21 @@ const getAll = rpcProtectedActiveTeamProcedure
 	});
 
 // Get journal entry by ID (scoped to the active team).
+//
+// Returns the entry with its `files` relation inlined so the caller has
+// the complete detail-view payload in one round-trip. Matches the shape
+// that `create` returns (same schema), keeping the frontend detail page
+// on a single query rather than an entry + files pair.
 const getById = rpcProtectedActiveTeamProcedure
 	.input(journalEntryGetByIdZod)
-	.output(journalEntrySelectAllZod)
+	.output(journalEntrySelectAllWithRelationsZod)
 	.handler(async ({ input: { id }, context: { user, activeTeamId } }) => {
 		return await db.journalEntries
 			.find(id)
-			.where({ authorUserId: user.id, teamId: activeTeamId });
+			.where({ authorUserId: user.id, teamId: activeTeamId })
+			.select("*", {
+				files: (q) => q.files.selectAll(),
+			});
 	});
 
 // Create journal entry.

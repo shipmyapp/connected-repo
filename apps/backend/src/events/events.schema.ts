@@ -30,32 +30,6 @@ export const userReminderTaskDef = defineTask({
 	},
 });
 
-/**
- * Cluster-wide singleton exemplar. `singletonKey` combined with pg-tbus'
- * SKIP LOCKED semantics guarantees only one worker in the fleet runs this
- * task at a time — even if multiple instances trigger it. Use this pattern
- * for periodic reconciliation / cleanup jobs that must not fan out.
- *
- * Send with `tbus.send(systemTenantStatsRollupTaskDef.from({ triggeredAt: Date.now() }))`.
- * The handler runs under a "system" AsyncLocalStorage context (see
- * modules/system/handlers/tenant_stats_rollup.handler.ts) so it can
- * bypass tenant-scoped default query scopes via `.unscope('default')`.
- */
-export const systemTenantStatsRollupTaskDef = defineTask({
-	task_name: "system.tenant_stats_rollup",
-	schema: Type.Object({
-		triggeredAt: Type.Number(),
-	}),
-	config: {
-		singletonKey: "system.tenant_stats_rollup",
-		retryLimit: 2,
-		retryDelay: 60,
-		retryBackoff: true,
-		expireInSeconds: 300,
-		keepInSeconds: 604800,
-	},
-});
-
 // Triggered when API usage reaches the 90% threshold.
 export const subscriptionAlertWebhookTaskDef = defineTask({
 	task_name: "subscription.alert_webhook",
