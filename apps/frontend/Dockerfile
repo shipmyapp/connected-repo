@@ -97,8 +97,12 @@ RUN apk add --no-cache curl
 
 COPY --from=builder /app/apps/frontend/dist /usr/share/nginx/html
 COPY apps/frontend/nginx.conf.template /etc/nginx/templates/default.conf.template
-COPY apps/frontend/docker-entrypoint.sh /docker-entrypoint.d/40-render-nginx-conf.sh
-RUN chmod +x /docker-entrypoint.d/40-render-nginx-conf.sh
+# Must run BEFORE the base image's 20-envsubst-on-templates.sh — this script
+# derives SENTRY_INGEST_URL from SENTRY_DSN and exports it, so envsubst has
+# the variable available when it renders the template. Named 05- to sort
+# before any nginx-provided entrypoint (which all start at 10-).
+COPY apps/frontend/docker-entrypoint.sh /docker-entrypoint.d/05-render-nginx-conf.sh
+RUN chmod +x /docker-entrypoint.d/05-render-nginx-conf.sh
 
 # Reverse-proxy target. Overridden by docker-compose to point at the internal
 # backend service (e.g. "backend:3000") on the shared Docker network.

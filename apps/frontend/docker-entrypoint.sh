@@ -1,8 +1,8 @@
 #!/bin/sh
-# Rendered into /docker-entrypoint.d/, so nginx:alpine's stock entrypoint picks
-# it up before starting nginx. The base image already runs envsubst on files in
-# /etc/nginx/templates/*.template — we just guarantee the variables it needs
-# have sensible defaults so the container never boots pointing at nothing.
+# Copied into /docker-entrypoint.d/ as 05-render-nginx-conf.sh — the 05 prefix
+# is load-bearing. The nginx:alpine base image runs envsubst on templates in
+# script 20-, so any variable we want expanded MUST be exported here (< 20).
+# See apps/frontend/Dockerfile for the COPY.
 set -e
 
 : "${BACKEND_UPSTREAM:=backend:3000}"
