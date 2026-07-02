@@ -1,7 +1,11 @@
 #!/bin/sh
-# Copied into /docker-entrypoint.d/ as 05-render-nginx-conf.sh — the 05 prefix
-# is load-bearing. The nginx:alpine base image runs envsubst on templates in
-# script 20-, so any variable we want expanded MUST be exported here (< 20).
+# Copied into /docker-entrypoint.d/ as 05-render-nginx-conf.envsh — TWO
+# load-bearing details:
+#   1. The 05 prefix — nginx:alpine runs envsubst on templates in script 20-,
+#      so any variable we want expanded MUST be exported before that.
+#   2. The .envsh extension — the base entrypoint SOURCES .envsh files (env
+#      exports persist to sibling scripts), but LAUNCHES .sh files as
+#      subprocesses (exports die on exit). We need the exports to survive.
 # See apps/frontend/Dockerfile for the COPY.
 set -e
 

@@ -97,16 +97,29 @@ RUN apk add --no-cache curl
 
 COPY --from=builder /app/apps/frontend/dist /usr/share/nginx/html
 COPY apps/frontend/nginx.conf.template /etc/nginx/templates/default.conf.template
-# Must run BEFORE the base image's 20-envsubst-on-templates.sh — this script
-# derives SENTRY_INGEST_URL from SENTRY_DSN and exports it, so envsubst has
-# the variable available when it renders the template. Named 05- to sort
-# before any nginx-provided entrypoint (which all start at 10-).
-COPY apps/frontend/docker-entrypoint.sh /docker-entrypoint.d/05-render-nginx-conf.sh
-RUN chmod +x /docker-entrypoint.d/05-render-nginx-conf.sh
+# Placed at 05-*.envsh to run before envsubst (script 20-) AND get SOURCED
+# so exports persist. .sh files here are executed in subshells; .envsh files
+# are dot-sourced by the base image entrypoint. See docker-entrypoint.envsh
+# for the full explanation.
+COPY apps/frontend/docker-entrypoint.envsh /docker-entrypoint.d/05-render-nginx-conf.envsh
+RUN chmod +x /docker-entrypoint.d/05-render-nginx-conf.envsh
 
 # Reverse-proxy target. Overridden by docker-compose to point at the internal
 # backend service (e.g. "backend:3000") on the shared Docker network.
 ENV BACKEND_UPSTREAM=backend:3000
+
+# Build-time smoke test: run the full entrypoint pipeline against dummy env
+# vars, then `nginx -t` to verify the rendered /etc/nginx/conf.d/default.conf
+# parses. Catches template typos, missing envsubst variables, bad script
+# ordering (.sh vs .envsh), and syntax errors in the nginx template BEFORE
+# the image ships — instead of the container crash-looping on first deploy
+# and forcing us to read production logs to diagnose.
+#
+# SENTRY_DSN is passed as a realistic-looking value so the tunnel derivation
+# runs its real code path, not just the sentinel branch.
+RUN SENTRY_DSN='https://public@o0.ingest.sentry.io/1' \
+    BACKEND_UPSTREAM='backend:3000' \
+    /docker-entrypoint.sh nginx -t
 
 EXPOSE 80
 
