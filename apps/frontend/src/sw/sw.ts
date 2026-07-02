@@ -34,7 +34,15 @@ self.addEventListener('activate', (event) => {
 try {
   // Use index.html without leading slash as it's the standard key in the precache manifest.
   // In development, this might fail because the manifest is handled differently by Vite.
-  registerRoute(new NavigationRoute(createHandlerBoundToURL('index.html')));
+  //
+  // denylist prevents the SW from intercepting navigations that must reach the
+  // backend via nginx: OAuth callbacks under /api/auth/*, the Novu bridge, oRPC
+  // routes, and any admin/mobile endpoints. Without this, Google's OAuth redirect
+  // to /api/auth/callback/google?code=... gets served the SPA shell from cache
+  // and the code is dropped on the floor.
+  registerRoute(new NavigationRoute(createHandlerBoundToURL('index.html'), {
+    denylist: [/^\/api\//, /^\/super-admin\//, /^\/mobile-app\//],
+  }));
 } catch (err) {
   if (!isDev) {
     console.warn('[SW] NavigationRoute registration failed:', err);

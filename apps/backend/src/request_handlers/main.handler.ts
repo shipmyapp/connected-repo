@@ -63,6 +63,9 @@ export async function mainRequestDispatcher(
 
 	try {
 		// 3. Auth Routes (/api/auth/*)
+		// Note: /api/sentry-tunnel is proxied directly to Sentry by the
+		// frontend nginx (see nginx.conf.template) and never reaches this
+		// dispatcher.
 		if (requestUrl?.startsWith("/api/auth")) {
 			return await betterAuthHandler.handle(req, res);
 		}

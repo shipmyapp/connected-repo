@@ -9,11 +9,49 @@ import {
 import pkg from "../package.json";
 
 /**
+ * Detect whether the Sentry ingest host is reachable from this browser.
+ * Ad-blockers (uBlock, Brave Shields, Firefox strict tracking protection)
+ * block `*.ingest.sentry.io` by URL pattern — the outbound `fetch` throws
+ * a TypeError before it hits the network. When that happens we route
+ * envelopes through our same-origin tunnel instead.
+ *
+ * `no-cors` + `HEAD` = we don't need to read the response, we only need
+ * to know whether the request left the browser. AbortController caps the
+ * wait so the Sentry init isn't stalled on a slow probe.
+ */
+async function isSentryIngestBlocked(dsn: string): Promise<boolean> {
+  try {
+    const url = new URL(dsn);
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 1500);
+    try {
+      await fetch(`${url.protocol}//${url.host}/api/`, {
+        method: "HEAD",
+        mode: "no-cors",
+        cache: "no-store",
+        signal: ac.signal,
+      });
+      return false;
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch {
+    // fetch throw → blocked (or offline; offline case is harmless, tunnel
+    // will also fail but we haven't wasted a direct ingest attempt).
+    return true;
+  }
+}
+
+/**
  * Lazily initializes Sentry instrumentation.
  * This keeps the SDK out of the initial bundle.
  */
 export async function initInstrumentation() {
   const Sentry = await import("@sentry/react");
+
+  const useTunnel = env.VITE_SENTRY_DSN
+    ? await isSentryIngestBlocked(env.VITE_SENTRY_DSN)
+    : false;
 
   Sentry.init({
     dsn: env.VITE_SENTRY_DSN,
@@ -63,8 +101,12 @@ export async function initInstrumentation() {
       "localhost",
       ...(env.VITE_API_URL ? [env.VITE_API_URL] : [/^\/api\//]),
     ],
-    // FIXME: Setup tunneling to avoid ad-blocker issues
-    // tunnel: "/tunnel",
+    // Same-origin envelope tunnel — only wired in when the probe above found
+    // that *.ingest.sentry.io is blocked (ad-blocker / privacy extension /
+    // corporate proxy). Direct ingestion is preferred otherwise: it avoids a
+    // backend round-trip and keeps envelope size out of our egress budget.
+    // Backend gates the tunnel on SENTRY_TUNNEL_ALLOWED_DSNS.
+    tunnel: useTunnel ? "/api/sentry-tunnel" : undefined,
     replaysSessionSampleRate: isDev ? 0 : 0.1,
     replaysOnErrorSampleRate: isDev ? 0 : 1.0,
   });

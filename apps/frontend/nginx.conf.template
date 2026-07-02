@@ -1,5 +1,6 @@
-# Rendered at container start by /docker-entrypoint.d/40-render-nginx-conf.sh
-# — envsubst only expands ${BACKEND_UPSTREAM}; every other $var is Nginx's own.
+# Rendered at container start by /docker-entrypoint.d/40-render-nginx-conf.sh.
+# envsubst expands: ${BACKEND_UPSTREAM}, ${SENTRY_INGEST_URL}, ${SENTRY_INGEST_HOST}.
+# Every other $var is Nginx's own.
 
 upstream backend_upstream {
     server ${BACKEND_UPSTREAM};
@@ -35,6 +36,35 @@ server {
         access_log off;
         return 200 "ok\n";
         add_header Content-Type text/plain;
+    }
+
+    # Sentry envelope tunnel — proxied directly to Sentry's ingest, bypassing
+    # the backend. Same-origin from the browser's POV → ad-blockers and
+    # privacy extensions that block *.ingest.sentry.io don't intercept us.
+    # `= /api/sentry-tunnel` is an exact match, so it wins over the /api/ block
+    # below regardless of order. Frontend only sends here when its runtime probe
+    # detects that direct ingest is blocked (see src/instrumentation.ts).
+    #
+    # Upstream URL is derived from SENTRY_DSN at container start by
+    # docker-entrypoint.sh. When SENTRY_DSN is unset, it points at a discard
+    # sentinel so the tunnel returns 502 instead of nginx failing to boot.
+    location = /api/sentry-tunnel {
+        limit_except POST { deny all; }
+        client_max_body_size 5m;
+
+        proxy_pass ${SENTRY_INGEST_URL};
+        proxy_http_version 1.1;
+        # Send the Sentry host in the Host header, not the visible origin —
+        # Sentry's ingest routes on Host and would 404 otherwise.
+        proxy_set_header Host ${SENTRY_INGEST_HOST};
+        proxy_ssl_server_name on;
+        proxy_ssl_name ${SENTRY_INGEST_HOST};
+        # Strip any client cookies before forwarding — Sentry doesn't want them
+        # and this avoids leaking session cookies to a third-party host.
+        proxy_set_header Cookie "";
+        proxy_set_header Connection "";
+        proxy_read_timeout 30s;
+        proxy_send_timeout 30s;
     }
 
     # Reverse proxy: everything under /api/* goes to the backend service on the
