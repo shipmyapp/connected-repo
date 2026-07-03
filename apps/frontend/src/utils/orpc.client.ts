@@ -58,10 +58,26 @@ const link = new RPCLink<ClientContext>({
   interceptors: [
     onError(async (error) => {
       // Extract error info
-      const err = error as { message?: string; status?: number; code?: string; path?: string; name?: string };
+      const err = error as { message?: string; status?: number; code?: string; path?: string; name?: string; cause?: { name?: string; message?: string } };
       const errorMessage = err.message || "An unexpected error occurred";
-      
-      if (err.name === "AbortError" || errorMessage.includes("signal is aborted") || errorMessage.includes("stream closed")) {
+
+      // Abort detection has to cover three shapes:
+      //   1. Raw AbortError from fetch → err.name === "AbortError"
+      //   2. Message contains the abort phrasing directly (older SDK behaviour)
+      //   3. oRPC wraps aborts as "Cannot parse response body..." with the real
+      //      AbortError on err.cause — most common shape in prod. Without the
+      //      cause check, every navigation-cancelled request logs as an error.
+      const causeName = err.cause?.name;
+      const causeMessage = err.cause?.message ?? "";
+      const isAbort =
+        err.name === "AbortError" ||
+        causeName === "AbortError" ||
+        errorMessage.includes("signal is aborted") ||
+        errorMessage.includes("stream closed") ||
+        errorMessage.includes("aborted a request") ||
+        causeMessage.includes("aborted a request") ||
+        causeMessage.includes("signal is aborted");
+      if (isAbort) {
         console.debug("[oRPC] Request aborted or stream closed (expected during navigation/offline tests)");
         return;
       };

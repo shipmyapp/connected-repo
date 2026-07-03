@@ -1,5 +1,16 @@
 import { registerSW } from 'virtual:pwa-register';
 
+/**
+ * True when the app is running as an installed PWA rather than a regular
+ * browser tab. iOS Safari uses navigator.standalone (non-standard, still
+ * required); every other browser reports via display-mode media query.
+ */
+function isInstalledPWA(): boolean {
+  const standalone = window.matchMedia?.('(display-mode: standalone)').matches;
+  const iosStandalone = (navigator as unknown as { standalone?: boolean }).standalone === true;
+  return Boolean(standalone || iosStandalone);
+}
+
 export async function requestStoragePersistence() {
   if (!navigator.storage || !navigator.storage.persist) {
     return;
@@ -10,11 +21,28 @@ export async function requestStoragePersistence() {
     return;
   }
 
+  // Always try once at start — a browser tab MIGHT grant it based on engagement
+  // signals (Chrome/Edge). If denied here (common on iOS Safari and cold Chrome
+  // sessions), register a one-shot retry for when the user installs the PWA —
+  // browsers grant persist more readily to installed apps.
   const result = await navigator.storage.persist();
   if (result) {
     console.info('[Storage] Persistence granted.');
-  } else {
-    console.warn('[Storage] Persistence denied.');
+    return;
+  }
+
+  // Browser policy call, not an error — log at debug so it doesn't look
+  // like a bug in DevTools.
+  console.debug('[Storage] Persistence denied by browser policy; will retry on install.');
+
+  if (!isInstalledPWA()) {
+    window.addEventListener(
+      'appinstalled',
+      () => {
+        void requestStoragePersistence();
+      },
+      { once: true },
+    );
   }
 }
 
