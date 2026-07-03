@@ -83,16 +83,23 @@ export const reactAppHandler = new RPCHandler(userAppRouter, {
 					errCode === "CSRF_TOKEN_MISMATCH" ||
 					errMsg.toLowerCase().includes("csrf")
 				) {
+					// Node HTTP headers: header names are already lowercased,
+					// values can be string | string[] | undefined. Collapse
+					// arrays for readable log lines.
+					const h = (name: string): string | undefined => {
+						const v = request.headers[name];
+						return Array.isArray(v) ? v.join(", ") : v;
+					};
 					logger.warn(
 						{
 							url: request.url,
 							method: request.method,
-							userAgent: request.headers.get("user-agent"),
-							origin: request.headers.get("origin"),
-							referer: request.headers.get("referer"),
-							forwardedFor: request.headers.get("x-forwarded-for"),
-							realIp: request.headers.get("x-real-ip"),
-							host: request.headers.get("host"),
+							userAgent: h("user-agent"),
+							origin: h("origin"),
+							referer: h("referer"),
+							forwardedFor: h("x-forwarded-for"),
+							realIp: h("x-real-ip"),
+							host: h("host"),
 						},
 						"CSRF rejection — request source details",
 					);
