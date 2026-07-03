@@ -27,6 +27,7 @@
 		"better-auth": "^1.5.0",
 		"dayjs": "^1.11.19",
 		"dotenv": "^17.3.1",
+		"firebase-admin": "^13.0.2",
 		"jose": "^6.2.2",
 		"node-cron": "^4.5.0",
 		"orchid-orm": "^1.73.1",
@@ -76,5 +77,5 @@
 		"test:server:start": "cross-env NODE_ENV=test IS_E2E_TEST=true yarn run start",
 		"test:ui": "cross-env NODE_ENV=test vitest --ui"
 	},
-	"version": "1.0.0"
+	"version": "1.1.0"
 }

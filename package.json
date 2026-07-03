@@ -35,12 +35,14 @@
 		"test:build": "turbo run test:build",
 		"test:coverage": "turbo run test:coverage",
 		"test:db:setup": "turbo run test:db:setup",
-		"test:e2e": "bash -c 'if [[ \"$*\" == *\"--build\"* || \"$*\" == *\"-b\"* ]]; then turbo run test:e2e:with-build; else turbo run test:e2e:no-build; fi' --",
-		"test:e2e:ui": "bash -c 'if [[ \"$*\" == *\"--build\"* || \"$*\" == *\"-b\"* ]]; then turbo run test:e2e:ui:with-build; else turbo run test:e2e:ui:no-build; fi' --",
+		"test:e2e:no-build": "turbo run test:e2e:no-build",
+		"test:e2e:with-build": "turbo run test:e2e:with-build",
+		"test:e2e:ui:no-build": "turbo run test:e2e:ui:no-build",
+		"test:e2e:ui:with-build": "turbo run test:e2e:ui:with-build",
 		"test:run": "turbo run test:run",
 		"test:ui": "turbo run test:ui"
 	},
-	"version": "1.0.0",
+	"version": "1.1.0",
 	"workspaces": [
 		"apps/*",
 		"packages/*"

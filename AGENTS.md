@@ -18,9 +18,9 @@
 ---
 
 ## Layer 2: Active Task
-- **Objective**: Standardize and restore robust boilerplate patterns (Plan 005).
+- **Objective**: Implement Service Worker Background Sync (Plan 011).
 - **Status**: Completed.
-- **Context**: Restored advanced architectural patterns including Novu Push Notifications, FCM synchronization, and UI progress indicators. Ready for the next phase of development.
+- **Context**: Implemented event-driven sync pipeline (`drainLocalChanges`), pending edit locks to prevent data clobbering, and FCM silent pushes for waking up the app for background sync. Ready for commit.
 
 ## Layer 3: Decision Records
 
@@ -39,6 +39,7 @@
 | [ADR-011] | Pull Bundles Renaming | Accepted | Rename sync table procedures from `pullDelta` to `pullBundles`. |
 | [ADR-012] | Backend Security Hardening | Accepted | Implementing strict SSRF guards, dummy hashes for timing attacks, and strict teamId scoping for multitenant safety. |
 | [ADR-013] | Novu Push Notifications | Accepted | Implemented FCM token synchronization and notification dispatch using Novu with optimistic DB-first tracking. |
+| [ADR-014] | Silent Sync Trigger | Accepted | Implemented FCM silent pushes to wake up the app for background sync, bypassing OS notifications. |
 
 ## Quick Reference
 - **Dev**: `yarn dev`

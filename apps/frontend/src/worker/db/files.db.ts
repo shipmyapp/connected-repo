@@ -45,6 +45,23 @@ export const filesDb = {
 	},
 
 	/**
+	 * Fetch every file in a team scoped to a single parent table (e.g.
+	 * all files under `journalEntries` for the active team). Replaces the
+	 * N+1 pattern where a list page fired one `files.getByTableId` per
+	 * visible row — those rows are already mirrored locally by the sync
+	 * pull pipeline, so this is a single indexed Dexie query with no
+	 * server round-trip.
+	 */
+	async getAllForTeamAndTable(
+		teamId: string,
+		tableName: FileSelectAll["tableName"],
+	): Promise<StoredFile[]> {
+		return await getClientDb()
+			.files.where({ teamId, tableName })
+			.toArray();
+	},
+
+	/**
 	 * Local write for a freshly-picked file — the single entry point for
 	 * BOTH online and offline flows. The blob is written to OPFS at a
 	 * deterministic per-id path and only the OPFS path + checksum land in
@@ -209,13 +226,27 @@ export const filesDb = {
 		if (patch.isMainFileLost !== undefined) cols.isMainFileLost = patch.isMainFileLost;
 
 		await getClientDb().files.update(id, cols);
-		notifySubscribers("files", "sync");
+		// Transition to `uploaded_to_cdn` is the "ready-to-push CDN URL"
+		// signal. Notify as `external` so the orchestrator's subscribe
+		// callback fires `drainLocalChanges` → immediate pushCdnUpdates.
+		// Every other state transition (uploading, failed, attempts++,
+		// etc.) stays `sync` to avoid a self-trigger loop.
+		const readyToPush = patch.state === "uploaded_to_cdn";
+		notifySubscribers("files", readyToPush ? "external" : "sync");
 	},
 
 	async getPendingUploads(): Promise<StoredFile[]> {
-		return await getClientDb().files
-			.where("mainUploadState")
+		// Only rows staged locally to OPFS are candidates. Server-pulled
+		// file rows for entries created on other devices land here with
+		// `mainOpfsPath: null` (no source blob on this device) — the worker
+		// would just churn read attempts and mark them "lost". Filtering
+		// here avoids the noise without changing the upload/lost semantic
+		// for genuine loss of a local blob (staged with a path that later
+		// went missing — still gets picked up and correctly marked "lost").
+		return await getClientDb()
+			.files.where("mainUploadState")
 			.anyOf(["pending", "uploading", "failed"])
+			.filter((f) => Boolean(f.mainOpfsPath))
 			.toArray();
 	},
 
@@ -241,6 +272,167 @@ export const filesDb = {
 	async setSyncError(id: string, error: string | null): Promise<void> {
 		await getClientDb().files.update(id, { syncError: error });
 		notifySubscribers("files", "sync");
+	},
+
+	/** Count files still working through the upload state machine. */
+	async countPending(teamId: string): Promise<number> {
+		return await getClientDb()
+			.files.where({ teamId })
+			.filter(
+				(f) =>
+					f.mainUploadState === "pending" ||
+					f.mainUploadState === "uploading" ||
+					f.mainUploadState === "uploaded_to_cdn" ||
+					f.thumbnailUploadState === "pending" ||
+					f.thumbnailUploadState === "uploading" ||
+					f.thumbnailUploadState === "uploaded_to_cdn" ||
+					f.thumbnailUploadState === "generating",
+			)
+			.count();
+	},
+
+	/** Count files carrying a sync error or in a terminal-fail state. */
+	async countErrors(teamId: string): Promise<number> {
+		return await getClientDb()
+			.files.where({ teamId })
+			.filter(
+				(f) =>
+					Boolean(f.syncError) ||
+					f.mainUploadState === "failed" ||
+					f.mainUploadState === "abandoned" ||
+					f.mainUploadState === "lost",
+			)
+			.count();
+	},
+
+	/**
+	 * Full rows for the pending drill-in on the sync-status page. Same
+	 * filter shape as `countPending` so the two agree row-for-row.
+	 */
+	async listPending(teamId: string): Promise<StoredFile[]> {
+		return await getClientDb()
+			.files.where({ teamId })
+			.filter(
+				(f) =>
+					f.mainUploadState === "pending" ||
+					f.mainUploadState === "uploading" ||
+					f.mainUploadState === "uploaded_to_cdn" ||
+					f.thumbnailUploadState === "pending" ||
+					f.thumbnailUploadState === "uploading" ||
+					f.thumbnailUploadState === "uploaded_to_cdn" ||
+					f.thumbnailUploadState === "generating",
+			)
+			.toArray();
+	},
+
+	/** Full rows for the error drill-in on the sync-status page. */
+	async listErrored(teamId: string): Promise<StoredFile[]> {
+		return await getClientDb()
+			.files.where({ teamId })
+			.filter(
+				(f) =>
+					Boolean(f.syncError) ||
+					f.mainUploadState === "failed" ||
+					f.mainUploadState === "abandoned" ||
+					f.mainUploadState === "lost",
+			)
+			.toArray();
+	},
+
+	/**
+	 * Hard-delete a single file row + its OPFS blob. Used from the sync-
+	 * status "Discard" action when a stuck row can't be recovered
+	 * (`lost`, `abandoned`, or repeated `syncError`). Server-side rows
+	 * are NOT touched here — the caller's responsibility to keep the
+	 * server in sync via its own delete path.
+	 */
+	async hardDelete(id: string): Promise<void> {
+		const row = await getClientDb().files.get(id);
+		if (row?.mainOpfsPath) {
+			try {
+				await OPFSManager.deleteFile(row.mainOpfsPath);
+			} catch {
+				// OPFS delete failures aren't fatal — Dexie row is the ground truth.
+			}
+		}
+		if (row?.thumbnailOpfsPath) {
+			try {
+				await OPFSManager.deleteFile(row.thumbnailOpfsPath);
+			} catch {}
+		}
+		await getClientDb().files.delete(id);
+		notifySubscribers("files");
+	},
+
+	/**
+	 * User-driven "give up on this upload" for a file that's stuck in
+	 * pending / uploading / failed. Sets `isMainFileLost: true` and
+	 * transitions the local state to `lost`. `pushCdnUpdates` picks it
+	 * up (see `filesDb.getCdnUpdatesNeedingPush` — it includes rows with
+	 * `isMainFileLost === true`) and informs the server the blob will
+	 * never arrive, so the row leaves "pending" without needing a CDN
+	 * upload to succeed. The OPFS blob (if any) is deleted since the
+	 * upload path is done with it.
+	 *
+	 * This is the escape hatch when a file can't be uploaded (fake S3
+	 * keys, revoked credentials, corrupt blob) but the parent entry is
+	 * already confirmed on the server — regular Discard is a no-op in
+	 * that case because the next pull would re-add the row.
+	 */
+	async abandonUpload(id: string): Promise<void> {
+		const row = await getClientDb().files.get(id);
+		if (!row) return;
+		if (row.mainOpfsPath) {
+			try {
+				await OPFSManager.deleteFile(row.mainOpfsPath);
+			} catch {}
+		}
+		if (row.thumbnailOpfsPath) {
+			try {
+				await OPFSManager.deleteFile(row.thumbnailOpfsPath);
+			} catch {}
+		}
+		await getClientDb().files.update(id, {
+			isMainFileLost: true,
+			mainUploadState: "lost",
+			mainOpfsPath: null,
+			thumbnailUploadState:
+				row.thumbnailUploadState === "uploaded" ? "uploaded" : "not_attempted",
+			thumbnailOpfsPath: null,
+			syncError: null,
+			mainLastError: "Abandoned by user",
+		});
+		notifySubscribers("files");
+	},
+
+	/**
+	 * Reset a stuck file back to `pending` so the upload worker retries
+	 * from scratch. Wipes error state and attempt counters. Only works
+	 * for rows that still have an OPFS blob — a `lost` row has no source
+	 * to retry from and must be discarded instead.
+	 */
+	async retry(id: string): Promise<void> {
+		const row = await getClientDb().files.get(id);
+		if (!row?.mainOpfsPath) return;
+		await getClientDb().files.update(id, {
+			mainUploadState: "pending",
+			mainUploadAttempts: 0,
+			mainLastError: null,
+			mainLastAttemptAt: null,
+			thumbnailUploadState:
+				row.thumbnailUploadState === "uploaded" ||
+				row.thumbnailUploadState === "uploaded_to_cdn"
+					? row.thumbnailUploadState
+					: row.mimeType.startsWith("image/") ||
+							row.mimeType === "application/pdf"
+						? "pending"
+						: "not_attempted",
+			thumbnailUploadAttempts: 0,
+			thumbnailLastError: null,
+			thumbnailLastAttemptAt: null,
+			syncError: null,
+		});
+		notifySubscribers("files");
 	},
 
 	/**

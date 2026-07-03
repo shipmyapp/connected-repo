@@ -65,7 +65,7 @@ Building a **Scheduled Prompt & Journal** app with:
       - 007: Standardized Sync Patterns
       - 008: Architecture Simplification
       - 009: Self-Healing & Verification
-      - 011: Background Sync (Service Worker) 🔄 PENDING
+      - 011: Background Sync (Service Worker) ✅ COMPLETED
 16. **Search Functionality (V1):** Backend search implementation
 17. **Gamification (V1):** Streaks and badges system (event-driven)
 
@@ -210,7 +210,7 @@ Building a **Scheduled Prompt & Journal** app with:
   - Playwright configured for E2E testing
   - Backend test-server integration
   - Auth helpers for login/signup
-  - Can run `yarn test:e2e`
+  - Can run `yarn test:e2e:no-build` (or `:with-build` when dist/ needs a fresh test-mode build)
 
 **2.2.2: Write Critical Flow E2E Tests** ✅ COMPLETED
 - Test user registration/login flow

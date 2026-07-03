@@ -1,5 +1,11 @@
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { expect, test } from "../../../e2e/fixtures";
+
+// Playwright runs this file as an ES module (see playwright.config.ts) —
+// CommonJS `__dirname` isn't defined. Derive it from `import.meta.url`
+// so path.join for the fixture image resolves relative to this file.
+const __dirname_esm = path.dirname(fileURLToPath(import.meta.url));
 
 /**
  * Regression coverage for two hard-to-unit-test bug classes that live
@@ -22,7 +28,7 @@ import { expect, test } from "../../../e2e/fixtures";
  */
 
 const FIXTURE_IMAGE = path.join(
-	__dirname,
+	__dirname_esm,
 	"__fixtures__",
 	"attachment-fixture.png",
 );

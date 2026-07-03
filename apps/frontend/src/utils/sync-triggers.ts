@@ -12,7 +12,7 @@ import {
  *   1. Login/logout wiring — opens the per-user Dexie DB, seeds the
  *      active team, installs triggers.
  *   2. Trigger installation — visibilitychange, focus, online,
- *      60s interval.
+ *      2-minute interval (only when the tab is visible).
  *   3. Active-team change propagation — profile-page switcher calls
  *      `setActiveTeam(teamId)` and both the header cache AND the worker
  *      cache flip in lockstep.
@@ -20,6 +20,14 @@ import {
  * The DataWorker's `sync.processQueue()` is idempotent — a trigger
  * arriving during a cycle sets a rescan bit and the running cycle
  * re-invokes itself, so over-triggering is safe.
+ *
+ * The 2-minute in-app tick is the fallback for devices that never
+ * granted push permission (silent-sync push is the primary trigger
+ * when it's available; see `silent_sync_dispatch.cron.ts` — every
+ * 3 minutes). Gating on `document.visibilityState === "visible"`
+ * stops the timer from firing when the tab is hidden or in the
+ * background; the visibility-change handler kicks a fresh sync the
+ * moment the user comes back, so nothing is lost.
  */
 
 let triggersInstalled = false;
@@ -131,9 +139,13 @@ function installTriggers(): void {
 	window.addEventListener("focus", onFocus);
 	window.addEventListener("online", onOnline);
 
+	// 2-minute foreground sync tick. Only fires while the tab is visible
+	// — a backgrounded tab burns battery for nothing and the silent-sync
+	// push (or the next visibilitychange) will catch it up on return.
 	intervalHandle = setInterval(() => {
+		if (document.visibilityState !== "visible") return;
 		void kick();
-	}, 60_000);
+	}, 120_000);
 
 	removeHandlers = () => {
 		document.removeEventListener("visibilitychange", onVisibility);

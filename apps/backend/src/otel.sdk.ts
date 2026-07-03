@@ -19,6 +19,7 @@ import {
 	SentrySpanProcessor,
 } from "@sentry/opentelemetry";
 import { nodeProfilingIntegration } from "@sentry/profiling-node";
+import { normalizeUrl, normalizeUrlPath } from "@backend/utils/sentry_url_template";
 
 const sentryClient = Sentry.init({
 	dsn: env.SENTRY_DSN,
@@ -62,6 +63,26 @@ const sentryClient = Sentry.init({
 			delete span.data.values;
 		}
 		return span;
+	},
+	// Collapse ULID/UUID/6+digit path segments to `:id` so events group by
+	// URL shape rather than by unique row id.
+	beforeSend: (event) => {
+		if (event.transaction) {
+			event.transaction = normalizeUrlPath(event.transaction);
+		}
+		if (event.request?.url) {
+			event.request.url = normalizeUrl(event.request.url);
+		}
+		return event;
+	},
+	beforeSendTransaction: (event) => {
+		if (event.transaction) {
+			event.transaction = normalizeUrlPath(event.transaction);
+		}
+		if (event.request?.url) {
+			event.request.url = normalizeUrl(event.request.url);
+		}
+		return event;
 	},
 });
 

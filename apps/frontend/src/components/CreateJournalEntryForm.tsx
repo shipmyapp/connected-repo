@@ -15,9 +15,11 @@ import {
 	type JournalEntryCreateInput,
 	journalEntryCreateInputZod,
 } from "@connected-repo/zod-schemas/journal_entry.zod";
+import { useSessionInfo } from "@frontend/contexts/UserContext";
 import { useActiveTeamId } from "@frontend/contexts/WorkspaceContext";
 import { orpcFetch } from "@frontend/utils/orpc.client";
 import { orpc } from "@frontend/utils/orpc.tanstack.client";
+import { createOnlineFirst } from "@frontend/worker/db/online-first.adapter";
 import { getDataProxy } from "@frontend/worker/worker.proxy";
 import { zodResolver } from "@hookform/resolvers/zod";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
@@ -37,6 +39,7 @@ const OPTED_OUT_KEY = "push.optedOut";
 
 export function CreateJournalEntryForm() {
 	const teamId = useActiveTeamId();
+	const { user } = useSessionInfo();
 	const queryClient = useQueryClient();
 	const [success, setSuccess] = useState("");
 	const [writingMode, setWritingMode] = useState<WritingMode>("prompted");
@@ -71,7 +74,14 @@ export function CreateJournalEntryForm() {
 				//    ONE upload path — online and offline follow it
 				//    identically. The form submit no longer blocks on the
 				//    CDN round-trip.
+				//
+				//    `waitForReady` blocks until `sync.initForUser` has
+				//    opened the per-user Dexie DB. Without this, an e2e
+				//    that submits within milliseconds of the login redirect
+				//    would race the DB open and every Dexie call throws
+				//    "Dexie DB not initialised".
 				const dataProxy = await getDataProxy();
+				await dataProxy.sync.waitForReady();
 				if (attachments.length > 0) {
 					await Promise.all(
 						attachments.map((a) =>
@@ -88,45 +98,76 @@ export function CreateJournalEntryForm() {
 					);
 				}
 
-				// 2. Persist the entry itself. Nested file metadata rides
-				//    with the parent so the server writes both parent and
-				//    file rows atomically; `cdnUrl` is NULL and the local
-				//    worker patches it in later via `files.pushCdnUpdates`.
-				//    `teamId` on parent AND nested files is NOT sent — the
-				//    server derives both from `ctx.activeTeamId` so a client
-				//    can't plant/relocate rows into another tenant.
-				await orpcFetch.journalEntries.create({
+				// 2. Persist the entry through the online-first adapter.
+				//    localWrite lands a pending row (createdAt=null) in
+				//    Dexie so the UI sees it immediately. The online race
+				//    then either overwrites with the server's canonical row
+				//    (savedOnline) or leaves the pending row for the sync
+				//    push pipeline to reconcile later (savedOffline). Same
+				//    call site works whether we're online or offline.
+				//    `teamId` on parent AND nested files is NOT sent to the
+				//    server — the server derives both from `ctx.activeTeamId`
+				//    so a client can't plant rows into another tenant.
+				const createInput = {
 					id: entryId,
 					content: data.content,
 					prompt: writingMode === "free" ? null : data.prompt ?? null,
 					promptId: writingMode === "free" ? null : randomPrompt?.id ?? null,
 					files: attachments.map((a) => ({
 						id: a.id,
-						tableName: "journalEntries",
+						tableName: "journalEntries" as const,
 						tableId: entryId,
-						type: "attachment",
+						type: "attachment" as const,
 						fileName: a.file.name,
 						mimeType: a.file.type,
 						cdnUrl: null,
 						thumbnailCdnUrl: null,
 						isMainFileLost: false,
 					})),
+				};
+				await createOnlineFirst({
+					entityName: "journalEntry",
+					localWrite: async () => {
+						// `createdAt: null` is the pending marker used across
+						// the sync engine (`getPending` filters on it).
+						// `updatedAt` MUST be a non-null μs string — it's a
+						// Dexie compound-index key; a null would drop the row
+						// from `getAll`. Client-side μs-now sorts the pending
+						// row at approximately the right chronological spot;
+						// `overwriteFromServer` replaces it with the canonical
+						// server value on the online-success path.
+						await dataProxy.journalEntriesDb.upsertPendingLocal({
+							id: entryId,
+							content: data.content,
+							prompt: writingMode === "free" ? null : data.prompt ?? null,
+							promptId: writingMode === "free" ? null : randomPrompt?.id ?? null,
+							authorUserId: user?.id ?? "",
+							teamId: teamId ?? null,
+							deletedAt: null,
+							createdAt: null,
+							updatedAt: String(Date.now() * 1000),
+						});
+					},
+					online: () => orpcFetch.journalEntries.create(createInput),
+					onlineOverwrite: async (server) => {
+						await dataProxy.journalEntriesDb.overwriteFromServer(server);
+					},
 				});
 
-				// 3. Kick the sync queue so the FileUploadWorker starts
-				//    draining OPFS immediately (rather than waiting for the
-				//    next visibilitychange / focus / online / 60s trigger).
-				//    `processQueue` is idempotent so an early kick is safe.
-				void dataProxy.sync.processQueue();
-
-				// 4. Cleanup attachment state and revoke preview URLs.
+				// 3. Cleanup attachment state and revoke preview URLs. We
+				//    deliberately do NOT kick sync here. The engine's
+				//    contract is: at most one cycle per 2-minute window
+				//    unless the user explicitly forces it. The pending
+				//    entry (if the online race lost) and any staged file
+				//    uploads will drain on the next scheduled cycle, or
+				//    when the user taps the sync bubble.
 				attachments.forEach((a) => {
 					URL.revokeObjectURL(a.previewUrl);
 					if (a.thumbnailUrl) URL.revokeObjectURL(a.thumbnailUrl);
 				});
 				setAttachments([]);
 
-				// 5. Invalidate dependent queries and reset the form.
+				// 4. Invalidate dependent queries and reset the form.
 				queryClient.invalidateQueries({
 					queryKey: orpc.journalEntries.getAll.queryOptions().queryKey,
 				});

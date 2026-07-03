@@ -9,6 +9,7 @@ import { navItems } from "@frontend/configs/nav.config";
 import { useWorkspace } from "@frontend/contexts/WorkspaceContext";
 import { useLocation, useNavigate } from "react-router";
 import { NovuInbox } from "../notifications/NovuInbox";
+import { SyncBubble } from "./SyncBubble";
 import { UserProfileMenu } from "./UserProfileMenu";
 
 export const DesktopNavbar = () => {
@@ -126,6 +127,7 @@ export const DesktopNavbar = () => {
 					))}
 				</Box>
 
+				<SyncBubble />
 				<NovuInbox />
 				<UserProfileMenu />
 			</Toolbar>

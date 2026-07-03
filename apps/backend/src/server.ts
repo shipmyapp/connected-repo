@@ -15,6 +15,7 @@ import {
 } from "@backend/configs/env.config";
 import { startReconcileFcmTokensCron } from "@backend/cron_jobs/reconcile_fcm_tokens.cron";
 import { startReminderDispatchCron } from "@backend/cron_jobs/reminder_dispatch.cron";
+import { startSilentSyncDispatchCron } from "@backend/cron_jobs/silent_sync_dispatch.cron";
 import { startEventBus } from "@backend/events/events.utils";
 import { captureBackendException } from "@backend/utils/backend-error-tracking.utils";
 import { handleServerClose } from "@backend/utils/graceful_shutdown.utils";
@@ -140,6 +141,11 @@ try {
 	} else {
 		logger.info("Novu not configured; reminder/reconcile crons skipped");
 	}
+
+	// Silent-sync push runs independently of Novu — it uses firebase-admin
+	// directly. Gated on FIREBASE_SERVICE_ACCOUNT_JSON / GOOGLE_APPLICATION_CREDENTIALS
+	// being set (see firebase_admin.config.ts); the cron self-noops otherwise.
+	startSilentSyncDispatchCron();
 
 	handleServerClose(server);
 } catch (err) {

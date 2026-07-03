@@ -1,4 +1,8 @@
 import { env, isDev } from "@frontend/configs/env.config";
+import {
+  normalizeUrl,
+  normalizeUrlPath,
+} from "@frontend/utils/sentry_url_template";
 import { useEffect } from "react";
 import {
   createRoutesFromChildren,
@@ -115,6 +119,26 @@ export async function initInstrumentation() {
     tunnel: useTunnel ? "/api/sentry-tunnel" : undefined,
     replaysSessionSampleRate: isDev ? 0 : 0.1,
     replaysOnErrorSampleRate: isDev ? 0 : 1.0,
+    // Collapse ULID/UUID/6+digit path segments to `:id` so events group
+    // by URL shape rather than by unique row id — see utils/sentry_url_template.
+    beforeSend: (event) => {
+      if (event.transaction) {
+        event.transaction = normalizeUrlPath(event.transaction);
+      }
+      if (event.request?.url) {
+        event.request.url = normalizeUrl(event.request.url);
+      }
+      return event;
+    },
+    beforeSendTransaction: (event) => {
+      if (event.transaction) {
+        event.transaction = normalizeUrlPath(event.transaction);
+      }
+      if (event.request?.url) {
+        event.request.url = normalizeUrl(event.request.url);
+      }
+      return event;
+    },
   });
 };
 

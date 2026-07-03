@@ -1,3 +1,4 @@
+import { getDataProxy } from '@frontend/worker/worker.proxy';
 import { registerSW } from 'virtual:pwa-register';
 
 /**
@@ -74,7 +75,13 @@ export function initPWA() {
     },
   });
 
-  // Listen for precaching progress from SW
+  // Listen for messages from the SW.
+  //   - `SW_PRECACHE_PROGRESS`: precache progress signal (dev only).
+  //   - `sync-now`: silent-sync push landed. The SW can't reach the
+  //     DataWorker directly (workers can't share Comlink handles across
+  //     SW ↔ page boundaries), so it fans out to open clients and each
+  //     open client kicks its own sync. Idempotent — processQueue
+  //     dedupes concurrent calls.
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('message', (event) => {
       if (event.data?.type === 'SW_PRECACHE_PROGRESS') {
@@ -82,6 +89,17 @@ export function initPWA() {
         if (asset) {
           console.info(`[PWA] Syncing ${asset}...`, 60 + (progress * 0.3));
         }
+        return;
+      }
+      if (event.data?.type === 'sync-now') {
+        void (async () => {
+          try {
+            const proxy = await getDataProxy();
+            await proxy.sync.processQueue();
+          } catch (err) {
+            console.warn('[PWA] sync-now: processQueue failed', err);
+          }
+        })();
       }
     });
   }

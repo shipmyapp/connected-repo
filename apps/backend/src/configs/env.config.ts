@@ -109,6 +109,13 @@ const envSchema = z.object({
 	APPLE_KEY_ID: zString.optional(),
 	APPLE_PRIVATE_KEY: zString.optional(),
 	APPLE_APP_BUNDLE_ID: zString.optional(),
+	// Firebase Admin (server-side FCM) credentials — used by the silent-
+	// sync cron to send data-only push directly, bypassing Novu.
+	// Either GOOGLE_APPLICATION_CREDENTIALS (path to service-account JSON)
+	// or FIREBASE_SERVICE_ACCOUNT_JSON (inline JSON blob) works; leaving
+	// both unset disables server-side push. Prefer the inline var for
+	// containerised deploys where filesystem is ephemeral.
+	FIREBASE_SERVICE_ACCOUNT_JSON: optionalString,
 });
 
 // ----------------------------------------

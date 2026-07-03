@@ -143,10 +143,16 @@ yarn test:coverage     # Coverage report
 
 **Frontend E2E (Playwright):**
 ```bash
-yarn test:e2e          # Run E2E tests
-yarn test:e2e -b       # Build before testing
-yarn test:e2e:ui       # UI mode
+yarn test:e2e:no-build      # Run E2E — assumes dist/ is a warm test-mode build
+yarn test:e2e:with-build    # Build the frontend in test mode, then run E2E (safe default)
+yarn test:e2e:ui:no-build   # Same, but Playwright UI mode
+yarn test:e2e:ui:with-build
 ```
+
+There is deliberately no bare `test:e2e` — pick your intent explicitly. `:with-build`
+is what you want on a fresh clone, after switching branches, or any time the
+frontend `dist/` might have been built in the wrong mode. `:no-build` is the
+fast-iterate path once a test-mode build is in place.
 
 ## Key Features
 

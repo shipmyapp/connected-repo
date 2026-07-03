@@ -94,10 +94,31 @@ if (env.VITE_FIREBASE_API_KEY && env.VITE_FIREBASE_PROJECT_ID && env.VITE_FIREBA
   const messaging = getMessaging(firebaseApp);
 
   onBackgroundMessage(messaging, (payload) => {
-    // Novu FCM provider maps the workflow's push step to `payload.notification`
-    // (title/body) and any custom fields to `payload.data`. Some browsers auto-
-    // render `notification` payloads without hitting this handler; we still
-    // call showNotification here so the click URL from `data.url` is applied.
+    // Silent-sync path: data-only push from the backend cron
+    // (silent_sync_dispatch.cron.ts) asking us to wake up and drain
+    // the sync queue. No user-visible notification — post to open
+    // clients so their DataWorker calls `sync.processQueue()`. If no
+    // clients are open, the push is effectively a no-op (the SW has
+    // no worker access itself); the client's own periodic timer will
+    // eventually catch up when the user returns.
+    if (payload.data?.type === 'silent-sync') {
+      void (async () => {
+        const clientsList = await self.clients.matchAll({
+          type: 'window',
+          includeUncontrolled: true,
+        });
+        for (const client of clientsList) {
+          client.postMessage({ type: 'sync-now', ts: payload.data?.ts });
+        }
+      })();
+      return;
+    }
+
+    // Normal user-visible push. Novu FCM provider maps the workflow's push step
+    // to `payload.notification` (title/body) and any custom fields to
+    // `payload.data`. Some browsers auto-render `notification` payloads without
+    // hitting this handler; we still call showNotification here so the click
+    // URL from `data.url` is applied.
     const title = payload.notification?.title ?? payload.data?.title ?? 'Notification';
     const body = payload.notification?.body ?? payload.data?.body ?? '';
     const url = payload.data?.url ?? payload.fcmOptions?.link ?? '/';

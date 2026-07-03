@@ -13,7 +13,8 @@ import { JournalEntryCardView } from "@frontend/components/JournalEntryCardView"
 import { JournalEntryTableView } from "@frontend/components/JournalEntryTableView";
 import { useActiveTeamId } from "@frontend/contexts/WorkspaceContext";
 import { orpc } from "@frontend/utils/orpc.tanstack.client";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useLocalDb } from "@frontend/worker/db/hooks/useLocalDb";
+import { useQuery } from "@tanstack/react-query";
 import type React from "react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
@@ -30,26 +31,29 @@ export default function JournalEntriesPage() {
 		enabled: !!teamId,
 	});
 
-	// One query per entry — the sync engine has already brought file rows
-	// down locally, but there's no bulk read endpoint yet, so each visible
-	// entry independently fetches its attachments.
-	const fileQueries = useQueries({
-		queries: entries.map((entry) => ({
-			...orpc.files.getByTableId.queryOptions({
-				input: { tableName: "journalEntries" as const, tableId: entry.id },
-			}),
-			enabled: !!teamId,
-		})),
-	});
+	// Read attachments from the local Dexie mirror — the sync pull
+	// pipeline already brought every file row for this team down, so
+	// there's no need to fan out one `files.getByTableId` per visible
+	// entry (which was hammering the rate limiter with N+1 calls).
+	// One indexed Dexie query returns every file for the team scoped
+	// to journalEntries; group in-memory by parent id.
+	const { data: allTeamFiles } = useLocalDb(
+		"files",
+		async (proxy) =>
+			teamId
+				? await proxy.filesDb.getAllForTeamAndTable(teamId, "journalEntries")
+				: [],
+		[teamId],
+	);
 
 	const attachments = useMemo(() => {
 		const map: Record<string, FileSelectAll[]> = {};
-		entries.forEach((entry, i) => {
-			const q = fileQueries[i];
-			if (q?.data) map[entry.id] = q.data;
-		});
+		if (!allTeamFiles) return map;
+		for (const f of allTeamFiles) {
+			(map[f.tableId] ??= []).push(f);
+		}
 		return map;
-	}, [entries, fileQueries]);
+	}, [allTeamFiles]);
 
 	const totalCount = entries.length;
 

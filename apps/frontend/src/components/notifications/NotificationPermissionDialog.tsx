@@ -6,6 +6,10 @@ import { usePwaInstallCtx } from "@frontend/components/notifications/PwaInstallH
 import { getDeviceEnv } from "@frontend/utils/device.utils";
 import { orpcFetch } from "@frontend/utils/orpc.client";
 import { promptAndRegisterPush } from "@frontend/utils/push.utils";
+import {
+	OfflineWriteError,
+	onlineOnlyWrite,
+} from "@frontend/worker/db/online-first.adapter";
 import { TimePicker } from "@mui/x-date-pickers/TimePicker";
 import dayjs, { type Dayjs } from "dayjs";
 import { useState } from "react";
@@ -44,8 +48,13 @@ export const NotificationPermissionDialog = ({
 			const hhmm = time.format("HH:mm");
 			// Save the time regardless of push status — the workflow's In-App
 			// step lands in the Inbox even without push, so the reminder is
-			// still useful.
-			await orpcFetch.notifications.setReminderTimes({ times: [hhmm] });
+			// still useful. Reminder-time is server-owned config (no local
+			// mirror) so we cannot queue it offline; onlineOnlyWrite throws
+			// OfflineWriteError if the round-trip can't complete.
+			await onlineOnlyWrite({
+				entityName: "notifications.setReminderTimes",
+				op: () => orpcFetch.notifications.setReminderTimes({ times: [hhmm] }),
+			});
 			const result = await promptAndRegisterPush();
 			if (result === "granted") {
 				toast.success(`Daily reminder set for ${hhmm}`);
@@ -56,8 +65,14 @@ export const NotificationPermissionDialog = ({
 			}
 			onClose("set");
 		} catch (error) {
-			console.error("[NotificationPermissionDialog] Set reminder failed", error);
-			toast.error("Couldn't save reminder time — please try again from Profile.");
+			if (error instanceof OfflineWriteError) {
+				toast.error(
+					"You're offline — reminders couldn't be saved. Try again when back online.",
+				);
+			} else {
+				console.error("[NotificationPermissionDialog] Set reminder failed", error);
+				toast.error("Couldn't save reminder time — please try again from Profile.");
+			}
 		} finally {
 			setSubmitting(false);
 		}

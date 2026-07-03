@@ -49,57 +49,80 @@ const readBody = async (req: NodeHttpRequest): Promise<unknown> => {
  * the workflows, Novu calls back to this bridge only when previewing steps
  * from the dashboard. Safe to disable in prod behind an env gate if you
  * only sync from a build/CI environment.
+ *
+ * When `NOVU_SECRET_KEY` is unset (CI, dev without Novu, e2e boot) we
+ * build a stub handler that returns 503 rather than constructing the
+ * real `Client` — the `@novu/framework` Client constructor throws
+ * `MissingSecretKeyError` at instantiation, which crashes the process
+ * at module load. This gate makes the backend boot without Novu.
  */
 // Real Client instance — must have live method bindings (addWorkflows,
 // addAgents, executeWorkflow, etc.). Passing a plain object here would fail
 // at first request with "this.client.addAgents is not a function".
-const novuClient = new Client({
-	secretKey: env.NOVU_SECRET_KEY,
-	apiUrl: env.NOVU_API_URL,
-	// Strict HMAC auth in prod/staging/test; only loosened in dev so the
-	// initial `novu sync` handshake doesn't 401 before the Secret Key
-	// round-trip is set up. Anyone who can reach /api/novu with strict OFF
-	// can enumerate workflows and preview steps.
-	strictAuthentication: !isDev,
-});
+const nodeHandler: ((req: NodeHttpRequest, res: NodeHttpResponse) => Promise<void>) | null =
+	env.NOVU_SECRET_KEY
+		? (() => {
+				const novuClient = new Client({
+					secretKey: env.NOVU_SECRET_KEY,
+					apiUrl: env.NOVU_API_URL,
+					// Strict HMAC auth in prod/staging/test; only loosened in dev so the
+					// initial `novu sync` handshake doesn't 401 before the Secret Key
+					// round-trip is set up. Anyone who can reach /api/novu with strict OFF
+					// can enumerate workflows and preview steps.
+					strictAuthentication: !isDev,
+				});
 
-const requestHandler = new NovuRequestHandler({
-	frameworkName: "node-http",
-	workflows: novuWorkflows,
-	client: novuClient,
-	handler: (req: NodeHttpRequest, res: NodeHttpResponse) => {
-		let bodyPromise: Promise<unknown> | null = null;
-		return {
-			body: () => {
-				if (!bodyPromise) bodyPromise = readBody(req);
-				return bodyPromise;
-			},
-			headers: (key: string) => {
-				const v = req.headers[key.toLowerCase()];
-				return Array.isArray(v) ? v[0] : v;
-			},
-			method: () => req.method || "GET",
-			url: () => {
-				const host = req.headers.host || "localhost";
-				const protocol = req.headers["x-forwarded-proto"] || "http";
-				return new URL(req.url || "/", `${protocol}://${host}`);
-			},
-			queryString: (key: string, url: URL) => url.searchParams.get(key),
-			transformResponse: ({ body, headers, status }) => {
-				for (const [k, v] of Object.entries(headers)) {
-					res.setHeader(k, v);
-				}
-				res.statusCode = status;
-				res.end(body);
-			},
-		};
-	},
-});
+				const requestHandler = new NovuRequestHandler({
+					frameworkName: "node-http",
+					workflows: novuWorkflows,
+					client: novuClient,
+					handler: (req: NodeHttpRequest, res: NodeHttpResponse) => {
+						let bodyPromise: Promise<unknown> | null = null;
+						return {
+							body: () => {
+								if (!bodyPromise) bodyPromise = readBody(req);
+								return bodyPromise;
+							},
+							headers: (key: string) => {
+								const v = req.headers[key.toLowerCase()];
+								return Array.isArray(v) ? v[0] : v;
+							},
+							method: () => req.method || "GET",
+							url: () => {
+								const host = req.headers.host || "localhost";
+								const protocol = req.headers["x-forwarded-proto"] || "http";
+								return new URL(req.url || "/", `${protocol}://${host}`);
+							},
+							queryString: (key: string, url: URL) => url.searchParams.get(key),
+							transformResponse: ({ body, headers, status }) => {
+								for (const [k, v] of Object.entries(headers)) {
+									res.setHeader(k, v);
+								}
+								res.statusCode = status;
+								res.end(body);
+							},
+						};
+					},
+				});
 
-const nodeHandler = requestHandler.createHandler();
+				return requestHandler.createHandler();
+			})()
+		: null;
 
 export const novuHandler = {
 	handle: async (req: NodeHttpRequest, res: NodeHttpResponse) => {
+		if (!nodeHandler) {
+			if (!res.writableEnded) {
+				res.statusCode = 503;
+				res.end(
+					JSON.stringify({
+						error: "Novu bridge disabled",
+						message: "NOVU_SECRET_KEY is not configured on this deployment",
+					}),
+				);
+			}
+			return;
+		}
 		try {
 			await nodeHandler(req, res);
 		} catch (err) {

@@ -1,5 +1,8 @@
 import { db } from "@backend/db/db";
+import { journalEntryCreatedFanoutTaskDef } from "@backend/events/events.schema";
+import { tbus } from "@backend/events/tbus";
 import { rpcProtectedActiveTeamProcedure } from "@backend/procedures/protected.procedure";
+import { logger } from "@backend/utils/logger.utils";
 import {
 	journalEntryCreateInputZod,
 	journalEntryDeleteZod,
@@ -111,6 +114,30 @@ const create = rpcProtectedActiveTeamProcedure
 					: {}),
 			})
 			.onConflictDoNothing("id");
+
+		// Fan-out to teammates. Fire-and-forget — the fanout task retries
+		// via pg-tbus if Novu is down, so the create response doesn't
+		// block on it. `singletonKey` per-entry means a client retry of
+		// this same create call won't double-fanout.
+		void tbus
+			.send(
+				journalEntryCreatedFanoutTaskDef.from(
+					{
+						entryId: input.id,
+						teamId: activeTeamId,
+						authorUserId: user.id,
+						authorName: user.name ?? "A teammate",
+						contentPreview: input.content.slice(0, 140),
+					},
+					{ singletonKey: `journal_entry_created_fanout:${input.id}` },
+				),
+			)
+			.catch((err) => {
+				logger.warn(
+					{ err, entryId: input.id },
+					"[journalEntries.create] fanout dispatch failed",
+				);
+			});
 
 		// The `files` relation's `on: { tableName: "journalEntries", type: "attachment" }`
 		// filter runs server-side, so this is one query.

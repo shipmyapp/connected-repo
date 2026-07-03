@@ -37,6 +37,33 @@ export const userReminderTaskDef = defineTask({
 	},
 });
 
+/**
+ * Fan-out task for the journal-entry-created workflow. Sent once per
+ * newly-created entry from `journalEntries.create` and from the tail of
+ * `pushJournalEntryCreatesService` (for offline-created entries). The
+ * handler queries `team_members` for the entry's team, excludes the
+ * author, and triggers the `journal-entry-created` Novu workflow per
+ * remaining subscriber. Retries via pg-tbus so a Novu blip doesn't
+ * drop the notification silently.
+ */
+export const journalEntryCreatedFanoutTaskDef = defineTask({
+	task_name: "journal_entry_created_fanout",
+	schema: Type.Object({
+		entryId: Type.String(),
+		teamId: Type.String(),
+		authorUserId: Type.String({ format: "uuid" }),
+		authorName: Type.String(),
+		contentPreview: Type.String(),
+	}),
+	config: {
+		retryLimit: 3,
+		retryDelay: 60,
+		retryBackoff: true,
+		expireInSeconds: 120,
+		keepInSeconds: 604800, // 7 days
+	},
+});
+
 // Triggered when API usage reaches the 90% threshold.
 export const subscriptionAlertWebhookTaskDef = defineTask({
 	task_name: "subscription.alert_webhook",

@@ -1,4 +1,6 @@
 import { db } from "@backend/db/db";
+import { journalEntryCreatedFanoutTaskDef } from "@backend/events/events.schema";
+import { tbus } from "@backend/events/tbus";
 import { logger } from "@backend/utils/logger.utils";
 import type {
 	JournalEntryCreateInputWithRelations,
@@ -33,43 +35,103 @@ export async function pushJournalEntryCreatesService(
 ): Promise<JournalEntryPushCreatesOutput> {
 	if (input.creates.length === 0) return { results: [] };
 
+	let results: JournalEntryPushCreatesResult[];
+
 	try {
-		const bulkResults = await tryBulkInsert(input.creates, authorUserId, activeTeamId);
-		return { results: bulkResults };
+		results = await tryBulkInsert(input.creates, authorUserId, activeTeamId);
 	} catch (bulkErr) {
 		logger.warn(
 			{ err: bulkErr, count: input.creates.length },
 			"[journalEntries.pushCreates] bulk path failed; falling back to sequential per-row",
 		);
+
+		// Per-record fallback: each row runs in its own `db.$transaction` so a bad
+		// row does not poison siblings. Batches of 10 cap concurrency. Output is
+		// indexed 1:1 with `input.creates` (order preserved).
+		results = [];
+		for (let i = 0; i < input.creates.length; i += 10) {
+			const batch = input.creates.slice(i, i + 10);
+			const settled = await Promise.allSettled(
+				batch.map((rec) =>
+					db.$transaction(() => insertOne(rec, authorUserId, activeTeamId)),
+				),
+			);
+			settled.forEach((result, idx) => {
+				const rec = batch[idx];
+				if (!rec) {
+					throw new Error(
+						"[journalEntries.pushCreates] Batch index out of bounds in fallback",
+					);
+				}
+				if (result.status === "fulfilled") {
+					results.push({ ok: true, id: rec.id, row: result.value });
+				} else {
+					results.push({
+						ok: false,
+						id: rec.id,
+						error:
+							result.reason instanceof Error
+								? result.reason.message
+								: String(result.reason),
+					});
+				}
+			});
+		}
 	}
 
-	// Per-record fallback: each row runs in its own `db.$transaction` so a bad
-	// row does not poison siblings. Batches of 10 cap concurrency. Output is
-	// indexed 1:1 with `input.creates` (order preserved).
-	const results: JournalEntryPushCreatesResult[] = [];
-	for (let i = 0; i < input.creates.length; i += 10) {
-		const batch = input.creates.slice(i, i + 10);
-		const settled = await Promise.allSettled(
-			batch.map((rec) => db.$transaction(() => insertOne(rec, authorUserId, activeTeamId))),
-		);
-		settled.forEach((result, idx) => {
-			const rec = batch[idx];
-			if(!rec) {
-				throw new Error("[journalEntries.pushCreates] Batch index out of bounds in fallback");
-			}
-			if (result.status === "fulfilled") {
-				results.push({ ok: true, id: rec.id, row: result.value });
-			} else {
-				results.push({
-					ok: false,
-					id: rec.id,
-					error:
-						result.reason instanceof Error ? result.reason.message : String(result.reason),
-				});
-			}
-		});
-	}
+	// Fan-out to teammates for every entry that actually landed. Same
+	// singletonKey the online `create` handler uses, so an offline entry
+	// that eventually pushes doesn't double-fanout if the client happened
+	// to briefly go online mid-flight and hit `create` too.
+	await dispatchFanoutForLandedEntries(results, activeTeamId, authorUserId);
+
 	return { results };
+}
+
+async function dispatchFanoutForLandedEntries(
+	results: readonly JournalEntryPushCreatesResult[],
+	teamId: string,
+	authorUserId: string,
+): Promise<void> {
+	const landed = results.filter((r) => r.ok && r.row);
+	if (landed.length === 0) return;
+
+	// Load the author's name once — reused across every entry in the batch.
+	let authorName = "A teammate";
+	try {
+		const author = await db.users.find(authorUserId).selectAll();
+		if (author?.name) authorName = author.name;
+	} catch {
+		// Non-fatal — fall through to the default label.
+	}
+
+	await Promise.allSettled(
+		landed.map((r) => {
+			if (!r.row) return Promise.resolve();
+			return tbus.send(
+				journalEntryCreatedFanoutTaskDef.from(
+					{
+						entryId: r.row.id,
+						teamId,
+						authorUserId,
+						authorName,
+						contentPreview: r.row.content.slice(0, 140),
+					},
+					{
+						singletonKey: `journal_entry_created_fanout:${r.row.id}`,
+					},
+				),
+			);
+		}),
+	).then((settled) => {
+		const failures = settled.filter((s) => s.status === "rejected").length;
+		if (failures > 0) {
+			logger.warn(
+				{ failures, total: landed.length },
+				"[journalEntries.pushCreates] fanout dispatch had failures",
+			);
+		}
+	});
 }
 
 async function tryBulkInsert(

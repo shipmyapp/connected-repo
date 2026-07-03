@@ -9,8 +9,10 @@ import Fade from "@mui/material/Fade";
 import { useTheme } from "@mui/material/styles";
 import { useEffect, useState } from "react";
 import { Outlet, useLoaderData } from "react-router";
+import { AppBadgeSync } from "./AppBadgeSync";
 import { DesktopNavbar } from "./DesktopNavbar";
 import { MobileNavbar } from "./MobileNavbar";
+import { OfflineBanner } from "./OfflineBanner";
 
 export const AppLayoutContent = () => {
 	const { activeWorkspace } = useWorkspace();
@@ -78,6 +80,8 @@ export const AppLayout = () => {
 						bgcolor: "background.default",
 					}}
 				>
+					<OfflineBanner />
+					<AppBadgeSync />
 					{isMobile ? <MobileNavbar /> : <DesktopNavbar />}
 
 					{/* Main content area */}

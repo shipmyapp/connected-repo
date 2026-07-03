@@ -62,9 +62,11 @@
 		"lint": "biome check .",
 		"preview": "cross-env VITE_USER_APP_URL=http://localhost:4173 bash -c 'if [[ \"$*\" == *\"--no-build\"* ]]; then vite preview; else yarn run build && vite preview; fi' --",
 		"test:build": "tsc -b && cross-env VITE_USER_NODE_ENV=test vite build --mode test",
-		"test:e2e": "playwright test",
-		"test:e2e:ui": "playwright test --ui"
+		"test:e2e:no-build": "playwright test",
+		"test:e2e:with-build": "playwright test",
+		"test:e2e:ui:no-build": "playwright test --ui",
+		"test:e2e:ui:with-build": "playwright test --ui"
 	},
 	"type": "module",
-	"version": "0.0.0"
+	"version": "0.1.0"
 }

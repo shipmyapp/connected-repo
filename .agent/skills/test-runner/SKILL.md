@@ -25,12 +25,15 @@ cd apps/backend && yarn run test:server:start
 ### 2. Execution Order
 Tests MUST be executed in this sequence. Do not proceed to the next stage if the current one fails:
 1.  **Backend Tests**: `cd apps/backend && yarn run test`
-2.  **E2E Tests**: `cd apps/frontend && yarn run test:e2e`
+2.  **E2E Tests**: pick your intent explicitly — there is no bare `test:e2e`:
+    - `yarn test:e2e:with-build` (safe default; rebuilds the frontend in test mode first)
+    - `yarn test:e2e:no-build` (fast; assumes dist/ is already a warm test-mode build)
+    Same pair with `:ui:no-build` / `:ui:with-build` for Playwright UI mode.
 3.  **Multi-Context Sync Tests**: For modules using `SyncOrchestrator` or SSE, verify real-time data travel across multiple browser contexts using Playwright `browserContext`.
 
 ### 3. Investigation Protocol (Root Cause Over Test Band-aids)
 When a test fails, DO NOT simply "fix the test". You MUST identify and resolve the root cause in the source code:
-1.  **Isolate & Verify**: Run the specific failing test in isolation using `yarn run test:e2e -g "<test-title>"`.
+1.  **Isolate & Verify**: Run a single failing test in isolation. Direct playwright invocation is the cleanest way to pass `-g`: `cd apps/frontend && npx playwright test -g "<test-title>"`. Ensure the frontend dist/ is already test-mode built (run `yarn test:build` once first).
     - If it passes in isolation but fails in parallel, the issue is likely **interference** (shared state, database conflicts, or race conditions).
     - Solve for the specific parallel/interference issue rather than adding timeouts.
 2.  **Isolate & Log**: Use `.log()` or `.toSQL().sql` on Orchid ORM queries to inspect generated SQL.
