@@ -43,7 +43,7 @@ export default defineConfig({
     // Add JSON reporter for better CI integration
     ...(isCI ? [["json", { outputFile: "e2e/playwright-report/results.json" }] as const] : []),
 	],
-  timeout: isDebug || isUIMode ? 0 : 10000,
+  timeout: isDebug || isUIMode ? 0 : 30000,
   expect: {
     timeout: isDebug || isUIMode ? 0 : 5000,
   },

@@ -1,13 +1,12 @@
 import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { useThemeMode } from "@connected-repo/ui-mui/theme/ThemeContext";
-import { PwaUpdatePrompt } from "@frontend/components/pwa/update_prompt.pwa";
 import type { SessionInfo } from "@frontend/contexts/UserContext";
 import { userContext, useSessionInfo } from "@frontend/contexts/UserContext";
 import { useWorkspace, WorkspaceProvider } from "@frontend/contexts/WorkspaceContext";
 import { useMediaQuery } from "@mui/material";
 import Fade from "@mui/material/Fade";
 import { useTheme } from "@mui/material/styles";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Outlet, useLoaderData } from "react-router";
 import { AppBadgeSync } from "./AppBadgeSync";
 import { DesktopNavbar } from "./DesktopNavbar";
@@ -39,7 +38,6 @@ export const AppLayoutContent = () => {
 export const AppLayout = () => {
 	const theme = useTheme();
 	const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-	const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
 
 	// Get session data from authLoader
 	const sessionInfo = useLoaderData() as SessionInfo;
@@ -51,23 +49,12 @@ export const AppLayout = () => {
 		}
 	}, [sessionInfo.user?.themeSetting, setThemeMode]);
 
-
-	// Detection for mobile keyboard to hide navbars and maximize space
-	useEffect(() => {
-		if (!isMobile) return;
-
-		const handleResize = () => {
-			if (window.visualViewport) {
-				const isCurrentlyOpen = window.visualViewport.height < window.innerHeight * 0.8;
-				setIsKeyboardOpen(isCurrentlyOpen);
-			}
-		};
-
-		if (window.visualViewport) {
-			window.visualViewport.addEventListener('resize', handleResize);
-			return () => window.visualViewport?.removeEventListener('resize', handleResize);
-		}
-	}, [isMobile]);
+	// NOTE: A previous version listened to `visualViewport.resize` and toggled
+	// `isKeyboardOpen`, then shrunk the main padding to 0. On iOS Safari, the
+	// resulting re-render + layout shift while the keyboard was opening
+	// caused the input to lose focus mid-animation and dismissed the
+	// keyboard again. We now leave the layout static — the browser handles
+	// scrolling the focused input above the keyboard on its own.
 
 	return (
 		<userContext.Provider value={sessionInfo}>
@@ -89,14 +76,12 @@ export const AppLayout = () => {
 						component="main"
 						sx={{
 							flexGrow: 1,
-							pt: isMobile && isKeyboardOpen ? 0 : { xs: 2, md: 3 },
-							pb: isMobile ? (isKeyboardOpen ? 0 : 10) : 3, // Remove bottom nav padding when keyboard open
+							pt: { xs: 2, md: 3 },
+							pb: isMobile ? 10 : 3,
 							px: { xs: 2, sm: 3, md: 4 },
-							transition: 'all 0.2s ease-in-out'
 						}}
 					>
 						<AppLayoutContent />
-						<PwaUpdatePrompt />
 					</Box>
 				</Box>
 			</WorkspaceProvider>

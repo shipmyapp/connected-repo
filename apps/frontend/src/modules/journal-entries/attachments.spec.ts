@@ -1,17 +1,8 @@
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { expect, test } from "../../../e2e/fixtures";
-
-// Playwright runs this file as an ES module (see playwright.config.ts) —
-// CommonJS `__dirname` isn't defined. Derive it from `import.meta.url`
-// so path.join for the fixture image resolves relative to this file.
-const __dirname_esm = path.dirname(fileURLToPath(import.meta.url));
 
 /**
  * Regression coverage for two hard-to-unit-test bug classes that live
- * in the sync pipeline. Both are golden-path e2e — they don't reproduce
- * the underlying race, but they fail loudly if the pipeline ever loses
- * the invariants the fixes established.
+ * in the sync pipeline.
  *
  *  - `authLoader` cookieCache fallback: `getDefaultTeam` heals a
  *    session whose `activeTeamAppId` came back null from better-auth.
@@ -21,17 +12,11 @@ const __dirname_esm = path.dirname(fileURLToPath(import.meta.url));
  *  - `filesDb.bulkUpsertFromServer` null-guard: a pull cycle running
  *    between "thumbnail uploaded to CDN" and "thumbnail URL pushed to
  *    server" used to clobber the local `thumbnailCdnUrl`, permanently
- *    stranding the row with state=`uploaded` and url=`null`. The
- *    detail view rendered its fallback icon instead of the image. If
- *    the merge regresses, the second test fails: the `<img>` element
- *    for the attachment never resolves.
+ *    stranding the row with state=`uploaded` and url=`null`. Verified
+ *    here by driving Dexie directly through the test hook exposed on
+ *    `window.__testHooks` — no real CDN upload required, so the check
+ *    runs in any test env regardless of S3 credential validity.
  */
-
-const FIXTURE_IMAGE = path.join(
-	__dirname_esm,
-	"__fixtures__",
-	"attachment-fixture.png",
-);
 
 test.describe("Sync pipeline regressions", () => {
 	test("workspace chip resolves to a team name after login", async ({ page }) => {
@@ -46,57 +31,89 @@ test.describe("Sync pipeline regressions", () => {
 		await expect(page.getByText("Loading…")).toHaveCount(0, { timeout: 15000 });
 	});
 
-	test("entry with image attachment shows thumbnail in detail view", async ({
+	test("bulkUpsertFromServer preserves local CDN URLs when server row has nulls", async ({
 		page,
 	}) => {
+		// Boot the app so the DataWorker is spawned and `sync.initForUser`
+		// has opened the per-user Dexie DB. The test hook (exposed via
+		// `main.tsx` when isTest) resolves once the worker.proxy module
+		// has loaded.
 		await page.goto("/journal-entries");
 		await page.waitForLoadState("networkidle");
+		await page.waitForFunction(
+			// biome-ignore lint/suspicious/noExplicitAny: test-only bridge
+			() => (window as any).__testHooks?.getDataProxy != null,
+			null,
+			{ timeout: 10_000 },
+		);
 
-		// Navigate to the create form. Handles both the "no entries yet"
-		// empty state and the "have entries" list view.
-		const emptyStateCta = page.getByRole("button", {
-			name: "Create Your First Entry",
+		const result = await page.evaluate(async () => {
+			// biome-ignore lint/suspicious/noExplicitAny: test-only bridge
+			const proxy = await (window as any).__testHooks.getDataProxy();
+			await proxy.sync.waitForReady();
+
+			// Synthetic 26-char ULIDs (Crockford Base32) that sort to the
+			// end so the test never collides with any real rows.
+			const fileId = "01HZZZZZZZAATESTATTACHMENT";
+			const parentId = "01HZZZZZZZAATESTPARENTENTR";
+			const baseRow = {
+				id: fileId,
+				tableName: "journalEntries",
+				tableId: parentId,
+				type: "attachment",
+				fileName: "attachment-regression.png",
+				mimeType: "image/png",
+				createdByUserId: "00000000-0000-0000-0000-000000000000",
+				deletedAt: null,
+				isMainFileLost: false,
+				teamId: null,
+				createdAt: 1_700_000_000_000,
+				updatedAt: "1700000000000000",
+			};
+
+			// 1. Seed the local row via a first `bulkUpsertFromServer` with
+			//    the CDN URLs present. This lands in Dexie only (no OPFS,
+			//    no CDN PUT) so it works uniformly across Chromium/WebKit —
+			//    `upsertLocal`'s `FileSystemWritableFileStream` path has
+			//    quirky Safari support and is not what we're testing here.
+			await proxy.filesDb.bulkUpsertFromServer([
+				{
+					...baseRow,
+					cdnUrl: "https://fake-cdn.example.com/main.png",
+					thumbnailCdnUrl: "https://fake-cdn.example.com/thumb.png",
+				},
+			]);
+
+			// 2. Simulate a pull cycle running when the server row hasn't
+			//    yet been updated with the CDN URLs (mirrors the mid-race
+			//    window between "uploaded to CDN" and "server acknowledged
+			//    via pushCdnUpdates"). Without the merge policy's
+			//    `?? existing` fallback, this would clobber the local URLs.
+			await proxy.filesDb.bulkUpsertFromServer([
+				{
+					...baseRow,
+					cdnUrl: null,
+					thumbnailCdnUrl: null,
+				},
+			]);
+
+			// 3. Read the row back to observe the merged state.
+			const merged = await proxy.filesDb.getById(fileId);
+			return {
+				cdnUrl: merged?.cdnUrl ?? null,
+				thumbnailCdnUrl: merged?.thumbnailCdnUrl ?? null,
+				mainUploadState: merged?.mainUploadState ?? null,
+				thumbnailUploadState: merged?.thumbnailUploadState ?? null,
+			};
 		});
-		const headerCta = page.getByRole("link", { name: "New Entry" });
-		if (await emptyStateCta.isVisible()) {
-			await emptyStateCta.click();
-		} else {
-			await headerCta.click();
-		}
-		await page.waitForURL(/\/journal-entries\/new/, { timeout: 10000 });
 
-		// Fill content. The form's text field is the only one on the page
-		// so a role-based locator is unambiguous.
-		const content = `attachment-regression-${Date.now()}`;
-		await page.getByRole("textbox").fill(content);
-
-		// Attach the fixture image. MUI's uploader renders a hidden
-		// <input type="file"> — `setInputFiles` on the first one is
-		// stable across UI restyles.
-		await page.locator('input[type="file"]').first().setInputFiles(FIXTURE_IMAGE);
-
-		await page.getByRole("button", { name: /Save Entry/i }).click();
-		await page.waitForURL(/\/journal-entries(?!\/new)/, { timeout: 15000 });
-
-		// Open the entry we just created and wait for the attachment
-		// pipeline to complete. `pushCdnUpdates` typically settles inside
-		// one sync cycle; give it up to 20s so this doesn't flake on slow
-		// CI runners.
-		await page.getByText(content).first().click();
-		await page.waitForURL(/\/journal-entries\/[^/]+$/, { timeout: 10000 });
-
-		const attachmentImage = page.locator('img[alt*="attachment-fixture"]').first();
-
-		// Success means the merge policy preserved `thumbnailCdnUrl`
-		// through any pull cycles that ran during the upload. Failure
-		// mode: MUI renders the "HideImage" fallback icon instead of an
-		// <img>, so the locator never resolves.
-		await expect(attachmentImage).toBeVisible({ timeout: 20000 });
-
-		// Belt-and-suspenders: verify the src is a real R2 URL, not an
-		// object URL fallback or empty string.
-		const src = await attachmentImage.getAttribute("src");
-		expect(src).toBeTruthy();
-		expect(src).toMatch(/^https:\/\//);
+		// The client-only URLs must survive the server-null pull.
+		expect(result.cdnUrl).toBe("https://fake-cdn.example.com/main.png");
+		expect(result.thumbnailCdnUrl).toBe("https://fake-cdn.example.com/thumb.png");
+		// Upload state must also be preserved from the previous merge —
+		// a regression that reset it to `pending` would cause the
+		// FileUploadWorker to re-upload the row on every cycle.
+		expect(result.mainUploadState).toBe("uploaded");
+		expect(result.thumbnailUploadState).toBe("uploaded");
 	});
 });

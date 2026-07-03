@@ -75,6 +75,7 @@ test.describe('Journal Entries', () => {
       // Navigate to create entry
       await page.goto('/journal-entries/new');
       await page.waitForURL('**/journal-entries/new');
+      await page.waitForLoadState('networkidle');
 
       // Verify page loads
       await expect(page.locator('h1')).toContainText('New Journal Entry');
@@ -85,6 +86,7 @@ test.describe('Journal Entries', () => {
       // Navigate to create entry
       await page.goto('/journal-entries/new');
       await page.waitForURL('**/journal-entries/new');
+      await page.waitForLoadState('networkidle');
 
       // Check prompted mode is selected
       await expect(page.locator('button[value="prompted"]')).toHaveAttribute('aria-pressed', 'true');
@@ -97,6 +99,7 @@ test.describe('Journal Entries', () => {
       // Navigate to create entry
       await page.goto('/journal-entries/new');
       await page.waitForURL('**/journal-entries/new');
+      await page.waitForLoadState('networkidle');
 
       // Switch to free write mode
       const freeWriteButton = page.locator('button[value="free"]');
@@ -144,6 +147,7 @@ test.describe('Journal Entries', () => {
       // Navigate to create entry
       await page.goto('/journal-entries/new');
       await page.waitForURL('**/journal-entries/new');
+      await page.waitForLoadState('networkidle');
 
       // Ensure free write mode is selected
       const freeWriteButton = page.locator('button[value="free"]');
@@ -172,6 +176,8 @@ test.describe('Journal Entries', () => {
       test('loads and displays journal entry detail', async ({ page }) => {
        // First create an entry for testing
        await page.goto('/journal-entries/new');
+       await page.waitForURL('**/journal-entries/new');
+       await page.waitForLoadState('networkidle');
        const freeWriteButton = page.locator('button[value="free"]');
        await freeWriteButton.waitFor({ state: 'visible' });
        await freeWriteButton.click(); // Switch to free write
@@ -218,6 +224,8 @@ test.describe('Journal Entries', () => {
 
          // First create an entry for testing
          await page.goto('/journal-entries/new');
+         await page.waitForURL('**/journal-entries/new');
+         await page.waitForLoadState('networkidle');
          await page.locator('button[value="free"]').click(); // Switch to free write
          await page.locator('textarea[name="content"]').fill(content);
          await page.locator('button[type="submit"]').click();
@@ -284,6 +292,8 @@ test.describe('Journal Entries', () => {
 
         // First create an entry for testing
         await page.goto('/journal-entries/new');
+        await page.waitForURL('**/journal-entries/new');
+        await page.waitForLoadState('networkidle');
         await page.locator('button[value="free"]').click(); // Switch to free write
         await page.locator('textarea[name="content"]').fill(content);
         await page.locator('button[type="submit"]').click();
@@ -361,6 +371,8 @@ test.describe('Journal Entries', () => {
 
           // First create an entry for testing
           await page.goto('/journal-entries/new');
+          await page.waitForURL('**/journal-entries/new');
+          await page.waitForLoadState('networkidle');
           await page.locator('button[value="free"]').click(); // Switch to free write
           await page.locator('textarea[name="content"]').fill(content);
           await page.locator('button[type="submit"]').click();

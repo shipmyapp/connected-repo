@@ -15,8 +15,8 @@ async function createAuthState<T extends typeof devices>(deviceConfig: T[keyof T
 		// Click the Google button which handles test authentication
 		await page.locator('text=Continue with Google').click();
 
-		// Wait for redirect to dashboard
-		await page.waitForURL('**/dashboard');
+		// Wait for redirect to dashboard or journal-entries/new (first-run redirect)
+		await page.waitForURL(/\/(dashboard|journal-entries\/new)/);
 
 		// Webkit/Safari fix: wait for network to settle and a small grace period for cookies
 		await page.waitForLoadState('networkidle');

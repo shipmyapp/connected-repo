@@ -1,4 +1,5 @@
 import { TopProgressBar } from "@frontend/components/layout/TopProgressBar";
+import { PwaUpdatePrompt } from "@frontend/components/pwa/update_prompt.pwa";
 import { Outlet } from "react-router";
 
 export const RootLayout = () => {
@@ -6,6 +7,7 @@ export const RootLayout = () => {
 		<>
 			<TopProgressBar />
 			<Outlet />
+			<PwaUpdatePrompt />
 		</>
 	);
 };

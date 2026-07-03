@@ -26,16 +26,10 @@ test.describe('Authentication', () => {
     // Click the login button (shows "Continue with Google" but uses password login in test mode)
     await page.locator('text=Continue with Google').click();
 
-    // Wait for redirect to dashboard
-    await page.waitForURL('**/dashboard');
-
-    // Verify we're on the dashboard by checking URL
-    await expect(page).toHaveURL(/.*\/dashboard/);
+    // Wait for redirect
+    await page.waitForURL(/\/(dashboard|journal-entries\/new)/);
 
     // Verify user is authenticated by checking for user menu
     await expect(page.locator('[aria-label*="User menu"]')).toBeVisible();
-
-    // Verify dashboard content is visible
-    await expect(page.locator('h4').filter({ hasText: /Welcome back/i })).toBeVisible();
   });
 });
