@@ -12,11 +12,16 @@ interface ClientContext {
   something?: string
 }
 
-// When VITE_API_URL is empty (Dokploy same-origin reverse-proxy deploy), the
-// client uses a relative path so fetch resolves against window.location.origin.
+// When VITE_API_URL is empty (Dokploy same-origin reverse-proxy deploy), we
+// must resolve against the current origin ourselves. Passing a relative path
+// like "/api/user-app" here works for `fetch`, but oRPC's RPCLink internally
+// does `new URL(path, this.url)` which throws "Invalid URL" on a relative
+// base — breaking every RPC call and making the sync worker retry-loop
+// forever with "Failed to construct 'URL': Invalid URL".
+// globalThis.location is defined in main thread, workers, and service workers.
 const orpcBaseUrl = env.VITE_API_URL
   ? `${env.VITE_API_URL}/api/user-app`
-  : "/api/user-app";
+  : `${globalThis.location.origin}/api/user-app`;
 
 const link = new RPCLink<ClientContext>({
   url: orpcBaseUrl,

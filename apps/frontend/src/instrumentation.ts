@@ -25,8 +25,14 @@ async function isSentryIngestBlocked(dsn: string): Promise<boolean> {
     const ac = new AbortController();
     const timer = setTimeout(() => ac.abort(), 1500);
     try {
-      await fetch(`${url.protocol}//${url.host}/api/`, {
-        method: "HEAD",
+      // Probe /favicon.ico rather than /api/ — the former is served 200 by
+      // most CDN-fronted hosts (including Sentry's ingest), so DevTools
+      // doesn't flag it as a failed resource. If Sentry ever stops serving
+      // favicon.ico, the probe still works (any response = reachable), the
+      // console will just complain again.
+      // no-cors keeps the response opaque; we only care whether fetch throws.
+      await fetch(`${url.protocol}//${url.host}/favicon.ico`, {
+        method: "GET",
         mode: "no-cors",
         cache: "no-store",
         signal: ac.signal,

@@ -1,5 +1,6 @@
 import "./otel.sdk";
 
+import { spawn } from "node:child_process";
 import {
 	createServer as createHttpServer,
 	Server as HttpServer,
@@ -27,6 +28,69 @@ import { mainRequestDispatcher } from "./request_handlers/main.handler";
 logger.info({ isDev, isProd, isStaging, isTest }, "Environment:");
 logger.info(allowedOrigins, "Allowed Origins:");
 logger.info(env.ALLOWED_ORIGINS, "ALLOWED_ORIGINS env:");
+
+/**
+ * Fire-and-forget Novu workflow sync — publishes code-defined workflows
+ * (apps/backend/src/novu/workflows/*) to the Novu control plane so newly-added
+ * workflows are available immediately after deploy without a separate
+ * post-deploy step. Runs 8 s after listen so Traefik has time to route the
+ * new container to the public bridge URL Novu will call back on.
+ *
+ * Non-blocking by design — the server is healthy immediately and sync happens
+ * in the background. A sync failure is logged but never crashes the server;
+ * subsequent user signups would still miss until the next boot retry, so the
+ * error is worth alerting on.
+ *
+ * Skipped when NOVU_API_URL is unset (dev/CI without a real Novu instance).
+ */
+function syncNovuWorkflowsInBackground(): void {
+	if (!env.NOVU_SECRET_KEY || !env.NOVU_API_URL) return;
+	if (process.argv.includes("--smoke-test")) return;
+
+	const bridgeUrl = `${env.VITE_API_URL}/api/novu`;
+	const apiUrl = env.NOVU_API_URL;
+	setTimeout(() => {
+		logger.info({ bridgeUrl, apiUrl }, "Starting Novu workflow sync");
+		// Pass NOVU_SECRET_KEY via env, not argv, so it stays out of `ps` output.
+		const child = spawn(
+			"npx",
+			[
+				"-y",
+				"novu@latest",
+				"sync",
+				"--bridge-url",
+				bridgeUrl,
+				"--api-url",
+				apiUrl,
+			],
+			{
+				env: { ...process.env, NOVU_SECRET_KEY: env.NOVU_SECRET_KEY },
+				stdio: ["ignore", "pipe", "pipe"],
+			},
+		);
+		let stdout = "";
+		let stderr = "";
+		child.stdout.on("data", (d) => {
+			stdout += d.toString();
+		});
+		child.stderr.on("data", (d) => {
+			stderr += d.toString();
+		});
+		child.on("close", (code) => {
+			if (code === 0) {
+				logger.info({ stdout }, "Novu workflow sync completed");
+			} else {
+				logger.error(
+					{ code, stdout, stderr },
+					"Novu workflow sync failed — new workflows will 422 until next boot retries",
+				);
+			}
+		});
+		child.on("error", (err) => {
+			logger.error({ err }, "Novu workflow sync process error");
+		});
+	}, 8000);
+}
 
 try {
 	const host = env.HOST ?? (isTest ? "127.0.0.1" : "0.0.0.0");
@@ -72,6 +136,7 @@ try {
 	if (env.NOVU_SECRET_KEY) {
 		startReminderDispatchCron();
 		startReconcileFcmTokensCron();
+		syncNovuWorkflowsInBackground();
 	} else {
 		logger.info("Novu not configured; reminder/reconcile crons skipped");
 	}
