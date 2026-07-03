@@ -17,6 +17,13 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useNavigate } from "react-router";
 
+// Fires on the FIRST Dashboard mount within a single JS runtime. A full
+// page load (login callback via `window.location.href`, cold tab open,
+// hard refresh) resets this so the empty-entries redirect can run again;
+// SPA navigation preserves it, so clicking the Dashboard link within a
+// running session renders the dashboard normally regardless of entry count.
+let firstRunRedirectChecked = false;
+
 const DashboardPage = () => {
 	const navigate = useNavigate();
 	// Get user data from session context (provided by AppLayout)
@@ -31,20 +38,32 @@ const DashboardPage = () => {
 	});
 	const entryCount = entries?.length ?? 0;
 
-	// First-run redirect: a signed-in user with zero entries lands on the
-	// entry-add page instead of the empty dashboard. Once they create one,
-	// this stays out of their way. The `replace: true` keeps the browser
-	// history clean so Back doesn't loop them back here.
+	// First-run redirect: only on cold app open / post-login callback.
+	// Manual /dashboard navigation within a running SPA session does NOT
+	// redirect — `firstRunRedirectChecked` short-circuits it.
 	useEffect(() => {
+		if (firstRunRedirectChecked) return;
 		if (!teamId) return;
 		if (entriesLoading) return;
-		if (entries && entries.length === 0) {
+		if (!entries) return;
+
+		firstRunRedirectChecked = true;
+		if (entries.length === 0) {
 			navigate("/journal-entries/new", { replace: true });
 		}
 	}, [teamId, entriesLoading, entries, navigate]);
 
-	// Avoid a one-frame flash of the empty dashboard before the effect fires.
-	if (!entriesLoading && entries && entries.length === 0) return null;
+	// Avoid a one-frame flash of the empty dashboard on the render that
+	// will trigger the first-run redirect. Once the check has run, always
+	// render the dashboard — even when entries are empty.
+	if (
+		!firstRunRedirectChecked &&
+		!entriesLoading &&
+		entries &&
+		entries.length === 0
+	) {
+		return null;
+	}
 
 	return (
 		<Box

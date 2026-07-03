@@ -39,3 +39,4 @@ TODO.md
 code-review.md
 .opencode_context.tmp
 diff.patch
+.git-diff-staged.patch

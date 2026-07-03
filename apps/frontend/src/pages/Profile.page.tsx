@@ -5,6 +5,7 @@ import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { Card } from "@connected-repo/ui-mui/layout/Card";
 import { Container } from "@connected-repo/ui-mui/layout/Container";
 import { Stack } from "@connected-repo/ui-mui/layout/Stack";
+import { AppVersionLabel } from "@frontend/components/AppVersionLabel";
 import { NotificationSettings } from "@frontend/components/notifications/NotificationSettings";
 import { useSessionInfo } from "@frontend/contexts/UserContext";
 import { useWorkspace } from "@frontend/contexts/WorkspaceContext";
@@ -158,6 +159,8 @@ export default function ProfilePage() {
 				</Card>
 
 				<NotificationSettings />
+
+				<AppVersionLabel prefix="OneQ · " />
 			</Stack>
 
 			<CreateTeamDialog open={createOpen} onClose={() => setCreateOpen(false)} />

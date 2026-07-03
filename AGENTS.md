@@ -18,9 +18,9 @@
 ---
 
 ## Layer 2: Active Task
-- **Objective**: Implement Service Worker Background Sync (Plan 011).
+- **Objective**: Improve PWA Installation and Update UX.
 - **Status**: Completed.
-- **Context**: Implemented event-driven sync pipeline (`drainLocalChanges`), pending edit locks to prevent data clobbering, and FCM silent pushes for waking up the app for background sync. Ready for commit.
+- **Context**: Implemented `PwaInstallSheet` for native-like bottom sheet installation, `AppVersionLabel` for manual version checking, and enforced a persistent `PwaUpdatePrompt` when updates are deferred. Fixed dev-mode module duplication in Vite. Ready for commit.
 
 ## Layer 3: Decision Records
 

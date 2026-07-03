@@ -123,6 +123,28 @@ export default defineConfig(({ mode }) => {
 				'@frontend': path.resolve(__dirname, './src'),
 				'@backend': path.resolve(__dirname, '../backend/src'),
 			},
+			// Yarn workspaces link `@connected-repo/ui-mui` in from the
+			// monorepo; when its dist code re-imports MUI/emotion/react, Vite
+			// can resolve those bare specifiers via a different node_modules
+			// path than the app's own imports and end up with TWO module
+			// instances at runtime. Symptom in dev (esp. after HMR):
+			//   - "You are loading @emotion/react when it is already loaded"
+			//   - "Invalid hook call ... more than one copy of React"
+			//   - `useContext(null)` inside SvgIcon on /settings/sync.
+			// `dedupe` forces every request for these packages to resolve to
+			// the single copy hoisted at the workspace root.
+			dedupe: [
+				"react",
+				"react-dom",
+				"react/jsx-runtime",
+				"react/jsx-dev-runtime",
+				"@emotion/react",
+				"@emotion/styled",
+				"@mui/material",
+				"@mui/system",
+				"@mui/icons-material",
+				"@mui/x-date-pickers",
+			],
 		},
 		build: {
 			rollupOptions: {

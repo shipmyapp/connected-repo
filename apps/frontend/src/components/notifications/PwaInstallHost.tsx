@@ -1,3 +1,4 @@
+import { PwaInstallSheet } from "@frontend/components/pwa/PwaInstallSheet";
 import { usePwaInstall } from "@frontend/hooks/usePwaInstall";
 import type { PWAInstallElement } from "@khmyznikov/pwa-install";
 import { createContext, type ReactNode, useContext } from "react";
@@ -29,6 +30,12 @@ export const PwaInstallHost = ({
 	return (
 		<Ctx.Provider value={state}>
 			{children}
+			{/* Our custom MUI-themed bottom sheet handles the install UX so
+			    the palette matches the rest of the app (belgrade-plus /
+			    magicbell/pwa-inbox layout, MUI theming). It auto-opens
+			    on beforeinstallprompt / iOS-Safari, respects a 3-day
+			    dismissal, and calls back into state.install() below. */}
+			<PwaInstallSheet />
 			{/* Web component renders hidden — we drive the UX ourselves.
 			    `disable-chrome` skips its built-in Chromium install dialog;
 			    `manual-apple manual-chrome` gates the library's dialogs to

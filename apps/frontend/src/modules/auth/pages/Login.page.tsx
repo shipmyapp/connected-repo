@@ -9,6 +9,7 @@ import { Container } from "@connected-repo/ui-mui/layout/Container";
 import { Paper } from "@connected-repo/ui-mui/layout/Paper";
 import { Stack } from "@connected-repo/ui-mui/layout/Stack";
 import { userCreateFixture } from "@connected-repo/zod-schemas/user.fixture";
+import { AppVersionLabel } from "@frontend/components/AppVersionLabel";
 import { env, isTest } from "@frontend/configs/env.config";
 import { authClient } from "@frontend/utils/auth.client";
 import { getLastLogin } from "@frontend/utils/auth.persistence";
@@ -307,16 +308,18 @@ export const LoginPage = () => {
 								</Box>
 
 								{/* Footer */}
-								<Box sx={{ mt: 2 }}>
+								<Box sx={{ mt: 2, textAlign: "center" }}>
 									<Typography
 										variant="caption"
 										sx={{
 											color: "text.disabled",
 											fontSize: { xs: "0.8rem", sm: "0.75rem" },
+											display: "block",
 										}}
 									>
 										By continuing, you agree to our Terms of Service and Privacy Policy
 									</Typography>
+									<AppVersionLabel />
 								</Box>
 							</Stack>
 					</Paper>
