@@ -33,5 +33,4 @@ Use this workflow to re-organize the development roadmap when new requirements e
     - Remove redundant or completed plans.
 
 6.  **Update Master Docs**:
-    - Synchronize the new sequence with the "Current State" in `DEVELOPMENT_PLAN.md`.
-    - Update `AGENTS.md` (Active Task section) with the new intent.
+    - Update the relevant `AGENTS.md` / `README.md` with the new intent where architecture changed.

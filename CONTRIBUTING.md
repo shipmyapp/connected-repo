@@ -95,5 +95,5 @@ Hooks are located in `.git/hooks/` and run automatically.
 ## Need Help?
 
 - Check existing code for patterns
-- Read the [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md) for project roadmap
+- Read [README.md](./README.md) and the per-module `AGENTS.md` files for architecture
 - Ask in GitHub Issues for clarification

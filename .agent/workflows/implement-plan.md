@@ -21,8 +21,7 @@ Follow these steps to implement the next scheduled atomic plan.
     - If verification fails, fix the issues before proceeding.
 
 4.  **Documentation Sync**:
-    - Update `AGENTS.md` (Active Task section) to reflect the current work.
-    - Update `DEVELOPMENT_PLAN.md` if the plan represents a major milestone.
+    - Update the relevant `AGENTS.md` / `README.md` when the change affects architecture.
 
 5.  **Completion & Cleanup**:
     - Once the work is verified and staged:

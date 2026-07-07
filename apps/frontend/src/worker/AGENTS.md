@@ -76,3 +76,16 @@ pends instead of crashing.
   cleared everywhere.
 - `tearDownSync()` (tests / hard reset) → `terminateWorkers()`; the on-disk
   Dexie DB is preserved.
+
+## Known issues
+
+- **Membership revocation never propagates (device wipe unreachable).** The
+  "you were removed → wipe this team's local data" path depends on the client
+  pulling its own tombstoned `team_members` row, but every sync RPC requires a
+  non-deleted membership, so a removed user gets 403 and can never pull the
+  tombstone. Net effect: an offboarded device retains all team data
+  indefinitely; a re-invite can trigger an infinite wipe/re-pull loop. Full
+  write-up and the planned fix (deliver own-membership tombstones on the
+  user-scoped wave-1 instead of the team-scoped channel) live in the doc
+  comment on `SyncOrchestrator.collectSelfMembershipTombstones`
+  (`sync/sync.orchestrator.ts`).

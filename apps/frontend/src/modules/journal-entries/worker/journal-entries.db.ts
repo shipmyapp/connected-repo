@@ -7,6 +7,7 @@ import {
 	type Pending,
 	type StoredJournalEntry,
 } from "../../../worker/db/db.manager";
+import { mergeServerFileRow } from "../../../worker/db/files.db";
 
 /**
  * Local mirror of `journal_entries` plus its nested `files` relation.
@@ -159,37 +160,15 @@ export const journalEntriesDb = {
 };
 
 async function mergeFilesFromServer(rows: FileSelectAll[]): Promise<void> {
-	// Preserve local-only upload state; overwrite the metadata fields.
+	// Delegate to the single clobber-safe merge shared with the pull path.
+	// A blind `{ ...existing, ...row }` here used to let a server row with
+	// `cdnUrl: null` (echoed back before pushCdnUpdates lands) overwrite a URL
+	// the upload worker had just written locally, permanently stranding the
+	// upload. `mergeServerFileRow` null-coalesces those client-owned fields.
 	await getClientDb().transaction("rw", getClientDb().files, async () => {
 		for (const row of rows) {
 			const existing = await getClientDb().files.get(row.id);
-			if (existing) {
-				await getClientDb().files.put({
-					...existing,
-					...row,
-				});
-			} else {
-				await getClientDb().files.put({
-					...row,
-					mainUploadState: row.cdnUrl ? "uploaded" : "pending",
-					mainUploadAttempts: 0,
-					mainLastError: null,
-					mainLastAttemptAt: null,
-					mainChecksum: null,
-					mainOpfsPath: null,
-					thumbnailUploadState: row.thumbnailCdnUrl
-						? "uploaded"
-						: row.mimeType.startsWith("image/") || row.mimeType === "application/pdf"
-							? "pending"
-							: "not_attempted",
-					thumbnailUploadAttempts: 0,
-					thumbnailLastError: null,
-					thumbnailLastAttemptAt: null,
-					thumbnailChecksum: null,
-					thumbnailOpfsPath: null,
-					syncError: null,
-				});
-			}
+			await getClientDb().files.put(mergeServerFileRow(existing, row));
 		}
 	});
 }

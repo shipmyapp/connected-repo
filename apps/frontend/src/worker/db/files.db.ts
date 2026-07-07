@@ -35,6 +35,67 @@ export interface UpsertLocalFileInput {
  * (browsers throttle at multi-MB rows) and enables the CDN-first
  * recovery path (`checkFileExistsInCdn`).
  */
+/**
+ * Merge a server-authoritative file row onto the existing local row,
+ * preserving client-only fields. This is the SINGLE clobber-safe merge used by
+ * BOTH the pull path (`filesDb.bulkUpsertFromServer`) and the push-echo path
+ * (`mergeFilesFromServer` in the journal-entries adapter).
+ *
+ * `cdnUrl` / `thumbnailCdnUrl` / `isMainFileLost` are client-owned in the
+ * window between "uploaded to CDN" and "server acknowledged via
+ * pushCdnUpdates". During that window the server row still has null/false for
+ * these fields while the local row already holds the authoritative post-PUT
+ * value queued for push. Falling back to `existing` when the server value is
+ * empty keeps the queued push intact; a blind `{ ...existing, ...row }` would
+ * let the server null overwrite the local URL — the next pushCdnUpdates then
+ * sends nothing and the upload is permanently stranded. (This bug previously
+ * lived in the push-echo path only, because it did the blind merge instead of
+ * calling this helper.)
+ *
+ * Server-heals-stuck-local: if the server row already has a CDN URL, force the
+ * corresponding local state to `uploaded` and clear any error, so a per-device
+ * transient failure (`failed` / `abandoned` / `lost`) doesn't stay sticky after
+ * the same file was uploaded on another device and mirrored down.
+ */
+export function mergeServerFileRow(
+	existing: StoredFile | undefined,
+	row: FileSelectAll,
+): StoredFile {
+	const serverHasMain = row.cdnUrl != null;
+	const serverHasThumb = row.thumbnailCdnUrl != null;
+
+	return {
+		...row,
+		cdnUrl: row.cdnUrl ?? existing?.cdnUrl ?? null,
+		thumbnailCdnUrl: row.thumbnailCdnUrl ?? existing?.thumbnailCdnUrl ?? null,
+		isMainFileLost: row.isMainFileLost || existing?.isMainFileLost || false,
+		mainUploadState: serverHasMain
+			? "uploaded"
+			: existing?.mainUploadState ?? "pending",
+		mainUploadAttempts: existing?.mainUploadAttempts ?? 0,
+		mainLastError: serverHasMain ? null : existing?.mainLastError ?? null,
+		mainLastAttemptAt: existing?.mainLastAttemptAt ?? null,
+		// `mainChecksum` / `mainOpfsPath` are device-local — the blob physically
+		// lives in this device's OPFS at that path. For rows arriving from the
+		// server for the first time (another device uploaded), `existing` is
+		// undefined and both stay null. That's correct: there's no blob to point
+		// at, and the CDN URL is already set so `FileUploadWorker` has nothing to
+		// do. Recovery from `isMainFileLost === true` requires a re-pick.
+		mainChecksum: existing?.mainChecksum ?? null,
+		mainOpfsPath: existing?.mainOpfsPath ?? null,
+		thumbnailUploadState: serverHasThumb
+			? "uploaded"
+			: existing?.thumbnailUploadState ??
+				(canGenerateThumbnail(row.mimeType) ? "pending" : "not_attempted"),
+		thumbnailUploadAttempts: existing?.thumbnailUploadAttempts ?? 0,
+		thumbnailLastError: serverHasThumb ? null : existing?.thumbnailLastError ?? null,
+		thumbnailLastAttemptAt: existing?.thumbnailLastAttemptAt ?? null,
+		thumbnailChecksum: existing?.thumbnailChecksum ?? null,
+		thumbnailOpfsPath: existing?.thumbnailOpfsPath ?? null,
+		syncError: existing?.syncError ?? null,
+	};
+}
+
 export const filesDb = {
 	async getById(id: string): Promise<StoredFile | undefined> {
 		return await getClientDb().files.get(id);
@@ -127,70 +188,7 @@ export const filesDb = {
 		await getClientDb().transaction("rw", getClientDb().files, async () => {
 			for (const row of rows) {
 				const existing = await getClientDb().files.get(row.id);
-				// Preserve client-only fields when the server row overwrites.
-				//
-				// `cdnUrl` / `thumbnailCdnUrl` / `isMainFileLost` are client-
-				// owned in the window between "uploaded to CDN" and
-				// "server acknowledged via pushCdnUpdates". If a pull runs
-				// during that window, the server row still has null/false
-				// for these fields — but the local row already has the
-				// authoritative post-PUT values queued for push. Falling
-				// back to `existing` when the server value is empty keeps
-				// the queued push intact; otherwise the next pushCdnUpdates
-				// sees a null and sends nothing, permanently stranding the
-				// upload.
-				const mergedCdnUrl = row.cdnUrl ?? existing?.cdnUrl ?? null;
-				const mergedThumbCdnUrl =
-					row.thumbnailCdnUrl ?? existing?.thumbnailCdnUrl ?? null;
-
-				// Server-heals-stuck-local. If the server row already has a
-				// CDN URL, force the corresponding local state to `uploaded`
-				// and clear any error. Without this, a per-device transient
-				// failure (`failed` / `abandoned` / `lost`) stays sticky
-				// forever even after the same file was uploaded on another
-				// device and mirrored down.
-				const serverHasMain = row.cdnUrl != null;
-				const serverHasThumb = row.thumbnailCdnUrl != null;
-
-				const merged: StoredFile = {
-					...row,
-					cdnUrl: mergedCdnUrl,
-					thumbnailCdnUrl: mergedThumbCdnUrl,
-					isMainFileLost:
-						row.isMainFileLost || existing?.isMainFileLost || false,
-					mainUploadState: serverHasMain
-						? "uploaded"
-						: existing?.mainUploadState ?? "pending",
-					mainUploadAttempts: existing?.mainUploadAttempts ?? 0,
-					mainLastError: serverHasMain ? null : existing?.mainLastError ?? null,
-					mainLastAttemptAt: existing?.mainLastAttemptAt ?? null,
-					// `mainChecksum` and `mainOpfsPath` are device-local — the
-					// blob physically lives in this device's OPFS at that path.
-					// For rows arriving from the server for the first time
-					// (another device uploaded), `existing` is undefined and
-					// both stay null. That's correct: there's no blob to point
-					// at. Consequence: `FileUploadWorker.runMainUpload` cannot
-					// retry the upload from THIS device — it needs the OPFS
-					// blob. Which is fine, because the CDN URL is already set
-					// (that's how we know the file exists at all). Recovery
-					// from `isMainFileLost === true` on such a row requires
-					// the user to re-pick the file.
-					mainChecksum: existing?.mainChecksum ?? null,
-					mainOpfsPath: existing?.mainOpfsPath ?? null,
-					thumbnailUploadState: serverHasThumb
-						? "uploaded"
-						: existing?.thumbnailUploadState ??
-							(canGenerateThumbnail(row.mimeType) ? "pending" : "not_attempted"),
-					thumbnailUploadAttempts: existing?.thumbnailUploadAttempts ?? 0,
-					thumbnailLastError: serverHasThumb
-						? null
-						: existing?.thumbnailLastError ?? null,
-					thumbnailLastAttemptAt: existing?.thumbnailLastAttemptAt ?? null,
-					thumbnailChecksum: existing?.thumbnailChecksum ?? null,
-					thumbnailOpfsPath: existing?.thumbnailOpfsPath ?? null,
-					syncError: existing?.syncError ?? null,
-				};
-				await getClientDb().files.put(merged);
+				await getClientDb().files.put(mergeServerFileRow(existing, row));
 			}
 		});
 		notifySubscribers("files", "sync");

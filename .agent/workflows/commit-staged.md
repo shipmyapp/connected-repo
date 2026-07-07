@@ -12,9 +12,8 @@ Follow these steps to safely commit staged changes while maintaining documentati
 
 2. **Update Documentation**:
    - After user approval of the code, use the `agent-state-manager` skill to update relevant documentation.
-   - Sync `DEVELOPMENT_PLAN.md` (mark tasks done/update approach).
-   - Sync `AGENTS.md` (Update `Active Task`, add `Decision Records` if major).
-   - `git add DEVELOPMENT_PLAN.md AGENTS.md` (and any other updated docs).
+   - Sync `AGENTS.md` / `README.md` where the change affects architecture (add `Decision Records` if major).
+   - `git add` any updated docs.
 
 3. **Write Minimal & Non-Exhaustive Tests**:
    - For any new or modified router, add a basic test case in the corresponding backend test file.
@@ -30,7 +29,6 @@ Follow these steps to safely commit staged changes while maintaining documentati
 5. **Check for Plan Completion**:
    - Review existing plans in `.agent/plans/`.
    - If any plan is fully implemented by the current changes, delete the plan file.
-   - Update `DEVELOPMENT_PLAN.md` to reflect the completion if necessary.
 
 6. **Stage Workflow Changes**:
    - Ensure all changes made during the workflow (documentation, tests, plan deletions) are staged.
