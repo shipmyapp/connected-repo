@@ -64,4 +64,34 @@ describe("Teams App Endpoints", () => {
 			expect(secondResult.name).toBe(firstResult.name);
 		});
 	});
+
+	// Q6 — the source of truth the client reconciles against to wipe teams it
+	// was removed from. Session-only, so it keeps working even after the caller
+	// loses access to their active team.
+	describe("listMyActiveTeamIds", () => {
+		it("drops a team once the caller's membership is soft-deleted", async () => {
+			const userId = defaultContext?.user.id;
+			if (!userId) throw new Error("test context missing");
+
+			// Ensure the caller has their personal team, then create a second.
+			const personal = await defaultClient.getDefaultTeam({});
+			const second = await defaultClient.createTeam({ name: "Second Team" });
+
+			const before = await defaultClient.listMyActiveTeamIds();
+			expect(before.teamIds).toContain(personal.id);
+			expect(before.teamIds).toContain(second.id);
+
+			// Soft-delete the caller's membership in the second team (what
+			// removeTeamMember does), bypassing the active-team scope.
+			await db.teamMembers
+				.unscope("default")
+				.where({ teamId: second.id, userId })
+				.delete();
+
+			const after = await defaultClient.listMyActiveTeamIds();
+			expect(after.teamIds).not.toContain(second.id);
+			// Personal team (still an active membership) survives.
+			expect(after.teamIds).toContain(personal.id);
+		});
+	});
 });

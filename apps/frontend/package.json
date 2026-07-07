@@ -46,7 +46,8 @@
 		"cross-env": "^10.1.0",
 		"dotenv": "^17.3.1",
 		"vite": "^7.3.1",
-		"vite-bundle-analyzer": "^1.3.6"
+		"vite-bundle-analyzer": "^1.3.6",
+		"vitest": "^4.0.18"
 	},
 	"license": "AGPL-3.0-only",
 	"name": "@connected-repo/frontend",
@@ -61,6 +62,8 @@
 		"format": "biome format . --write",
 		"lint": "biome check .",
 		"preview": "cross-env VITE_USER_APP_URL=http://localhost:4173 bash -c 'if [[ \"$*\" == *\"--no-build\"* ]]; then vite preview; else yarn run build && vite preview; fi' --",
+		"test": "vitest",
+		"test:run": "vitest run",
 		"test:build": "tsc -b && cross-env VITE_USER_NODE_ENV=test vite build --mode test",
 		"test:e2e:no-build": "playwright test",
 		"test:e2e:with-build": "playwright test",

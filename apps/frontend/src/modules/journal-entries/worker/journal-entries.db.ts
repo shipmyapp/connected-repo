@@ -7,7 +7,7 @@ import {
 	type Pending,
 	type StoredJournalEntry,
 } from "../../../worker/db/db.manager";
-import { mergeServerFileRow } from "../../../worker/db/files.db";
+import { mergeServerFileRow } from "../../../worker/db/files.merge";
 
 /**
  * Local mirror of `journal_entries` plus its nested `files` relation.
