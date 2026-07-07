@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: Build, type-check & test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      # The frontend validates its VITE_* env at build time; the example
+      # values are all valid placeholders, enough to let the bundle build.
+      - name: Provision frontend build env
+        run: cp apps/frontend/.env.example apps/frontend/.env
+
+      - name: Build
+        run: yarn build
+
+      - name: Type-check
+        run: yarn check-types
+
+      # Lint is informational for now — the repo has pre-existing lint debt, so
+      # a failure here should surface without blocking the build/test gates.
+      - name: Lint
+        run: yarn lint
+        continue-on-error: true
+
+      # Backend tests run against NODE_ENV=test using the committed
+      # apps/backend/.env.test (placeholder values, DB pointed at localhost).
+      # The postgres service above matches its postgres/postgres credentials;
+      # test:db:setup drops/creates/migrates/seeds the test database + schema.
+      - name: Set up test database
+        run: yarn test:db:setup
+
+      - name: Run tests
+        run: yarn test:run
