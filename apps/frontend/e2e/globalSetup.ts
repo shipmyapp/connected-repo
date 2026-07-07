@@ -33,19 +33,25 @@ async function createAuthState<T extends typeof devices>(deviceConfig: T[keyof T
 
 async function globalSetup() {
 	try {
-		// Create separate auth states for each browser/project
+		// In CI the mobile projects are skipped (see playwright.config.ts), so we
+		// only need the Desktop Chrome auth state — and only chromium has to be
+		// installed. Locally we create all three (Mobile Safari needs webkit).
+		const isCI = process.env.CI === "true";
 		await Promise.all([
 			// Desktop Chrome auth state
 			createAuthState(devices["Desktop Chrome"], 'e2e/.auth/desktop-chrome-user.json'),
 
-			// Mobile Chrome auth state
-			createAuthState(devices["Pixel 5"], 'e2e/.auth/mobile-chrome-user.json'),
-
-			// Mobile Safari auth state
-			createAuthState(devices["iPhone 12"], 'e2e/.auth/mobile-safari-user.json'),
+			...(isCI
+				? []
+				: [
+						// Mobile Chrome auth state
+						createAuthState(devices["Pixel 5"], 'e2e/.auth/mobile-chrome-user.json'),
+						// Mobile Safari auth state
+						createAuthState(devices["iPhone 12"], 'e2e/.auth/mobile-safari-user.json'),
+					]),
 		]);
 
-		console.info('✅ All E2E auth states created successfully');
+		console.info('✅ E2E auth states created successfully');
 	} catch (error) {
 		console.error('❌ E2E Global Setup Failed:');
 		console.error('Error during authentication setup for E2E tests');

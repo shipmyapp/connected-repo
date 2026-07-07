@@ -68,3 +68,59 @@ jobs:
 
       - name: Run tests
         run: yarn test:run
+
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # Drives playwright.config.ts (single worker, retries, no mobile projects)
+      # and globalSetup (only the Desktop Chrome auth state → only chromium
+      # needs installing).
+      CI: "true"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      # Playwright pins a specific browser build; install just chromium (+ its
+      # OS deps). Mobile projects are skipped in CI, so webkit isn't needed.
+      - name: Install Playwright chromium
+        run: yarn workspace @connected-repo/frontend exec playwright install --with-deps chromium
+
+      # test:e2e:with-build (turbo) builds both apps in test mode, sets up the
+      # test DB, then runs Playwright. Playwright's own `webServer` config boots
+      # the backend test server + `vite preview`; `globalSetup` creates the auth
+      # state. Uses the committed apps/{backend,frontend}/.env.test.
+      - name: Run E2E
+        run: yarn test:e2e:with-build
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/frontend/e2e/playwright-report/
+          retention-days: 7
