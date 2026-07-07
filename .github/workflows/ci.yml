@@ -17,7 +17,8 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16-alpine
+        # Matches the production Postgres major version.
+        image: postgres:18-alpine
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
