@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { syncDeltaInputZod, syncMetadataZod } from "../sync.zod.js";
+import { makePullBundlesOutput, syncDeltaInputZod, syncMetadataZod } from "../sync.zod.js";
 import { teamAppMemberSelectAllZod, teamAppSelectAllZod } from "../team_app.zod.js";
 import { zTimeEpoch } from "../zod_utils.js";
 
@@ -15,9 +15,7 @@ export const teamsAppPullBundlesInputZod = z.object({
 });
 export type TeamsAppPullBundlesInput = z.infer<typeof teamsAppPullBundlesInputZod>;
 
-export const teamsAppPullBundlesOutputZod = z.object({
-	rows: z.array(teamAppSelectAllZod),
-	syncMetadata: syncMetadataZod,
+export const teamsAppPullBundlesOutputZod = makePullBundlesOutput(teamAppSelectAllZod).extend({
 	topLevelSyncedAt: zTimeEpoch,
 });
 export type TeamsAppPullBundlesOutput = z.infer<typeof teamsAppPullBundlesOutputZod>;
@@ -27,8 +25,5 @@ export type TeamsAppPullBundlesOutput = z.infer<typeof teamsAppPullBundlesOutput
 export const teamMembersPullBundlesInputZod = syncDeltaInputZod;
 export type TeamMembersPullBundlesInput = z.infer<typeof teamMembersPullBundlesInputZod>;
 
-export const teamMembersPullBundlesOutputZod = z.object({
-	rows: z.array(teamAppMemberSelectAllZod),
-	syncMetadata: syncMetadataZod,
-});
+export const teamMembersPullBundlesOutputZod = makePullBundlesOutput(teamAppMemberSelectAllZod);
 export type TeamMembersPullBundlesOutput = z.infer<typeof teamMembersPullBundlesOutputZod>;

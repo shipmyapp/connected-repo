@@ -54,3 +54,15 @@ export const pushCreateResultZod = <T extends z.ZodTypeAny>(rowZod: T) =>
 		row: rowZod.nullish(),
 		error: z.string().nullish(),
 	});
+
+/**
+ * Standard output for every per-table `pullBundles` route: a page of rows plus
+ * the advanced cursor. Use this factory instead of re-declaring the shape per
+ * entity. The wave-1 anchor (`teams.pullBundles`) extends it with
+ * `topLevelSyncedAt`.
+ */
+export const makePullBundlesOutput = <T extends z.ZodTypeAny>(rowZod: T) =>
+	z.object({
+		rows: z.array(rowZod),
+		syncMetadata: syncMetadataZod,
+	});

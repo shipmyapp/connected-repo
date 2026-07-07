@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { fileSelectAllZod } from "../file.zod.js";
-import { syncDeltaInputZod, syncMetadataZod } from "../sync.zod.js";
+import {
+	makePullBundlesOutput,
+	pushCreateResultZod,
+	syncDeltaInputZod,
+} from "../sync.zod.js";
 
 // ─── files.pushCdnUpdates ───────────────────────────────────────────────
 //
@@ -44,12 +48,7 @@ export const filePushCdnUpdatesInputZod = z.object({
 });
 export type FilePushCdnUpdatesInput = z.infer<typeof filePushCdnUpdatesInputZod>;
 
-export const filePushCdnUpdateResultZod = z.object({
-	ok: z.boolean(),
-	id: z.ulid(),
-	row: fileSelectAllZod.nullish(),
-	error: z.string().nullish(),
-});
+export const filePushCdnUpdateResultZod = pushCreateResultZod(fileSelectAllZod);
 export type FilePushCdnUpdateResult = z.infer<typeof filePushCdnUpdateResultZod>;
 
 export const filePushCdnUpdatesOutputZod = z.object({
@@ -62,8 +61,5 @@ export type FilePushCdnUpdatesOutput = z.infer<typeof filePushCdnUpdatesOutputZo
 export const filePullBundlesInputZod = syncDeltaInputZod;
 export type FilePullBundlesInput = z.infer<typeof filePullBundlesInputZod>;
 
-export const filePullBundlesOutputZod = z.object({
-	rows: z.array(fileSelectAllZod),
-	syncMetadata: syncMetadataZod,
-});
+export const filePullBundlesOutputZod = makePullBundlesOutput(fileSelectAllZod);
 export type FilePullBundlesOutput = z.infer<typeof filePullBundlesOutputZod>;

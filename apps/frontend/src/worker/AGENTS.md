@@ -87,5 +87,5 @@ pends instead of crashing.
   indefinitely; a re-invite can trigger an infinite wipe/re-pull loop. Full
   write-up and the planned fix (deliver own-membership tombstones on the
   user-scoped wave-1 instead of the team-scoped channel) live in the doc
-  comment on `SyncOrchestrator.collectSelfMembershipTombstones`
-  (`sync/sync.orchestrator.ts`).
+  comment on `collectSelfMembershipWipes` in
+  `sync/synced_entities.registry.ts`.

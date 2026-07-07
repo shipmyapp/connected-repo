@@ -4,7 +4,11 @@ import {
 	journalEntryCreateInputZod,
 	journalEntrySelectAllZod,
 } from "../journal_entry.zod.js";
-import { syncDeltaInputZod, syncMetadataZod } from "../sync.zod.js";
+import {
+	makePullBundlesOutput,
+	pushCreateResultZod,
+	syncDeltaInputZod,
+} from "../sync.zod.js";
 
 /**
  * The create-input shape used by BOTH the online `journalEntries.create`
@@ -36,12 +40,9 @@ export const journalEntryPushCreatesInputZod = z.object({
 });
 export type JournalEntryPushCreatesInput = z.infer<typeof journalEntryPushCreatesInputZod>;
 
-export const journalEntryPushCreatesResultZod = z.object({
-	ok: z.boolean(),
-	id: z.ulid(),
-	row: journalEntrySelectAllWithRelationsZod.nullish(),
-	error: z.string().nullish(),
-});
+export const journalEntryPushCreatesResultZod = pushCreateResultZod(
+	journalEntrySelectAllWithRelationsZod,
+);
 export type JournalEntryPushCreatesResult = z.infer<typeof journalEntryPushCreatesResultZod>;
 
 export const journalEntryPushCreatesOutputZod = z.object({
@@ -54,8 +55,5 @@ export type JournalEntryPushCreatesOutput = z.infer<typeof journalEntryPushCreat
 export const journalEntryPullBundlesInputZod = syncDeltaInputZod;
 export type JournalEntryPullBundlesInput = z.infer<typeof journalEntryPullBundlesInputZod>;
 
-export const journalEntryPullBundlesOutputZod = z.object({
-	rows: z.array(journalEntrySelectAllZod),
-	syncMetadata: syncMetadataZod,
-});
+export const journalEntryPullBundlesOutputZod = makePullBundlesOutput(journalEntrySelectAllZod);
 export type JournalEntryPullBundlesOutput = z.infer<typeof journalEntryPullBundlesOutputZod>;

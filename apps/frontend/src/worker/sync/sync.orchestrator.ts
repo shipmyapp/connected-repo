@@ -1,7 +1,5 @@
-import type { TablesToSync } from "@connected-repo/zod-schemas/enums.zod";
-import type { TeamAppMemberSelectAll, TeamAppSelectAll } from "@connected-repo/zod-schemas/team_app.zod";
+import type { TeamAppSelectAll } from "@connected-repo/zod-schemas/team_app.zod";
 import { journalEntriesDb } from "../../modules/journal-entries/worker/journal-entries.db";
-import { promptsDb } from "../../modules/prompts/worker/prompts.db";
 import {
 	ACTIVE_TEAM_WIPED_CHANNEL,
 	type ActiveTeamWipedMessage,
@@ -12,11 +10,11 @@ import { subscribe } from "../db/db.manager";
 import { filesDb } from "../db/files.db";
 import { syncMetadataDb } from "../db/sync_metadata.db";
 import { wipeTeamDataFromDb } from "../db/team_data.wipe";
-import { teamMembersDb } from "../db/team_members.db";
 import { teamsAppDb } from "../db/teams_app.db";
 import { setActiveTeamId as _setActiveTeamId, getActiveTeamId } from "./active_team";
 import { fileUploadWorker } from "./file_upload.worker";
 import { pendingEditLockRegistry } from "./pending-edit-lock.registry";
+import { DOWNSTREAM_SYNCED_ENTITIES } from "./synced_entities.registry";
 import {
 	SYNC_ENGINE_STATE_CHANNEL,
 	type SyncEngineStateMessage,
@@ -141,14 +139,6 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 	private readyPromise: Promise<void> = new Promise((resolve) => {
 		this.readyResolve = resolve;
 	});
-
-	private readonly WAVE_ORDER: TablesToSync[] = [
-		"teamsApp",
-		"teamMembers",
-		"prompts",
-		"journalEntries",
-		"files",
-	];
 
 	/**
 	 * Open the per-user Dexie DB (drops any previous user's DB on this
@@ -493,56 +483,26 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 		topLevelSyncedAt: number,
 		teamsToWipe: Set<string>,
 	): Promise<void> {
-		// Waves after the anchor. Run sequentially — order preserves the
-		// dependency: team members reference teams, journal entries
-		// reference teams and members, files reference journal entries.
-		for (const table of this.WAVE_ORDER) {
-			if (table === "teamsApp") continue;
+		// Downstream waves after the anchor, in registry order (preserves the
+		// referential dependency: members → prompts → entries → files). Each
+		// registry entry pulls one page, mirrors it into Dexie, and reports any
+		// team ids to wipe. A per-table failure is logged and skipped so it
+		// doesn't kill the whole cycle. To add a synced table, add one entry to
+		// DOWNSTREAM_SYNCED_ENTITIES — no edits here.
+		for (const entity of DOWNSTREAM_SYNCED_ENTITIES) {
 			try {
-				await this.pullTable(table, teamId, topLevelSyncedAt, teamsToWipe);
+				const cursor = await syncMetadataDb.getCursor(entity.table, teamId);
+				const { syncMetadata, wipeTeamIds } = await entity.pull({
+					cursor: cursor ?? null,
+					topLevelSyncedAt,
+					selfUserId: this.initialisedForUserId,
+				});
+				for (const id of wipeTeamIds) teamsToWipe.add(id);
+				await syncMetadataDb.saveCursor(entity.table, teamId, syncMetadata);
 			} catch (err) {
 				// biome-ignore lint/suspicious/noConsole: table-level failures shouldn't kill the whole cycle
-				console.warn(`[SyncOrchestrator] pull ${table} failed`, err);
+				console.warn(`[SyncOrchestrator] pull ${entity.table} failed`, err);
 			}
-		}
-	}
-
-	private async pullTable(
-		table: TablesToSync,
-		teamId: string,
-		topLevelSyncedAt: number,
-		teamsToWipe: Set<string>,
-	): Promise<void> {
-		const cursor = await syncMetadataDb.getCursor(table, teamId);
-		const input = {
-			syncMetadata: cursor ?? null,
-			topLevelSyncedAt,
-		};
-
-		if (table === "teamMembers") {
-			const res = await orpcFetch.teams.pullMembersDelta(input);
-			await teamMembersDb.bulkUpsert(res.rows);
-			this.collectSelfMembershipTombstones(res.rows, teamsToWipe);
-			await syncMetadataDb.saveCursor(table, teamId, res.syncMetadata);
-			return;
-		}
-		if (table === "prompts") {
-			const res = await orpcFetch.prompts.pullBundles(input);
-			await promptsDb.bulkUpsert(res.rows);
-			await syncMetadataDb.saveCursor(table, teamId, res.syncMetadata);
-			return;
-		}
-		if (table === "journalEntries") {
-			const res = await orpcFetch.journalEntries.pullBundles(input);
-			await journalEntriesDb.bulkUpsertFromServer(res.rows);
-			await syncMetadataDb.saveCursor(table, teamId, res.syncMetadata);
-			return;
-		}
-		if (table === "files") {
-			const res = await orpcFetch.files.pullBundles(input);
-			await filesDb.bulkUpsertFromServer(res.rows);
-			await syncMetadataDb.saveCursor(table, teamId, res.syncMetadata);
-			return;
 		}
 	}
 
@@ -562,59 +522,9 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 		}
 	}
 
-	/**
-	 * A tombstoned `team_members` row belonging to the CURRENT user is
-	 * the "you were removed" signal. Rows for OTHER users' removals are
-	 * ignored — those get evicted by the bulkUpsert but the team itself
-	 * is still alive for us.
-	 *
-	 * ┌─────────────────────────────────────────────────────────────────────┐
-	 * │ KNOWN ISSUE (documented, not yet fixed) — revocation never propagates │
-	 * └─────────────────────────────────────────────────────────────────────┘
-	 * This detection can never fire for the case it was built for. To reach
-	 * it, the client must PULL its own tombstoned membership row via
-	 * `pullMembersDelta`. But every sync RPC — including the wave-1 anchor
-	 * `teams.pullBundles` — runs behind `rpcProtectedActiveTeamProcedure`,
-	 * which requires a NON-DELETED `team_members` row for (activeTeam, user)
-	 * (see apps/backend/src/procedures/protected.procedure.ts). The moment an
-	 * Owner removes the user, that row is soft-deleted, so every sync RPC
-	 * returns 403 and the tombstone can never be pulled. Consequences:
-	 *   - Removed-from-active-team: sync sits in a permanent error state and
-	 *     the device KEEPS all of the team's entries/files/OPFS blobs forever
-	 *     (the opposite of the intended offboarding wipe).
-	 *   - Removed-from-a-non-active team: no error at all; the team just goes
-	 *     stale locally and is never evicted.
-	 *   - Re-invite (partial unique index allows re-adding): once a new active
-	 *     membership exists, sync resumes and pulls the OLD tombstone (its
-	 *     updatedAt is past the frozen cursor) → wipe → cursors reset →
-	 *     re-pull → pulls the tombstone again → infinite wipe/re-pull loop,
-	 *     broadcasting `active-team-wiped` every cycle.
-	 *
-	 * SOLUTION (planned): don't make the 403 load-bearing for a signal the
-	 * client needs AFTER losing access. Deliver own-membership state on the
-	 * USER-scoped channel, not the team-scoped one:
-	 *   1. In `pullTeamsAppService` (already keyed by userId, not by active-
-	 *      team membership), also return the caller's own membership rows
-	 *      INCLUDING tombstones. Revocation then propagates regardless of
-	 *      which team is active and regardless of the 403.
-	 *   2. Here, IGNORE a tombstone when a newer ACTIVE membership for the
-	 *      same team exists in the same batch / local DB (kills the re-invite
-	 *      loop).
-	 *   3. Treat a sync 403 on the client as a "re-verify memberships, maybe
-	 *      wipe" signal rather than only an error state.
-	 */
-	private collectSelfMembershipTombstones(
-		rows: TeamAppMemberSelectAll[],
-		teamsToWipe: Set<string>,
-	): void {
-		const selfUserId = this.initialisedForUserId;
-		if (!selfUserId) return;
-		for (const row of rows) {
-			if (row.deletedAt !== null && row.userId === selfUserId) {
-				teamsToWipe.add(row.teamId);
-			}
-		}
-	}
+	// The "you were removed from a team" tombstone signal (and its known-issue
+	// caveat) lives in `collectSelfMembershipWipes` in synced_entities.registry.ts,
+	// invoked by the `teamMembers` registry entry during the pull pipeline.
 
 	// ─── Push pipeline ─────────────────────────────────────────────────
 
