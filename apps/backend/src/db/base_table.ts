@@ -69,6 +69,13 @@ export const BaseTable = createBaseTable({
 		themeSettingEnum: () => t.enum("theme_setting_enum", THEME_SETTING_ENUM),
 		timestampNumber: () => t.timestamp().asNumber(),
 		ulid: () => t.string(26),
+		// Client-side ULID default. WARNING: with `createMany` on a table that
+		// ALSO has a `setOnCreate` column (e.g. `teamId`), orchid-orm 1.73 does
+		// NOT re-evaluate this runtime default per row — every row gets the same
+		// id and the insert fails with a duplicate-pkey error. So for BULK
+		// inserts always pass an explicit `id` per row (as `push_creates` does
+		// with client-minted ULIDs). Single `create` and `createMany` on tables
+		// without a `setOnCreate` column (e.g. `prompts` seed) are unaffected.
 		ulidWithDefault: () => t.string(26).default(() => ulid()),
 		webhookStatusEnum: () => t.enum("webhook_status_enum", WEBHOOK_STATUS_ENUM),
 
