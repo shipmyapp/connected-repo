@@ -1,5 +1,5 @@
 import { allowedOrigins } from "@backend/configs/allowed_origins.config";
-import { env, isDev, isProd, isTest } from "@backend/configs/env.config";
+import { env, isDev, isProd, isStaging, isTest } from "@backend/configs/env.config";
 import { db } from "@backend/db/db";
 import { logger } from "@backend/utils/logger.utils";
 import { themeSettingZod } from "@connected-repo/zod-schemas/enums.zod";
@@ -94,7 +94,9 @@ export const auth = betterAuth({
 		},
 		defaultCookieAttributes: {
 			httpOnly: true,
-			secure: isProd,
+			// Secure in every real deployment (prod + staging), both served over
+			// HTTPS. Left off only for local dev/test over http://localhost.
+			secure: isProd || isStaging,
 		},
 		database: {
 			// Setting generateId to false allows your database handle all ID generation
