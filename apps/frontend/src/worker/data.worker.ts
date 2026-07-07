@@ -23,9 +23,9 @@ import { setMediaProxyInternal } from "./worker.context";
  *   - Main thread calls `sync.setActiveTeamId(id)` on team switch
  *     (only from the profile page).
  *
- * The MediaWorker proxy is bridged in via `setMediaProxy` from the
- * main thread so the file upload worker can invoke CDN operations
- * without hopping through main.
+ * The MediaWorker is connected via a direct MessageChannel: the main thread
+ * brokers a port to `connectMediaPort`, and the FileUploadWorker calls
+ * `generateThumbnail` over it worker-to-worker (no main-thread hop).
  */
 const dataWorkerApi = {
 	filesDb: Comlink.proxy(filesDb),
@@ -37,8 +37,12 @@ const dataWorkerApi = {
 	sync: Comlink.proxy(syncOrchestrator),
 	subscribe: Comlink.proxy(subscribe),
 
-	setMediaProxy(proxy: Comlink.Remote<MediaWorkerAPI>): void {
-		setMediaProxyInternal(proxy);
+	/**
+	 * Receive the MediaWorker end of a MessageChannel (transferred from the
+	 * main thread) and wrap it as a direct Comlink proxy.
+	 */
+	connectMediaPort(port: MessagePort): void {
+		setMediaProxyInternal(Comlink.wrap<MediaWorkerAPI>(port));
 	},
 };
 

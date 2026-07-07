@@ -59,12 +59,17 @@ Video thumbnails still run on the main thread (`utils/thumbnail-video-ui.ts`)
 because `VideoDecoder` / `<video>` require a DOM-backed runtime.
 
 ## Cross-worker bridge
-The main thread bridges the MediaWorker proxy into the DataWorker via
-`dataProxy.setMediaProxy(...)`. Inside the DataWorker, `worker.context.ts`
-holds this proxy in a `ProxyCell` — the `FileUploadWorker` awaits it
-only for thumbnail generation (the CDN PUT itself is direct, in the
-DataWorker realm). A sync trigger arriving before wiring completes
-pends instead of crashing.
+The DataWorker talks to the MediaWorker over a **direct `MessageChannel`**, not
+through the main thread. At startup the main thread creates one channel and
+brokers a port to each side: it posts `{ __connectMediaPort }` to the
+MediaWorker (which `Comlink.expose`s its API on that port) and hands the other
+port to the DataWorker via `connectMediaPort` (which `Comlink.wrap`s it into
+`worker.context.ts`'s `ProxyCell`). `FileUploadWorker` then calls
+`generateThumbnail` worker-to-worker — neither the call nor the file blob
+round-trips through main. A sync trigger arriving before wiring completes pends
+on the `ProxyCell` instead of crashing. The MediaWorker still exposes the same
+API on its default endpoint for main-thread callers (SmartMediaUploader, the
+active-team seed).
 
 ## Lifecycle
 - Main thread instantiates both workers lazily on first `getDataProxy()` /

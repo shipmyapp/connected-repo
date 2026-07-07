@@ -22,4 +22,17 @@ const mediaWorkerApi = {
 
 export type MediaWorkerAPI = typeof mediaWorkerApi;
 
+// Default endpoint — used by main-thread callers (SmartMediaUploader,
+// sync-triggers' active-team seed).
 Comlink.expose(mediaWorkerApi);
+
+// Direct DataWorker endpoint. The main thread brokers a MessageChannel once at
+// startup and posts one port here; we expose the same API over it so the
+// DataWorker's FileUploadWorker can call `generateThumbnail` WITHOUT hopping
+// through the main thread. Comlink's default listener ignores this message
+// (it isn't a Comlink protocol message), so the two coexist.
+self.addEventListener("message", (event: MessageEvent) => {
+	const port = (event.data as { __connectMediaPort?: MessagePort } | null)
+		?.__connectMediaPort;
+	if (port) Comlink.expose(mediaWorkerApi, port);
+});
