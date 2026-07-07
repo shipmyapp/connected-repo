@@ -55,7 +55,7 @@
 	"scripts": {
 		"build": "tsc -b && npx vite build",
 		"build:debug": "tsc -b tsconfig.app.json && vite build --debug",
-		"check-types": "tsc --noEmit",
+		"check-types": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json",
 		"clean": "rm -rf node_modules && rm -rf dist",
 		"dev": "vite",
 		"format": "biome format . --write",
