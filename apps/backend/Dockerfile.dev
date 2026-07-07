@@ -1,0 +1,20 @@
+# Dev-only image. Not used in production — see Dockerfile for the prod build.
+# The image ships no source; the workspace is bind-mounted from the host
+# (see docker-compose.dev.yml) so `yarn dev` picks up live edits via tsx watch.
+# node_modules live in a NAMED volume so host node_modules never leak in
+# (which would break native builds like better-sqlite3 across host/container).
+FROM node:22-slim
+
+# psql client for dev-db-init.sh (used by the db-migrate service).
+RUN apt-get update && apt-get install -y --no-install-recommends postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN corepack enable && corepack prepare yarn@1.22.22 --activate
+
+WORKDIR /app
+
+EXPOSE 3000
+
+# CMD is set per-service in docker-compose.dev.yml — this image is used by both
+# the long-running `backend` service (yarn dev) and the one-shot `db-migrate`
+# init container (dev-db-init.sh), so there is no single sensible default.

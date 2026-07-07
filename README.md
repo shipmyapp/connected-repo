@@ -68,53 +68,52 @@ Production-ready Turborepo monorepo for building full-stack TypeScript applicati
 
 ## Getting Started
 
-### Prerequisites
-- Node.js 22+
-- Yarn 1.22.22
-- PostgreSQL
+Two ways to run: one-command Docker Compose (recommended for onboarding) or
+host-mode with your local Node/Postgres (recommended for day-to-day work with
+native tooling).
 
-### Installation
+### Option A — One command with Docker Compose (recommended for first run)
 
-1. Clone the repository:
+Boots postgres, backend (hot reload), frontend (hot reload), and an nginx
+sidecar that mirrors the prod reverse-proxy layout (`/api/*` → backend,
+`/` → SPA). First boot builds the shared packages, auto-creates the database,
+runs migrations, and seeds.
+
+**Prerequisites:** Docker + Docker Compose v2.
+
 ```bash
 git clone git@github.com:shipmyapp/connected-repo.git
 cd connected-repo
-```
-
-2. Set up environment variables:
-```bash
 cp apps/backend/.env.example apps/backend/.env
 cp apps/frontend/.env.example apps/frontend/.env
+docker compose -f docker-compose.dev.yml up
 ```
 
-3. Configure your database connection in `apps/backend/.env`
+Open http://localhost:8080 — same-origin routing exactly like prod. See
+`docker-compose.dev.yml` for the full port map and the wipe-and-reset flow
+(`down -v`).
 
-4. Install dependencies & build packages:
+### Option B — Host-mode dev
+
+**Prerequisites:** Node.js 22+, Yarn 1.22.22, PostgreSQL running locally.
+
 ```bash
+git clone git@github.com:shipmyapp/connected-repo.git
+cd connected-repo
+cp apps/backend/.env.example apps/backend/.env
+cp apps/frontend/.env.example apps/frontend/.env
+# Point apps/backend/.env at your local postgres, then:
 yarn install
 yarn build
-```
-
-5. Create databases and run migrations:
-```bash
-yarn db create
-yarn db up
-yarn db seed
+yarn db create && yarn db up && yarn db seed
 yarn test:db:setup  # Setup test database
-```
-
-### Development
-
-Start both frontend and backend:
-```bash
 yarn dev
 ```
 
-Or individually:
-```bash
-cd apps/backend && yarn dev   # Backend only (http://localhost:3000)
-cd apps/frontend && yarn dev  # Frontend only (http://localhost:5173)
-```
+`yarn dev` starts frontend on http://localhost:5173 and backend on :3000. Vite
+proxies `/api/*` to :3000 so the SPA hits the same origin it does in prod —
+no separate backend URL, no CORS in dev. Set `VITE_DEV_BACKEND_PROXY_TARGET`
+in `apps/frontend/.env` if your backend runs somewhere else.
 
 ## Available Scripts
 

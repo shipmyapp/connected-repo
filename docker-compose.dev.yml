@@ -1,0 +1,193 @@
+# Full local dev stack. One command boots postgres + backend (tsx watch) +
+# frontend (vite dev) + an nginx sidecar that mirrors the prod reverse-proxy
+# layout, so the browser hits /api/* on the same origin as the SPA (matching
+# how Traefik/nginx serve prod).
+#
+# Usage:
+#   docker compose -f docker-compose.dev.yml up      → boot everything
+#   docker compose -f docker-compose.dev.yml down    → stop
+#   docker compose -f docker-compose.dev.yml down -v → also wipe postgres data
+#
+# If you customized DB_NAME/DB_USER/DB_PASSWORD in apps/backend/.env, invoke
+# with `--env-file apps/backend/.env` so the compose-side ${DB_*} placeholders
+# below resolve to your values (otherwise the .env.example defaults are used).
+#
+# First boot: postgres bootstraps an empty $DB_NAME database, db-migrate builds
+# the shared packages, runs `yarn db up` + `yarn db seed`, then backend and
+# frontend start. Subsequent boots skip seed (see apps/backend/scripts/dev-db-init.sh).
+#
+# Ports (all bound to 127.0.0.1 so we never accidentally expose a dev backend):
+#   8080  → nginx (the "prod-like" entrypoint — open this in your browser)
+#   5173  → Vite dev server (direct, for host-mode debugging)
+#   3000  → backend (direct)
+#   5432  → postgres (for DB tools like TablePlus)
+#
+# NOTE: If you also run the base docker-compose.yml (postgres-only) or a
+# host-mode postgres on :5432, stop them first — port will clash.
+
+services:
+  postgres:
+    # Matches the production + CI Postgres major version.
+    image: postgres:18-alpine
+    container_name: connected_repo_dev_postgres
+    restart: unless-stopped
+    env_file:
+      - apps/backend/.env
+    environment:
+      # POSTGRES_DB tells the postgres image to CREATE this database on the
+      # very first boot (when the data volume is empty). That's our "fresh
+      # DB" trigger; db-migrate then runs migrations + seed against it.
+      #
+      # Values fall back to the .env.example defaults so `docker compose up`
+      # works on a fresh clone. If a dev has customized apps/backend/.env,
+      # they should either export the same vars in their shell or invoke
+      # with `--env-file apps/backend/.env` so these placeholders resolve.
+      POSTGRES_DB: ${DB_NAME:-connected_repo_orpc_db}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      # Defaults mirror the POSTGRES_* fallbacks above so the check works even
+      # when `docker compose up` is run without --env-file (fresh clone).
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-connected_repo_orpc_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - dev-network
+
+  # One-shot bootstrap: waits for postgres, builds the shared packages (backend
+  # tsx + frontend vite both import @connected-repo/* from dist), runs
+  # migrations, seeds if fresh. Exits 0 on success. Backend won't start until
+  # this completes.
+  db-migrate:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile.dev
+    container_name: connected_repo_dev_db_migrate
+    env_file:
+      - apps/backend/.env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      NODE_ENV: development
+    volumes:
+      - .:/app
+      - backend_node_modules:/app/node_modules
+      - backend_apps_backend_node_modules:/app/apps/backend/node_modules
+    working_dir: /app
+    # Build packages/* to dist BEFORE running the DB script: the backend db
+    # script (tsx) and, later, `yarn dev` for both apps resolve
+    # @connected-repo/{zod-schemas,ui-mui} from their dist output. The build
+    # writes to the bind-mounted ./packages/*/dist, so backend + frontend
+    # (which depend on this service) see it.
+    command: >
+      sh -c "yarn install --frozen-lockfile &&
+             npx turbo run build --filter='./packages/*' &&
+             sh apps/backend/scripts/dev-db-init.sh"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - dev-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile.dev
+    container_name: connected_repo_dev_backend
+    restart: unless-stopped
+    env_file:
+      - apps/backend/.env
+    environment:
+      # Override .env host so we hit the postgres SERVICE, not localhost.
+      DB_HOST: postgres
+      DB_PORT: 5432
+      NODE_ENV: development
+      # Bind to all interfaces so the nginx sidecar can reach us over the
+      # docker network (127.0.0.1 default would be container-local only).
+      HOST: 0.0.0.0
+      PORT: "3000"
+      # In compose mode the browser talks to nginx:8080, so both server-issued
+      # redirects and CORS need to match that origin.
+      WEBAPP_URL: http://localhost:8080
+      VITE_API_URL: http://localhost:8080
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - .:/app
+      - backend_node_modules:/app/node_modules
+      - backend_apps_backend_node_modules:/app/apps/backend/node_modules
+    working_dir: /app/apps/backend
+    command: >
+      sh -c "yarn --cwd /app install --frozen-lockfile &&
+             yarn dev"
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+    networks:
+      - dev-network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile.dev
+    container_name: connected_repo_dev_frontend
+    restart: unless-stopped
+    env_file:
+      - apps/frontend/.env
+    environment:
+      NODE_ENV: development
+      # Empty VITE_API_URL = client uses same-origin /api/* (see
+      # apps/frontend/src/utils/orpc.client.ts). nginx routes those to backend.
+      VITE_API_URL: ""
+      VITE_USER_APP_URL: ""
+      VITE_USER_NODE_ENV: development
+    ports:
+      - "127.0.0.1:5173:5173"
+    volumes:
+      - .:/app
+      - frontend_node_modules:/app/node_modules
+      - frontend_apps_frontend_node_modules:/app/apps/frontend/node_modules
+    working_dir: /app/apps/frontend
+    # --host=0.0.0.0 so nginx can reach us; --port matches EXPOSE in Dockerfile.dev.
+    command: >
+      sh -c "yarn --cwd /app install --frozen-lockfile &&
+             yarn dev --host 0.0.0.0 --port 5173"
+    depends_on:
+      backend:
+        condition: service_started
+    networks:
+      - dev-network
+
+  # Mimics prod: / → SPA, /api/* → backend. Same origin, no CORS, cookies stay
+  # first-party — exactly what Traefik + nginx.conf.template deliver in prod.
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: connected_repo_dev_nginx
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:80"
+    volumes:
+      - ./apps/frontend/nginx.dev.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - dev-network
+
+volumes:
+  postgres_dev_data:
+  # Named volumes shadow the bind-mount so host node_modules (which may be
+  # built for a different arch, e.g. arm64 Mac vs x86 container) never leak in.
+  backend_node_modules:
+  backend_apps_backend_node_modules:
+  frontend_node_modules:
+  frontend_apps_frontend_node_modules:
+
+networks:
+  dev-network:
+    driver: bridge

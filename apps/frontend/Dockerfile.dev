@@ -1,0 +1,12 @@
+# Dev-only image. Not used in production — see Dockerfile for the nginx prod build.
+# The image ships no source; the workspace is bind-mounted from the host
+# (see docker-compose.dev.yml) so `yarn dev` runs Vite with HMR against live edits.
+FROM node:22-slim
+
+RUN corepack enable && corepack prepare yarn@1.22.22 --activate
+
+WORKDIR /app
+
+# 5173 = vite dev server; nginx sidecar proxies http://frontend:5173 to browser
+# via same-origin routes. HMR websocket rides the same port.
+EXPOSE 5173

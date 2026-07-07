@@ -25,10 +25,30 @@ export default defineConfig(({ mode }) => {
 		process.env.SENTRY_UPLOAD_SOURCEMAPS === "1" &&
 		Boolean(env.VITE_SENTRY_AUTH_TOKEN);
 
+	// Dev-only backend origin for the /api proxy below. When a dev sets
+	// VITE_API_URL='' (same-origin, matching prod), this is where /api/* gets
+	// forwarded. Override via VITE_DEV_BACKEND_PROXY_TARGET if the backend
+	// runs somewhere other than :3000 on the host.
+	const devBackendProxyTarget =
+		env.VITE_DEV_BACKEND_PROXY_TARGET || "http://localhost:3000";
+
 	return {
 		base: "/",
 		worker: {
 			format: "es",
+		},
+		// Mirror the prod reverse-proxy layout in host-mode `yarn dev`: the SPA
+		// runs on :5173, backend on :3000, and /api/* is same-origin from the
+		// browser's POV (matching apps/frontend/nginx.conf.template). Combined
+		// with VITE_API_URL='' in .env, oRPC/auth/Novu paths resolve against
+		// window.location.origin and get proxied here.
+		server: {
+			proxy: {
+				"/api": {
+					target: devBackendProxyTarget,
+					changeOrigin: true,
+				},
+			},
 		},
 		plugins: [
 			envValidationVitePlugin(),
