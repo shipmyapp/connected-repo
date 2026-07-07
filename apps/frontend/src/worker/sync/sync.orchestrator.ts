@@ -14,6 +14,7 @@ import { teamsAppDb } from "../db/teams_app.db";
 import { setActiveTeamId as _setActiveTeamId, getActiveTeamId } from "./active_team";
 import { fileUploadWorker } from "./file_upload.worker";
 import { pendingEditLockRegistry } from "./pending-edit-lock.registry";
+import { teamsToWipeFromReconciliation } from "./membership_reconciliation";
 import { DOWNSTREAM_SYNCED_ENTITIES } from "./synced_entities.registry";
 import {
 	SYNC_ENGINE_STATE_CHANNEL,
@@ -237,15 +238,16 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 
 	// Team-wipe wiring:
 	//
-	//   The pull pipeline itself detects the two "you no longer belong
-	//   here" signals — a tombstoned `teams` row we already have locally,
-	//   or a tombstoned `team_members` row for the current user. Both
-	//   arrive as soft-deleted rows because `sync_delta.sync.service.ts`
-	//   explicitly `.includeDeleted()` on every pull. Detection runs
-	//   INLINE inside `runCycle` (right after the relevant pull's
-	//   bulkUpsert) so the concurrency hazard doesn't exist: we're
-	//   already holding `isProcessing`, so no other cycle can be
-	//   overwriting our wipe.
+	//   Two "you no longer belong here" signals feed `teamsToWipe`:
+	//     1. Membership revocation — `reconcileMemberships` (session-only)
+	//        diffs the user's current active memberships against locally
+	//        mirrored teams. Runs FIRST so it works even when the user was
+	//        removed from their active team (the active-team-scoped pulls
+	//        would 403). This is the Q6 fix.
+	//     2. Team deletion — `pullTeamsApp` flags a tombstoned `teams` row
+	//        the client already has locally (`.includeDeleted()` ships it).
+	//   Both run INLINE inside `runCycle` while holding `isProcessing`, so no
+	//   other cycle can overwrite the wipe.
 	//
 	//   The wipe happens BEFORE the push pipeline runs — otherwise we'd
 	//   push mutations for a team we no longer belong to. If the wiped
@@ -396,12 +398,26 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 		// wave order and can run alongside the pull pipeline.
 		void fileUploadWorker.run();
 
-		// Set collects team ids the pull pipeline discovered are gone
-		// (team-deleted tombstone or self-membership-revoked tombstone).
-		// Populated inline by `pullTeamsApp` and `pullTable("teamMembers")`;
-		// drained AFTER the pull pipeline completes and BEFORE the push
-		// pipeline runs so we never push mutations for a wiped team.
+		// Collects team ids that are gone: team-deleted tombstones (found by
+		// `pullTeamsApp`) and memberships the user no longer holds (found by
+		// `reconcileMemberships`). Drained AFTER the pull pipeline and BEFORE
+		// the push pipeline so we never push mutations for a wiped team.
 		const teamsToWipe = new Set<string>();
+
+		// Membership reconciliation FIRST, via a session-only endpoint that
+		// works even if the user was removed from their active team (the
+		// active-team-scoped anchor below would 403 in that case). This is the
+		// Q6 fix — see `membership_reconciliation.ts`.
+		await this.reconcileMemberships(teamsToWipe);
+
+		// If the ACTIVE team is gone, the anchor + downstream pulls would all
+		// 403. Wipe now (which broadcasts `active-team-wiped` so the main
+		// thread switches teams) and bail — the next cycle runs against the
+		// new active team.
+		if (teamsToWipe.has(teamId)) {
+			await this.processTeamWipes(teamId, teamsToWipe);
+			return;
+		}
 
 		// Wave 1 — anchor: mints `topLevelSyncedAt` and pulls team rows.
 		const topLevelSyncedAt = await this.pullTeamsApp(teamId, teamsToWipe);
@@ -415,6 +431,35 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 		await this.runPullPipeline(teamId, topLevelSyncedAt, teamsToWipe);
 		await this.processTeamWipes(teamId, teamsToWipe);
 		await this.runPushPipeline(teamId);
+	}
+
+	/**
+	 * Ask the server which teams the user is CURRENTLY an active member of
+	 * (session-only — no active-team requirement, so it works even after the
+	 * user is removed from their active team). Any team mirrored locally that
+	 * is no longer in that set is flagged for wipe. This is the robust
+	 * replacement for the old tombstone-pull revocation signal, which could
+	 * never fire once the user hit the 403 wall. See
+	 * `membership_reconciliation.ts` for the full rationale.
+	 *
+	 * A network failure here is non-fatal: we skip reconciliation this cycle
+	 * rather than risk wiping on incomplete data.
+	 */
+	private async reconcileMemberships(teamsToWipe: Set<string>): Promise<void> {
+		try {
+			const [{ teamIds }, localTeams] = await Promise.all([
+				orpcFetch.teams.listMyActiveTeamIds(),
+				teamsAppDb.getAll(),
+			]);
+			const wipe = teamsToWipeFromReconciliation(
+				teamIds,
+				localTeams.map((t) => t.id),
+			);
+			for (const id of wipe) teamsToWipe.add(id);
+		} catch (err) {
+			// biome-ignore lint/suspicious/noConsole: reconciliation failures shouldn't kill the cycle
+			console.warn("[SyncOrchestrator] membership reconciliation failed", err);
+		}
 	}
 
 	// ─── Team-wipe handling ────────────────────────────────────────────
@@ -495,7 +540,6 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 				const { syncMetadata, wipeTeamIds } = await entity.pull({
 					cursor: cursor ?? null,
 					topLevelSyncedAt,
-					selfUserId: this.initialisedForUserId,
 				});
 				for (const id of wipeTeamIds) teamsToWipe.add(id);
 				await syncMetadataDb.saveCursor(entity.table, teamId, syncMetadata);
@@ -522,9 +566,10 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 		}
 	}
 
-	// The "you were removed from a team" tombstone signal (and its known-issue
-	// caveat) lives in `collectSelfMembershipWipes` in synced_entities.registry.ts,
-	// invoked by the `teamMembers` registry entry during the pull pipeline.
+	// "You were removed from a team" is handled by `reconcileMemberships`
+	// (session-only, runs at cycle start) — NOT by pulling a membership
+	// tombstone, which could never arrive once the user hit the 403 wall.
+	// See `membership_reconciliation.ts`.
 
 	// ─── Push pipeline ─────────────────────────────────────────────────
 

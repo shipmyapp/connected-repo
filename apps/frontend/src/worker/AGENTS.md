@@ -77,15 +77,14 @@ pends instead of crashing.
 - `tearDownSync()` (tests / hard reset) → `terminateWorkers()`; the on-disk
   Dexie DB is preserved.
 
-## Known issues
+## Membership revocation (Q6 — fixed)
 
-- **Membership revocation never propagates (device wipe unreachable).** The
-  "you were removed → wipe this team's local data" path depends on the client
-  pulling its own tombstoned `team_members` row, but every sync RPC requires a
-  non-deleted membership, so a removed user gets 403 and can never pull the
-  tombstone. Net effect: an offboarded device retains all team data
-  indefinitely; a re-invite can trigger an infinite wipe/re-pull loop. Full
-  write-up and the planned fix (deliver own-membership tombstones on the
-  user-scoped wave-1 instead of the team-scoped channel) live in the doc
-  comment on `collectSelfMembershipWipes` in
-  `sync/synced_entities.registry.ts`.
+"You were removed from a team → wipe that team's local data" is handled by
+`SyncOrchestrator.reconcileMemberships`, which runs FIRST in every cycle and
+calls the **session-only** `teams.listMyActiveTeamIds` endpoint. It diffs the
+teams the user is currently an active member of against the teams mirrored
+locally and wipes the difference. Because it's session-only it works even when
+the user was removed from their active team (the active-team-scoped anchor
+would 403), and because it reconciles against *current* membership rather than
+a tombstone it can't loop on re-invite. Rationale + the pure diff helper live
+in `sync/membership_reconciliation.ts`.

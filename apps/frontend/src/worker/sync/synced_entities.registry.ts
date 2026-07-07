@@ -1,6 +1,5 @@
 import type { TablesToSync } from "@connected-repo/zod-schemas/enums.zod";
 import type { SyncMetadata } from "@connected-repo/zod-schemas/sync.zod";
-import type { TeamAppMemberSelectAll } from "@connected-repo/zod-schemas/team_app.zod";
 import { journalEntriesDb } from "../../modules/journal-entries/worker/journal-entries.db";
 import { promptsDb } from "../../modules/prompts/worker/prompts.db";
 import { orpcFetch } from "../../utils/orpc.client";
@@ -27,14 +26,12 @@ import { teamMembersDb } from "../db/team_members.db";
  * reference journal entries).
  */
 
-/** Standard downstream pull input, plus the identity needed for tombstones. */
+/** Standard downstream pull input. */
 export interface PullContext {
 	/** Cursor for this (table, team); null on first sync. */
 	cursor: SyncMetadata | null;
 	/** Snapshot ceiling minted by the wave-1 anchor. */
 	topLevelSyncedAt: number;
-	/** Current user id — used to detect "you were removed" tombstones. */
-	selfUserId: string | null;
 }
 
 export interface PullResult {
@@ -43,7 +40,9 @@ export interface PullResult {
 	/**
 	 * Team ids whose local footprint should be wiped because this page
 	 * delivered a "you no longer belong here" tombstone. Empty for tables that
-	 * can't carry that signal.
+	 * can't carry that signal. (Membership revocation is handled up-front by
+	 * the orchestrator's `reconcileMemberships`, not here — see
+	 * `membership_reconciliation.ts`.)
 	 */
 	wipeTeamIds: string[];
 }
@@ -53,66 +52,16 @@ export interface DownstreamSyncedEntity {
 	pull(ctx: PullContext): Promise<PullResult>;
 }
 
-/**
- * From a page of `team_members` rows, return the team ids for which the CURRENT
- * user's membership is tombstoned — the "you were removed" signal that drives a
- * device wipe of that team.
- *
- * ┌─────────────────────────────────────────────────────────────────────┐
- * │ KNOWN ISSUE (documented, not yet fixed) — revocation never propagates │
- * └─────────────────────────────────────────────────────────────────────┘
- * This can never fire for the case it was built for. To reach it, the client
- * must PULL its own tombstoned membership row via `pullMembersDelta`. But every
- * sync RPC — including the wave-1 anchor `teams.pullBundles` — runs behind
- * `rpcProtectedActiveTeamProcedure`, which requires a NON-DELETED `team_members`
- * row for (activeTeam, user) (apps/backend/src/procedures/protected.procedure.ts).
- * The moment an Owner removes the user, that row is soft-deleted, so every sync
- * RPC returns 403 and the tombstone can never be pulled. Consequences:
- *   - Removed-from-active-team: sync sits in a permanent error state and the
- *     device KEEPS all of the team's entries/files/OPFS blobs forever (the
- *     opposite of the intended offboarding wipe).
- *   - Removed-from-a-non-active team: no error at all; the team just goes stale
- *     locally and is never evicted.
- *   - Re-invite (partial unique index allows re-adding): once a new active
- *     membership exists, sync resumes and pulls the OLD tombstone (its
- *     updatedAt is past the frozen cursor) → wipe → cursors reset → re-pull →
- *     pulls the tombstone again → infinite wipe/re-pull loop.
- *
- * SOLUTION (planned): don't make the 403 load-bearing for a signal the client
- * needs AFTER losing access. Deliver own-membership state on the USER-scoped
- * channel, not the team-scoped one:
- *   1. In `pullTeamsAppService` (already keyed by userId, not by active-team
- *      membership), also return the caller's own membership rows INCLUDING
- *      tombstones. Revocation then propagates regardless of which team is
- *      active and regardless of the 403.
- *   2. Here, IGNORE a tombstone when a newer ACTIVE membership for the same
- *      team exists in the same batch / local DB (kills the re-invite loop).
- *   3. Treat a sync 403 on the client as a "re-verify memberships, maybe wipe"
- *      signal rather than only an error state.
- */
-export function collectSelfMembershipWipes(
-	rows: TeamAppMemberSelectAll[],
-	selfUserId: string | null,
-): string[] {
-	if (!selfUserId) return [];
-	return rows
-		.filter((r) => r.deletedAt !== null && r.userId === selfUserId)
-		.map((r) => r.teamId);
-}
-
 export const DOWNSTREAM_SYNCED_ENTITIES: readonly DownstreamSyncedEntity[] = [
 	{
 		table: "teamMembers",
-		async pull({ cursor, topLevelSyncedAt, selfUserId }) {
+		async pull({ cursor, topLevelSyncedAt }) {
 			const res = await orpcFetch.teams.pullMembersDelta({
 				syncMetadata: cursor,
 				topLevelSyncedAt,
 			});
 			await teamMembersDb.bulkUpsert(res.rows);
-			return {
-				syncMetadata: res.syncMetadata,
-				wipeTeamIds: collectSelfMembershipWipes(res.rows, selfUserId),
-			};
+			return { syncMetadata: res.syncMetadata, wipeTeamIds: [] };
 		},
 	},
 	{
