@@ -13,18 +13,45 @@ import type { StoredFile } from "@frontend/worker/db/schema.db.types";
 import type { StoredJournalEntry } from "@frontend/worker/db/db.manager";
 import { useLocalDb } from "@frontend/worker/db/hooks/useLocalDb";
 import { getDataProxy } from "@frontend/worker/worker.proxy";
+import { downloadBlob, downloadJson, safeFileName } from "@frontend/utils/download.util";
 import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
 import CloudDoneIcon from "@mui/icons-material/CloudDone";
 import CloudOffIcon from "@mui/icons-material/CloudOff";
 import CloudQueueIcon from "@mui/icons-material/CloudQueue";
 import CloudSyncIcon from "@mui/icons-material/CloudSync";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import DownloadIcon from "@mui/icons-material/Download";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SyncProblemIcon from "@mui/icons-material/SyncProblem";
 import { useState } from "react";
 import { useNavigate } from "react-router";
+
+/** Serialize a journal entry's rescuable content to a JSON download. */
+function downloadEntryJson(row: StoredJournalEntry): void {
+	downloadJson(
+		{
+			id: row.id,
+			content: row.content,
+			prompt: row.prompt,
+			promptId: row.promptId,
+			createdAt: row.createdAt,
+			updatedAt: row.updatedAt,
+			syncError: row.syncError ?? null,
+		},
+		`entry-${row.id}.json`,
+	);
+}
+
+/** Read a file's locally-staged blob out of OPFS and save it to the device. */
+async function downloadFileBlob(id: string): Promise<boolean> {
+	const proxy = await getDataProxy();
+	const dl = await proxy.filesDb.readForDownload(id);
+	if (!dl) return false;
+	downloadBlob(dl.blob, safeFileName(dl.fileName));
+	return true;
+}
 
 const HERO_ICON_SX = { fontSize: 32 } as const;
 
@@ -44,6 +71,7 @@ export default function SettingsSyncPage() {
 	const snap = useSyncStatus();
 	const teamId = useActiveTeamId();
 	const [triggering, setTriggering] = useState(false);
+	const [downloadingAll, setDownloadingAll] = useState(false);
 
 	const handleSyncNow = async () => {
 		setTriggering(true);
@@ -52,6 +80,54 @@ export default function SettingsSyncPage() {
 			await proxy.sync.processQueue(true);
 		} finally {
 			setTriggering(false);
+		}
+	};
+
+	// "No data is ever lost" escape hatch: save every un-synced entry (as one
+	// JSON snapshot) and every un-synced file blob to the device, so the user
+	// can rescue their work even if syncing is permanently broken.
+	const hasUnsynced =
+		snap.pendingEntries + snap.pendingFiles + snap.errorEntries + snap.errorFiles > 0;
+
+	const handleDownloadAll = async () => {
+		if (!teamId) return;
+		setDownloadingAll(true);
+		try {
+			const proxy = await getDataProxy();
+			const [pendingEntries, erroredEntries, pendingFiles, erroredFiles] = await Promise.all([
+				proxy.journalEntriesDb.getPending(teamId),
+				proxy.journalEntriesDb.listErrored(teamId),
+				proxy.filesDb.listPending(teamId),
+				proxy.filesDb.listErrored(teamId),
+			]);
+
+			const entries = new Map<string, StoredJournalEntry>();
+			for (const e of [...pendingEntries, ...erroredEntries]) entries.set(e.id, e);
+			const files = new Map<string, StoredFile>();
+			for (const f of [...pendingFiles, ...erroredFiles]) files.set(f.id, f);
+
+			if (entries.size > 0) {
+				downloadJson(
+					Array.from(entries.values()).map((e) => ({
+						id: e.id,
+						content: e.content,
+						prompt: e.prompt,
+						promptId: e.promptId,
+						createdAt: e.createdAt,
+						updatedAt: e.updatedAt,
+						syncError: e.syncError ?? null,
+					})),
+					`unsynced-entries-${teamId}.json`,
+				);
+			}
+
+			// Blobs can't ride inside the JSON, so each gets its own download.
+			for (const f of files.values()) {
+				await downloadFileBlob(f.id);
+				await new Promise((r) => setTimeout(r, 150));
+			}
+		} finally {
+			setDownloadingAll(false);
 		}
 	};
 
@@ -111,6 +187,24 @@ export default function SettingsSyncPage() {
 						{snap.status === "syncing" ? "Syncing…" : "Sync now"}
 					</Button>
 				</Box>
+
+				{hasUnsynced && (
+					<Box sx={{ mt: 2 }}>
+						<Button
+							variant="outlined"
+							size="small"
+							startIcon={<DownloadIcon />}
+							onClick={handleDownloadAll}
+							disabled={downloadingAll}
+						>
+							{downloadingAll ? "Preparing…" : "Download un-synced data"}
+						</Button>
+						<Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+							Saves every un-synced entry and file to this device so nothing is lost
+							if syncing can't complete.
+						</Typography>
+					</Box>
+				)}
 
 				{snap.lastError && (
 					<Alert severity="error" sx={{ mt: 2 }}>
@@ -204,12 +298,24 @@ interface EntryRowProps {
 
 function EntryRow({ teamId, snap }: EntryRowProps) {
 	const [open, setOpen] = useState(false);
+	const { data: pending } = useLocalDb(
+		"journalEntries",
+		async (proxy) => (teamId ? await proxy.journalEntriesDb.getPending(teamId) : []),
+		[teamId],
+	);
 	const { data: errored } = useLocalDb(
 		"journalEntries",
 		async (proxy) => (teamId ? await proxy.journalEntriesDb.listErrored(teamId) : []),
 		[teamId],
 	);
-	const canExpand = (snap.errorEntries ?? 0) > 0;
+	// Show every un-synced entry — pending (waiting to push) AND errored —
+	// deduped, so the user has visibility into (and an action for) each one.
+	// A pending entry can also carry an error, so it must appear only once.
+	const items = new Map<string, StoredJournalEntry>();
+	for (const r of pending ?? []) items.set(r.id, r);
+	for (const r of errored ?? []) items.set(r.id, r);
+	const rows = Array.from(items.values());
+	const canExpand = rows.length > 0;
 
 	return (
 		<Box sx={{ borderBottom: "1px solid", borderColor: "divider" }}>
@@ -223,8 +329,8 @@ function EntryRow({ teamId, snap }: EntryRowProps) {
 			/>
 			<Collapse in={open && canExpand}>
 				<Stack spacing={1} sx={{ pb: 2 }}>
-					{(errored ?? []).map((row) => (
-						<JournalEntryErrorItem key={row.id} row={row} />
+					{rows.map((row) => (
+						<JournalEntryItem key={row.id} row={row} />
 					))}
 				</Stack>
 			</Collapse>
@@ -232,7 +338,7 @@ function EntryRow({ teamId, snap }: EntryRowProps) {
 	);
 }
 
-function JournalEntryErrorItem({ row }: { row: StoredJournalEntry }) {
+function JournalEntryItem({ row }: { row: StoredJournalEntry }) {
 	const navigate = useNavigate();
 	const [busy, setBusy] = useState(false);
 	// A row is "server-known" once the server has echoed its createdAt.
@@ -240,6 +346,7 @@ function JournalEntryErrorItem({ row }: { row: StoredJournalEntry }) {
 	// pull re-inserts it. Delete must go through the entry detail page,
 	// which uses deleteOnlineFirst (server delete + local hard-delete).
 	const isPending = row.createdAt == null;
+	const hasError = Boolean(row.syncError);
 
 	const handleRetry = async () => {
 		setBusy(true);
@@ -252,7 +359,12 @@ function JournalEntryErrorItem({ row }: { row: StoredJournalEntry }) {
 		}
 	};
 	const handleDiscard = async () => {
-		if (!confirm("Discard this local entry? This cannot be undone.")) return;
+		if (
+			!confirm(
+				"Discard this local entry? This cannot be undone. Download it first if you want to keep it.",
+			)
+		)
+			return;
 		setBusy(true);
 		try {
 			const proxy = await getDataProxy();
@@ -272,17 +384,21 @@ function JournalEntryErrorItem({ row }: { row: StoredJournalEntry }) {
 				px: 1.5,
 				py: 1,
 				border: "1px solid",
-				borderColor: "error.light",
+				borderColor: hasError ? "error.light" : "warning.light",
 				borderRadius: 1,
-				bgcolor: "error.lighter",
+				bgcolor: hasError ? "error.lighter" : "warning.lighter",
 			}}
 		>
 			<Box sx={{ flex: 1, minWidth: 0 }}>
 				<Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
 					{preview}
 				</Typography>
-				<Typography variant="caption" color="error.main" sx={{ display: "block", mt: 0.5 }}>
-					{row.syncError || "(unknown error)"}
+				<Typography
+					variant="caption"
+					color={hasError ? "error.main" : "text.secondary"}
+					sx={{ display: "block", mt: 0.5 }}
+				>
+					{hasError ? row.syncError : "Waiting to sync…"}
 				</Typography>
 				{!isPending && (
 					<Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
@@ -291,6 +407,15 @@ function JournalEntryErrorItem({ row }: { row: StoredJournalEntry }) {
 				)}
 			</Box>
 			<Stack direction="row" spacing={1}>
+				{/* Entry text is always rescuable — download works even offline. */}
+				<Button
+					size="small"
+					startIcon={<DownloadIcon />}
+					onClick={() => downloadEntryJson(row)}
+					disabled={busy}
+				>
+					Download
+				</Button>
 				<Button size="small" startIcon={<RefreshIcon />} onClick={handleRetry} disabled={busy}>
 					Retry
 				</Button>
@@ -380,10 +505,19 @@ function FilePendingItem({ row }: { row: StoredFile }) {
 		return `State: ${row.mainUploadState}`;
 	};
 
+	const handleDownload = async () => {
+		setBusy(true);
+		try {
+			await downloadFileBlob(row.id);
+		} finally {
+			setBusy(false);
+		}
+	};
+
 	const handleAbandon = async () => {
 		if (
 			!confirm(
-				`Stop trying to upload "${row.fileName}"? The server will be told the file is unavailable. This cannot be undone.`,
+				`Stop trying to upload "${row.fileName}"? The server will be told the file is unavailable and the local copy is deleted. This cannot be undone — download it first if you want to keep it.`,
 			)
 		)
 			return;
@@ -398,7 +532,12 @@ function FilePendingItem({ row }: { row: StoredFile }) {
 	};
 
 	const handleDiscard = async () => {
-		if (!confirm(`Discard "${row.fileName}"? This cannot be undone.`)) return;
+		if (
+			!confirm(
+				`Discard "${row.fileName}"? This cannot be undone — download it first if you want to keep it.`,
+			)
+		)
+			return;
 		setBusy(true);
 		try {
 			const proxy = await getDataProxy();
@@ -432,6 +571,17 @@ function FilePendingItem({ row }: { row: StoredFile }) {
 				</Typography>
 			</Box>
 			<Stack direction="row" spacing={1}>
+				{/* Rescue the locally-staged blob before any destructive action. */}
+				{row.mainOpfsPath && (
+					<Button
+						size="small"
+						startIcon={<DownloadIcon />}
+						onClick={handleDownload}
+						disabled={busy}
+					>
+						Download
+					</Button>
+				)}
 				{isServerKnown && row.tableName === "journalEntries" && (
 					<Button
 						size="small"
@@ -481,6 +631,23 @@ function FileErrorItem({ row }: { row: StoredFile }) {
 	// entry (for confirmed rows) to re-pick the file.
 	const canRetry = Boolean(row.mainOpfsPath) && row.mainUploadState !== "lost";
 
+	// A server-known file whose upload can't complete needs an escape that
+	// isn't "retry" (blob may be gone) — Abandon tells the server the blob is
+	// unavailable and clears the stuck row. Not offered once the main file is
+	// already on the CDN (abandoning then would wrongly mark it lost).
+	const canAbandon =
+		!isPending &&
+		row.mainUploadState !== "uploaded" &&
+		row.mainUploadState !== "uploaded_to_cdn";
+
+	const handleDownload = async () => {
+		setBusy(true);
+		try {
+			await downloadFileBlob(row.id);
+		} finally {
+			setBusy(false);
+		}
+	};
 	const handleRetry = async () => {
 		setBusy(true);
 		try {
@@ -491,8 +658,29 @@ function FileErrorItem({ row }: { row: StoredFile }) {
 			setBusy(false);
 		}
 	};
+	const handleAbandon = async () => {
+		if (
+			!confirm(
+				`Stop trying to upload "${row.fileName}"? The server will be told the file is unavailable. This cannot be undone — download it first if you want to keep it.`,
+			)
+		)
+			return;
+		setBusy(true);
+		try {
+			const proxy = await getDataProxy();
+			await proxy.filesDb.abandonUpload(row.id);
+			await proxy.sync.processQueue(true);
+		} finally {
+			setBusy(false);
+		}
+	};
 	const handleDiscard = async () => {
-		if (!confirm(`Discard "${row.fileName}"? This cannot be undone.`)) return;
+		if (
+			!confirm(
+				`Discard "${row.fileName}"? This cannot be undone — download it first if you want to keep it.`,
+			)
+		)
+			return;
 		setBusy(true);
 		try {
 			const proxy = await getDataProxy();
@@ -540,6 +728,17 @@ function FileErrorItem({ row }: { row: StoredFile }) {
 				)}
 			</Box>
 			<Stack direction="row" spacing={1}>
+				{/* Rescue the locally-staged blob before any destructive action. */}
+				{row.mainOpfsPath && (
+					<Button
+						size="small"
+						startIcon={<DownloadIcon />}
+						onClick={handleDownload}
+						disabled={busy}
+					>
+						Download
+					</Button>
+				)}
 				{canRetry && (
 					<Button size="small" startIcon={<RefreshIcon />} onClick={handleRetry} disabled={busy}>
 						Retry
@@ -555,15 +754,31 @@ function FileErrorItem({ row }: { row: StoredFile }) {
 					>
 						Discard
 					</Button>
-				) : row.tableName === "journalEntries" ? (
-					<Button
-						size="small"
-						onClick={() => navigate(`/journal-entries/${row.tableId}`)}
-						disabled={busy}
-					>
-						Open entry
-					</Button>
-				) : null}
+				) : (
+					<>
+						{row.tableName === "journalEntries" && (
+							<Button
+								size="small"
+								onClick={() => navigate(`/journal-entries/${row.tableId}`)}
+								disabled={busy}
+							>
+								Open entry
+							</Button>
+						)}
+						{/* Guaranteed escape for a stuck server-known upload. */}
+						{canAbandon && (
+							<Button
+								size="small"
+								color="warning"
+								startIcon={<CancelOutlinedIcon />}
+								onClick={handleAbandon}
+								disabled={busy}
+							>
+								Abandon
+							</Button>
+						)}
+					</>
+				)}
 			</Stack>
 		</Box>
 	);

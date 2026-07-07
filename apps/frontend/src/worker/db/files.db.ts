@@ -338,6 +338,26 @@ export const filesDb = {
 	},
 
 	/**
+	 * Read a file's locally-staged blob back out of OPFS so the UI can offer
+	 * it as a download. This is the "no data is ever lost" escape hatch: a
+	 * file that can't be uploaded (dead CDN creds, offline for good, etc.) can
+	 * still be rescued to the user's device BEFORE they Abandon/Discard it.
+	 *
+	 * Returns null when there is no local blob (already uploaded — it lives on
+	 * the CDN — or the source was lost), in which case there's nothing to
+	 * rescue locally. The Blob transfers across the Comlink boundary intact.
+	 */
+	async readForDownload(
+		id: string,
+	): Promise<{ blob: Blob; fileName: string; mimeType: string } | null> {
+		const row = await getClientDb().files.get(id);
+		if (!row?.mainOpfsPath) return null;
+		const blob = await OPFSManager.readFile(row.mainOpfsPath);
+		if (!blob) return null;
+		return { blob, fileName: row.fileName, mimeType: row.mimeType };
+	},
+
+	/**
 	 * Hard-delete a single file row + its OPFS blob. Used from the sync-
 	 * status "Discard" action when a stuck row can't be recovered
 	 * (`lost`, `abandoned`, or repeated `syncError`). Server-side rows

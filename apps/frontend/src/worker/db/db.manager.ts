@@ -34,7 +34,11 @@ export type WithSyncStatus<T extends { createdAt?: number | null }> = Pending<T>
 	syncError?: string | null;
 };
 
-export const DEXIE_VERSION = 3;
+// Schema version reset to 1 for the boilerplate baseline — there is only one
+// `.version().stores()` definition (no historical upgrade chain to preserve),
+// so a fresh install opens straight at v1. Bump this (and add a `.version(n)`
+// block) when you change the schema on a codebase that already has users.
+export const DEXIE_VERSION = 1;
 export const DEXIE_DB_NAME_PREFIX = "app_db_v1_";
 
 export const dbNameFor = (userId: string): string => `${DEXIE_DB_NAME_PREFIX}${userId}`;
