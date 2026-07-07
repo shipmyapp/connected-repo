@@ -15,17 +15,20 @@ Stateful. Owns the per-user Dexie DB and the sync engine.
   table with a wave-1 anchor:
   1. `teamsApp` (anchor — mints `topLevelSyncedAt`) →
   2. `teamMembers` → `prompts` → `journalEntries` → `files` (pull pipeline).
-  3. Push pipeline (parallel with pull): `pushJournalEntryCreates` then
-     `pushFileCdnUpdates`.
-  Cursors are per-`(table, teamId)`. Cycles capture `expectedUserId` +
-  `expectedTeamId` and abort writes if either flips mid-cycle to protect the
-  old team's cursor.
+  3. Team-wipe drain (tombstones detected during the pull), then the
+     push pipeline: `pushJournalEntryCreates` then `pushFileCdnUpdates`.
+  Push runs AFTER the pull + wipe (serialised, not parallel) so we never
+  push mutations for a team the user was just removed from.
+  Cursors are per-`(table, teamId)`. Team-switch drift is handled at the
+  ORPC link boundary by `switchGate`; the cycle also re-checks the active
+  team at start and aborts if it flipped.
 - **Trigger sources inside the worker**:
   - Dexie `subscribe()` DB-write callback (post-write kick).
   - `self.addEventListener("online", ...)`.
-  - 60s interval safety net.
+  - 120s interval safety net.
   Additional triggers arrive from the main thread via `sync-triggers.ts`
-  (`visibilitychange`, `focus`, `online`, 60s interval, post-mutation kicks).
+  (`visibilitychange`, `focus`, `online`, 120s interval, post-mutation kicks)
+  and from an FCM silent push relayed by the service worker.
 - **FileUploadWorker** (`sync/file_upload.worker.ts`): sole CDN upload
   path — both online-picked and offline-picked files go through
   `filesDb.upsertLocal` (which writes the blob to OPFS) and are drained

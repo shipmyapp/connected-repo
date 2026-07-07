@@ -25,7 +25,7 @@
 |---|---|---|---|
 | [ADR-F01] | Comlink proxies | Accepted | Main thread only talks to workers via `getDataProxy()` / `getMediaProxy()`. |
 | [ADR-F02] | Per-user Dexie DB | Accepted | `dbNameFor(userId)`; other users' DBs are dropped on user switch. |
-| [ADR-F03] | Pull-delta sync (no SSE) | Accepted | Triggers: 60s interval + `visibilitychange` + `focus` + `online` + post-write kicks. |
+| [ADR-F03] | Pull-delta sync (no SSE) | Accepted | Triggers: 120s interval + `visibilitychange` + `focus` + `online` + post-write kicks + FCM silent-push wake. Cycles are throttled to a 2-minute window unless `force: true`. |
 | [ADR-F04] | Wave-1 anchor | Accepted | `teams.pullBundles` mints `topLevelSyncedAt`; downstream waves echo it back for a consistent snapshot. |
 | [ADR-F05] | Active team header + worker cache | Accepted | Header cache and worker caches flip in lockstep — desync causes "Active team id mismatch." |
 | [ADR-F06] | OPFS-backed file uploads | Accepted | Blobs live in OPFS; `FileUploadWorker` drives the CDN pipeline off OPFS paths. |
@@ -63,7 +63,7 @@ Installed by `initSyncForUser` in `src/utils/sync-triggers.ts`:
 - `visibilitychange` (when tab returns to visible)
 - `window` `focus`
 - `window` `online`
-- 60s interval
+- 120s interval (2-minute cadence; matches the worker-realm safety net)
 - One eager kick right after install
 Each trigger calls `sync.processQueue()` on the DataWorker, which is idempotent
 (a concurrent trigger sets a rescan bit).

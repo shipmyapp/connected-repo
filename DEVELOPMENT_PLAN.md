@@ -1,8 +1,23 @@
 # Development Plan - Scheduled Prompt & Journal App
 
+> [!WARNING]
+> **This document is a historical journal for the example (OneQ/journal) app and is
+> NOT an authoritative source of architecture truth.** Parts of it are stale — in
+> particular, it describes an **SSE-based** sync/connectivity design (e.g.
+> `src/sw/sse/*`, "heartbeat SSE", "Orchid ORM sync hooks for real-time delta push")
+> that was **never the shipped implementation**. The real design is **client-pull
+> two-cursor delta sync with FCM silent-push wake — there is no SSE**. Notifications
+> are **Novu**, not SuprSend. "CI/CD ✅ COMPLETED" is aspirational — there is no
+> `.github/` workflow in the repo.
+>
+> For current architecture, trust (in order): the code, then `README.md` and the
+> per-module `AGENTS.md` files. This plan is retained only as a product/feature log
+> and should be relocated under the example app (or deleted) when the boilerplate is
+> stripped of the OneQ placeholder.
+
 **Project:** Connected Repo Starter - Journal MVP
 **Repository:** shipmyapp/connected-repo
-**Tech Stack:** oRPC, Orchid ORM, Better Auth, React 19, Vite, PostgreSQL, pg-tbus, SuprSend
+**Tech Stack:** oRPC, Orchid ORM, Better Auth, React 19, Vite, PostgreSQL, pg-tbus, Novu (pull-delta sync; no SSE)
 **Last Updated:** 2026-02-04
 
 ---

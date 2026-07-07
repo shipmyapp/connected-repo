@@ -2,11 +2,11 @@
 
 ## 1. Blueprint
 **Intent**: Robust, event-driven oRPC backend with strict schema enforcement and zero-downtime compatibility.
-**Core Stack**: oRPC, Orchid ORM, pg-tbus, Better Auth, SuprSend, SSE.
+**Core Stack**: oRPC, Orchid ORM, pg-tbus, Better Auth, Novu.
 
 **Key Architectures**:
 - **Event-Driven**: `pg-tbus` for async tasks (notifications, usage tracking) and events.
-- **Delta Sync**: Real-time updates triggered by Orchid ORM hooks.
+- **Delta Sync**: Client-pull `pullBundles` procedures over the generic two-cursor `syncDeltaService`. There is NO SSE and no ORM-hook push channel.
 - **Backward Compatibility**: N-1 frontend support; additive-only migrations; two-step deletions.
 - **Dual Team Model**: `teams_app` (Session/UI) vs `teams_api` (Key/External).
 
@@ -23,7 +23,7 @@
 | ID | Title | Status | Description |
 |---|---|---|---|
 | [ADR-B01] | Additive Migrations | Accepted | Never rename/drop in one deployment to avoid downtime. |
-| [ADR-B02] | Mutex Cron | Accepted | Prevent concurrent cron runs via `isCronJobRunning` flag. |
+| [ADR-B02] | Mutex Cron | Accepted | Prevent concurrent cron runs via a Postgres advisory lock (`pg_try_advisory_xact_lock`), safe across replicas. |
 | [ADR-B03] | Soft Delete | Accepted | Mandatory for sync compatibility (use `deletedAt` field). |
 | [ADR-B04] | Files Sync Rationale | Accepted | Use .merge() on create to backup asynchronous metadata. |
 | [ADR-B05] | Backend Hardening | Accepted | Strict SSRF guards on webhooks, dummy hashes for API keys, and server-owned teamId scoping. |
@@ -45,7 +45,7 @@ src/
 ### Database & Migrations
 - **Auto-Gen**: `yarn db g <name>` is MANDATORY.
 - **Descriptive IDs**: `userId`, `teamId` (PascalCase class, snake_case columns).
-- **ORM Hooks**: Use `afterCreate`/`afterUpdate` to push entries to `syncService`.
+- **Sync**: Expose a `pullBundles` procedure per synced table backed by `syncDeltaService`; clients pull deltas (no ORM-hook push).
 
 ### oRPC Endpoints
 ```typescript

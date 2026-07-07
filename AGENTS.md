@@ -5,7 +5,7 @@
 **Core Stack**: 
 - **Repo**: Turborepo + Yarn
 - **Backend**: oRPC + Orchid ORM + PostgreSQL + pg-tbus + Better Auth
-- **Frontend**: React 19 + Vite + TanStack Query + Dexie.js (IndexedDB) + SSE
+- **Frontend**: React 19 + Vite + TanStack Query + Dexie.js (IndexedDB) + pull-delta sync (no SSE)
 - **Packages**: Shared Zod schemas, UI components (MUI)
 - **Tooling**: Biome (Tabs, 100 chars, double quotes)
 

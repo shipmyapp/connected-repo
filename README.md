@@ -15,7 +15,7 @@ Production-ready Turborepo monorepo for building full-stack TypeScript applicati
 - **Database**: PostgreSQL with [Orchid ORM](https://orchid-orm.netlify.app/)
 - **Task Queue**: [pg-tbus](https://github.com/hextech-dev/pg-tbus) (PostgreSQL-based event bus)
 - **Authentication**: Better Auth (Google OAuth)
-- **Notifications**: SuprSend
+- **Notifications**: Novu (in-app inbox + FCM push)
 - **Observability**: OpenTelemetry, Sentry
 - **Security**: Helmet, CORS, Rate Limiting, API key auth
 
@@ -26,7 +26,7 @@ Production-ready Turborepo monorepo for building full-stack TypeScript applicati
 - **UI**: Material-UI (via `@connected-repo/ui-mui`)
 - **PWA**: Vite PWA plugin with offline support
 - **Offline Storage**: Dexie.js (IndexedDB wrapper)
-- **Sync**: SSE-based delta sync with real-time updates
+- **Sync**: Pull-based two-cursor delta sync + FCM silent-push wake (no SSE)
 - **Workers**: Two-worker architecture (DataWorker + MediaWorker)
 - **Testing**: Playwright (E2E)
 
@@ -55,7 +55,7 @@ Production-ready Turborepo monorepo for building full-stack TypeScript applicati
 │       ├── src/
 │       │   ├── modules/            # Feature modules
 │       │   ├── worker/             # Web Workers (DataWorker, MediaWorker)
-│       │   ├── sw/                 # Service Worker (SSE sync)
+│       │   ├── sw/                 # Service Worker (PWA shell, FCM push, OPFS media)
 │       │   ├── components/         # Shared components
 │       │   └── main.tsx            # Entry
 │       └── package.json
@@ -210,16 +210,16 @@ Frontend includes PWA support:
 Full offline support with Dexie.js (IndexedDB):
 
 **Data Synchronization:**
-- **Delta Sync**: SSE-based streaming sync (delta-on-connect + live monitoring)
+- **Delta Sync**: Pull-based two-cursor delta sync per table (no SSE, no long-lived socket). Triggered by a 2-minute interval, `visibilitychange`/`focus`/`online` events, post-write kicks, and FCM silent-push wake.
 - **Local Database**: IndexedDB with separate tables for synced data and pending changes
 - **Reactive UI**: Hooks automatically re-render when local DB changes
-- **Conflict Resolution**: Soft deletes, server-wins for conflicts
+- **Conflict Resolution**: Soft deletes (tombstones), server-wins for conflicts
 
 **Worker Architecture:**
 ```
 UI Thread (React)
-  ├─► DataWorker (Dexie DB, Sync, SSE)
-  └─► MediaWorker (CDN uploads, thumbnails, exports)
+  ├─► DataWorker (Dexie DB, SyncOrchestrator, FileUploadWorker/CDN)
+  └─► MediaWorker (stateless thumbnail generation)
 ```
 
 **File Uploads:**
@@ -231,46 +231,48 @@ UI Thread (React)
 
 **DataWorker**: Handles all IndexedDB access and sync
 - Dexie.js database operations
-- SyncOrchestrator for background sync
-- SSE connection management
+- SyncOrchestrator for background pull-delta sync + push queue
+- FileUploadWorker: the sole CDN upload path (presigned PUT from the DataWorker realm)
 - Only worker allowed to access IndexedDB
 
 **MediaWorker**: Stateless processing worker
-- Image compression (browser-image-compression)
-- PDF thumbnail generation (pdfjs-dist)
-- Video thumbnail generation (mp4box + WebCodecs)
-- CDN uploads via presigned URLs
-- CSV/PDF exports
+- Image thumbnail generation (browser-image-compression)
+- PDF thumbnail rendering (pdfjs-dist)
+- Returns derived thumbnail blobs to the caller — never persists, never uploads
 
-**Communication**: Comlink proxy pattern for worker-to-worker calls
+> Note: video thumbnails currently run on the main thread (`VideoDecoder`/`<video>` need a DOM runtime).
 
-### Real-Time Sync (SSE)
+**Communication**: Comlink proxy pattern; the MediaWorker proxy is bridged into the DataWorker for thumbnail generation.
 
-Server-Sent Events for live data synchronization:
+### Delta Sync (pull-based)
 
-**Backend** (Orchid ORM hooks):
-```typescript
-// Tables emit events on create/update/delete
-this.afterCreate(schema.keyof().options, (entries) => {
-  pushToSync("create", entries);
-});
-```
+There is **no SSE** and no server push channel. The client pulls changes on a schedule and on demand:
 
-**Frontend** (Service Worker):
-- Connects on login, disconnects on logout
-- Receives delta chunks on initial connection
-- Real-time updates via streaming SSE
-- Heartbeat every 10s for connectivity monitoring
+**Backend**: each synced table exposes a `pullBundles` procedure backed by the generic
+two-cursor `syncDeltaService` (`toCursor` catches up on new rows, `fromCursor`
+backfills history). A wave-1 anchor (`teams.pullBundles`) mints a `topLevelSyncedAt`
+snapshot ceiling that every downstream wave echoes back for a consistent snapshot.
+Soft-deleted rows are shipped as tombstones so the client can evict them.
+
+**Frontend** (DataWorker `SyncOrchestrator`): runs a pull → wipe → push cycle. Triggers:
+- 2-minute interval (main-thread + worker-realm safety net)
+- `visibilitychange` / `focus` / `online` events
+- post-write kicks (a staged file starts its upload immediately)
+- FCM **silent push**, which wakes the app to run a sync without showing a notification
 
 ### Cron Jobs
 
-Per-minute cron jobs using node-cron with mutex locking:
+Per-minute cron jobs using node-cron, made single-flight with a **Postgres advisory
+lock** (not an in-process flag — the lock is safe across multiple app replicas):
 
 ```typescript
-// In src/cron_jobs/services/per_minute_cron.ts
-cron.schedule('* * * * *', async () => {
-  if (isCronJobRunning) return; // Prevent concurrent runs
-  await scheduleReminders();
+// e.g. src/cron_jobs/schedule_reminders.cron.ts
+cron.schedule("* * * * *", async () => {
+  // pg_try_advisory_xact_lock inside a transaction; a second replica that
+  // fails to acquire the lock simply skips this tick.
+  await withAdvisoryLock(LOCK_KEY, async () => {
+    await scheduleReminders();
+  });
 });
 ```
 
