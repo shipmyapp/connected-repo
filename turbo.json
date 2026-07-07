@@ -29,7 +29,10 @@
 			"dependsOn": ["^build"]
 		},
 		"test:coverage": {},
-		"test:db:setup": {},
+		"test:db:setup": {
+			"cache": false,
+			"dependsOn": ["^build"]
+		},
 		"test:e2e:no-build": {
 			"cache": false,
 			"dependsOn": ["test:db:setup"]
