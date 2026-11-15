@@ -22,6 +22,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Unused dependencies: `dayjs` and `@types/node-cron` (backend), `axios`, `mp4box` and `zustand` (frontend), `@types/react-dom` (ui-mui).
 - Unused helpers reported by knip: the pg-tbus task query module, the dayjs time-zone helper, `isSystemContext`.
 
+### Security
+- CI runs with a read-only token and SHA-pinned actions (Dependabot keeps them current).
+
 ## [1.1.0] - 2026-07-03
 
 ### Changed

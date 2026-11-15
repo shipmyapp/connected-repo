@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `TRUSTED_PROXY_COUNT`: trusted proxy hops counted from the right of X-Forwarded-For (0 = socket address).
+- `auth:encrypt-tokens` script: encrypts provider tokens stored before encryption was on.
+- Webhook bodies carry `X-Webhook-Signature` when a webhook secret is configured.
+
 - `assertNotLastOwner(teamId, memberId)`: the last-Owner rule as one function.
 - `teams_api.writes_as_team_member_id`: the team member an API key's journal entries are written as.
 - Redis 7 as a required service (`REDIS_URL`): `configs/redis.config.ts` (`getRedis`, `closeRedis`), `utils/redis.utils.ts` (`getRedisStatus`, `redisReady`); `ioredis` ^5.11.1. Compose (`redis` service in `docker-compose.dev.yml` and `docker-compose.yml`) and CI run one.
@@ -17,6 +21,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Startup line `Sentry: on (…)` / `Sentry: off (…)` on every boot.
 
 ### Changed
+
+- The client address is decided once per request from the counted proxy chain and stamped into `x-client-ip`.
+- Every authenticated call is charged to the `app:user` limit once; `createTeam` is limited to 10 per hour; public and pre-auth OpenAPI calls are limited per address.
+- Request bodies are limited (64 KiB auth, 10 MiB app RPC and mobile, 1 MiB elsewhere).
+- Uploaded objects live under `<team>/<uploader>/`.
+- The session-security middleware logs an address change instead of refusing it, and no longer has a fingerprint check.
+- Better Auth telemetry is off.
+- `/` and `/health` answer `status`, `timestamp` and `redis` outside development.
 
 - `teams.addTeamMember` always creates a pending invitation (no immediate join, no account lookup) and accepts only the roles Admin and Member; 30 invitations per inviter per hour.
 - Team refusals (`removeTeamMember`, `updateMemberRole`, `deleteTeam`) are typed 400/403/404/409 instead of 500.
@@ -53,6 +65,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - API product: `subscriptions.team_api_id`, `api_product_request_logs.team_api_id` and `pg_tbus_task_log.team_api_id` are `varchar(26)` like the `teams_api` ULID they name (as `uuid`, every write failed); `subscriptions.active` applies its `apiProductSku` filter; a SKU the key may not buy is a 403.
 
 ### Security
+
+- X-Forwarded-For and X-Real-IP no longer decide the client address (API-key IP allowlist, limits, session IP).
+- Credentials, tokens, cookies and API keys are redacted from logs and Sentry breadcrumbs.
+- SVG and other active content types are refused for upload; a member can no longer overwrite a teammate's object or point a file at another object.
+- A production or staging boot refuses the example `BETTER_AUTH_SECRET`.
+- Google/Apple tokens are encrypted at rest; the bearer plugin requires signed tokens; bearer requests with cookies need the CSRF header.
+- A signed-out or revoked session is refused at once instead of after up to five minutes.
+- Webhook connections are checked against the block list at connect time and never use a proxy.
+- Backend responses carry `nosniff`, `no-referrer` and `X-Frame-Options: DENY`; auth responses are `no-store`.
+- The API reference pages and their specs are not served in production.
 
 - Email + password sign-up and sign-in work only under `NODE_ENV=test`.
 - Phone codes are no longer generated or written to the log.

@@ -5,8 +5,9 @@ import { Redis } from "ioredis";
 /**
  * The process's one Redis connection (ioredis). Redis is a required service
  * but never the source of truth: it holds only the rate-limit buckets
- * (`modules/system/services/rate_limit.service.ts`), which may be lost at any
- * time without losing data.
+ * (`modules/system/services/rate_limit.service.ts`) and the ended-session
+ * marks (`modules/auth/services/revoked_sessions.auth.service.ts`), which may
+ * be lost at any time without losing data.
  *
  * Opened on first use, not at import: scripts that import the procedure chain
  * (`yarn gen:openapi`, `yarn db …`) must not open a socket, or ioredis's

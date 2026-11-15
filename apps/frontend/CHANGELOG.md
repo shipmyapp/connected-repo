@@ -5,6 +5,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- Offline journal entries are pushed 20 per request.
+
 ### Fixed
 
 - Switching team re-signs the session cookie (`getSession` with `disableCookieCache`) so the loader and the DataWorker agree on the new team instead of the cached one.

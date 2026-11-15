@@ -10,7 +10,7 @@
 - **Backward Compatibility**: N-1 frontend support; additive-only migrations; two-step deletions.
 - **Dual Team Model**: `teams_app` (Session/UI) vs `teams_api` (Key/External).
 - **Active team gate**: `rpcProtectedActiveTeamProcedure` wants `x-team-id` to name the user's active team. `context.user` is Better Auth's cookie copy of the row (five minutes old at most); when the header and the copy disagree the gate reads `users.activeTeamAppId` once and the row decides (`teams.setActiveTeam` writes it behind Better Auth's back).
-- **Redis**: `configs/redis.config.ts` (`getRedis()`, one ioredis connection opened on first use, `closeRedis()` on shutdown) and `utils/redis.utils.ts` (`getRedisStatus`, `redisReady`). Holds only the rate-limit buckets (`modules/system/services/rate_limit.service.ts`); limits fail open when it is down. Tests use Redis database 1; tests that need a live Redis skip locally and fail in CI when it is missing.
+- **Redis**: `configs/redis.config.ts` (`getRedis()`, one ioredis connection opened on first use, `closeRedis()` on shutdown) and `utils/redis.utils.ts` (`getRedisStatus`, `redisReady`). Holds only the rate-limit buckets (`modules/system/services/rate_limit.service.ts`) and the ended-session marks (`modules/auth/services/revoked_sessions.auth.service.ts`); both fail open when it is down. Tests use Redis database 1; tests that need a live Redis skip locally and fail in CI when it is missing.
 
 ---
 
@@ -55,6 +55,8 @@ src/
 
 ### Database & Migrations
 - **Auto-Gen**: `yarn db g <name>` is MANDATORY.
+- **Enum values**: a value added to a Postgres enum (`ALTER TYPE … ADD VALUE`) can be used only after its transaction commits: add it in its own migration and use it in the next.
+- **Irreversible migrations**: a migration that cannot be undone says so in its comment and makes `down` a no-op (or the inverse of the constraint only).
 - **Descriptive IDs**: `userId`, `teamId` (PascalCase class, snake_case columns).
 - **Sync**: Expose a `pullBundles` procedure per synced table backed by `syncDeltaService`; clients pull deltas (no ORM-hook push).
 
@@ -74,6 +76,11 @@ export const create = rpcProtectedProcedure
 ### Security
 - **Auth**: Better Auth for sessions; `api-key-auth` for external.
 - **Procedures**: Use `rpcSensitiveProcedure` for data-destructive actions.
+- **Client address**: never read `x-forwarded-for` or `x-real-ip`: use `getClientIpAddress(reqHeaders)` (the address `main.handler.ts` stamps into `x-client-ip` from `TRUSTED_PROXY_COUNT`).
+- **Auth secret**: rotating `BETTER_AUTH_SECRET` signs everyone out and makes stored provider tokens unreadable (they are rewritten at the next sign-in).
+- **Webhooks**: calls use `webhookHttpsAgent` and `proxy: false`; receivers verify `X-Webhook-Signature` (`t=<unix>,v1=<hex HMAC-SHA256(secret, t + "." + body)>`).
+- **Logs**: fields named in `LOG_REDACT_PATHS` (`utils/logger.utils.ts`) are censored; add a key there (and a case to `logger.utils.test.ts`) before logging a new kind of secret.
+- **Operations**: after deploying encrypted provider tokens, run `yarn workspace @connected-repo/backend auth:encrypt-tokens` once per environment.
 
 ### Testing
 - **Vitest**: Test all CRUD operations. Use `createTestUserAndSession` for auth context.
