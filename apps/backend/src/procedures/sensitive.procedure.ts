@@ -1,4 +1,5 @@
 import { createRateLimitMiddleware } from "@backend/middlewares/rate_limit.middleware";
+import { rpcRecentSignInMiddleware } from "@backend/middlewares/recent_sign_in.middleware";
 import { rpcSessionSecurityMiddleware } from "@backend/middlewares/session-security.middleware";
 import {
 	type RpcAuthenticatedContext,
@@ -11,12 +12,13 @@ import {
  * times per hour, so 10/min per user leaves ample headroom while stopping
  * credential-stuffing-style enumeration cold.
  *
- * Middleware order matters: auth (from protected) -> session-security-strict
- * -> rate-limit. The session-security log runs first, then rate-limit before
- * we spend CPU on input validation.
+ * Middleware order: auth (from protected) -> session-security (logs an
+ * address change, never refuses) -> recent sign-in (one session-row read) ->
+ * rate-limit.
  */
 export const rpcSensitiveProcedure = rpcProtectedProcedure
 	.use(rpcSessionSecurityMiddleware("strict"))
+	.use(rpcRecentSignInMiddleware)
 	.use(
 		createRateLimitMiddleware<RpcAuthenticatedContext>({
 			bucketFn: (ctx) => ({

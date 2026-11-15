@@ -30,12 +30,17 @@ export interface RpcActiveTeamContext extends RpcAuthenticatedContext {
 }
 
 /**
- * Requires a valid session. Every authenticated call is charged once to
- * `app:user:<id>` (300 per minute, refilling 5 per second): it caps a
- * runaway client or script, not real traffic (the sync engine runs well
- * under it). Redis down: the limit lets calls through.
+ * Requires a valid session, whatever state the account is in. Only for the
+ * few procedures a person whose account is scheduled for deletion may still
+ * call (`account.cancelDeletion`). Everything else uses
+ * `rpcProtectedProcedure`.
+ *
+ * Every authenticated call is charged once to `app:user:<id>` (300 per
+ * minute, refilling 5 per second): it caps a runaway client or script, not
+ * real traffic (the sync engine runs well under it). Redis down: the limit
+ * lets calls through.
  */
-export const rpcProtectedProcedure = rpcPublicProcedure.use(rpcAuthMiddleware).use(
+export const rpcSessionProcedure = rpcPublicProcedure.use(rpcAuthMiddleware).use(
 	createRateLimitMiddleware<RpcAuthenticatedContext>({
 		bucketFn: (ctx) => ({
 			key: `app:user:${ctx.user.id}`,
@@ -45,6 +50,23 @@ export const rpcProtectedProcedure = rpcPublicProcedure.use(rpcAuthMiddleware).u
 		label: "app",
 	}),
 );
+
+/**
+ * Requires a valid session on an account that is not scheduled for deletion.
+ * The flag rides the session (a Better Auth user field), so this costs no
+ * read; the cookie copy can be up to five minutes old, and the deletion
+ * request ends every other session anyway.
+ */
+export const rpcProtectedProcedure = rpcSessionProcedure.use(({ context, next }) => {
+	if (context.user.deletionRequestedAt !== null) {
+		throw new ORPCError("ACCOUNT_DELETION_PENDING", {
+			status: 403,
+			message: "This account is scheduled for deletion. Keep the account to use the app again.",
+			data: { deletionRequestedAt: context.user.deletionRequestedAt },
+		});
+	}
+	return next({ context });
+});
 
 /**
  * Requires a valid session + the client to have explicitly selected an active
