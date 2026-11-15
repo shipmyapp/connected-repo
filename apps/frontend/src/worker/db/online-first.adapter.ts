@@ -124,7 +124,7 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
  */
 function logFallback(label: string, err: unknown): void {
 	const stillOnline = typeof navigator !== "undefined" ? navigator.onLine : true;
-	// biome-ignore lint/suspicious/noConsole: surface online-path failures so devs know sync kicked in
+	// surface online-path failures so devs know sync kicked in
 	(stillOnline ? console.warn : console.debug)(
 		`[OnlineFirstAdapter] ${label}: online path failed; deferring to sync queue`,
 		err,
@@ -345,7 +345,7 @@ export async function readWithFallback<T>(
 		const data = await withTimeout(opts.online(), timeoutMs);
 		if (opts.writeOnSuccess) {
 			void opts.writeOnSuccess(data).catch((err) => {
-				// biome-ignore lint/suspicious/noConsole: fire-and-forget cache backfill
+				// fire-and-forget cache backfill
 				console.debug(`[OnlineFirstAdapter] ${label}: writeOnSuccess failed`, err);
 			});
 		}

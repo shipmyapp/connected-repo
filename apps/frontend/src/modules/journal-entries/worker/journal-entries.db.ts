@@ -173,5 +173,5 @@ async function mergeFilesFromServer(rows: FileSelectAll[]): Promise<void> {
 
 // Local Dexie import — placed at the bottom so the file's exports live
 // above the value-only import. Prevents circular hoisting quirks.
-// biome-ignore lint/style/useImportType: Dexie's `minKey`/`maxKey` are value exports
+// Dexie's `minKey`/`maxKey` are value exports
 import Dexie from "dexie";

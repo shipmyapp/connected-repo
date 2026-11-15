@@ -30,7 +30,7 @@ export const getMediaProxy = (): Promise<Comlink.Remote<MediaWorkerAPI>> => {
 		const proxy = Comlink.wrap<MediaWorkerAPI>(worker);
 		mediaProxyCell.set(proxy);
 		void proxy.setActiveTeamId(getActiveTeamIdForRequests()).catch((err) => {
-			// biome-ignore lint/suspicious/noConsole: best-effort seed; never blocks readiness
+			// best-effort seed; never blocks readiness
 			console.warn("[getMediaProxy] initial active-team seed failed", err);
 		});
 	}
@@ -72,7 +72,7 @@ export const getDataProxy = (): Promise<Comlink.Remote<DataWorkerAPI>> => {
 				void proxy.connectMediaPort(Comlink.transfer(channel.port1, [channel.port1]));
 			})
 			.catch((err) => {
-				// biome-ignore lint/suspicious/noConsole: surface bridge-wiring failure in devtools
+				// surface bridge-wiring failure in devtools
 				console.warn("[getDataProxy] media bridge wiring failed", err);
 			});
 	}

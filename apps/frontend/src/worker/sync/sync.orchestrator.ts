@@ -36,7 +36,7 @@ const broadcastRunning = (isRunning: boolean): void => {
 	try {
 		syncEngineStateChannel?.postMessage(msg);
 	} catch (err) {
-		// biome-ignore lint/suspicious/noConsole: broadcast failures should surface in devtools
+		// broadcast failures should surface in devtools
 		console.warn("[SyncOrchestrator] failed to broadcast isRunning", err);
 	}
 };
@@ -162,11 +162,11 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 		try {
 			const repaired = await filesDb.recoverStrandedThumbnails();
 			if (repaired > 0) {
-				// biome-ignore lint/suspicious/noConsole: legitimate one-shot recovery signal
+				// legitimate one-shot recovery signal
 				console.info(`[SyncOrchestrator] reset ${repaired} stranded thumbnail(s) back to pending`);
 			}
 		} catch (err) {
-			// biome-ignore lint/suspicious/noConsole: recovery failure shouldn't block init
+			// recovery failure shouldn't block init
 			console.warn("[SyncOrchestrator] thumbnail recovery failed", err);
 		}
 
@@ -305,7 +305,7 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 			await syncMetadataDb.saveCycleState({
 				lastError: err instanceof Error ? err.message : String(err),
 			});
-			// biome-ignore lint/suspicious/noConsole: sync failures should surface in devtools
+			// sync failures should surface in devtools
 			console.warn("[SyncOrchestrator] cycle failed", err);
 		} finally {
 			this.isProcessing = false;
@@ -349,7 +349,7 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 			void fileUploadWorker.run();
 			await this.runPushPipeline(teamId);
 		} catch (err) {
-			// biome-ignore lint/suspicious/noConsole: surface push failures
+			// surface push failures
 			console.warn("[SyncOrchestrator] drainLocalChanges failed", err);
 		} finally {
 			this.isProcessing = false;
@@ -381,7 +381,7 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 		// the cycle actually starting.
 		const currentTeamAtStart = getActiveTeamId();
 		if (currentTeamAtStart !== teamId) {
-			// biome-ignore lint/suspicious/noConsole: cycle-start mismatch is a legitimate diagnostic
+			// cycle-start mismatch is a legitimate diagnostic
 			console.warn(
 				`[SyncOrchestrator] active team changed before cycle start (expected=${teamId}, got=${currentTeamAtStart}); aborting`,
 			);
@@ -451,7 +451,7 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 			);
 			for (const id of wipe) teamsToWipe.add(id);
 		} catch (err) {
-			// biome-ignore lint/suspicious/noConsole: reconciliation failures shouldn't kill the cycle
+			// reconciliation failures shouldn't kill the cycle
 			console.warn("[SyncOrchestrator] membership reconciliation failed", err);
 		}
 	}
@@ -475,7 +475,7 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 				await wipeTeamDataFromDb(wipedTeamId);
 				if (wipedTeamId === activeTeamId) activeTeamWiped = true;
 			} catch (err) {
-				// biome-ignore lint/suspicious/noConsole: same rationale as other pull failures
+				// same rationale as other pull failures
 				console.warn(`[SyncOrchestrator] wipe for team ${wipedTeamId} failed`, err);
 			}
 		}
@@ -491,7 +491,7 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 			try {
 				activeTeamWipedChannel?.postMessage(msg);
 			} catch (err) {
-				// biome-ignore lint/suspicious/noConsole: broadcast failures should surface in devtools
+				// broadcast failures should surface in devtools
 				console.warn("[SyncOrchestrator] failed to broadcast active-team-wiped", err);
 			}
 		}
@@ -532,7 +532,7 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 				for (const id of wipeTeamIds) teamsToWipe.add(id);
 				await syncMetadataDb.saveCursor(entity.table, teamId, syncMetadata);
 			} catch (err) {
-				// biome-ignore lint/suspicious/noConsole: table-level failures shouldn't kill the whole cycle
+				// table-level failures shouldn't kill the whole cycle
 				console.warn(`[SyncOrchestrator] pull ${entity.table} failed`, err);
 			}
 		}
@@ -562,13 +562,13 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 		try {
 			await this.pushJournalEntryCreates(teamId);
 		} catch (err) {
-			// biome-ignore lint/suspicious/noConsole: same rationale as pull failures
+			// same rationale as pull failures
 			console.warn("[SyncOrchestrator] pushJournalEntryCreates failed", err);
 		}
 		try {
 			await this.pushFileCdnUpdates();
 		} catch (err) {
-			// biome-ignore lint/suspicious/noConsole: intentional — surface push failure so devs know CDN upgrade path stalled
+			// intentional — surface push failure so devs know CDN upgrade path stalled
 			console.warn("[SyncOrchestrator] pushFileCdnUpdates failed", err);
 		}
 	}
