@@ -37,8 +37,8 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
-      # Redis for the backend tests, on its default port. Nothing connects to
-      # it yet; it is here so the backend can depend on Redis without a CI change.
+      # Redis for the backend tests (REDIS_URL in apps/backend/.env.test). The
+      # rate-limit tests that need a live Redis fail in CI without it.
       redis:
         image: redis:7-alpine
         ports:
