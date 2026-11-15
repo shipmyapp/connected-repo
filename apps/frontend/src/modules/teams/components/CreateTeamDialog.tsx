@@ -1,3 +1,4 @@
+import { useBackCloses } from "@connected-repo/ui-mui/utils/use_back_closes";
 import { mirrorToLocalDb } from "@frontend/utils/mirror_to_local_db";
 import { orpc } from "@frontend/utils/orpc.tanstack.client";
 import {
@@ -19,6 +20,7 @@ interface CreateTeamDialogProps {
 }
 
 export default function CreateTeamDialog({ open, onClose }: CreateTeamDialogProps) {
+	useBackCloses(open, onClose);
 	const [name, setName] = useState("");
 	const queryClient = useQueryClient();
 

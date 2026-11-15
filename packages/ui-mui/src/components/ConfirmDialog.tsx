@@ -5,6 +5,7 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import Typography from "@mui/material/Typography";
 import type { ReactNode } from "react";
+import { useBackCloses } from "../utils/use_back_closes";
 
 export interface ConfirmDialogProps {
 	open: boolean;
@@ -38,6 +39,10 @@ export function ConfirmDialog({
 	onClose,
 	onConfirm,
 }: ConfirmDialogProps) {
+	// Back closes the question, except while the act runs.
+	useBackCloses(open, () => {
+		if (!pending) onClose();
+	});
 	return (
 		<Dialog open={open} onClose={pending ? undefined : onClose} fullWidth maxWidth="xs">
 			<DialogTitle sx={{ fontWeight: 700 }}>{title}</DialogTitle>

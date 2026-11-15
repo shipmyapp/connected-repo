@@ -1,4 +1,5 @@
 import { Button } from "@connected-repo/ui-mui/form/Button";
+import { useBackCloses } from "@connected-repo/ui-mui/utils/use_back_closes";
 import type { TeamInviteRole } from "@connected-repo/zod-schemas/team_app.zod";
 import { orpc } from "@frontend/utils/orpc.tanstack.client";
 import {
@@ -26,6 +27,7 @@ interface AddMemberDialogProps {
 // `teamId` is derived from the `x-team-id` header on the backend, not sent
 // in the body — see teamAppMemberAddInputZod.
 export function AddMemberDialog({ open, onClose, onSuccess }: AddMemberDialogProps) {
+	useBackCloses(open, onClose);
 	const [email, setEmail] = useState("");
 	const [role, setRole] = useState<TeamInviteRole>("Member");
 

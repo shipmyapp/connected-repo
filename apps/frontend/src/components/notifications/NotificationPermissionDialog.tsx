@@ -2,6 +2,7 @@ import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
 import { Dialog, DialogActions, DialogContent } from "@connected-repo/ui-mui/feedback/Dialog";
 import { Button } from "@connected-repo/ui-mui/form/Button";
 import { Stack } from "@connected-repo/ui-mui/layout/Stack";
+import { useBackCloses } from "@connected-repo/ui-mui/utils/use_back_closes";
 import { usePwaInstallCtx } from "@frontend/components/notifications/PwaInstallHost";
 import { getDeviceEnv } from "@frontend/utils/device.utils";
 import { orpcFetch } from "@frontend/utils/orpc.client";
@@ -90,6 +91,7 @@ export const NotificationPermissionDialog = ({
 	const handleDismiss = () => {
 		onClose("dismissed");
 	};
+	useBackCloses(open, handleDismiss);
 
 	if (needsInstallFirst) {
 		return (

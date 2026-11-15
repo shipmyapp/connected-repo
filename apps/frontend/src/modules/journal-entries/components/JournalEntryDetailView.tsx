@@ -15,6 +15,7 @@ import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { Card, CardContent } from "@connected-repo/ui-mui/layout/Card";
 import { Divider } from "@connected-repo/ui-mui/layout/Divider";
 import { Stack } from "@connected-repo/ui-mui/layout/Stack";
+import { useBackCloses } from "@connected-repo/ui-mui/utils/use_back_closes";
 import { openExternalUrl } from "@frontend/utils/safe_url.utils";
 import FilePresentIcon from "@mui/icons-material/FilePresent";
 import HideImageIcon from "@mui/icons-material/HideImage";
@@ -81,6 +82,7 @@ export function JournalEntryDetailView({
 		setConfirmationText("");
 		setDeleteError(null);
 	};
+	useBackCloses(deleteDialogOpen, handleDeleteCancel);
 
 	const formatDate = (date: string | number | Date) => {
 		return new Date(date).toLocaleDateString(undefined, {
