@@ -3,13 +3,14 @@
 # (see docker-compose.dev.yml) so `yarn dev` picks up live edits via tsx watch.
 # node_modules live in a NAMED volume so host node_modules never leak in
 # (which would break native builds like better-sqlite3 across host/container).
-FROM node:22-slim
+FROM node:26-slim
 
 # psql client for dev-db-init.sh (used by the db-migrate service).
 RUN apt-get update && apt-get install -y --no-install-recommends postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
-RUN corepack enable && corepack prepare yarn@1.22.22 --activate
+# node:26 images ship neither Yarn nor Corepack; install the Yarn the lockfile is written for.
+RUN npm install -g --no-fund --no-audit yarn@1.22.22
 
 WORKDIR /app
 

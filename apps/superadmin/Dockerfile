@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # The Node major version of every Node stage (the runtime too). One line per
 # Dockerfile; keep it equal to engines.node in package.json and to CI.
-ARG NODE_VERSION=22
+ARG NODE_VERSION=26
 FROM node:${NODE_VERSION}-slim AS base
 
 # ── The shared install. Keep these two stages identical, line for line, in
@@ -13,7 +13,8 @@ FROM node:${NODE_VERSION}-slim AS base
 # dependency, does not install again. turbo is pinned to the version in yarn.lock.
 FROM base AS manifests
 WORKDIR /app
-RUN corepack enable && corepack prepare yarn@1.22.22 --activate
+# node:26 images ship neither Yarn nor Corepack; install the Yarn the lockfile is written for.
+RUN npm install -g --no-fund --no-audit yarn@1.22.22
 # git reads the short commit for the Sentry releases; the slim image has none.
 RUN apt-get update && apt-get install -y --no-install-recommends git \
     && rm -rf /var/lib/apt/lists/*
@@ -25,7 +26,8 @@ RUN turbo prune @connected-repo/backend @connected-repo/frontend @connected-repo
 
 FROM base AS deps
 WORKDIR /app
-RUN corepack enable && corepack prepare yarn@1.22.22 --activate
+# node:26 images ship neither Yarn nor Corepack; install the Yarn the lockfile is written for.
+RUN npm install -g --no-fund --no-audit yarn@1.22.22
 COPY --from=manifests /app/out/json/ .
 COPY --from=manifests /app/out/yarn.lock ./yarn.lock
 # Yarn 1's cache is /usr/local/share/.cache/yarn (`yarn cache dir` as root). One id

@@ -4,7 +4,8 @@
 #   - each Dockerfile's own smoke test passes (env schema + --smoke-test boot
 #     for the backend, `nginx -t` on the rendered config for both nginx images);
 #   - the second and third builds reuse the shared install (no second install);
-#   - the backend image carries .build-sha and no .env;
+#   - the backend image carries .build-sha and no .env, and runs the Node
+#     major its Dockerfile's NODE_VERSION names;
 #   - the frontend nginx sends the backend exactly one client address, sends
 #     its security headers, and serves /healthz and robots.txt;
 #   - the console's nginx answers 404 for the user app's API.
@@ -36,6 +37,11 @@ done
 
 docker run --rm --entrypoint sh cr-backend -c 'test -s .build-sha && test ! -e .env' \
 	|| fail "backend image: .build-sha missing or a .env present"
+
+node_major="$(sed -n 's/^ARG NODE_VERSION=//p' apps/backend/Dockerfile)"
+node_seen="$(docker run --rm --entrypoint node cr-backend -v)"
+echo "backend image runs Node $node_seen"
+case "$node_seen" in "v$node_major".*) ;; *) fail "backend image runs $node_seen, not Node $node_major" ;; esac
 
 # A stand-in backend that echoes the headers it receives.
 cat >"$log_dir/echo.py" <<'PY'
