@@ -25,7 +25,7 @@ export const journalEntryCreatedFanoutHandler = async ({
 
 	const members = await db.$query<{ user_id: string }>`
 		SELECT user_id FROM team_members
-		WHERE team_id = ${teamId}::uuid
+		WHERE team_id = ${teamId}
 			AND user_id != ${authorUserId}::uuid
 			AND deleted_at IS NULL
 	`;
