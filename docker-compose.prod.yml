@@ -1,0 +1,222 @@
+# connected-repo: production and staging, each deployed as one Dokploy
+# "Compose" app (deploy/README.md). The same file serves both; the env file
+# decides which: deploy/prod.env.example or deploy/staging.env.example, filled
+# in and pasted into the Compose app's Environment tab (Dokploy writes it to
+# `.env` beside this file).
+#
+#   ${APP_HOST}                  → frontend (the shared app)
+#   <team>.${TENANT_ROOT_DOMAIN} → frontend (a team's own host; also the
+#                                  application MCP's own host, mcp.<root>,
+#                                  when MCP_PUBLIC_URL is set)
+#   ${SUPERADMIN_HOST}           → superadmin (the operator console)
+#   backend                      → not published; the two nginx containers
+#                                  proxy /api/* (the frontend also /mcp and the
+#                                  OAuth /.well-known/* documents) to it
+#   postgres, redis              → bundled when named in COMPOSE_PROFILES;
+#                                  otherwise external (DB_HOST, REDIS_URL)
+#
+# The backend reads the whole .env (env_file); the two SPAs take what they
+# need as build args, because Vite bakes them into the bundle. Every service is
+# also deployable alone from its Dockerfile (Dokploy Application mode,
+# deploy/dokploy/); nothing below is needed by an image to run.
+#
+# HTTPS: Dokploy's Traefik terminates TLS. ${APP_HOST} and ${SUPERADMIN_HOST}
+# use the HTTP-challenge resolver (TLS_CERT_RESOLVER); team hosts need ONE
+# wildcard certificate (*.${TENANT_ROOT_DOMAIN}), which Let's Encrypt issues
+# only over a DNS challenge (TLS_WILDCARD_CERT_RESOLVER, see deploy/README.md).
+#
+# Client addresses: Traefik is the edge and sets X-Forwarded-For; the nginx
+# containers trust it only from private ranges and pass the backend one
+# address; the backend counts TRUSTED_PROXY_COUNT=1 proxy. Never publish the
+# backend's port: a direct client could then forge the header.
+
+services:
+  postgres:
+    # Matches the CI and dev Postgres major version.
+    image: postgres:18-alpine
+    profiles: ["postgres"]
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:?DB_NAME is required}
+      POSTGRES_USER: ${DB_USER:?DB_USER is required}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+    volumes:
+      # Postgres 18 images keep their data under /var/lib/postgresql/18/docker
+      # and refuse a volume mounted at the old /var/lib/postgresql/data.
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      internal:
+        aliases:
+          - ${STACK_NAME:?STACK_NAME is required}-postgres
+
+  redis:
+    image: redis:7-alpine
+    profiles: ["redis"]
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      internal:
+        aliases:
+          - ${STACK_NAME}-redis
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: "3000"
+      HOST: 0.0.0.0
+    # The image's graceful shutdown force-exits after AGENT_TASK_TIMEOUT + 10 s.
+    stop_grace_period: 310s
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: false
+      redis:
+        condition: service_healthy
+        required: false
+    networks:
+      internal:
+        # A name nothing else on the server uses: the nginx containers also sit
+        # on dokploy-network, where another app may have a `backend`.
+        aliases:
+          - ${STACK_NAME:?STACK_NAME is required}-backend
+      # Only to reach a Postgres or Redis that Dokploy runs (their service
+      # names resolve on this network alone). Nothing routes to the backend
+      # from here: it carries no Traefik labels.
+      dokploy-network:
+
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+      args:
+        VITE_USER_NODE_ENV: ${NODE_ENV:-production}
+        # Empty: the SPA calls /api/* on its own origin and nginx proxies it.
+        VITE_API_URL: ""
+        # The shared app, for the "go to the shared app" link on team hosts.
+        VITE_USER_APP_URL: https://${APP_HOST:?APP_HOST is required}
+        # The stack's tenant root, not a key of its own: the two must be equal.
+        VITE_TENANT_ROOT_DOMAIN: ${TENANT_ROOT_DOMAIN:?TENANT_ROOT_DOMAIN is required}
+        VITE_TERMS_URL: ${VITE_TERMS_URL:-}
+        VITE_PRIVACY_URL: ${VITE_PRIVACY_URL:-}
+        VITE_OTEL_SERVICE_NAME: ${VITE_OTEL_SERVICE_NAME:-connected-repo-frontend}
+        VITE_SENTRY_DSN: ${VITE_SENTRY_DSN:-}
+        VITE_SENTRY_ENV: ${VITE_SENTRY_ENV:-}
+        VITE_SENTRY_ORG: ${VITE_SENTRY_ORG:-}
+        VITE_SENTRY_PROJECT: ${VITE_SENTRY_PROJECT:-}
+        VITE_SENTRY_TRACES_SAMPLE_RATE: ${VITE_SENTRY_TRACES_SAMPLE_RATE:-}
+        VITE_SENTRY_REPLAYS_SESSION_SAMPLE_RATE: ${VITE_SENTRY_REPLAYS_SESSION_SAMPLE_RATE:-}
+        VITE_SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE: ${VITE_SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE:-}
+        VITE_NOVU_APP_IDENTIFIER: ${VITE_NOVU_APP_IDENTIFIER:-}
+        VITE_NOVU_API_URL: ${VITE_NOVU_API_URL:-}
+        VITE_NOVU_SOCKET_URL: ${VITE_NOVU_SOCKET_URL:-}
+        VITE_FIREBASE_API_KEY: ${VITE_FIREBASE_API_KEY:-}
+        VITE_FIREBASE_AUTH_DOMAIN: ${VITE_FIREBASE_AUTH_DOMAIN:-}
+        VITE_FIREBASE_PROJECT_ID: ${VITE_FIREBASE_PROJECT_ID:-}
+        VITE_FIREBASE_MESSAGING_SENDER_ID: ${VITE_FIREBASE_MESSAGING_SENDER_ID:-}
+        VITE_FIREBASE_APP_ID: ${VITE_FIREBASE_APP_ID:-}
+        VITE_FIREBASE_VAPID_KEY: ${VITE_FIREBASE_VAPID_KEY:-}
+      # Sentry source-map upload token: a build secret, never an arg, so it
+      # stays out of the image history. Empty = no upload.
+      secrets:
+        - VITE_SENTRY_AUTH_TOKEN
+    restart: unless-stopped
+    environment:
+      BACKEND_UPSTREAM: ${STACK_NAME}-backend:3000
+      SENTRY_DSN: ${VITE_SENTRY_DSN:-}
+      CSP_CONNECT_EXTRA: ${CSP_CONNECT_EXTRA:-}
+      CSP_ENFORCE: ${CSP_ENFORCE:-}
+      # The MCP's own host, when set: nginx passes that host whole to the backend.
+      MCP_PUBLIC_URL: ${MCP_PUBLIC_URL:-}
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - internal
+      - dokploy-network
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=dokploy-network
+      - traefik.http.services.${STACK_NAME}-frontend.loadbalancer.server.port=80
+      # The shared app.
+      - traefik.http.routers.${STACK_NAME}-app.rule=Host(`${APP_HOST}`)
+      - traefik.http.routers.${STACK_NAME}-app.entrypoints=websecure
+      - traefik.http.routers.${STACK_NAME}-app.tls.certresolver=${TLS_CERT_RESOLVER:-letsencrypt}
+      - traefik.http.routers.${STACK_NAME}-app.service=${STACK_NAME}-frontend
+      # <team>.<root>, lowest priority, so any host another router names
+      # exactly (the superadmin host, the Dokploy panel, …) still goes there.
+      # The root's dots are unescaped in the regexp (they match any one
+      # character), which only widens it to hosts DNS never sends here.
+      - traefik.http.routers.${STACK_NAME}-tenants.rule=HostRegexp(`^[a-z0-9-]+\.${TENANT_ROOT_DOMAIN}$$`)
+      - traefik.http.routers.${STACK_NAME}-tenants.priority=1
+      - traefik.http.routers.${STACK_NAME}-tenants.entrypoints=websecure
+      - traefik.http.routers.${STACK_NAME}-tenants.tls.certresolver=${TLS_WILDCARD_CERT_RESOLVER:-letsencrypt-dns}
+      - traefik.http.routers.${STACK_NAME}-tenants.tls.domains[0].main=${TENANT_ROOT_DOMAIN}
+      - traefik.http.routers.${STACK_NAME}-tenants.tls.domains[0].sans=*.${TENANT_ROOT_DOMAIN}
+      - traefik.http.routers.${STACK_NAME}-tenants.service=${STACK_NAME}-frontend
+      # http → https for both.
+      - traefik.http.routers.${STACK_NAME}-frontend-http.rule=Host(`${APP_HOST}`) || HostRegexp(`^[a-z0-9-]+\.${TENANT_ROOT_DOMAIN}$$`)
+      - traefik.http.routers.${STACK_NAME}-frontend-http.priority=1
+      - traefik.http.routers.${STACK_NAME}-frontend-http.entrypoints=web
+      - traefik.http.routers.${STACK_NAME}-frontend-http.middlewares=redirect-to-https@file
+      - traefik.http.routers.${STACK_NAME}-frontend-http.service=${STACK_NAME}-frontend
+
+  superadmin:
+    build:
+      context: .
+      dockerfile: apps/superadmin/Dockerfile
+      args:
+        VITE_USER_NODE_ENV: ${NODE_ENV:-production}
+        # Empty: the console calls /api/* on its own origin and nginx proxies it.
+        VITE_API_URL: ""
+    restart: unless-stopped
+    environment:
+      BACKEND_UPSTREAM: ${STACK_NAME}-backend:3000
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - internal
+      - dokploy-network
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=dokploy-network
+      - traefik.http.services.${STACK_NAME}-superadmin.loadbalancer.server.port=80
+      - traefik.http.routers.${STACK_NAME}-sa.rule=Host(`${SUPERADMIN_HOST:?SUPERADMIN_HOST is required}`)
+      - traefik.http.routers.${STACK_NAME}-sa.entrypoints=websecure
+      - traefik.http.routers.${STACK_NAME}-sa.tls.certresolver=${TLS_CERT_RESOLVER:-letsencrypt}
+      - traefik.http.routers.${STACK_NAME}-sa.service=${STACK_NAME}-superadmin
+      - traefik.http.routers.${STACK_NAME}-sa-http.rule=Host(`${SUPERADMIN_HOST}`)
+      - traefik.http.routers.${STACK_NAME}-sa-http.entrypoints=web
+      - traefik.http.routers.${STACK_NAME}-sa-http.middlewares=redirect-to-https@file
+      - traefik.http.routers.${STACK_NAME}-sa-http.service=${STACK_NAME}-superadmin
+
+secrets:
+  VITE_SENTRY_AUTH_TOKEN:
+    environment: VITE_SENTRY_AUTH_TOKEN
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  internal:
+  dokploy-network:
+    external: true

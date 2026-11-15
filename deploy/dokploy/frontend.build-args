@@ -1,0 +1,30 @@
+# Dokploy → frontend application → Environment → Build-time Arguments.
+# Vite inlines these into the bundle, so they are public; a change needs a
+# redeploy. VITE_API_URL stays unset: the app calls its own origin.
+# VITE_USER_APP_URL is the shared app (the "go to the shared app" link on team
+# hosts); VITE_TENANT_ROOT_DOMAIN must equal the backend's TENANT_ROOT_DOMAIN.
+#
+# Build-time Secrets (a separate field): VITE_SENTRY_AUTH_TOKEN=${{environment.VITE_SENTRY_AUTH_TOKEN}}
+
+VITE_USER_NODE_ENV=${{environment.NODE_ENV}}
+VITE_USER_APP_URL=${{environment.WEBAPP_URL}}
+VITE_TENANT_ROOT_DOMAIN=${{environment.TENANT_ROOT_DOMAIN}}
+VITE_TERMS_URL=${{environment.VITE_TERMS_URL}}
+VITE_PRIVACY_URL=${{environment.VITE_PRIVACY_URL}}
+VITE_OTEL_SERVICE_NAME=${{environment.VITE_OTEL_SERVICE_NAME}}
+VITE_SENTRY_DSN=${{environment.VITE_SENTRY_DSN}}
+VITE_SENTRY_ENV=${{environment.VITE_SENTRY_ENV}}
+VITE_SENTRY_ORG=${{environment.VITE_SENTRY_ORG}}
+VITE_SENTRY_PROJECT=${{environment.VITE_SENTRY_PROJECT}}
+VITE_SENTRY_TRACES_SAMPLE_RATE=${{environment.VITE_SENTRY_TRACES_SAMPLE_RATE}}
+VITE_SENTRY_REPLAYS_SESSION_SAMPLE_RATE=${{environment.VITE_SENTRY_REPLAYS_SESSION_SAMPLE_RATE}}
+VITE_SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE=${{environment.VITE_SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE}}
+VITE_NOVU_APP_IDENTIFIER=${{environment.VITE_NOVU_APP_IDENTIFIER}}
+VITE_NOVU_API_URL=${{environment.VITE_NOVU_API_URL}}
+VITE_NOVU_SOCKET_URL=${{environment.VITE_NOVU_SOCKET_URL}}
+VITE_FIREBASE_API_KEY=${{environment.VITE_FIREBASE_API_KEY}}
+VITE_FIREBASE_AUTH_DOMAIN=${{environment.VITE_FIREBASE_AUTH_DOMAIN}}
+VITE_FIREBASE_PROJECT_ID=${{environment.VITE_FIREBASE_PROJECT_ID}}
+VITE_FIREBASE_MESSAGING_SENDER_ID=${{environment.VITE_FIREBASE_MESSAGING_SENDER_ID}}
+VITE_FIREBASE_APP_ID=${{environment.VITE_FIREBASE_APP_ID}}
+VITE_FIREBASE_VAPID_KEY=${{environment.VITE_FIREBASE_VAPID_KEY}}

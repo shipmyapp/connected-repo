@@ -1,0 +1,36 @@
+# Application mode only (Compose mode has these as labels in
+# docker-compose.prod.yml). Dokploy → Settings → Traefik → File System →
+# dynamic/ → a new file, e.g. connected-repo-tenants.yml, with this content.
+# Replace example.com with the tenant root (TENANT_ROOT_DOMAIN; escape its
+# dots in the rule) and <frontend-app-name> with the frontend application's App
+# Name. Routes every <team>.example.com (and mcp.example.com, the application
+# MCP's own host when MCP_PUBLIC_URL is set) to the frontend, below any host
+# another router names exactly (priority 1), with one wildcard certificate
+# from the DNS-challenge resolver (deploy/README.md).
+http:
+  routers:
+    connected-repo-tenants:
+      rule: "HostRegexp(`^[a-z0-9-]+\\.example\\.com$`)"
+      priority: 1
+      entryPoints:
+        - websecure
+      service: connected-repo-tenants
+      tls:
+        certResolver: letsencrypt-dns
+        domains:
+          - main: example.com
+            sans:
+              - "*.example.com"
+    connected-repo-tenants-http:
+      rule: "HostRegexp(`^[a-z0-9-]+\\.example\\.com$`)"
+      priority: 1
+      entryPoints:
+        - web
+      middlewares:
+        - redirect-to-https
+      service: connected-repo-tenants
+  services:
+    connected-repo-tenants:
+      loadBalancer:
+        servers:
+          - url: http://<frontend-app-name>:80

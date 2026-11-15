@@ -1,0 +1,4 @@
+# Dokploy → superadmin application → Environment → Build-time Arguments.
+# VITE_API_URL stays unset, so the console calls its own origin.
+
+VITE_USER_NODE_ENV=${{environment.NODE_ENV}}
