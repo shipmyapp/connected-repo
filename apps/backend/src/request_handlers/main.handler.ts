@@ -1,4 +1,5 @@
 import { env, isDev } from "@backend/configs/env.config";
+import { applyDeviceCookie } from "@backend/modules/devices/device_cookie.devices.middleware";
 import { betterAuthHandler } from "@backend/request_handlers/better_auth.handler";
 import { novuHandler } from "@backend/request_handlers/novu.handler";
 import { openApiHandler } from "@backend/request_handlers/open_api.handler";
@@ -78,6 +79,10 @@ export async function mainRequestDispatcher(req: NodeHttpRequest, res: NodeHttpR
 	}
 
 	try {
+		// 2c. The device cookie: sign-in and the app's procedures carry it,
+		// issued here when missing; bearer calls and other paths get none.
+		applyDeviceCookie(req, res);
+
 		// 3. Auth Routes (/api/auth/*)
 		// Note: /api/sentry-tunnel is proxied directly to Sentry by the
 		// frontend nginx (see nginx.conf.template) and never reaches this

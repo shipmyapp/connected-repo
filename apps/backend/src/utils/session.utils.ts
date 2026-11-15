@@ -32,6 +32,7 @@ const transformSessionData = (rawSession: BetterAuthSession["session"]): ActiveS
 		deviceFingerprint: rawSession.deviceFingerprint ?? null,
 		os: rawSession.os ?? null,
 		device: rawSession.device ?? null,
+		deviceKey: rawSession.deviceKey ?? null,
 		createdAt: new Date(rawSession.createdAt).getTime(),
 		updatedAt: new Date(rawSession.updatedAt).getTime(),
 		markedInvalidAt: rawSession.markedInvalidAt

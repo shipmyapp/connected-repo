@@ -1,8 +1,9 @@
 import { allowedOrigins } from "@backend/configs/allowed_origins.config";
 import { env, isDev, isProd, isStaging, isTest } from "@backend/configs/env.config";
 import { db } from "@backend/db/db";
+import { deviceKeyOf } from "@backend/modules/devices/device_cookie.devices.middleware";
 import { teamOriginsForAuthRequest } from "@backend/modules/teams/services/branding.teams.service";
-import { CLIENT_IP_HEADER } from "@backend/utils/client-info.utils";
+import { CLIENT_IP_HEADER, describeClientDevice } from "@backend/utils/client-info.utils";
 import { logger } from "@backend/utils/logger.utils";
 import { themeSettingZod } from "@connected-repo/zod-schemas/enums.zod";
 import { uniqueTimeArrayZod, zString, zTimezone } from "@connected-repo/zod-schemas/zod_utils";
@@ -164,6 +165,19 @@ export const auth = betterAuth({
 			},
 		},
 		session: {
+			create: {
+				// Every session records the device it was opened on: the device key
+				// (so signing it out can turn its push off) and what the user agent says.
+				// NOT `deviceFingerprint`: nothing reads it since the session-security
+				// middleware dropped its fingerprint check, and the column stays unused.
+				before: async (session, ctx) => {
+					const headers = ctx?.headers;
+					if (!headers) return;
+					return {
+						data: { ...session, ...describeClientDevice(headers), deviceKey: deviceKeyOf(headers) },
+					};
+				},
+			},
 			delete: {
 				// Every ended session (sign-out, revoke, account-link eviction):
 				// refuse its cookie copy at once (auth.middleware.ts).
@@ -309,6 +323,11 @@ export const auth = betterAuth({
 				input: false,
 			},
 			deviceFingerprint: {
+				type: "string",
+				required: false,
+				input: false,
+			},
+			deviceKey: {
 				type: "string",
 				required: false,
 				input: false,

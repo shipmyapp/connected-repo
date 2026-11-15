@@ -119,3 +119,23 @@ export function generateDeviceFingerprint(headers: Headers): string {
 	// Return first 32 characters for storage efficiency
 	return hash.substring(0, 32);
 }
+
+/**
+ * The device description stored on a session and a device row: browser, OS and
+ * device family from the user agent, each null when unknown.
+ */
+export function describeClientDevice(headers: Headers): {
+	browser: string | null;
+	os: string | null;
+	device: string | null;
+} {
+	const userAgent = headers.get("user-agent") ?? "";
+	if (!userAgent) return { browser: null, os: null, device: null };
+	const parsed = new UAParser(userAgent).getResult();
+	const device = [parsed.device.vendor, parsed.device.model].filter(Boolean).join(" ");
+	return {
+		browser: parsed.browser.name ?? null,
+		os: parsed.os.name ?? null,
+		device: device || parsed.device.type || null,
+	};
+}
