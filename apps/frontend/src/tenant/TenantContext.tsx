@@ -19,7 +19,7 @@ import {
 
 type TenantStatus = "none" | "loading" | "ready" | "not-found" | "error";
 
-export interface TenantState {
+interface TenantState {
 	/** Subdomain slug when this host is a tenant PWA; null on the shared app. */
 	slug: string | null;
 	/** True on `<slug>.<root>` hosts, regardless of whether the slug resolved. */

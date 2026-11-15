@@ -2,7 +2,7 @@ import type { TeamBrandingPublic } from "@connected-repo/zod-schemas/team_app.zo
 import { DEFAULT_APP_BRAND } from "@connected-repo/zod-schemas/tenant.utils";
 
 /** The template's own identity, used wherever a team leaves a field unset. */
-export const DEFAULT_BRAND = {
+const DEFAULT_BRAND = {
 	appName: DEFAULT_APP_BRAND.appName,
 	shortName: DEFAULT_APP_BRAND.shortName,
 	tagline: DEFAULT_APP_BRAND.tagline,

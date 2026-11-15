@@ -25,8 +25,6 @@ export const getTenantSlug = (): string | null => {
 	return resolveTenantSlug(window.location.hostname, env.VITE_TENANT_ROOT_DOMAIN);
 };
 
-export const isTenantHost = (): boolean => getTenantSlug() !== null;
-
 export const getTenantRootDomain = (): string | null => env.VITE_TENANT_ROOT_DOMAIN ?? null;
 
 /** Absolute URL a team's private PWA lives at, or null when tenant mode is off. */

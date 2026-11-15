@@ -10,7 +10,7 @@ import { DEFAULT_APP_BRAND } from "@connected-repo/zod-schemas/tenant.utils";
  * Project a team row onto the public branding shape. Returns `null` when the
  * team has no subdomain (it has no tenant host, so nothing to brand).
  */
-export function toPublicBranding(team: TeamAppSelectAll): TeamBrandingPublic | null {
+function toPublicBranding(team: TeamAppSelectAll): TeamBrandingPublic | null {
 	if (!team.slug) return null;
 	return {
 		teamId: team.id,

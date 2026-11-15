@@ -1,6 +1,6 @@
 import { orpcFetch } from "@frontend/utils/orpc.client";
 
-export const IMAGE_UPLOAD_MAX_BYTES = 10 * 1024 * 1024;
+const IMAGE_UPLOAD_MAX_BYTES = 10 * 1024 * 1024;
 
 /**
  * Browser → CDN, one picture: ask the backend for a presigned PUT under the

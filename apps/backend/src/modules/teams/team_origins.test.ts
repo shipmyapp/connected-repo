@@ -91,7 +91,7 @@ describe("trusted origins", () => {
 		expect(await forOrigin(ACME)).toEqual([...allowedOrigins, ACME]);
 		expect(await forOrigin(NOBODY)).toEqual(allowedOrigins);
 		expect(await forOrigin("http://www.localhost:5174")).toEqual(allowedOrigins);
-		expect(await trusted()).toEqual(allowedOrigins);
+		expect(await trusted(undefined)).toEqual(allowedOrigins);
 	});
 
 	describe("over HTTP", () => {

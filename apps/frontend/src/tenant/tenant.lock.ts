@@ -1,6 +1,6 @@
 import type { TeamBrandingPublic } from "@connected-repo/zod-schemas/team_app.zod";
 
-export type OfflineTenantDecision =
+type OfflineTenantDecision =
 	| { ok: true; teamId: string | null }
 	| { ok: false; reason: "no-branding" | "other-team" };
 
