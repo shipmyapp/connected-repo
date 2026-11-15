@@ -1,13 +1,13 @@
-# Dependencies
-node_modules
+# Dependencies, at any depth: the images install their own.
+**/node_modules
 .yarn
 .pnp.*
 
-# Build outputs
-dist
+# Build outputs, at any depth: the images build their own.
+**/dist
 build
 .next
-.turbo
+**/.turbo
 
 # Development files
 # NOTE: .git is intentionally NOT ignored — the frontend Dockerfile reads the

@@ -58,6 +58,10 @@ COPY --from=backend-manifests /app/out-backend/json/ .
 COPY --from=backend-manifests /app/out-backend/yarn.lock ./yarn.lock
 RUN --mount=type=cache,id=yarn-monorepo,target=/usr/local/share/.cache/yarn,sharing=locked \
     yarn install --frozen-lockfile --production=true --network-timeout 600000
+# Yarn puts a package it cannot hoist (two versions in the tree) in the
+# workspace's own node_modules; the runtime needs that folder too. Created
+# when Yarn made none, so the COPY below always has a source.
+RUN mkdir -p apps/backend/node_modules
 
 # The image that ships. The last stage, so a Dokploy Application needs no
 # build stage and compose no target.
@@ -68,8 +72,10 @@ WORKDIR /app
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nodejs
 
-# Production dependencies, and the workspace packages' package.json files.
+# Production dependencies (hoisted, and the backend's own unhoisted ones), and
+# the workspace packages' package.json files.
 COPY --from=installer --chown=nodejs:nodejs /app/node_modules ./node_modules
+COPY --from=installer --chown=nodejs:nodejs /app/apps/backend/node_modules ./apps/backend/node_modules
 COPY --from=installer --chown=nodejs:nodejs /app/packages ./packages
 
 # The built backend.
