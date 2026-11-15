@@ -1,8 +1,10 @@
 import { db } from "@backend/db/db";
+import { deviceKeyOf } from "@backend/modules/devices/device_cookie.devices.middleware";
 import { buildInboxCredentials } from "@backend/modules/notifications/services/inbox_credentials.notifications.service";
 import {
 	registerFcmDevice,
 	revokeFcmDevice,
+	tokenDeviceKey,
 } from "@backend/modules/notifications/services/register_device.notifications.service";
 import { rpcProtectedProcedure } from "@backend/procedures/protected.procedure";
 import { rpcSuperAdminProcedure } from "@backend/procedures/super_admin.procedure";
@@ -24,13 +26,15 @@ const registerDevice = rpcProtectedProcedure
 		}),
 	)
 	.output(z.object({ ok: z.literal(true) }))
-	.handler(async ({ input, context: { user } }) => {
+	.handler(async ({ input, context: { user, reqHeaders } }) => {
+		// A native client's user agent is its HTTP library's; it may send a better one.
+		const headers = new Headers(reqHeaders);
+		if (input.userAgent) headers.set("user-agent", input.userAgent);
 		await registerFcmDevice({
 			userId: user.id,
+			deviceKey: deviceKeyOf(reqHeaders) ?? tokenDeviceKey(input.fcmToken),
 			fcmToken: input.fcmToken,
-			userAgent: input.userAgent ?? null,
-			userEmail: user.email,
-			userName: user.name,
+			headers,
 			platform: input.platform ?? null,
 			pwaInstalled: input.pwaInstalled,
 			pwaStandaloneLaunch: input.pwaStandaloneLaunch,
@@ -41,9 +45,10 @@ const registerDevice = rpcProtectedProcedure
 const revokeDevice = rpcProtectedProcedure
 	.input(z.object({ fcmToken: zString.min(1).max(4096) }))
 	.output(z.object({ ok: z.literal(true) }))
-	.handler(async ({ input, context: { user } }) => {
+	.handler(async ({ input, context: { user, reqHeaders } }) => {
 		await revokeFcmDevice({
 			userId: user.id,
+			deviceKey: deviceKeyOf(reqHeaders),
 			fcmToken: input.fcmToken,
 		});
 		return { ok: true as const };

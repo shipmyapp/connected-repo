@@ -1,4 +1,5 @@
 import { cdnRouter } from "@backend/modules/cdn/cdn.user_app.router";
+import { devicesRouter } from "@backend/modules/devices/devices.router";
 import { filesRouter } from "@backend/modules/files/files.router";
 import { journalEntriesRouter } from "@backend/modules/journal-entries/journal-entries.router";
 import { notificationsRouter } from "@backend/modules/notifications/notifications.router";
@@ -34,6 +35,7 @@ const healthCheck = rpcPublicProcedure
 
 export const userAppRouter = {
 	cdn: cdnRouter,
+	devices: devicesRouter,
 	files: filesRouter,
 	health: healthCheck,
 	journalEntries: journalEntriesRouter,

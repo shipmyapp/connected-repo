@@ -10,9 +10,9 @@ const RECONCILE_LOCK_KEY = 823_401_101_002n;
 let scheduledTask: ScheduledTask | null = null;
 
 /**
- * Nightly walk over every user with at least one push_devices row.
- * For each, fetch their Novu subscriber's `fcm` credentials and delete
- * push_devices rows whose token is no longer in Novu's list — Novu prunes
+ * Nightly walk over every user with at least one live push address in `devices`.
+ * For each, fetch their Novu subscriber's `fcm` credentials and turn off device
+ * push addresses whose token is no longer in Novu's list — Novu prunes
  * on FCM invalid-token errors, so this mirrors that state.
  *
  * Serialised (one user at a time) rather than parallel because Novu's API
@@ -28,10 +28,10 @@ export async function reconcileFcmTokensTick(): Promise<void> {
 			`;
 			if (!lockResult.rows[0]?.acquired) return;
 
-			const usersResult = await db.$query<{ user_id: string }>`
-				SELECT DISTINCT user_id FROM push_devices WHERE uninstalled_at IS NULL
-			`;
-			const userIds = usersResult.rows.map((r) => r.user_id);
+			const userIds = await db.devices
+				.where({ pushOffAt: null, fcmToken: { not: null } })
+				.distinct()
+				.pluck("userId");
 			if (userIds.length === 0) return;
 
 			let totalPruned = 0;

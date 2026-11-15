@@ -5,7 +5,7 @@ import type { Static } from "pg-tbus";
 
 /**
  * Delete the Novu subscriber when a user is removed. CASCADE handles the
- * push_devices rows on our side, but Novu doesn't know the user is gone —
+ * `devices` rows on our side, but Novu doesn't know the user is gone —
  * without this the subscriber sits with orphan FCM credentials forever.
  *
  * No-op when Novu isn't configured (dev/CI without NOVU_SECRET_KEY).

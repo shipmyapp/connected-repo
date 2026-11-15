@@ -100,5 +100,6 @@ export const DEVICE_DEACTIVATION_REASON_ENUM = [
 	"novu_pruned",
 	"subscriber_deleted",
 ] as const;
+/** @deprecated push_devices only; removed with it next release. */
 export const deviceDeactivationReasonZod = z.enum(DEVICE_DEACTIVATION_REASON_ENUM);
 export type DeviceDeactivationReason = z.infer<typeof deviceDeactivationReasonZod>;

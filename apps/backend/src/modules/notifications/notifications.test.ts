@@ -50,37 +50,43 @@ describe("Notifications Endpoints", () => {
 	});
 });
 
+// Any key in the device cookie's shape (22 characters); one per test.
+const keyFor = (last: string) => `Aa0Aa0Aa0Aa0Aa0Aa0Aa0${last}`;
+const agent = () => new Headers({ "user-agent": "vitest" });
+
 describe("registerFcmDevice", () => {
-	it("inserts a new active row for a first-time token", async () => {
+	it("records a live push address on this device", async () => {
 		if (!defaultContext) throw new Error("defaultContext not initialized");
 		const token = `t_${Date.now()}_a`;
 		await registerFcmDevice({
 			userId: defaultContext.user.id,
+			deviceKey: keyFor("A"),
 			fcmToken: token,
-			userAgent: "vitest",
+			headers: agent(),
 			platform: "macos",
 			pwaInstalled: true,
 			pwaStandaloneLaunch: true,
 		});
 
-		const row = await db.pushDevices
-			.where({ userId: defaultContext.user.id, fcmToken: token })
-			.take();
-		expect(row.uninstalledAt).toBeNull();
-		expect(row.platform).toBe("macos");
-		expect(row.pwaInstalledAt).not.toBeNull();
-		expect(row.deactivationReason).toBeNull();
+		const row = await db.devices.where({ userId: defaultContext.user.id, fcmToken: token }).take();
+		expect(row.pushOffAt).toBeNull();
+		expect(row.platform).toBe("desktop");
+		expect(row.installedAt).not.toBeNull();
+		expect(row.pushOffReason).toBeNull();
+		expect(row.pushPermission).toBe("granted");
 	});
 
-	it("is idempotent — calling with the same token twice keeps one active row and updates lastSeenAt", async () => {
+	it("is idempotent — calling with the same token twice keeps one live row and updates lastSeenAt", async () => {
 		if (!defaultContext) throw new Error("defaultContext not initialized");
 		const token = `t_${Date.now()}_b`;
 		await registerFcmDevice({
 			userId: defaultContext.user.id,
+			deviceKey: keyFor("B"),
 			fcmToken: token,
+			headers: agent(),
 			platform: "macos",
 		});
-		const first = await db.pushDevices
+		const first = await db.devices
 			.where({ userId: defaultContext.user.id, fcmToken: token })
 			.take();
 
@@ -89,100 +95,95 @@ describe("registerFcmDevice", () => {
 
 		await registerFcmDevice({
 			userId: defaultContext.user.id,
+			deviceKey: keyFor("B"),
 			fcmToken: token,
+			headers: agent(),
 			platform: "macos",
 		});
-		const rows = await db.pushDevices
-			.where({ userId: defaultContext.user.id, fcmToken: token })
-			.all();
+		const rows = await db.devices.where({ userId: defaultContext.user.id, fcmToken: token }).all();
 		expect(rows).toHaveLength(1);
 		const row = rows[0];
 		if (!row) throw new Error("expected one row");
 		expect(row.lastSeenAt).toBeGreaterThanOrEqual(first.lastSeenAt);
 	});
 
-	it("preserves the original pwaInstalledAt on subsequent registers", async () => {
+	it("preserves the original installedAt on subsequent registers", async () => {
 		if (!defaultContext) throw new Error("defaultContext not initialized");
 		const token = `t_${Date.now()}_c`;
 		await registerFcmDevice({
 			userId: defaultContext.user.id,
+			deviceKey: keyFor("C"),
 			fcmToken: token,
+			headers: agent(),
 			pwaInstalled: true,
 		});
-		const initial = await db.pushDevices
+		const initial = await db.devices
 			.where({ userId: defaultContext.user.id, fcmToken: token })
 			.take();
-		const originalPwaAt = initial.pwaInstalledAt;
+		const originalInstalledAt = initial.installedAt;
 
 		await new Promise((resolve) => setTimeout(resolve, 5));
 		await registerFcmDevice({
 			userId: defaultContext.user.id,
+			deviceKey: keyFor("C"),
 			fcmToken: token,
+			headers: agent(),
 			pwaInstalled: true,
 		});
-		const after = await db.pushDevices
+		const after = await db.devices
 			.where({ userId: defaultContext.user.id, fcmToken: token })
 			.take();
-		expect(after.pwaInstalledAt).toBe(originalPwaAt);
+		expect(after.installedAt).toBe(originalInstalledAt);
 	});
 
-	it("after revoke, re-register lands as a NEW row and the soft-deleted history stays", async () => {
+	it("after revoke, re-register turns the same device's push back on", async () => {
 		if (!defaultContext) throw new Error("defaultContext not initialized");
 		const token = `t_${Date.now()}_d`;
+		const deviceKey = keyFor("D");
 		await registerFcmDevice({
 			userId: defaultContext.user.id,
+			deviceKey,
 			fcmToken: token,
+			headers: agent(),
 		});
-		await revokeFcmDevice({
-			userId: defaultContext.user.id,
-			fcmToken: token,
-		});
+		await revokeFcmDevice({ userId: defaultContext.user.id, deviceKey, fcmToken: token });
 		await registerFcmDevice({
 			userId: defaultContext.user.id,
+			deviceKey,
 			fcmToken: token,
+			headers: agent(),
 		});
 
-		const rows = await db.pushDevices
-			.where({ userId: defaultContext.user.id, fcmToken: token })
-			.all();
-		expect(rows).toHaveLength(2);
-		// Ordering by createdAt is unreliable — both rows land within the
-		// same millisecond in a sub-second test. Partition by state instead.
-		const active = rows.filter((r) => r.uninstalledAt === null);
-		const revoked = rows.filter((r) => r.uninstalledAt !== null);
-		expect(active).toHaveLength(1);
-		expect(revoked).toHaveLength(1);
-		const [activeRow] = active;
-		const [revokedRow] = revoked;
-		if (!activeRow || !revokedRow) throw new Error("expected partitioned rows");
-		expect(revokedRow.deactivationReason).toBe("user_revoked");
-		expect(activeRow.deactivationReason).toBeNull();
+		// Devices are keyed by the device, not by the address: one row, live again.
+		const rows = await db.devices.where({ userId: defaultContext.user.id, fcmToken: token }).all();
+		expect(rows).toHaveLength(1);
+		expect(rows[0]?.pushOffAt).toBeNull();
+		expect(rows[0]?.pushOffReason).toBeNull();
 	});
 });
 
 describe("revokeFcmDevice", () => {
-	it("soft-deletes a matching active row and stamps deactivation_reason", async () => {
+	it("turns a live address off and stamps the reason", async () => {
 		if (!defaultContext) throw new Error("defaultContext not initialized");
 		const token = `t_${Date.now()}_e`;
+		const deviceKey = keyFor("E");
 		await registerFcmDevice({
 			userId: defaultContext.user.id,
+			deviceKey,
 			fcmToken: token,
+			headers: agent(),
 		});
-		await revokeFcmDevice({
-			userId: defaultContext.user.id,
-			fcmToken: token,
-		});
-		const row = await db.pushDevices
-			.where({ userId: defaultContext.user.id, fcmToken: token })
-			.take();
-		expect(row.uninstalledAt).not.toBeNull();
-		expect(row.deactivationReason).toBe("user_revoked");
+		await revokeFcmDevice({ userId: defaultContext.user.id, deviceKey, fcmToken: token });
+		const row = await db.devices.where({ userId: defaultContext.user.id, fcmToken: token }).take();
+		expect(row.pushOffAt).not.toBeNull();
+		expect(row.pushOffReason).toBe("switched_off");
 	});
 
 	it("is a no-op for a token that was never registered", async () => {
 		if (!defaultContext) throw new Error("defaultContext not initialized");
 		await revokeFcmDevice({
 			userId: defaultContext.user.id,
+			deviceKey: keyFor("F"),
 			fcmToken: `never_${Date.now()}`,
 		});
 		// No throw is the assertion.

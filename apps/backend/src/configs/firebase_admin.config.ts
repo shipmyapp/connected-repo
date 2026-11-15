@@ -6,7 +6,7 @@ import type { Messaging } from "firebase-admin/messaging";
 /**
  * Server-side FCM handle. Bypasses Novu for silent-sync pushes so we
  * can send data-only messages (no notification block) directly to the
- * push_devices token pool without paying Novu workflow-execution cost
+ * the `devices` push addresses without paying Novu workflow-execution cost
  * on every 3-minute tick.
  *
  * `null` when neither credential var is set (CI, local dev without a

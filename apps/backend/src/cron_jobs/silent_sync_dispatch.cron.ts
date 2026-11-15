@@ -38,10 +38,9 @@ export async function silentSyncDispatchTick(): Promise<void> {
 			`;
 			if (!lockResult.rows[0]?.acquired) return;
 
-			const tokensResult = await db.$query<{ fcm_token: string }>`
-				SELECT fcm_token FROM push_devices WHERE uninstalled_at IS NULL
-			`;
-			const tokens = tokensResult.rows.map((r) => r.fcm_token);
+			const tokens = (
+				await db.devices.where({ pushOffAt: null, fcmToken: { not: null } }).pluck("fcmToken")
+			).flatMap((token) => (token ? [token] : []));
 			if (tokens.length === 0) return;
 
 			let totalSuccess = 0;
@@ -84,10 +83,11 @@ export async function silentSyncDispatchTick(): Promise<void> {
 				// Soft-delete unregistered tokens so we don't burn API calls on
 				// them next tick. Nightly reconcile does the deeper Novu-side
 				// prune; this handles the FCM-side signal we already have.
-				await db.pushDevices.where({ fcmToken: { in: invalidTokens } }).update({
-					uninstalledAt: Date.now(),
-					deactivationReason: "fcm_invalid",
-				});
+				// `pruned` is what the install rules read as "probably uninstalled" (an iPhone's
+				// Home Screen app removed kills its push subscription).
+				await db.devices
+					.where({ fcmToken: { in: invalidTokens }, pushOffAt: null })
+					.update({ pushOffAt: Date.now(), pushOffReason: "pruned" });
 			}
 
 			logger.info(

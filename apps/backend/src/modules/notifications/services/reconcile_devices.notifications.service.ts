@@ -3,12 +3,12 @@ import { db } from "@backend/db/db";
 import { logger } from "@backend/utils/logger.utils";
 
 /**
- * Reconcile a single user's push_devices rows against their Novu subscriber's
+ * Reconcile a single user's device push addresses against their Novu subscriber's
  * `fcm` credentials. Novu prunes invalid FCM tokens automatically when FCM
  * returns "registration-token-not-registered" (uninstall / reinstall). This
  * job mirrors that state on our side so:
  *   - Stale rows don't inflate our "installed users" analytics.
- *   - Reminder-dispatch queries don't waste tbus tasks on tokens the push
+ *   - Notification dispatch doesn't waste tbus tasks on tokens the push
  *     provider will silently drop.
  *
  * Runs nightly via the reconcile-fcm-tokens cron. Also safe to call
@@ -30,25 +30,24 @@ export const reconcileUserFcmDevices = async (userId: string): Promise<{ pruned:
 			// Subscriber deleted upstream — soft-delete every active row for
 			// this user. The CASCADE on `users` deletion still handles the
 			// hard cleanup when the user itself is gone.
-			const pruned = await db.pushDevices.where({ userId, uninstalledAt: null }).update({
-				uninstalledAt: now,
-				deactivationReason: "subscriber_deleted",
-			});
+			const pruned = await db.devices
+				.where({ userId, pushOffAt: null, fcmToken: { not: null } })
+				.update({ pushOffAt: now, pushOffReason: "subscriber_deleted" });
 			return { pruned };
 		}
 		logger.error({ userId, error }, "Failed to fetch Novu subscriber during reconciliation");
 		throw error;
 	}
 
-	const localTokens = await db.pushDevices
-		.where({ userId, uninstalledAt: null })
-		.select("fcmToken");
-	const toPrune = localTokens.map((r) => r.fcmToken).filter((t) => !liveTokens.has(t));
+	const localTokens = await db.devices
+		.where({ userId, pushOffAt: null, fcmToken: { not: null } })
+		.pluck("fcmToken");
+	const toPrune = localTokens.flatMap((token) => (token && !liveTokens.has(token) ? [token] : []));
 	if (toPrune.length === 0) return { pruned: 0 };
 
-	await db.pushDevices.where({ userId, fcmToken: { in: toPrune }, uninstalledAt: null }).update({
-		uninstalledAt: now,
-		deactivationReason: "novu_pruned",
-	});
+	// On an iPhone a pruned address is the strongest sign the Home Screen app was removed.
+	await db.devices
+		.where({ userId, fcmToken: { in: toPrune }, pushOffAt: null })
+		.update({ pushOffAt: now, pushOffReason: "pruned" });
 	return { pruned: toPrune.length };
 };
