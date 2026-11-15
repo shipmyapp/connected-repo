@@ -8,7 +8,6 @@ import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { Container } from "@connected-repo/ui-mui/layout/Container";
 import { Paper } from "@connected-repo/ui-mui/layout/Paper";
 import { Stack } from "@connected-repo/ui-mui/layout/Stack";
-import { userCreateFixture } from "@connected-repo/zod-schemas/user.fixture";
 import { AppVersionLabel } from "@frontend/components/AppVersionLabel";
 import { env, isTest } from "@frontend/configs/env.config";
 import { authClient } from "@frontend/utils/auth.client";
@@ -19,6 +18,8 @@ import { useSearchParams } from "react-router";
 
 export const LoginPage = () => {
 	const [isLoading, setIsLoading] = useState(false);
+	// Why the last attempt to start Google sign-in failed, shown under the button.
+	const [signInError, setSignInError] = useState<string | null>(null);
 	const [showContent] = useState(true);
 	const [searchParams] = useSearchParams();
 	const error = searchParams.get("error");
@@ -47,6 +48,7 @@ export const LoginPage = () => {
 	}, [error]);
 
 	const handleGoogleLogin = async () => {
+		setSignInError(null);
 		setIsLoading(true);
 		let data: { url?: string } | undefined;
 		// Same-origin deploys leave VITE_USER_APP_URL empty; fall back to the
@@ -56,6 +58,9 @@ export const LoginPage = () => {
 
 		try {
 			if (isTest) {
+				// Loaded only in test mode: the fixture pulls in faker, which no
+				// real visitor should download with the sign-in page.
+				const { userCreateFixture } = await import("@connected-repo/zod-schemas/user.fixture");
 				const dummyUser = userCreateFixture();
 				const password = env.VITE_TEST_PASSWORD;
 				const email = dummyUser.email ?? "test@example.com";
@@ -92,7 +97,8 @@ export const LoginPage = () => {
 				// just sets the session cookie. Navigate manually so the
 				// Playwright e2e globalSetup's `waitForURL('**/dashboard')`
 				// resolves instead of timing out on the login page.
-				window.location.href = callbackURL;
+				// Replace, not push: Back from the app must not return to sign-in.
+				window.location.replace(callbackURL);
 				return;
 			} else {
 				data = await authClient.signIn.social(
@@ -112,7 +118,13 @@ export const LoginPage = () => {
 				window.location.href = data.url;
 			}
 		} catch (error) {
-			console.error("OAuth initiation failed:", error);
+			// A refusal (PROVIDER_NOT_FOUND when the backend has no Google keys, a
+			// wrong origin) used to leave a button that did nothing.
+			Sentry.captureException(error, {
+				level: "warning",
+				tags: { area: "auth", step: "google_sign_in_start" },
+			});
+			setSignInError("Google sign-in isn't available right now. Try again in a minute.");
 			setIsLoading(false);
 		}
 	};
@@ -305,6 +317,11 @@ export const LoginPage = () => {
 										<span>{isLoading ? "Connecting..." : "Continue with Google"}</span>
 									</Box>
 								</Button>
+								{signInError && (
+									<Alert severity="error" sx={{ mt: 2 }} role="alert">
+										{signInError}
+									</Alert>
+								)}
 							</Box>
 
 							{/* Feature Highlights */}

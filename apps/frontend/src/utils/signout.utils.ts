@@ -22,13 +22,14 @@ export const signout = async (mode?: "clear-cache") => {
 			fetchOptions: {
 				onSuccess: () => {
 					if (typeof window !== "undefined") {
-						window.location.href = "/auth/login";
+						// Replace, not push: Back after signing out must not reopen a signed-in page.
+						window.location.replace("/auth/login");
 					}
 				},
 				onError: (ctx) => {
 					console.error("Logout error:", ctx.error);
 					if (typeof window !== "undefined") {
-						window.location.href = "/auth/login";
+						window.location.replace("/auth/login");
 					}
 				},
 			},
@@ -36,7 +37,7 @@ export const signout = async (mode?: "clear-cache") => {
 	} catch (logoutError) {
 		console.error("Failed to logout:", logoutError);
 		if (typeof window !== "undefined") {
-			window.location.href = "/auth/login";
+			window.location.replace("/auth/login");
 		}
 	}
 };
