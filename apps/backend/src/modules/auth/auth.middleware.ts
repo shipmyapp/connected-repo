@@ -3,6 +3,7 @@ import { transformSessionAndUserData } from "@backend/utils/session.utils";
 import { type MiddlewareNextFn, ORPCError } from "@orpc/server";
 import * as Sentry from "@sentry/node";
 import { auth } from "./auth.config";
+import { isSessionRevoked } from "./services/revoked_sessions.auth.service";
 
 export const rpcAuthMiddleware = async ({
 	context,
@@ -18,6 +19,15 @@ export const rpcAuthMiddleware = async ({
 	});
 
 	if (!sessionData?.session.id || !sessionData?.user.id) {
+		throw new ORPCError("UNAUTHORIZED", {
+			status: 401,
+			message: "User is not authenticated",
+		});
+	}
+
+	// A session ended elsewhere stays in the signed cookie cache for up to five
+	// minutes; the revocation mark closes that window (one Redis EXISTS).
+	if (await isSessionRevoked(sessionData.session.id)) {
 		throw new ORPCError("UNAUTHORIZED", {
 			status: 401,
 			message: "User is not authenticated",

@@ -11,6 +11,10 @@ import { apple, type GoogleOptions } from "better-auth/social-providers";
 import { generateAppleClientSecret } from "./lib/apple.lib";
 import { googleProviderForAudience } from "./lib/native_google.lib";
 import { orchidAdapter } from "./orchid-adapter/factory.orchid_adapter";
+import {
+	markSessionRevoked,
+	SESSION_COOKIE_CACHE_SECONDS,
+} from "./services/revoked_sessions.auth.service";
 
 // Apple Client Secret is a short-lived JWT (currently signed with a 1h expiry in
 // apple.lib.ts). We cache the generated secret alongside its expiry and rebuild
@@ -140,8 +144,23 @@ export const auth = betterAuth({
 						// Through Better Auth, so its session-delete hooks run.
 						await endpoint.context.internalAdapter.deleteSessions(account.userId);
 					} else {
+						// Orchid runs no Better Auth hook: record the ended sessions here.
+						const ended = await db.sessions
+							.unscope("default")
+							.where({ userId: account.userId })
+							.pluck("id");
 						await db.sessions.unscope("default").where({ userId: account.userId }).delete();
+						await Promise.all(ended.map((id) => markSessionRevoked(id)));
 					}
+				},
+			},
+		},
+		session: {
+			delete: {
+				// Every ended session (sign-out, revoke, account-link eviction):
+				// refuse its cookie copy at once (auth.middleware.ts).
+				after: async (session) => {
+					await markSessionRevoked(session.id);
 				},
 			},
 		},
@@ -262,7 +281,7 @@ export const auth = betterAuth({
 		updateAge: 60 * 60 * 24, // 24 hours
 		cookieCache: {
 			enabled: true,
-			maxAge: 5 * 60, // 5 minutes
+			maxAge: SESSION_COOKIE_CACHE_SECONDS,
 		},
 		modelName: "sessions",
 		additionalFields: {

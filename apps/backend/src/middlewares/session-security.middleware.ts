@@ -1,7 +1,7 @@
 import type { RpcAuthenticatedContext } from "@backend/procedures/protected.procedure";
-import { generateDeviceFingerprint, getClientIpAddress } from "@backend/utils/client-info.utils";
+import { getClientIpAddress } from "@backend/utils/client-info.utils";
 import { logger } from "@backend/utils/logger.utils";
-import { type MiddlewareNextFn, ORPCError } from "@orpc/server";
+import type { MiddlewareNextFn } from "@orpc/server";
 
 export interface SessionSecurityResult {
 	isValid: boolean;
@@ -10,9 +10,7 @@ export interface SessionSecurityResult {
 	action: "allow" | "warn" | "block";
 }
 
-/**
- * Session security middleware - validates device fingerprint and IP address
- */
+/** Session security: logs a session used from another network than it was opened on. Never refuses. */
 export const rpcSessionSecurityMiddleware =
 	(securityLevel: "low" | "moderate" | "strict" = "moderate") =>
 	async ({
@@ -33,28 +31,12 @@ export const rpcSessionSecurityMiddleware =
 
 		const reqHeaders = context.reqHeaders ?? new Headers();
 
-		// Extract current client information
-		const currentFingerprint = generateDeviceFingerprint(reqHeaders);
-
-		// Get current IP
+		// The address the server stamped for this request (client-info.utils.ts).
 		const currentIP = getClientIpAddress(reqHeaders);
-
-		// Check device fingerprint match
-		if (session.deviceFingerprint && session.deviceFingerprint !== currentFingerprint) {
-			result.isSuspicious = true;
-			result.reasons.push(
-				`Device fingerprint mismatch: stored=${session.deviceFingerprint}, current=${currentFingerprint}`,
-			);
-		}
 
 		// Check IP address (allow for dynamic IPs within same subnet for moderate security)
 		if (session.ipAddress && session.ipAddress !== currentIP) {
-			if (securityLevel === "strict") {
-				result.isSuspicious = true;
-				result.reasons.push(
-					`IP address changed: stored=${session.ipAddress}, current=${currentIP}`,
-				);
-			} else if (securityLevel === "moderate") {
+			if (securityLevel !== "low") {
 				// Check if IPs are in same /24 subnet (common for mobile/home networks)
 				const isSameSubnet = areSameSubnet(session.ipAddress, currentIP);
 				if (!isSameSubnet) {
@@ -67,32 +49,16 @@ export const rpcSessionSecurityMiddleware =
 			// Low security level allows IP changes
 		}
 
-		// Determine action based on security level and findings
-		if (result.isSuspicious) {
-			switch (securityLevel) {
-				case "strict":
-					result.action = "block";
-					throw new ORPCError("FORBIDDEN", {
-						status: 403,
-						message: "Session security violation detected",
-						data: { reasons: result.reasons },
-					});
-				case "moderate":
-					result.action = "warn";
-					// Log warning but allow access
-					logger.warn(
-						{
-							reasons: result.reasons,
-							userId: context.user?.id,
-							sessionId: context.session?.id,
-						},
-						"Session security warning",
-					);
-					break;
-				case "low":
-					result.action = "allow";
-					break;
-			}
+		// An address change is logged, never refused: phones move between Wi-Fi
+		// and mobile data within minutes, and a stolen cookie is bounded by
+		// session revocation (auth.middleware.ts) and, for sensitive acts, by the
+		// recent-sign-in check that follows this middleware.
+		if (result.isSuspicious && securityLevel !== "low") {
+			result.action = "warn";
+			logger.warn(
+				{ reasons: result.reasons, userId: context.user?.id, sessionId: context.session?.id },
+				"Session address changed",
+			);
 		}
 
 		return next({
