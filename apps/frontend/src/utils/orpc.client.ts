@@ -1,3 +1,4 @@
+import { resolveApiOrigin } from "@connected-repo/ui-mui/utils/api_origin";
 import { env } from "@frontend/configs/env.config";
 import { createORPCClient, onError } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
@@ -23,9 +24,7 @@ interface ClientContext {
 // base — breaking every RPC call and making the sync worker retry-loop
 // forever with "Failed to construct 'URL': Invalid URL".
 // globalThis.location is defined in main thread, workers, and service workers.
-const orpcBaseUrl = env.VITE_API_URL
-	? `${env.VITE_API_URL}/api/user-app`
-	: `${globalThis.location.origin}/api/user-app`;
+const orpcBaseUrl = `${resolveApiOrigin(env.VITE_API_URL, globalThis.location.origin)}/api/user-app`;
 
 const link = new RPCLink<ClientContext>({
 	url: orpcBaseUrl,
