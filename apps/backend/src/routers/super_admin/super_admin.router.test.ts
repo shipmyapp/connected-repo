@@ -244,4 +244,56 @@ describe("Super-admin router", () => {
 			Number(await db.sessions.where({ userId: target.user.id }).count()),
 		).toBeGreaterThanOrEqual(1);
 	});
+
+	it("assigns a team's subdomain, withdraws it, and refuses a reserved, malformed or taken one", async () => {
+		const team = await db.teamsApp.create({
+			name: "Acme Journal",
+			createdByUserId: adminUserId,
+		});
+		const assigned = await superAdmin.assignTeamSlug({ teamId: team.id, slug: "Acme-Journal" });
+		expect(assigned.slug).toBe("acme-journal");
+
+		// Audited: who, which team, the slug before and after.
+		const { rows } = await superAdmin.auditList({ targetKind: "team", targetId: team.id });
+		expect(rows).toHaveLength(1);
+		expect(rows[0]).toMatchObject({
+			action: "teams.assignSlug",
+			actorUserId: adminUserId,
+			targetId: team.id,
+			before: { slug: null },
+			after: { slug: "acme-journal" },
+		});
+
+		const cleared = await superAdmin.assignTeamSlug({ teamId: team.id, slug: null });
+		expect(cleared.slug).toBeNull();
+		expect((await superAdmin.assignTeamSlug({ teamId: team.id, slug: "acme-journal" })).slug).toBe(
+			"acme-journal",
+		);
+
+		const other = await db.teamsApp.create({ name: "Other", createdByUserId: adminUserId });
+		// Refused by the schema, before any query.
+		await expect(superAdmin.assignTeamSlug({ teamId: other.id, slug: "app" })).rejects.toThrow();
+		await expect(superAdmin.assignTeamSlug({ teamId: other.id, slug: "-bad" })).rejects.toThrow();
+		await expect(
+			superAdmin.assignTeamSlug({ teamId: "01ARZ3NDEKTSV4RRFFQ69G5FAV", slug: "free-one" }),
+		).rejects.toMatchObject({ code: "NOT_FOUND" });
+		// Refused by the unique index, and the refusal leaves no audit row.
+		await expect(
+			superAdmin.assignTeamSlug({ teamId: other.id, slug: "acme-journal" }),
+		).rejects.toMatchObject({
+			code: "CONFLICT",
+			message: 'The subdomain "acme-journal" is already taken.',
+		});
+		const audit = await superAdmin.auditList({ targetKind: "team", targetId: other.id });
+		expect(audit.total).toBe(0);
+	});
+
+	it("refuses an ordinary account the subdomain assignment", async () => {
+		const ordinary = await createUserAndLogin({ email: "someone-else@example.test" });
+		const asOrdinary = createRouterClient(superAdminRouter, { context: ordinary });
+		if (!ordinary.user.activeTeamAppId) throw new Error("no team");
+		await expect(
+			asOrdinary.assignTeamSlug({ teamId: ordinary.user.activeTeamAppId, slug: "mine" }),
+		).rejects.toMatchObject({ code: "FORBIDDEN" });
+	});
 });

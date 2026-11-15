@@ -64,3 +64,24 @@ describe("deploymentEnvProblem", () => {
 		).toBeNull();
 	});
 });
+
+describe("cross-variable rules", () => {
+	it("refuses a bucket public host under the tenant root", () => {
+		expect(() =>
+			withValues({ TENANT_ROOT_DOMAIN: "example.com", S3_PUBLIC_URL: "https://cdn.example.com" }),
+		).toThrow(/S3_PUBLIC_URL must not be TENANT_ROOT_DOMAIN/);
+		expect(() =>
+			withValues({ TENANT_ROOT_DOMAIN: "example.com", S3_PUBLIC_URL: "https://example.com/files" }),
+		).toThrow(/S3_PUBLIC_URL must not be TENANT_ROOT_DOMAIN/);
+		expect(() =>
+			withValues({
+				TENANT_ROOT_DOMAIN: "example.com",
+				S3_PUBLIC_URL: "https://files.example-cdn.net",
+			}),
+		).not.toThrow();
+		// A host that merely ends with the root's letters is another domain.
+		expect(() =>
+			withValues({ TENANT_ROOT_DOMAIN: "example.com", S3_PUBLIC_URL: "https://notexample.com" }),
+		).not.toThrow();
+	});
+});

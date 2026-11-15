@@ -1,3 +1,4 @@
+import { env } from "@backend/configs/env.config";
 import { db } from "@backend/db/db";
 import { auth } from "@backend/modules/auth/auth.config";
 import { teamsAppRouter } from "@backend/modules/teams/teams_app.router.js";
@@ -268,6 +269,95 @@ describe("Teams App Endpoints", () => {
 					role: "Member",
 				}),
 			).rejects.toMatchObject({ status: 429 });
+		});
+	});
+});
+
+describe("Team branding / team host", () => {
+	let client: RouterClient<typeof teamsAppRouter>;
+	const publicClient = createRouterClient(teamsAppRouter, {
+		context: { reqHeaders: new Headers({ "x-client-ip": "203.0.113.40" }) },
+	});
+
+	const activeTeamId = () => {
+		const id = defaultContext?.user.activeTeamAppId;
+		if (!id) throw new Error("test context has no active team");
+		return id;
+	};
+
+	beforeEach(() => {
+		client = createRouterClient(teamsAppRouter, { context: defaultContext });
+	});
+
+	it("brands the team, and resolves the subdomain the operator assigned publicly", async () => {
+		const teamId = activeTeamId();
+		// The subdomain is assigned from the super-admin console (its own
+		// router and test); the team's own update cannot touch it.
+		await db.teamsApp.find(teamId).update({ slug: "acme-events" });
+		const input = {
+			slug: "somewhere-else",
+			appName: "Acme Events",
+			appShortName: "Acme",
+			tagline: "Every entry, on time.",
+			primaryColor: "#ff5722",
+			backgroundColor: "#fff",
+		};
+		const updated = await client.updateTeam(input);
+		expect(updated.slug).toBe("acme-events");
+		expect(updated.appName).toBe("Acme Events");
+
+		const branding = await publicClient.getBrandingBySlug({ slug: "acme-events" });
+		expect(branding).not.toBeNull();
+		expect(branding?.teamId).toBe(teamId);
+		expect(branding?.primaryColor).toBe("#ff5722");
+		// Public projection never carries membership/ownership fields.
+		expect(branding).not.toHaveProperty("createdByUserId");
+		expect(branding).not.toHaveProperty("personalTeamForUserId");
+	});
+
+	it("returns null for an unassigned slug and rejects a malformed colour", async () => {
+		expect(await publicClient.getBrandingBySlug({ slug: "nobody-here" })).toBeNull();
+		await expect(publicClient.getBrandingBySlug({ slug: "-bad" })).rejects.toThrow();
+		await expect(publicClient.getBrandingBySlug({ slug: "www" })).rejects.toThrow();
+		await expect(client.updateTeam({ primaryColor: "red" })).rejects.toThrow();
+	});
+
+	it("goes dark when the team is soft-deleted", async () => {
+		const team = await client.createTeam({ name: "Ephemeral" });
+		// Slug written straight to the row: the point of this test is the
+		// public lookup honouring the soft-delete, not the update procedure.
+		await db.teamsApp.find(team.id).update({ slug: "ephemeral" });
+		expect(await publicClient.getBrandingBySlug({ slug: "ephemeral" })).not.toBeNull();
+
+		await db.teamsApp.find(team.id).delete();
+		expect(await publicClient.getBrandingBySlug({ slug: "ephemeral" })).toBeNull();
+	});
+
+	it("accepts team pictures only from the app's own storage", async () => {
+		const teamId = activeTeamId();
+		await expect(
+			client.updateTeam({ logoUrl: "https://evil.example/x.png" }),
+		).rejects.toMatchObject({ status: 400, message: expect.stringContaining("logoUrl") });
+		await expect(
+			client.updateTeam({ pwaIconUrl: "https://evil.example/icon.png" }),
+		).rejects.toMatchObject({ status: 400, message: expect.stringContaining("pwaIconUrl") });
+		await expect(client.updateTeam({ pwaIconUrl: "javascript:alert(1)" })).rejects.toMatchObject({
+			status: 400,
+		});
+
+		const own = `${env.S3_PUBLIC_URL}/${teamId}/branding/x.png`;
+		const updated = await client.updateTeam({ logoUrl: own, pwaIconUrl: own });
+		expect(updated.logoUrl).toBe(own);
+		expect(updated.pwaIconUrl).toBe(own);
+	});
+
+	it("lets a Member read but never edit the branding", async () => {
+		const { teamId, owner } = await createSharedTeam(
+			await createUserAndLogin({ email: `owner-${ulid().toLowerCase()}@example.com` }),
+		);
+		const member = await addMember(owner, teamId, "Member");
+		await expect(teamsClient(member).updateTeam({ appName: "Mine" })).rejects.toMatchObject({
+			status: 403,
 		});
 	});
 });
