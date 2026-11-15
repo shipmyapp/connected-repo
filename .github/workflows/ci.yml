@@ -65,10 +65,13 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
-      # The frontend validates its VITE_* env at build time; the example
-      # values are all valid placeholders, enough to let the bundle build.
+      # The frontend and the console validate their VITE_* env at build time;
+      # the example values are all valid placeholders, enough to let the
+      # bundles build.
       - name: Provision frontend build env
-        run: cp apps/frontend/.env.example apps/frontend/.env
+        run: |
+          cp apps/frontend/.env.example apps/frontend/.env
+          cp apps/superadmin/.env.example apps/superadmin/.env
 
       - name: Build
         run: yarn build
@@ -80,6 +83,24 @@ jobs:
       # they fail the pre-push hook (.githooks/pre-push).
       - name: Dead code (knip)
         run: yarn knip
+
+      # The env schemas, the example env files, the images' build args, the
+      # compose files and the deploy env files agree, and the three
+      # Dockerfiles share one install (scripts/check-deploy-config.mjs).
+      - name: Env and deploy files agree
+        run: yarn check:deploy
+
+      # The compose files stay valid; the example env files stand in for the
+      # real ones (dev reads apps/*/.env, prod reads ./.env).
+      - name: Validate compose files
+        run: |
+          cp apps/backend/.env.example apps/backend/.env
+          docker compose -f docker-compose.dev.yml config -q
+          cp deploy/prod.env.example .env
+          docker compose -f docker-compose.prod.yml config -q
+          cp deploy/staging.env.example .env
+          docker compose -f docker-compose.prod.yml config -q
+          rm .env apps/backend/.env
 
       # Blocking: lint is clean on main, so a red lint is the change's own.
       - name: Lint
@@ -100,6 +121,21 @@ jobs:
       # `NODE_ENV=test yarn workspace @connected-repo/backend gen:openapi`.
       - name: OpenAPI document is current
         run: yarn workspace @connected-repo/backend check:openapi
+
+  # The three images Dokploy builds (either mode), built as a server builds
+  # them: one BuildKit builder, backend first. The Dockerfiles check the env
+  # schema against apps/backend/.env.example and boot the backend in its
+  # runtime image, and `nginx -t` both nginx configs; scripts/check-images.sh
+  # then checks the shared install was reused and runs the nginx images
+  # (forwarded headers, security headers, the console's API surface).
+  images:
+    name: Docker images
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Build and check the images
+        run: sh scripts/check-images.sh
 
   e2e:
     name: E2E (Playwright)
