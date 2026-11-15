@@ -15,7 +15,7 @@
 		"typescript": "5.9.3"
 	},
 	"engines": {
-		"node": ">=22"
+		"node": ">=26"
 	},
 	"license": "AGPL-3.0-only",
 	"name": "connected-repo",
@@ -23,7 +23,7 @@
 	"private": true,
 	"repository": "git@github.com:shipmyapp/connected-repo.git",
 	"scripts": {
-		"build": "npx turbo run build",
+		"build": "turbo run build",
 		"check-types": "turbo run check-types",
 		"check:deploy": "node scripts/check-deploy-config.mjs",
 		"clean": "turbo run clean && rm -rf node_modules && rm -rf .yarn/cache && yarn cache clean",

@@ -3,7 +3,7 @@
   publish = "apps/frontend/dist"
 
 [build.environment]
-	NODE_VERSION = "22"
+	NODE_VERSION = "26"
   NETLIFY_USE_YARN = "true"
 
 [[redirects]]

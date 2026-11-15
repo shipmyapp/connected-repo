@@ -31,7 +31,7 @@
 	"private": true,
 	"repository": "git@github.com:shipmyapp/connected-repo.git",
 	"scripts": {
-		"build": "tsc -b && npx vite build",
+		"build": "tsc -b && vite build",
 		"check-types": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json",
 		"clean": "rm -rf node_modules && rm -rf dist",
 		"dev": "vite",

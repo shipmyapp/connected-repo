@@ -14,7 +14,7 @@
 		"@novu/react": "^3.17.0",
 		"@orpc/client": "^1.14.6",
 		"@orpc/tanstack-query": "^1.14.6",
-		"@sentry/react": "^10.40.0",
+		"@sentry/react": "^10.78.0",
 		"@tanstack/react-query": "^5.90.21",
 		"better-auth": "1.5.0",
 		"browser-image-compression": "^2.0.2",
@@ -39,7 +39,7 @@
 	"devDependencies": {
 		"@connected-repo/typescript-config": "*",
 		"@playwright/test": "^1.58.2",
-		"@sentry/vite-plugin": "^5.1.1",
+		"@sentry/vite-plugin": "^5.4.1",
 		"@testing-library/dom": "^10.4.1",
 		"@testing-library/react": "^16.3.0",
 		"@types/dom-chromium-installation-events": "^101.0.4",
@@ -60,7 +60,7 @@
 	"private": true,
 	"repository": "git@github.com:shipmyapp/connected-repo.git",
 	"scripts": {
-		"build": "tsc -b && npx vite build",
+		"build": "tsc -b && vite build",
 		"build:debug": "tsc -b tsconfig.app.json && vite build --debug",
 		"check-types": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json",
 		"clean": "rm -rf node_modules && rm -rf dist",
