@@ -6,6 +6,8 @@
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  */
+// Chromium fires `beforeinstallprompt` once, early, only to listeners that already exist.
+import "@frontend/utils/install-prompt";
 import App from "@frontend/App.tsx";
 import { isTest } from "@frontend/configs/env.config";
 import { queryClient } from "@frontend/utils/queryClient";

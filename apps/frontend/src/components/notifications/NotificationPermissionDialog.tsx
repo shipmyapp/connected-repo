@@ -77,10 +77,10 @@ export const NotificationPermissionDialog = ({
 	const handleInstall = async () => {
 		try {
 			await pwa.install();
-			// The pwa-install-success-event fires when installation completes;
-			// at that point the app relaunches in standalone mode. We close
-			// here — after relaunch the banner or profile toggle will
-			// prompt for notif.
+			// The browser's dialog, or the install steps for this browser, now
+			// show (PwaInstallSheet). We close here: once installed, the app
+			// runs standalone and the banner or profile toggle asks for
+			// notifications there.
 			onClose("dismissed");
 		} catch (error) {
 			console.error("[NotificationPermissionDialog] Install failed", error);

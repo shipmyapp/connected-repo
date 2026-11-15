@@ -12,6 +12,7 @@ import { useThemeMode } from "@connected-repo/ui-mui/theme/ThemeContext";
 import type { ThemeSetting } from "@connected-repo/zod-schemas/enums.zod";
 import { AppVersionLabel } from "@frontend/components/AppVersionLabel";
 import { NotificationSettings } from "@frontend/components/notifications/NotificationSettings";
+import { InstallCard } from "@frontend/components/pwa/InstallCard";
 import { useSessionInfo } from "@frontend/contexts/UserContext";
 import { useWorkspace } from "@frontend/contexts/WorkspaceContext";
 import { useSaveThemeSetting } from "@frontend/hooks/useSaveThemeSetting";
@@ -111,6 +112,8 @@ export default function ProfilePage() {
 						</ToggleButtonGroup>
 					</Stack>
 				</Card>
+
+				<InstallCard />
 
 				<NotificationSettings />
 

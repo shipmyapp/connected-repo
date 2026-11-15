@@ -38,13 +38,13 @@
 		"apps/frontend": {
 			"entry": [
 				"index.html",
+				// Asset scripts run by hand (yarn generate:icons, yarn install:shots); the build never runs them.
+				"scripts/*.mjs",
 				// Service worker, built by vite-plugin-pwa (injectManifest, srcDir src/sw; vite.config.ts).
 				"src/sw/sw.ts",
 				// Module workers, started with new Worker(new URL(...)) in src/worker/worker.proxy.ts.
 				"src/worker/data.worker.ts",
-				"src/worker/media.worker.ts",
-				// Ambient JSX typing for the <pwa-install> element (PwaInstallHost.tsx); tsc loads it through tsconfig.app.json "include".
-				"src/types/pwa-install.d.ts"
+				"src/worker/media.worker.ts"
 			],
 			"project": ["src/**/*.{ts,tsx}"]
 		},

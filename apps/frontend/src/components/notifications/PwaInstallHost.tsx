@@ -1,51 +1,52 @@
+import { INSTALL_COPY } from "@frontend/components/pwa/install.copy";
 import { PwaInstallSheet } from "@frontend/components/pwa/PwaInstallSheet";
-import { usePwaInstall } from "@frontend/hooks/usePwaInstall";
-import type { PWAInstallElement } from "@khmyznikov/pwa-install";
-import { createContext, type ReactNode, useContext } from "react";
+import { type PwaInstallState, usePwaInstall } from "@frontend/hooks/usePwaInstall";
+import { createContext, type ReactNode, useContext, useEffect, useRef } from "react";
+import { type Id, toast } from "react-toastify";
 
 /**
- * Shares the `usePwaInstall` state singleton across the tree — the
- * <pwa-install> web component is mounted exactly once (below), and any
- * component (banner, dialog, profile toggle) can call `usePwaInstallCtx()`
- * to read the same install-available / standalone / apple-mobile state
- * and trigger install() without remounting the element.
+ * One install state for the tree: the profile's Install card, the push asks
+ * and the install sheet all read it, and any of them can call `install()`.
+ * The `<pwa-install>` element is no longer mounted here: `install-dialog.ts`
+ * makes it lazily, only where it is offered.
  */
+const Ctx = createContext<PwaInstallState | null>(null);
 
-type PwaInstallCtx = ReturnType<typeof usePwaInstall>;
-const Ctx = createContext<PwaInstallCtx | null>(null);
+/**
+ * While the browser installs (after Install in its dialog, until it reports
+ * done), a toast with a spinner says so, wherever install was started from;
+ * then it says where the app is now.
+ */
+const useInstallProgressToast = (isInstalling: boolean, isInstalled: boolean) => {
+	const toastId = useRef<Id | null>(null);
+	useEffect(() => {
+		if (isInstalling) {
+			if (toastId.current === null) toastId.current = toast.loading(INSTALL_COPY.installing);
+			return;
+		}
+		const id = toastId.current;
+		if (id === null) return;
+		toastId.current = null;
+		if (isInstalled) {
+			toast.update(id, {
+				render: INSTALL_COPY.installed,
+				type: "success",
+				isLoading: false,
+				autoClose: 6000,
+			});
+		} else {
+			toast.dismiss(id);
+		}
+	}, [isInstalling, isInstalled]);
+};
 
-interface PwaInstallHostProps {
-	children: ReactNode;
-	manifestUrl?: string;
-	icon?: string;
-}
-
-export const PwaInstallHost = ({ children, manifestUrl, icon }: PwaInstallHostProps) => {
+export const PwaInstallHost = ({ children }: { children: ReactNode }) => {
 	const state = usePwaInstall();
-
+	useInstallProgressToast(state.isInstalling, state.isInstalled);
 	return (
 		<Ctx.Provider value={state}>
 			{children}
-			{/* Our custom MUI-themed bottom sheet handles the install UX so
-			    the palette matches the rest of the app (belgrade-plus /
-			    magicbell/pwa-inbox layout, MUI theming). It auto-opens
-			    on beforeinstallprompt / iOS-Safari, respects a 3-day
-			    dismissal, and calls back into state.install() below. */}
 			<PwaInstallSheet />
-			{/* Web component renders hidden — we drive the UX ourselves.
-			    `disable-chrome` skips its built-in Chromium install dialog;
-			    `manual-apple manual-chrome` gates the library's dialogs to
-			    programmatic .install() calls. */}
-			<pwa-install
-				ref={state.ref as React.Ref<PWAInstallElement>}
-				manifest-url={manifestUrl}
-				icon={icon}
-				disable-chrome="true"
-				manual-apple="true"
-				manual-chrome="true"
-				use-local-storage="true"
-				hidden
-			/>
 		</Ctx.Provider>
 	);
 };
