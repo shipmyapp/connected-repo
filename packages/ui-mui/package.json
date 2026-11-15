@@ -3,8 +3,21 @@
 	"description": "Common Material-UI components for the monorepo",
 	"devDependencies": {
 		"@connected-repo/typescript-config": "*",
+		"@emotion/react": "^11.14.0",
+		"@emotion/styled": "^11.14.1",
+		"@hookform/resolvers": "^5.2.2",
+		"@mui/icons-material": "^7.3.8",
+		"@mui/material": "^7.3.8",
 		"@types/node": "^22.18.12",
-		"@types/react": "^19.2.14"
+		"@types/react": "^19.2.14",
+		"@types/react-dom": "^19.2.2",
+		"dayjs": "^1.11.19",
+		"material-react-table": "^3.2.1",
+		"react": "^19.2.4",
+		"react-dom": "^19.2.4",
+		"react-hook-form": "^7.71.2",
+		"react-toastify": "^11.0.5",
+		"vitest": "^4.0.18"
 	},
 	"exports": {
 		"./components/*": {
@@ -56,6 +69,11 @@
 			"default": "./dist/theme/*.js",
 			"import": "./dist/theme/*.js",
 			"types": "./src/theme/*.tsx"
+		},
+		"./utils/*": {
+			"default": "./dist/utils/*.js",
+			"import": "./dist/utils/*.js",
+			"types": "./src/utils/*.ts"
 		}
 	},
 	"license": "AGPL-3.0-only",
@@ -66,10 +84,12 @@
 		"@hookform/resolvers": "^5.2.2",
 		"@mui/icons-material": "^7.3.4",
 		"@mui/material": "^7.3.4",
+		"dayjs": "^1.11.19",
 		"material-react-table": "3.2.1",
 		"react": "^19.2.0",
 		"react-dom": "^19.2.0",
-		"react-hook-form": "^7.66.0"
+		"react-hook-form": "^7.66.0",
+		"react-toastify": "^11.0.5"
 	},
 	"private": true,
 	"repository": "git@github.com:shipmyapp/connected-repo.git",
@@ -80,6 +100,8 @@
 		"dev": "concurrently --kill-others \"tsc -w\" \"tsc-alias -w\"",
 		"format": "biome format . --write",
 		"lint": "biome check .",
+		"test": "vitest",
+		"test:run": "vitest run",
 		"typecheck": "tsc --noEmit"
 	},
 	"sideEffects": false,
