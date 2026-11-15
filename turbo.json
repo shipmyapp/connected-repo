@@ -49,7 +49,9 @@
 			"cache": false,
 			"dependsOn": ["test:db:setup", "test:build"]
 		},
-		"test:run": {},
+		"test:run": {
+			"dependsOn": ["^build"]
+		},
 		"test:ui": {}
 	},
 	"ui": "tui"
