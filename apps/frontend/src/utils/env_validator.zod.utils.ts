@@ -19,6 +19,10 @@ export const envSchemaZod = object({
 	// Empty in the same-origin Dokploy deploy — consumers fall back to
 	// window.location.origin so OAuth callbacks stay on the visible domain.
 	VITE_USER_APP_URL: apiUrlOrEmpty,
+	// Root domain of team hosts: `<slug>.<root>` is one team's private PWA,
+	// `app.<root>` / `<root>` the shared app. Must equal the backend's
+	// TENANT_ROOT_DOMAIN. Empty = tenant mode off.
+	VITE_TENANT_ROOT_DOMAIN: optionalString,
 	// Tests only. Empty = unset, so a deploy that blanks it still builds.
 	VITE_TEST_PASSWORD: preprocess(
 		blankAsUndefined,
