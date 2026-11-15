@@ -1,3 +1,4 @@
+import { db } from "@backend/db/db";
 import { auth } from "@backend/modules/auth/auth.config";
 import { transformSessionAndUserData } from "@backend/utils/session.utils";
 import { userCreateFixture } from "@connected-repo/zod-schemas/user.fixture";
@@ -41,7 +42,10 @@ const userLogin = async (loginCredentials: UserLoginCredentials) => {
 		user,
 	};
 };
-export const createUserAndLogin = async (userInput: Partial<UserCreateInput> = {}) => {
+export const createUserAndLogin = async (
+	userInput: Partial<UserCreateInput> = {},
+	{ verified = true }: { verified?: boolean } = {},
+) => {
 	const password = "password123";
 	const fixture = userCreateFixture(userInput);
 	const email = fixture.email ?? "test@example.com";
@@ -57,6 +61,10 @@ export const createUserAndLogin = async (userInput: Partial<UserCreateInput> = {
 
 	// 2. Sign in to get the session headers
 	if (!user.email) throw new Error("Email is required for login in tests");
+	// Real accounts arrive verified from Google or Apple. Mark the test
+	// account before signing in, so the session's copy of the row says so.
+	// (The sign-up hook ran unverified: claims happen on getMyTeams.)
+	if (verified) await db.users.find(user.id).update({ emailVerified: true });
 	return userLogin({
 		email: user.email,
 		password,

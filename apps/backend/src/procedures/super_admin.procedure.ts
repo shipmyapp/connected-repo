@@ -28,6 +28,7 @@ const superAdminPhones = parseList(env.SUPER_ADMIN_PHONE_NUMBERS, normalizePhone
  * Super-admin gate. Allows access only when the authenticated user's email
  * (case-insensitive) or phone number is listed in `SUPER_ADMIN_EMAILS` or
  * `SUPER_ADMIN_PHONE_NUMBERS` env vars. Both are comma-separated.
+ * The email or phone must be verified (Google and Apple sign-ins are).
  *
  * Phone numbers are normalized to digits-only on both sides of the compare,
  * so "+15555551234", "5555551234", and "+1 (555) 555-1234" all match.
@@ -40,8 +41,12 @@ const superAdminPhones = parseList(env.SUPER_ADMIN_PHONE_NUMBERS, normalizePhone
  */
 export const rpcSuperAdminProcedure = rpcProtectedProcedure
 	.use(({ context, next }) => {
-		const email = context.user.email?.toLowerCase();
-		const phone = normalizePhone(context.user.phoneNumber ?? "");
+		// Only an address or number the account has proved counts: anyone can
+		// type an operator's address into a sign-up form.
+		const email = context.user.emailVerified ? context.user.email?.toLowerCase() : undefined;
+		const phone = context.user.phoneNumberVerified
+			? normalizePhone(context.user.phoneNumber ?? "")
+			: "";
 
 		const allowed =
 			(email && superAdminEmails.has(email)) || (phone !== "" && superAdminPhones.has(phone));

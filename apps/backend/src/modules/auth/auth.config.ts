@@ -6,7 +6,7 @@ import { themeSettingZod } from "@connected-repo/zod-schemas/enums.zod";
 import { uniqueTimeArrayZod, zTimezone } from "@connected-repo/zod-schemas/zod_utils";
 import { betterAuth } from "better-auth";
 import { createAuthMiddleware } from "better-auth/api";
-import { bearer, phoneNumber } from "better-auth/plugins";
+import { bearer } from "better-auth/plugins";
 import { apple, type GoogleOptions } from "better-auth/social-providers";
 import { generateAppleClientSecret } from "./lib/apple.lib";
 import { googleProviderForAudience } from "./lib/native_google.lib";
@@ -107,22 +107,40 @@ export const auth = betterAuth({
 	baseURL: env.VITE_API_URL,
 	basePath: "/api/auth",
 	database: orchidAdapter(db),
-	emailAndPassword: {
-		enabled: true,
+	databaseHooks: {
+		account: {
+			create: {
+				// Better Auth links a Google/Apple sign-in to an existing user with
+				// the same address when the provider says the address is verified,
+				// then marks that user verified. If the existing user is NOT
+				// verified, someone created it without proving the address (a
+				// password sign-up, possible before email + password became
+				// test-only). Their password and sessions must not survive into the
+				// real owner's account: drop them before the link is written.
+				before: async (account, endpoint) => {
+					if (account.providerId === "credential") return;
+					const owner = await db.users.findOptional(account.userId).select("emailVerified");
+					// A brand-new user (created in the same transaction) or an
+					// already-verified one: nothing to evict.
+					if (!owner || owner.emailVerified) return;
+					await db.accounts.where({ userId: account.userId, providerId: "credential" }).delete();
+					if (endpoint) {
+						// Through Better Auth, so its session-delete hooks run.
+						await endpoint.context.internalAdapter.deleteSessions(account.userId);
+					} else {
+						await db.sessions.unscope("default").where({ userId: account.userId }).delete();
+					}
+				},
+			},
+		},
 	},
-	plugins: [
-		bearer(),
-		phoneNumber({
-			sendOTP: async ({ phoneNumber, code }, _ctx) => {
-				logger.info({ phoneNumber, code }, "Sending phone number OTP");
-				// TODO: Implement actual SMS provider here
-			},
-			signUpOnVerification: {
-				getTempEmail: (phoneNumber) => `${phoneNumber}@temp-local.com`,
-				getTempName: (phoneNumber) => phoneNumber,
-			},
-		}),
-	],
+	// Sign-in is Google, Apple and the bearer plugin. Email + password exists
+	// only for the backend test harness and the e2e login (NODE_ENV=test).
+	// Open anywhere else it lets anyone register an address they do not own.
+	emailAndPassword: {
+		enabled: isTest,
+	},
+	plugins: [bearer()],
 	hooks: {
 		before: createAuthMiddleware(async (ctx) => {
 			const appleClientSecret = await getAppleClientSecret();
@@ -309,6 +327,21 @@ export const auth = betterAuth({
 				type: "string",
 				required: false,
 				defaultValue: null,
+				input: false,
+			},
+			// The phone columns stay on the user row (team invitations by phone,
+			// the super-admin phone allowlist). No route writes them: phone
+			// sign-in is not offered. Declared here so the session user keeps them.
+			phoneNumber: {
+				type: "string",
+				required: false,
+				defaultValue: null,
+				input: false,
+			},
+			phoneNumberVerified: {
+				type: "boolean",
+				required: false,
+				defaultValue: false,
 				input: false,
 			},
 		},

@@ -59,23 +59,32 @@ export class UserTable extends BaseTable {
 		// guard against re-runs or check whether a personal team already
 		// exists.
 		this.afterCreate(
-			["email", "emailVerified", "id", "name", "phoneNumber"],
+			["email", "emailVerified", "id", "name", "phoneNumber", "phoneNumberVerified"],
 			async (users, queryCtx) => {
 				await Promise.all(
 					users.map(async (user) => {
-						// 1. Claim any orphan memberships the user was invited to
-						//    before they signed up.
-						if (user.email) {
-							await db.teamMembers.where({ email: user.email, userId: null }).update({
-								userId: user.id,
-								joinedAt: Date.now(),
-							});
+						// 1. Claim the invitations sent to an address or number this
+						//    account has proved (Google and Apple sign-ins arrive
+						//    verified). An unproved address claims nothing: anyone can
+						//    type one. No team request context here, so the tenant
+						//    scope is lifted explicitly.
+						if (user.email && user.emailVerified) {
+							await db.teamMembers
+								.unscope("default")
+								.where({ email: user.email, userId: null })
+								.update({
+									userId: user.id,
+									joinedAt: Date.now(),
+								});
 						}
-						if (user.phoneNumber) {
-							await db.teamMembers.where({ phoneNumber: user.phoneNumber, userId: null }).update({
-								userId: user.id,
-								joinedAt: Date.now(),
-							});
+						if (user.phoneNumber && user.phoneNumberVerified) {
+							await db.teamMembers
+								.unscope("default")
+								.where({ phoneNumber: user.phoneNumber, userId: null })
+								.update({
+									userId: user.id,
+									joinedAt: Date.now(),
+								});
 						}
 
 						// 2. Create the personal team + Owner membership. The team
