@@ -14,7 +14,14 @@ export const change = rakeDb.run(dbConfig, {
 	commands: {
 		async seed() {
 			const { seed } = await import("./seed/index.js");
-			await seed();
+			const { db } = await import("./db.js");
+			try {
+				await seed();
+			} finally {
+				// The pool keeps warm connections for minutes (config.db.ts);
+				// close it so the command exits when the seed is done.
+				await db.$close();
+			}
 		},
 	},
 	import: (path) => import(path),
