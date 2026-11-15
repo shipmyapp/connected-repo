@@ -12,8 +12,10 @@ import {
 	getServerHealth,
 	incrementActiveRequests,
 } from "@backend/utils/graceful_shutdown.utils";
+import { healthBody } from "@backend/utils/health_response.utils";
 import { logger } from "@backend/utils/logger.utils";
 import { getRedisStatus } from "@backend/utils/redis.utils";
+import { applyApiSecurityHeaders } from "@backend/utils/security_headers.utils";
 import { trace } from "@opentelemetry/api";
 import type { NodeHttpRequest, NodeHttpResponse } from "@orpc/standard-server-node";
 import { mobileAppHandler } from "./mobile_app.handler";
@@ -24,6 +26,7 @@ import { mobileAppHandler } from "./mobile_app.handler";
 export async function mainRequestDispatcher(req: NodeHttpRequest, res: NodeHttpResponse) {
 	// The one place the client's address is decided (utils/client-info.utils.ts).
 	stampClientIp(req);
+	applyApiSecurityHeaders(res, req.url);
 	incrementActiveRequests();
 
 	const requestUrl = req.url;
@@ -100,17 +103,13 @@ export async function mainRequestDispatcher(req: NodeHttpRequest, res: NodeHttpR
 			res.statusCode = 200;
 			res.setHeader("Content-Type", "application/json");
 			res.end(
-				JSON.stringify({
-					status: health.status,
-					service: env.OTEL_SERVICE_NAME,
-					environment: env.NODE_ENV,
-					redis: await getRedisStatus(),
-					timestamp: health.timestamp,
-					activeRequests: health.activeRequests,
-					message: "Server is running",
-					httpVersion: req.httpVersion,
-					secure: false,
-				}),
+				JSON.stringify(
+					healthBody(
+						health,
+						{ redis: await getRedisStatus(), httpVersion: req.httpVersion },
+						{ development: isDev, service: env.OTEL_SERVICE_NAME, environment: env.NODE_ENV },
+					),
+				),
 			);
 			return;
 		}

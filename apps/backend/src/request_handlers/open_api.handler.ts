@@ -27,48 +27,54 @@ export const openApiHandler = new OpenAPIHandler(openApiRouter, {
 			logRequestResponse: !isProd,
 			logRequestAbort: true,
 		}),
-		new OpenAPIReferencePlugin({
-			docsProvider: "scalar",
-			docsPath: "/",
-			specPath: "/spec.json",
-			schemaConverters: [new ZodToJsonSchemaConverter()],
-			specGenerateOptions: {
-				info: {
-					title: "API Documentation",
-					version: "1.0.0",
-					description: "OpenAPI documentation for the application",
-				},
-				servers: [{ url: "/api" }],
-				components: {
-					securitySchemes: {
-						sessionCookie: {
-							type: "apiKey",
-							in: "cookie",
-							name: "__Secure-better-auth.session_token",
-							description: "Better Auth session cookie used by user-authenticated routes.",
+		// The reference page and its spec are for development and staging; in
+		// production nothing serves them (CI builds the spec with `yarn gen:openapi`).
+		...(isProd
+			? []
+			: [
+					new OpenAPIReferencePlugin({
+						docsProvider: "scalar",
+						docsPath: "/",
+						specPath: "/spec.json",
+						schemaConverters: [new ZodToJsonSchemaConverter()],
+						specGenerateOptions: {
+							info: {
+								title: "API Documentation",
+								version: "1.0.0",
+								description: "OpenAPI documentation for the application",
+							},
+							servers: [{ url: "/api" }],
+							components: {
+								securitySchemes: {
+									sessionCookie: {
+										type: "apiKey",
+										in: "cookie",
+										name: "__Secure-better-auth.session_token",
+										description: "Better Auth session cookie used by user-authenticated routes.",
+									},
+									"x-team-id": {
+										type: "apiKey",
+										in: "header",
+										name: "x-team-id",
+										description: "Team ID for authentication",
+									},
+									"x-api-key": {
+										type: "apiKey",
+										in: "header",
+										name: "x-api-key",
+										description: "API Key for authentication",
+									},
+								},
+							},
+							security: [
+								{
+									"x-team-id": [],
+									"x-api-key": [],
+								},
+							],
 						},
-						"x-team-id": {
-							type: "apiKey",
-							in: "header",
-							name: "x-team-id",
-							description: "Team ID for authentication",
-						},
-						"x-api-key": {
-							type: "apiKey",
-							in: "header",
-							name: "x-api-key",
-							description: "API Key for authentication",
-						},
-					},
-				},
-				security: [
-					{
-						"x-team-id": [],
-						"x-api-key": [],
-					},
-				],
-			},
-		}),
+					}),
+				]),
 		new RequestHeadersPlugin(),
 	],
 	interceptors: [

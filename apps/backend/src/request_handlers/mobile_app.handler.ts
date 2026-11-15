@@ -42,31 +42,37 @@ export const mobileAppHandler = new OpenAPIHandler(userAppRouter, {
 			logRequestResponse: isDev,
 			logRequestAbort: true,
 		}),
-		new OpenAPIReferencePlugin({
-			docsProvider: "scalar",
-			docsPath: "/",
-			specPath: "/spec.json",
-			schemaConverters: [new ZodToJsonSchemaConverter()],
-			specGenerateOptions: {
-				info: {
-					title: "API Documentation",
-					version: "1.0.0",
-					description: "OpenAPI documentation for the mobile app",
-				},
-				servers: [{ url: "/mobile-app" }],
-				components: {
-					securitySchemes: {
-						sessionCookie: {
-							type: "apiKey",
-							in: "cookie",
-							name: "__Secure-better-auth.session_token",
-							description: "Better Auth session cookie used by user-authenticated routes.",
+		// The reference page and its spec are for development and staging; in
+		// production nothing serves them (CI builds the spec with `yarn gen:openapi`).
+		...(isProd
+			? []
+			: [
+					new OpenAPIReferencePlugin({
+						docsProvider: "scalar",
+						docsPath: "/",
+						specPath: "/spec.json",
+						schemaConverters: [new ZodToJsonSchemaConverter()],
+						specGenerateOptions: {
+							info: {
+								title: "API Documentation",
+								version: "1.0.0",
+								description: "OpenAPI documentation for the mobile app",
+							},
+							servers: [{ url: "/mobile-app" }],
+							components: {
+								securitySchemes: {
+									sessionCookie: {
+										type: "apiKey",
+										in: "cookie",
+										name: "__Secure-better-auth.session_token",
+										description: "Better Auth session cookie used by user-authenticated routes.",
+									},
+								},
+							},
+							security: [],
 						},
-					},
-				},
-				security: [],
-			},
-		}),
+					}),
+				]),
 		new RequestHeadersPlugin(),
 		...(isProd || isStaging
 			? [

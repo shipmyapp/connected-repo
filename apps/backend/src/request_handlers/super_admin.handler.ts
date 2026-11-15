@@ -1,5 +1,5 @@
 import { allowedOrigins } from "@backend/configs/allowed_origins.config";
-import { isDev } from "@backend/configs/env.config";
+import { isDev, isProd } from "@backend/configs/env.config";
 import { superAdminRouter } from "@backend/routers/super_admin/super_admin.router";
 import { DEFAULT_BODY_LIMIT_BYTES } from "@backend/utils/body_limit.utils";
 import { TRACE_HEADERS_ALLOW, TRACE_HEADERS_EXPOSE } from "@backend/utils/cors.utils";
@@ -31,32 +31,38 @@ export const superAdminHandler = new OpenAPIHandler(superAdminRouter, {
 			logRequestResponse: isDev,
 			logRequestAbort: true,
 		}),
-		new OpenAPIReferencePlugin({
-			docsProvider: "scalar",
-			docsPath: "/",
-			specPath: "/spec.json",
-			schemaConverters: [new ZodToJsonSchemaConverter()],
-			specGenerateOptions: {
-				info: {
-					title: "Super Admin API",
-					version: "1.0.0",
-					description:
-						"Admin-only endpoints gated by SUPER_ADMIN_EMAILS / SUPER_ADMIN_PHONE_NUMBERS.",
-				},
-				servers: [{ url: "/super-admin" }],
-				components: {
-					securitySchemes: {
-						sessionCookie: {
-							type: "apiKey",
-							in: "cookie",
-							name: "__Secure-better-auth.session_token",
-							description: "Better Auth session cookie of a super-admin user.",
+		// The reference page and its spec are for development and staging; in
+		// production nothing serves them (CI builds the spec with `yarn gen:openapi`).
+		...(isProd
+			? []
+			: [
+					new OpenAPIReferencePlugin({
+						docsProvider: "scalar",
+						docsPath: "/",
+						specPath: "/spec.json",
+						schemaConverters: [new ZodToJsonSchemaConverter()],
+						specGenerateOptions: {
+							info: {
+								title: "Super Admin API",
+								version: "1.0.0",
+								description:
+									"Admin-only endpoints gated by SUPER_ADMIN_EMAILS / SUPER_ADMIN_PHONE_NUMBERS.",
+							},
+							servers: [{ url: "/super-admin" }],
+							components: {
+								securitySchemes: {
+									sessionCookie: {
+										type: "apiKey",
+										in: "cookie",
+										name: "__Secure-better-auth.session_token",
+										description: "Better Auth session cookie of a super-admin user.",
+									},
+								},
+							},
+							security: [{ sessionCookie: [] }],
 						},
-					},
-				},
-				security: [{ sessionCookie: [] }],
-			},
-		}),
+					}),
+				]),
 		new RequestHeadersPlugin(),
 	],
 	interceptors: [
