@@ -8,7 +8,7 @@ const loadProductionParser = async () => {
 		const original = await importOriginal<typeof import("@backend/configs/env.config")>();
 		return { ...original, isProd: true };
 	});
-	return await import("./errorParser");
+	return await import("./errorParser.js");
 };
 
 describe("handleBoundaryError in production", () => {
