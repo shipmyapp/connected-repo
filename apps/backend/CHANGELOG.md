@@ -7,6 +7,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Novu workflows and the email layout as code objects with `updatedAt` (`src/novu/workflows`, `src/novu/layouts`); `ensureNovuWorkflows` at boot creates missing ones and updates Novu only when the code is newer, so dashboard edits are kept.
+- `yarn novu:status`, `yarn novu:pull`, `yarn novu:check` (first step of `yarn build`); skill `novu-pull`.
+- `test-push` workflow (triggered by `notifications.testSendPush`, which until now had no workflow).
+- `team-invitation` email when an Owner/Admin adds a member by email, on the generic `app` email layout; a team with its own host is linked there, under its own app name. At most 30 adds per inviter per hour and 5 invitation emails per address per day (Redis; the per-address limit fails closed).
+- `queueNotification()` and the pg-tbus task `notification_dispatch`; `emailSubscriberId` in `notifications.utils.ts`.
+
 - `devices` table, `sessions.device_key` and `users.asks` (migration `0014_devices`; live `push_devices` rows copied as `legacy-<id>`).
 - The `app_device` cookie and the `x-device-id` header name the device; `devices.report`, `devices.recordInstallTry`, `devices.pushOff`, `devices.here`; `me.asks`, `me.recordAsk`.
 
@@ -32,6 +38,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The active-team gate accepts the team whose own host sent the request, without moving the user's active team.
 
 ### Changed
+
+- `triggerNotification` drops empty strings and nulls from the payload so templates test optional fields with `{% if payload.x %}`; its error log no longer carries an invitee's address.
+- `user-created`, `user-reminder` and `journal-entry-created` rewritten as Liquid templates; same wording.
+- `teams.addTeamMember` refuses adding yourself (409).
 
 - `notifications.registerDevice` / `revokeDevice`, the nightly FCM reconcile and the silent-sync cron work on `devices`.
 
@@ -69,9 +79,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Removed
 
+- `@novu/framework` (and `zod-to-json-schema`, which only it used), the `/api/novu` bridge (`novu.handler.ts`), `yarn novu:sync`, `scripts/deploy_novu_sync.sh` and the `npx novu@latest sync` spawned at every boot.
+
 - The Better Auth phone-number plugin (phone-code sign-in and its routes).
 
 ### Fixed
+
+- The journal fan-out compared the ULID team id as a `uuid`, so the task failed on every run and no teammate was told about a new entry.
 
 - A new session records the browser, OS and device its user agent describes (the columns existed and were never filled).
 
@@ -83,6 +97,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - API product: `subscriptions.team_api_id`, `api_product_request_logs.team_api_id` and `pg_tbus_task_log.team_api_id` are `varchar(26)` like the `teams_api` ULID they name (as `uuid`, every write failed); `subscriptions.active` applies its `apiProductSku` filter; a SKU the key may not buy is a 403.
 
 ### Security
+
+- `teams.addTeamMember`'s invitation email is the same whether or not the address has an account and goes to the address's own subscriber, so neither the response, the member list nor the email reveals an account.
+- Invitation emails are rate-limited per inviter and per address.
 
 - `/super-admin/` (OpenAPI) requires `x-csrf-token: orpc` in production and staging, as `/api/super-admin` does.
 - X-Forwarded-For and X-Real-IP no longer decide the client address (API-key IP allowlist, limits, session IP).

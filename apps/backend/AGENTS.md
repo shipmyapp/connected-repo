@@ -78,6 +78,8 @@ export const create = rpcProtectedProcedure
 ### Event Bus (pg-tbus)
 - **Emit**: `tbus.emit(eventDef, payload)`.
 - **Tasks**: `tbus.registerTask(taskDef, handler)` with exponential backoff.
+- Notifications: from a request, `queueNotification()` (`modules/notifications/services/dispatch.notifications.service.ts`), which never throws; from a task handler, `triggerNotification()` (`utils/notifications.utils.ts`), which throws so pg-tbus retries. Workflows live in `src/novu/workflows` (see the root rule "Novu workflows and templates" before changing one). An address with no account is the subscriber `emailSubscriberId(email)`.
+- Novu setup per environment: Secret Key → `NOVU_SECRET_KEY`, `NOVU_API_URL`; Application Identifier → frontend `VITE_NOVU_*`; in Novu: a primary email integration, the FCM integration (service-account JSON), In-App HMAC on. The first boot with a key creates the workflows.
 
 ### Security
 - **Auth**: Better Auth for sessions; `api-key-auth` for external.
@@ -93,6 +95,8 @@ export const create = rpcProtectedProcedure
 - The active-team gate (`rpcProtectedActiveTeamProcedure`) has two extra branches: it re-reads the users row when the cookie's copy disagrees with `x-team-id`, and it accepts the team whose own host sent the request (`Origin`, else `X-Forwarded-Host`/`Host`). Membership is checked after both.
 - `TENANT_ROOT_DOMAIN` turns team hosts on; `AUTH_COOKIE_PREFIX` only for two stacks under one cookie domain.
 - Origins: `teamHostSlugFromOrigin` (shape) + `isAllowedCredentialedOrigin` (live team) decide credentialed CORS; `teamOriginsForAuthRequest` feeds better-auth's `trustedOrigins`. Never add a `*.<root>` pattern. The super-admin handlers keep the exact `ALLOWED_ORIGINS` list, and both check `x-csrf-token` in production and staging (Scalar's "try it" needs `x-csrf-token: orpc` for writes there).
+- Emails and pushes about a team name and link the app through `teamAppIdentity` (`branding.teams.service.ts`): the team's host and app name when it has a slug, else `WEBAPP_URL` and the template's name.
+- `teams.addTeamMember` always creates a **pending** invitation (`userId` and `joinedAt` null) and, for an email, queues the same `team-invitation` email whatever the address is (at most 5 a day per address). Nothing on this path looks the person up; who may be added is checked when the invitation is created or claimed, never by reading the invitee here.
 - Nothing but the app under `TENANT_ROOT_DOMAIN`: `S3_PUBLIC_URL` under it fails the env check; `updateTeam` accepts pictures only from the app's own storage; `assignTeamSlug` is the only writer of `teams_app.slug` and writes an operator audit row.
 
 ### Testing

@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Team invitation emails and a test push through Novu; workflows kept in code and in the Novu dashboard, the newer winning at boot (see `apps/backend/CHANGELOG.md`).
+- Skill `novu-pull` and the AGENTS rule "Novu workflows and templates".
+
 - Git hooks in `.githooks/` (installed by `yarn install`): Biome on staged files before a commit; knip and the typecheck before a push.
 - CI: run on demand (`workflow_dispatch`), a knip step, a Redis service container for the backend tests.
 - Redis 7 next to Postgres in `docker-compose.dev.yml` and `docker-compose.yml`; the backend requires it (`REDIS_URL`) for its rate limits (see `apps/backend/CHANGELOG.md`).
@@ -25,6 +28,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `packages/zod-schemas` runs its own tests (`test:run`): the device, install-try and ask rules.
 
 ### Changed
+- Biome no longer formats `apps/backend/src/novu/{workflows,layouts}` (files written by `novu:pull`).
+
 - CI runs on `ubuntu-24.04` (Playwright 1.58 has no chromium for `ubuntu-latest` = 26.04); lint now fails the build.
 - `apps/backend/.biome.json` extends the root config, so the backend is checked at 100 columns with the root's rules.
 - `knip.jsonc` lists the service worker and the two module workers as frontend entries.
