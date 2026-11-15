@@ -26,17 +26,17 @@ if (nodeEnv === "test") {
 
 	// Load test env files (local overrides base)
 	if (testEnvExists) {
-		dotenv.config({ path: testEnvPath });
+		dotenv.config({ path: testEnvPath, quiet: true });
 	}
 	if (testEnvLocalExists) {
-		dotenv.config({ path: testEnvLocalPath, override: true });
+		dotenv.config({ path: testEnvLocalPath, override: true, quiet: true });
 	}
 } else {
 	// For non-test environments, load in cascading order
-	dotenv.config({ path: ".env" });
-	dotenv.config({ path: ".env.local", override: true });
-	dotenv.config({ path: `.env.${nodeEnv}`, override: true });
-	dotenv.config({ path: `.env.${nodeEnv}.local`, override: true });
+	dotenv.config({ path: ".env", quiet: true });
+	dotenv.config({ path: ".env.local", override: true, quiet: true });
+	dotenv.config({ path: `.env.${nodeEnv}`, override: true, quiet: true });
+	dotenv.config({ path: `.env.${nodeEnv}.local`, override: true, quiet: true });
 }
 
 const optionalUrl = z.preprocess((val) => (val === "" ? undefined : val), z.url().optional());
@@ -51,6 +51,12 @@ const envSchema = z.object({
 	DB_PASSWORD: zString.min(1),
 	DB_NAME: zString.min(1),
 	DB_SCHEMA: zString.min(1),
+	// TLS to Postgres. `disable` for a database on the same Docker network;
+	// a managed database wants `verify-full` with its CA certificate in
+	// DB_SSL_CA (PEM; literal `\n` sequences are accepted for one-line env
+	// values), or at least `require` (encrypted, server not verified).
+	DB_SSL: z.enum(["disable", "require", "verify-full"]).default("disable"),
+	DB_SSL_CA: optionalString,
 	// pg pool size. Default 25 — node-postgres default of 10 is too tight under
 	// concurrent oRPC traffic on a shared cluster. Tune via env per environment.
 	DB_POOL_SIZE: z.coerce.number().int().min(1).default(25),
@@ -111,7 +117,20 @@ const envSchema = z.object({
 // ----------------------------------------
 // Final Schema & Export
 // ----------------------------------------
-export const env = envSchema.parse(process.env);
+
+/**
+ * Parses an environment. A blank value means "not set": Dokploy's
+ * environment editor and a `KEY=` line in a .env both hand us "", which
+ * `z.url().optional()` reads as a malformed URL, `z.enum().optional()`
+ * rejects, and `z.coerce.number()` turns into 0 (a sample rate of 0, a pool
+ * of 0, port 0) instead of the default. Dropping "" before parsing makes
+ * every optional or defaulted variable fall back as intended; a required
+ * one left blank is still refused, and a set-but-wrong value still fails.
+ */
+export const parseEnv = (source: NodeJS.ProcessEnv) =>
+	envSchema.parse(Object.fromEntries(Object.entries(source).filter(([, value]) => value !== "")));
+
+export const env = parseEnv(process.env);
 
 // Environment helpers
 export const isDev = env.NODE_ENV === "development";
