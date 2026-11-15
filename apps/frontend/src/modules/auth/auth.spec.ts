@@ -29,7 +29,7 @@ test.describe("Authentication", () => {
 		// Wait for redirect
 		await page.waitForURL(/\/(dashboard|journal-entries\/new)/);
 
-		// Verify user is authenticated by checking for user menu
-		await expect(page.locator('[aria-label*="User menu"]')).toBeVisible();
+		// Verify user is authenticated by checking for the profile link
+		await expect(page.getByRole("link", { name: "Profile and settings" })).toBeVisible();
 	});
 });

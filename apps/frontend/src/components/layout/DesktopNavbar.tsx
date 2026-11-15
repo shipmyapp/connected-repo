@@ -1,16 +1,14 @@
-import { Avatar } from "@connected-repo/ui-mui/data-display/Avatar";
 import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
 import { Button } from "@connected-repo/ui-mui/form/Button";
 import { Box } from "@connected-repo/ui-mui/layout/Box";
-import { Stack } from "@connected-repo/ui-mui/layout/Stack";
 import { AppBar } from "@connected-repo/ui-mui/navigation/AppBar";
 import { Toolbar } from "@connected-repo/ui-mui/navigation/Toolbar";
 import { navItems } from "@frontend/configs/nav.config";
 import { useWorkspace } from "@frontend/contexts/WorkspaceContext";
 import { useLocation, useNavigate } from "react-router";
 import { NovuInbox } from "../notifications/NovuInbox";
+import { ProfileAvatarLink } from "./ProfileAvatarLink";
 import { SyncBubble } from "./SyncBubble";
-import { UserProfileMenu } from "./UserProfileMenu";
 
 export const DesktopNavbar = () => {
 	const navigate = useNavigate();
@@ -18,7 +16,6 @@ export const DesktopNavbar = () => {
 	const { activeWorkspace } = useWorkspace();
 
 	const isActive = (path: string) => location.pathname === path;
-	const teamSettingsPath = activeWorkspace.id ? `/teams/${activeWorkspace.id}/settings` : null;
 
 	return (
 		<AppBar
@@ -56,37 +53,16 @@ export const DesktopNavbar = () => {
 					</Typography>
 				</Box>
 
-				{/* Team indicator — click routes to the team profile page.
-				    Switching happens on /profile, not here. */}
-				<Box
-					onClick={() => teamSettingsPath && navigate(teamSettingsPath)}
-					sx={{
-						display: "flex",
-						alignItems: "center",
-						px: 1.5,
-						py: 0.75,
-						borderRadius: 2,
-						cursor: teamSettingsPath ? "pointer" : "default",
-						mr: 2,
-						"&:hover": teamSettingsPath ? { bgcolor: "action.hover" } : undefined,
-					}}
+				{/* The active team's name, as text: teams are switched, created
+				    and configured on /profile only. */}
+				<Typography
+					variant="body2"
+					color="text.secondary"
+					sx={{ fontWeight: 600, mr: 2 }}
+					data-testid="active-team-name"
 				>
-					<Stack direction="row" spacing={1} alignItems="center">
-						<Avatar
-							sx={{
-								width: 28,
-								height: 28,
-								bgcolor: activeWorkspace.type === "personal" ? "primary.main" : "secondary.main",
-								fontSize: "0.9rem",
-							}}
-						>
-							{activeWorkspace.name.charAt(0)}
-						</Avatar>
-						<Typography variant="body2" sx={{ fontWeight: 600 }}>
-							{activeWorkspace.name}
-						</Typography>
-					</Stack>
-				</Box>
+					{activeWorkspace.name}
+				</Typography>
 
 				<Box sx={{ flexGrow: 1, display: "flex", gap: 1 }}>
 					{navItems.map((item) => (
@@ -116,7 +92,7 @@ export const DesktopNavbar = () => {
 
 				<SyncBubble />
 				<NovuInbox />
-				<UserProfileMenu />
+				<ProfileAvatarLink />
 			</Toolbar>
 		</AppBar>
 	);
