@@ -1,3 +1,4 @@
+import { ConfirmDialog } from "@connected-repo/ui-mui/components/ConfirmDialog";
 import { Avatar } from "@connected-repo/ui-mui/data-display/Avatar";
 import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
 import { Box } from "@connected-repo/ui-mui/layout/Box";
@@ -35,11 +36,13 @@ interface MembersListProps {
 export function MembersList({ members, onUpdate }: MembersListProps) {
 	const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 	const [selectedMember, setSelectedMember] = useState<TeamAppMemberSelectAll | null>(null);
+	const [removing, setRemoving] = useState<TeamAppMemberSelectAll | null>(null);
 
 	const removeMutation = useMutation(
 		orpc.teams.removeTeamMember.mutationOptions({
 			onSuccess: () => {
 				toast.success("Member removed successfully");
+				setRemoving(null);
 				onUpdate();
 			},
 		}),
@@ -64,10 +67,10 @@ export function MembersList({ members, onUpdate }: MembersListProps) {
 		setSelectedMember(null);
 	};
 
+	// Removing someone is destructive: ask first (the menu closes and clears
+	// `selectedMember`, so the dialog keeps its own copy).
 	const handleRemove = () => {
-		if (selectedMember) {
-			removeMutation.mutate({ id: selectedMember.id });
-		}
+		setRemoving(selectedMember);
 		handleMenuClose();
 	};
 
@@ -178,6 +181,20 @@ export function MembersList({ members, onUpdate }: MembersListProps) {
 					Remove from Team
 				</MenuItem>
 			</Menu>
+			<ConfirmDialog
+				open={removing !== null}
+				title="Remove this member?"
+				description={`${removing?.email ?? removing?.phoneNumber ?? "This member"} loses access to this team at once.`}
+				confirmLabel="Remove"
+				pendingLabel="Removing…"
+				pending={removeMutation.isPending}
+				error={removeMutation.error?.message ?? null}
+				onClose={() => {
+					setRemoving(null);
+					removeMutation.reset();
+				}}
+				onConfirm={() => removing && removeMutation.mutate({ id: removing.id })}
+			/>
 		</TableContainer>
 	);
 }
