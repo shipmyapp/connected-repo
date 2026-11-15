@@ -56,7 +56,8 @@ export const teamAppOptionalZod = z
 			.url({ protocol: /^https?$/ })
 			.max(2048)
 			.nullable(),
-		createdByUserId: z.uuid(),
+		// Null once the person who created the team has deleted their account; ownership lives in team_members.role.
+		createdByUserId: z.uuid().nullable(),
 		personalTeamForUserId: z.uuid().nullable(),
 		deletedAt: zTimeEpoch.nullable(),
 	})

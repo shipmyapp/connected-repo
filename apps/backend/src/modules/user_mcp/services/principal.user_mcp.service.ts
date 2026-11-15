@@ -61,6 +61,8 @@ export async function principalFromBearer(
 
 	const row = await db.users.findOptional(token.userId);
 	if (!row) return "account";
+	// An account scheduled for deletion acts through no app.
+	if (row.deletionRequestedAt !== null) return "account";
 	const user: UserSelectAll = {
 		id: row.id,
 		name: row.name,
@@ -73,6 +75,9 @@ export async function principalFromBearer(
 		themeSetting: row.themeSetting,
 		journalReminderTimes: row.journalReminderTimes.map(hhmm),
 		activeTeamAppId: row.activeTeamAppId,
+		deletionRequestedAt: row.deletionRequestedAt,
+		legalAcceptedVersion: row.legalAcceptedVersion,
+		legalAcceptedAt: row.legalAcceptedAt,
 		createdAt: row.createdAt,
 		updatedAt: row.updatedAt,
 	};

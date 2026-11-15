@@ -11,6 +11,7 @@ import { VerificationTable } from "@backend/modules/auth/tables/verification.aut
 import { DeviceTable } from "@backend/modules/devices/tables/devices.table";
 import { PgTbusTaskLogTable } from "@backend/modules/events/tables/pg_tbus_task_log.table";
 import { FileTable } from "@backend/modules/files/tables/files.table";
+import { StorageObjectDeletionTable } from "@backend/modules/files/tables/storage_object_deletions.table";
 import { JournalEntryTable } from "@backend/modules/journal-entries/tables/journal_entries.table";
 import { ApiProductRequestLogsTable } from "@backend/modules/logs/tables/api_product_request_logs.table";
 import { PushDeviceTable } from "@backend/modules/notifications/tables/push_devices.table";
@@ -23,6 +24,7 @@ import { TeamMemberTable } from "@backend/modules/teams/tables/team_members.tabl
 import { TeamApiTable } from "@backend/modules/teams/tables/teams_api.table";
 import { TeamAppTable } from "@backend/modules/teams/tables/teams_app.table";
 import { ConnectedAppActionTable } from "@backend/modules/user_mcp/tables/connected_app_actions.table";
+import { ErasedDeviceKeyTable } from "@backend/modules/users/tables/erased_device_keys.table";
 import { UserTable } from "@backend/modules/users/tables/users.table";
 import { orchidORM } from "orchid-orm/node-postgres";
 
@@ -63,6 +65,10 @@ export const db = orchidORM(
 		oauthRefreshTokens: OAuthRefreshTokenTable,
 		oauthConsents: OAuthConsentTable,
 		connectedAppActions: ConnectedAppActionTable,
+		// Bucket objects to delete after an account purge.
+		storageObjectDeletions: StorageObjectDeletionTable,
+		// Device keys of purged accounts: those devices erase their local copy.
+		erasedDeviceKeys: ErasedDeviceKeyTable,
 	},
 );
 

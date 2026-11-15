@@ -64,6 +64,11 @@ const transformUserData = (rawUser: BetterAuthSession["user"]): UserSelectAll =>
 		phoneNumber: rawUser.phoneNumber ?? null,
 		phoneNumberVerified: rawUser.phoneNumberVerified ?? false,
 		activeTeamAppId: rawUser.activeTeamAppId ?? null,
+		deletionRequestedAt: rawUser.deletionRequestedAt
+			? new Date(rawUser.deletionRequestedAt).getTime()
+			: null,
+		legalAcceptedVersion: rawUser.legalAcceptedVersion ?? null,
+		legalAcceptedAt: rawUser.legalAcceptedAt ? new Date(rawUser.legalAcceptedAt).getTime() : null,
 		createdAt: new Date(rawUser.createdAt).getTime(),
 		updatedAt: new Date(rawUser.updatedAt).getTime(),
 	};

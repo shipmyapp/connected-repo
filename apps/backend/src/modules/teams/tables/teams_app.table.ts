@@ -25,10 +25,15 @@ export class TeamAppTable extends BaseTable {
 			id: t.ulidWithDefault().primaryKey(),
 			name: t.string(),
 			logoUrl: t.string().nullable(),
-			createdByUserId: t.uuid().foreignKey("users", "id", {
-				onDelete: "CASCADE",
-				onUpdate: "RESTRICT",
-			}),
+			// SET NULL, not CASCADE: a shared team survives the deletion of the
+			// account that created it (ownership is team_members.role).
+			createdByUserId: t
+				.uuid()
+				.foreignKey("users", "id", {
+					onDelete: "SET NULL",
+					onUpdate: "RESTRICT",
+				})
+				.nullable(),
 			// Non-null for personal teams, null for shared. Partial unique
 			// below enforces at most one personal team per user among active
 			// (non-soft-deleted) rows. FK CASCADE means a personal team is

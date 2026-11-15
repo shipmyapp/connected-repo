@@ -10,40 +10,56 @@ import type { Asks } from "@connected-repo/zod-schemas/device.zod";
 export class UserTable extends BaseTable {
 	readonly table = "users";
 
-	columns = this.setColumns((t) => ({
-		id: t.uuid().primaryKey().default(t.sql`gen_random_uuid()`),
-		email: t.string().unique().nullable(),
-		emailVerified: t.boolean().default(false),
-		phoneNumber: t.string().unique().nullable(),
-		phoneNumberVerified: t.boolean().default(false),
-		name: t.string(),
-		image: t.string().nullable(),
-		timezone: t.string().default("Etc/UTC"),
-		themeSetting: t.themeSettingEnum(),
-		// PG `time[]` on disk (constraint at DB level), "HH:MM" on the wire.
-		// `.parse()` strips the ":SS" that Postgres appends when returning
-		// `time` values, so the API surface matches Zod's z.iso.time({
-		// precision: -1 }) contract in uniqueTimeArrayZod. Input side is
-		// symmetric: PG accepts "HH:MM" as a valid `time` literal.
-		//
-		// NOTE: orchid's `.array(inner.parse(...))` does NOT fan the inner
-		// parse across array elements; the transform never runs on read.
-		// Consumers that emit this column through a zod output validator
-		// (see notifications.router#getReminderTimes) strip seconds at the
-		// boundary. Left in place documenting intent for a future ORM upgrade.
-		journalReminderTimes: t.array(t.time().parse((v) => v.slice(0, 5))).default([]),
-		// The person's answers to the device asks (push, install): the snooze ladder, kept on the
-		// account so every device agrees. Rules: @connected-repo/zod-schemas/devices/asks.rules.
-		asks: t.json<Asks>().default(t.sql`'{}'::jsonb`),
-		activeTeamAppId: t
-			.ulid()
-			.foreignKey("teams_app", "id", {
-				onDelete: "RESTRICT",
-				onUpdate: "RESTRICT",
-			})
-			.nullable(),
-		...t.timestampsAsNumbers(),
-	}));
+	columns = this.setColumns(
+		(t) => ({
+			id: t.uuid().primaryKey().default(t.sql`gen_random_uuid()`),
+			email: t.string().unique().nullable(),
+			emailVerified: t.boolean().default(false),
+			phoneNumber: t.string().unique().nullable(),
+			phoneNumberVerified: t.boolean().default(false),
+			name: t.string(),
+			image: t.string().nullable(),
+			timezone: t.string().default("Etc/UTC"),
+			themeSetting: t.themeSettingEnum(),
+			// PG `time[]` on disk (constraint at DB level), "HH:MM" on the wire.
+			// `.parse()` strips the ":SS" that Postgres appends when returning
+			// `time` values, so the API surface matches Zod's z.iso.time({
+			// precision: -1 }) contract in uniqueTimeArrayZod. Input side is
+			// symmetric: PG accepts "HH:MM" as a valid `time` literal.
+			//
+			// NOTE: orchid's `.array(inner.parse(...))` does NOT fan the inner
+			// parse across array elements; the transform never runs on read.
+			// Consumers that emit this column through a zod output validator
+			// (see notifications.router#getReminderTimes) strip seconds at the
+			// boundary. Left in place documenting intent for a future ORM upgrade.
+			journalReminderTimes: t.array(t.time().parse((v) => v.slice(0, 5))).default([]),
+			// The person's answers to the device asks (push, install): the snooze ladder, kept on the
+			// account so every device agrees. Rules: @connected-repo/zod-schemas/devices/asks.rules.
+			asks: t.json<Asks>().default(t.sql`'{}'::jsonb`),
+			activeTeamAppId: t
+				.ulid()
+				.foreignKey("teams_app", "id", {
+					onDelete: "RESTRICT",
+					onUpdate: "RESTRICT",
+				})
+				.nullable(),
+			// Account lifecycle. Set by account.requestDeletion, cleared by
+			// account.cancelDeletion; the purge cron deletes the row once
+			// ACCOUNT_DELETION_GRACE_DAYS have passed. Better Auth user fields with
+			// `input: false`, so they ride the session and no client can write them.
+			deletionRequestedAt: t.timestampNumber().nullable(),
+			legalAcceptedVersion: t.string(32).nullable(),
+			legalAcceptedAt: t.timestampNumber().nullable(),
+			...t.timestampsAsNumbers(),
+		}),
+		(t) => [
+			// Accounts waiting for the purge (migration 0016_account_lifecycle).
+			t.index(["deletionRequestedAt"], {
+				name: "users_deletion_requested_at_idx",
+				where: "deletion_requested_at IS NOT NULL",
+			}),
+		],
+	);
 
 	relations = {
 		teamMembers: this.hasMany(() => TeamMemberTable, {
@@ -137,9 +153,9 @@ export class UserTable extends BaseTable {
 			},
 		);
 
-		// Better-auth account deletion (or admin delete) removes the row here.
-		// CASCADE handles devices, push_devices, journal_entries, memberships, etc. on
-		// our side; the event exists so the Novu subscriber gets deleted too
+		// The account purge (purge.users.service.ts) removes the row here.
+		// CASCADE removes devices, journal entries, files, connected-app grants;
+		// memberships lose their user (scrubbed first by the purge); the event exists so the Novu subscriber gets deleted too
 		// (see user_deleted.notifications.user.ts). Fires inside the same
 		// transaction as the delete so a failed publish rolls the delete back.
 		this.afterDelete(["id"], async (users, queryCtx) => {

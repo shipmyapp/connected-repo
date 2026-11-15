@@ -186,6 +186,14 @@ export const auth = betterAuth({
 						data: { ...session, ...describeClientDevice(headers), deviceKey: deviceKeyOf(headers) },
 					};
 				},
+				// A sign-in on a device whose account was purged earlier means
+				// someone uses that browser now: it must not be erased later.
+				after: async (session) => {
+					const deviceKey = session.deviceKey;
+					if (typeof deviceKey === "string" && deviceKey) {
+						await db.erasedDeviceKeys.where({ deviceKey }).delete();
+					}
+				},
 			},
 			delete: {
 				// Every ended session (sign-out, revoke, account-link eviction):
@@ -430,6 +438,25 @@ export const auth = betterAuth({
 			},
 			activeTeamAppId: {
 				type: "string",
+				required: false,
+				defaultValue: null,
+				input: false,
+			},
+			// Account lifecycle (written only by the server: input false).
+			deletionRequestedAt: {
+				type: "date",
+				required: false,
+				defaultValue: null,
+				input: false,
+			},
+			legalAcceptedVersion: {
+				type: "string",
+				required: false,
+				defaultValue: null,
+				input: false,
+			},
+			legalAcceptedAt: {
+				type: "date",
 				required: false,
 				defaultValue: null,
 				input: false,

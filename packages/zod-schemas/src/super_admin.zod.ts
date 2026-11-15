@@ -48,6 +48,7 @@ export const superAdminUserRowZod = z.object({
 	email: z.string().nullable(),
 	phoneNumber: z.string().nullable(),
 	createdAt: zTimeEpoch,
+	deletionRequestedAt: zTimeEpoch.nullable(),
 });
 export type SuperAdminUserRow = z.infer<typeof superAdminUserRowZod>;
 
@@ -93,3 +94,10 @@ export const superAdminRevokeSessionsInputZod = z.object({
 	reason: zString.min(3).max(300),
 });
 export type SuperAdminRevokeSessionsInput = z.infer<typeof superAdminRevokeSessionsInputZod>;
+
+/** An operator acting on one account's deletion: why, in the operator's words. */
+export const superAdminAccountDeletionInputZod = z.object({
+	userId: z.uuid(),
+	reason: zString.min(3).max(300),
+});
+export type SuperAdminAccountDeletionInput = z.infer<typeof superAdminAccountDeletionInputZod>;
