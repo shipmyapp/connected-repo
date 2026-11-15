@@ -32,6 +32,8 @@ export const RESERVED_TENANT_SLUGS = [
 	"test",
 	"localhost",
 	"superadmin",
+	// The application MCP's own host, when MCP_PUBLIC_URL is set (deploy/README.md).
+	"mcp",
 	// Add your product's own name here when you fork the template.
 ] as const;
 

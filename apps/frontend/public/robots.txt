@@ -1,0 +1,8 @@
+# The app is for signed-in people. Keep crawlers off the API, the MCP and the
+# sign-in and consent flows.
+User-agent: *
+Disallow: /api/
+Disallow: /mcp
+Disallow: /.well-known/oauth-
+Disallow: /auth/
+Disallow: /oauth/

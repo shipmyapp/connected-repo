@@ -32,6 +32,8 @@ import { trace } from "@opentelemetry/api";
 import type { NodeHttpRequest, NodeHttpResponse } from "@orpc/standard-server-node";
 import { mobileAppHandler } from "./mobile_app.handler";
 
+const ROBOTS_DISALLOW_ALL = "User-agent: *\nDisallow: /\n";
+
 /**
  * Main request dispatcher that orchestrates all handlers and pre-checks.
  */
@@ -85,6 +87,15 @@ export async function mainRequestDispatcher(req: NodeHttpRequest, res: NodeHttpR
 	}
 
 	try {
+		// The API host is not a site: keep crawlers off all of it. (On the app's
+		// own hosts nginx serves apps/frontend/public/robots.txt instead.)
+		if (method === "GET" && requestUrl === "/robots.txt") {
+			res.statusCode = 200;
+			res.setHeader("Content-Type", "text/plain; charset=utf-8");
+			res.end(ROBOTS_DISALLOW_ALL);
+			return;
+		}
+
 		// 2c. The application MCP (ADR-045), first: on its own host
 		// (MCP_PUBLIC_URL) it is the only thing served, and the app host
 		// answers 404 for its paths. Bearer only: no device cookie.
