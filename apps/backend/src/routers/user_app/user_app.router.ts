@@ -6,6 +6,7 @@ import { notificationsRouter } from "@backend/modules/notifications/notification
 import { promptsRouter } from "@backend/modules/prompts/prompts.router";
 import { teamsAppRouter } from "@backend/modules/teams/teams_app.router";
 import { connectedAppsRouter } from "@backend/modules/user_mcp/connected_apps.router";
+import { accountRouter } from "@backend/modules/users/account.user_app.router";
 import { meRouter } from "@backend/modules/users/me.user_app.router";
 import { rpcPublicProcedure } from "@backend/procedures/public.procedure";
 import type { InferRouterInputs, InferRouterOutputs, RouterClient } from "@orpc/server";
@@ -35,6 +36,7 @@ const healthCheck = rpcPublicProcedure
 	});
 
 export const userAppRouter = {
+	account: accountRouter,
 	cdn: cdnRouter,
 	connectedApps: connectedAppsRouter,
 	devices: devicesRouter,

@@ -38,6 +38,7 @@ export async function reminderDispatchTick(): Promise<void> {
 				SELECT id, email, name, timezone
 				FROM users
 				WHERE email IS NOT NULL
+					AND deletion_requested_at IS NULL
 					AND EXISTS (
 						SELECT 1 FROM UNNEST(journal_reminder_times) rt
 						WHERE TO_CHAR(rt, 'HH24:MI') = TO_CHAR((NOW() AT TIME ZONE timezone), 'HH24:MI')

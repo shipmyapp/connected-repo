@@ -44,3 +44,26 @@ export const generatePublicUrl = (key: string): string => {
 	const baseUrl = env.S3_ENDPOINT.endsWith("/") ? env.S3_ENDPOINT : `${env.S3_ENDPOINT}/`;
 	return `${baseUrl}${env.S3_BUCKET_NAME}/${key}`;
 };
+
+/**
+ * The object key behind a public URL `generatePublicUrl` produced, or null
+ * when the URL is not on this bucket (another host, an older bucket). Both
+ * forms are recognised so rows written before S3_PUBLIC_URL was set resolve.
+ */
+export const objectKeyFromPublicUrl = (url: string): string | null => {
+	const bases = [env.S3_PUBLIC_URL, `${env.S3_ENDPOINT.replace(/\/+$/, "")}/${env.S3_BUCKET_NAME}`]
+		.filter((b): b is string => Boolean(b))
+		.map((b) => (b.endsWith("/") ? b : `${b}/`));
+	for (const base of bases) {
+		if (url.startsWith(base)) {
+			let key: string;
+			try {
+				key = decodeURIComponent(url.slice(base.length).split(/[?#]/)[0] ?? "");
+			} catch {
+				return null;
+			}
+			return key.length > 0 ? key : null;
+		}
+	}
+	return null;
+};

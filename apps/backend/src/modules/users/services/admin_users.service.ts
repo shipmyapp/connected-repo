@@ -1,5 +1,6 @@
 import { db } from "@backend/db/db";
 import { markSessionRevoked } from "@backend/modules/auth/services/revoked_sessions.auth.service";
+import { findDeletionBlockers } from "@backend/modules/users/services/deletion.users.service";
 import type {
 	SuperAdminListInput,
 	SuperAdminUserListOutput,
@@ -19,7 +20,7 @@ export async function listUsersForAdmin(
 	}
 	const [rows, total] = await Promise.all([
 		filtered
-			.select("id", "name", "email", "phoneNumber", "createdAt")
+			.select("id", "name", "email", "phoneNumber", "createdAt", "deletionRequestedAt")
 			.order({ createdAt: "DESC", id: "DESC" })
 			.limit(input.limit)
 			.offset(input.offset),
@@ -45,4 +46,23 @@ export async function revokeAllSessionsForAdmin(userId: string): Promise<{ ended
 /** How many sessions an account has that are still live (the audit's "before"). */
 export async function countLiveSessionsForAdmin(userId: string): Promise<number> {
 	return Number(await db.sessions.where({ userId }).count());
+}
+
+/** The audit's "before"/"after" for a deletion: the request time and the teams in the way. */
+export async function deletionStateForAdmin(userId: string): Promise<
+	| { exists: false }
+	| {
+			exists: true;
+			deletionRequestedAt: number | null;
+			blockers: { teamId: string; role: string; kind: string }[];
+	  }
+> {
+	const row = await db.users.select("deletionRequestedAt").findOptional(userId);
+	if (!row) return { exists: false };
+	const blockers = await findDeletionBlockers(userId);
+	return {
+		exists: true,
+		deletionRequestedAt: row.deletionRequestedAt,
+		blockers: blockers.map((b) => ({ teamId: b.teamId, role: b.role, kind: b.kind })),
+	};
 }

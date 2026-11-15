@@ -1,4 +1,5 @@
 import { db } from "@backend/db/db";
+import { drainObjectDeletions } from "@backend/modules/files/services/object_deletion.files.service";
 import {
 	deleteFeatureFlag,
 	listFeatureFlags,
@@ -14,9 +15,12 @@ import {
 } from "@backend/modules/teams/services/admin_teams.service";
 import {
 	countLiveSessionsForAdmin,
+	deletionStateForAdmin,
 	listUsersForAdmin,
 	revokeAllSessionsForAdmin,
 } from "@backend/modules/users/services/admin_users.service";
+import { cancelAccountDeletion as keepAccount } from "@backend/modules/users/services/deletion.users.service";
+import { purgeAccount } from "@backend/modules/users/services/purge.users.service";
 import { rpcSuperAdminProcedure } from "@backend/procedures/super_admin.procedure";
 import {
 	featureFlagDeleteInputZod,
@@ -25,6 +29,7 @@ import {
 	featureFlagSetInputZod,
 } from "@connected-repo/zod-schemas/feature_flag.zod";
 import {
+	superAdminAccountDeletionInputZod,
 	superAdminAuditListInputZod,
 	superAdminAuditListOutputZod,
 	superAdminListInputZod,
@@ -143,6 +148,81 @@ const revokeUserSessions = rpcSuperAdminProcedure
 		});
 	});
 
+// Keep an account whose owner asked support to (identity checked outside the app).
+const cancelAccountDeletion = rpcSuperAdminProcedure
+	.route({ method: "POST", tags: ["SuperAdmin"] })
+	.input(superAdminAccountDeletionInputZod)
+	.output(z.object({ ok: z.literal(true) }))
+	.handler(async ({ input, context }) => {
+		const state = await deletionStateForAdmin(input.userId);
+		if (!state.exists) throw new ORPCError("NOT_FOUND", { status: 404, message: "User not found" });
+		if (state.deletionRequestedAt === null) {
+			throw new ORPCError("CONFLICT", {
+				status: 409,
+				message: "This account has not asked to be deleted.",
+			});
+		}
+		return await withOperatorAudit(context, {
+			action: "users.cancelDeletion",
+			targetKind: "user",
+			targetId: input.userId,
+			reason: input.reason,
+			before: () => deletionStateForAdmin(input.userId),
+			apply: async () => {
+				await keepAccount(input.userId);
+				return { ok: true as const };
+			},
+			after: () => ({ deletionRequestedAt: null }),
+		});
+	});
+
+// Carry out a requested deletion now (an erasure request that must not wait
+// for the grace period). Only an account that asked, and is in no team.
+// Operators never start a deletion: only the person can ask.
+const purgeAccountNow = rpcSuperAdminProcedure
+	.route({ method: "POST", tags: ["SuperAdmin"] })
+	.input(superAdminAccountDeletionInputZod)
+	.output(z.object({ outcome: z.enum(["purged", "not_due", "blocked", "gone"]) }))
+	.handler(async ({ input, context }) => {
+		if (input.userId === context.user.id) {
+			throw new ORPCError("BAD_REQUEST", {
+				status: 400,
+				message: "Operators cannot purge their own account here.",
+			});
+		}
+		const result = await withOperatorAudit(context, {
+			action: "users.purgeNow",
+			targetKind: "user",
+			targetId: input.userId,
+			reason: input.reason,
+			before: () => deletionStateForAdmin(input.userId),
+			apply: async () => {
+				const outcome = await purgeAccount(input.userId, { force: true });
+				// Refused: throw so the audit transaction writes nothing.
+				if (outcome === "not_due") {
+					throw new ORPCError("CONFLICT", {
+						status: 409,
+						message: "This account has not asked to be deleted.",
+					});
+				}
+				if (outcome === "blocked") {
+					throw new ORPCError("CONFLICT", {
+						status: 409,
+						message: "This account still belongs to a team.",
+					});
+				}
+				if (outcome === "gone") {
+					throw new ORPCError("NOT_FOUND", { status: 404, message: "User not found" });
+				}
+				return { outcome };
+			},
+			after: () => ({ purged: true }),
+		});
+		// Bucket objects after commit, as the cron does; failures stay queued.
+		await drainObjectDeletions();
+		return result;
+	});
+
 // ─── Feature flags ──────────────────────────────────────────────────────
 // Flag CRUD lives under super-admin because that's who toggles them for
 // tenants. Flags themselves gate TENANT-FACING features — the guard call
@@ -230,6 +310,8 @@ export const superAdminRouter = {
 	assignTeamSlug,
 	listUsers,
 	revokeUserSessions,
+	cancelAccountDeletion,
+	purgeAccountNow,
 	listFlags,
 	setFlag,
 	deleteFlag,

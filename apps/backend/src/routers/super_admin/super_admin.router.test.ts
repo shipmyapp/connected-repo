@@ -296,4 +296,81 @@ describe("Super-admin router", () => {
 			asOrdinary.assignTeamSlug({ teamId: ordinary.user.activeTeamAppId, slug: "mine" }),
 		).rejects.toMatchObject({ code: "FORBIDDEN" });
 	});
+
+	describe("an account's deletion", () => {
+		const auditRows = async (userId: string, action: string) =>
+			Number(await db.operatorAuditLog.where({ targetId: userId, action }).count());
+
+		it("keeps an account that asked, with a reason, in the audit trail", async () => {
+			const target = await createUserAndLogin({ email: "keep-me@example.test" });
+			const requestedAt = Date.now() - 86_400_000;
+			await db.users.find(target.user.id).update({ deletionRequestedAt: requestedAt });
+
+			await expect(
+				superAdmin.cancelAccountDeletion({ userId: target.user.id, reason: "asked by phone" }),
+			).resolves.toEqual({ ok: true });
+			const row = await db.users.find(target.user.id).select("deletionRequestedAt");
+			expect(row.deletionRequestedAt).toBeNull();
+			const { rows } = await superAdmin.auditList({ targetKind: "user", targetId: target.user.id });
+			expect(rows[0]).toMatchObject({
+				action: "users.cancelDeletion",
+				reason: "asked by phone",
+				before: { deletionRequestedAt: requestedAt },
+				after: { deletionRequestedAt: null },
+			});
+
+			// Nothing to keep now: refused, and no second row.
+			await expect(
+				superAdmin.cancelAccountDeletion({ userId: target.user.id, reason: "again" }),
+			).rejects.toMatchObject({ status: 409 });
+			expect(await auditRows(target.user.id, "users.cancelDeletion")).toBe(1);
+		});
+
+		it("deletes a requested account now; refuses one still in a team", async () => {
+			const target = await createUserAndLogin({ email: "erase-me@example.test" });
+			await db.users.find(target.user.id).update({ deletionRequestedAt: Date.now() });
+			await expect(
+				superAdmin.purgeAccountNow({ userId: target.user.id, reason: "erasure request" }),
+			).resolves.toEqual({ outcome: "purged" });
+			expect(await db.users.findOptional(target.user.id)).toBeUndefined();
+			expect(await auditRows(target.user.id, "users.purgeNow")).toBe(1);
+
+			const inTeam = await createUserAndLogin({ email: "in-team@example.test" });
+			await db.users.find(inTeam.user.id).update({ deletionRequestedAt: Date.now() });
+			const team = await db.teamsApp.create({ name: "Still here", createdByUserId: adminUserId });
+			await db.teamMembers.create({
+				teamId: team.id,
+				userId: inTeam.user.id,
+				email: inTeam.user.email,
+				role: "Member",
+				joinedAt: Date.now(),
+			});
+			await expect(
+				superAdmin.purgeAccountNow({ userId: inTeam.user.id, reason: "erasure request" }),
+			).rejects.toMatchObject({ status: 409 });
+			expect(await db.users.findOptional(inTeam.user.id)).toBeDefined();
+			expect(await auditRows(inTeam.user.id, "users.purgeNow")).toBe(0);
+
+			// An account that never asked is never deleted by an operator.
+			const never = await createUserAndLogin({ email: "never-asked@example.test" });
+			await expect(
+				superAdmin.purgeAccountNow({ userId: never.user.id, reason: "erasure request" }),
+			).rejects.toMatchObject({ status: 409 });
+			expect(await db.users.findOptional(never.user.id)).toBeDefined();
+		});
+
+		it("refuses an ordinary account either action", async () => {
+			const target = await createUserAndLogin({ email: "plain@example.test" });
+			await db.users.find(target.user.id).update({ deletionRequestedAt: Date.now() });
+			const ordinary = await createUserAndLogin({ email: "not-an-operator@example.test" });
+			const asOrdinary = createRouterClient(superAdminRouter, { context: ordinary });
+			await expect(
+				asOrdinary.cancelAccountDeletion({ userId: target.user.id, reason: "please" }),
+			).rejects.toMatchObject({ status: 403 });
+			await expect(
+				asOrdinary.purgeAccountNow({ userId: target.user.id, reason: "please" }),
+			).rejects.toMatchObject({ status: 403 });
+			expect(await db.users.findOptional(target.user.id)).toBeDefined();
+		});
+	});
 });

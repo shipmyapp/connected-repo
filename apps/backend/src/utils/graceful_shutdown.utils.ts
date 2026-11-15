@@ -1,8 +1,10 @@
 import type { Server } from "node:http";
 import { closeRedis } from "@backend/configs/redis.config";
 import { stopOAuthClientsCleanupCron } from "@backend/cron_jobs/oauth_clients_cleanup.cron";
+import { stopPurgeDeletedAccountsCron } from "@backend/cron_jobs/purge_deleted_accounts.cron";
 import { stopReconcileFcmTokensCron } from "@backend/cron_jobs/reconcile_fcm_tokens.cron";
 import { stopReminderDispatchCron } from "@backend/cron_jobs/reminder_dispatch.cron";
+import { stopSilentSyncDispatchCron } from "@backend/cron_jobs/silent_sync_dispatch.cron";
 import { db } from "@backend/db/db";
 import { getTbusStartPromise } from "@backend/events/events.utils";
 import { tbus } from "@backend/events/tbus";
@@ -100,6 +102,8 @@ export const handleServerClose = (server: Server) => {
 			stopReminderDispatchCron();
 			stopReconcileFcmTokensCron();
 			stopOAuthClientsCleanupCron();
+			stopSilentSyncDispatchCron();
+			stopPurgeDeletedAccountsCron();
 
 			await tbus.stop().catch((error) => {
 				logger.error({ err: error }, "Error stopping pg-tbus event bus");
