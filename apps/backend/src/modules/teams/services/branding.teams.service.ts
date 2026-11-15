@@ -1,4 +1,5 @@
 import { allowedOrigins, teamHostSlugFromOrigin } from "@backend/configs/allowed_origins.config";
+import { env } from "@backend/configs/env.config";
 import { db } from "@backend/db/db";
 import { INSTALL_PICTURES } from "@connected-repo/zod-schemas/install_pictures";
 import type {
@@ -38,6 +39,30 @@ export async function getTeamBrandingBySlugService(
 ): Promise<TeamBrandingPublic | null> {
 	const team = await db.teamsApp.where({ slug }).takeOptional();
 	return team ? toPublicBranding(team) : null;
+}
+
+/**
+ * Where a team's people open the app, and what it is called there: the
+ * team's own host (`<slug>.<TENANT_ROOT_DOMAIN>`, on WEBAPP_URL's scheme and
+ * port) under its own app name when it has a slug and team hosts are on;
+ * otherwise the shared app (WEBAPP_URL) under the template's name. For
+ * links and names in emails and pushes about that team.
+ */
+export function teamAppIdentity(team: {
+	slug: string | null;
+	name: string;
+	appName: string | null;
+}): { origin: string; appName: string } {
+	const shared = new URL(env.WEBAPP_URL);
+	const root = env.TENANT_ROOT_DOMAIN?.toLowerCase().replace(/^\.+/, "");
+	if (!team.slug || !root) {
+		return { origin: shared.origin, appName: DEFAULT_APP_BRAND.appName };
+	}
+	const port = shared.port ? `:${shared.port}` : "";
+	return {
+		origin: `${shared.protocol}//${team.slug}.${root}${port}`,
+		appName: team.appName ?? team.name,
+	};
 }
 
 /** Live team id for a subdomain, or null. Used by the active-team gate. */

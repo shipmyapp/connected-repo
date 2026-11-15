@@ -32,6 +32,7 @@ import {
 } from "@connected-repo/zod-schemas/teams/sync";
 import { ORPCError } from "@orpc/server";
 import { z } from "zod";
+import { queueTeamInvitation } from "./notifications/team_invitation.notifications.teams";
 import { getTeamBrandingBySlugService } from "./services/branding.teams.service";
 import { createTeamService } from "./services/create_team.teams.service";
 import { pullTeamMembersService, pullTeamsAppService } from "./services/sync.teams.service";
@@ -164,17 +165,37 @@ const addTeamMember = rpcTeamOwnerAdminProcedure
 	)
 	.input(teamAppMemberAddInputZod)
 	.output(teamAppMemberSelectAllZod)
-	.handler(async ({ input, context: { activeTeamId } }) => {
+	.handler(async ({ input, context: { activeTeamId, user } }) => {
+		const { email, phoneNumber } = input;
+		const ownEmail = user.email?.trim().toLowerCase();
+		if (
+			(email && ownEmail && email.trim().toLowerCase() === ownEmail) ||
+			(phoneNumber && user.phoneNumber && phoneNumber === user.phoneNumber)
+		) {
+			throw new ORPCError("CONFLICT", { status: 409, message: "You are already in this team." });
+		}
 		// Always a pending invitation. Looking the address up and joining an
 		// existing account at once told every caller whether that address has
-		// an account here. The invitee joins on their next `getMyTeams`
-		// (verified identifiers only).
-		return await db.teamMembers.create({
+		// an account here, so whether an account exists must not show in the
+		// response, in getTeamMembers or in the email. The invitee joins on
+		// their next `getMyTeams` (verified identifiers only).
+		const member = await db.teamMembers.create({
 			...input,
 			teamId: activeTeamId,
 			userId: null,
 			joinedAt: null,
 		});
+		// Tell them by email (phone-only adds get nothing: no SMS provider).
+		// Awaited but never throws; the row above is already written.
+		if (email) {
+			await queueTeamInvitation({
+				teamId: activeTeamId,
+				email,
+				role: input.role,
+				inviterName: user.name,
+			});
+		}
+		return member;
 	});
 
 const removeTeamMember = rpcTeamOwnerAdminProcedure

@@ -1,6 +1,8 @@
 import { env } from "@backend/configs/env.config";
 import { db } from "@backend/db/db";
+import { tbus } from "@backend/events/tbus";
 import { auth } from "@backend/modules/auth/auth.config";
+import type { NotificationRequest } from "@backend/modules/notifications/services/dispatch.notifications.service";
 import { teamsAppRouter } from "@backend/modules/teams/teams_app.router.js";
 import { defaultContext } from "@backend/test/setup";
 import {
@@ -14,8 +16,29 @@ import { createUserAndLogin } from "@backend/test/utils/user-auth.utils";
 import { redisReady } from "@backend/utils/redis.utils";
 import { createRouterClient, type RouterClient } from "@orpc/server";
 import { ulid } from "ulid";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { assertNotLastOwner } from "./services/team_roles.teams.service";
+
+/** The team-invitation notification queued since the last mockClear, if any. */
+const invitationTask = (): NotificationRequest | undefined => {
+	for (const [sent] of vi.mocked(tbus.send).mock.calls) {
+		for (const task of Array.isArray(sent) ? sent : [sent]) {
+			const data: unknown = task.data;
+			if (isNotificationRequest(data) && data.workflowId === "team-invitation") return data;
+		}
+	}
+	return undefined;
+};
+
+const isRecord = (v: unknown): v is Record<string, unknown> =>
+	typeof v === "object" && v !== null && !Array.isArray(v);
+
+const isNotificationRequest = (v: unknown): v is NotificationRequest =>
+	isRecord(v) &&
+	typeof v.workflowId === "string" &&
+	isRecord(v.to) &&
+	typeof v.to.subscriberId === "string" &&
+	isRecord(v.payload);
 
 describe("Teams App Endpoints", () => {
 	let defaultClient: RouterClient<typeof teamsAppRouter>;
@@ -247,6 +270,78 @@ describe("Teams App Endpoints", () => {
 			});
 			expect(row.userId).toBeNull();
 			expect(row.joinedAt).toBeNull();
+		});
+
+		it("send the same invitation whether or not the address has an account", async (ctx) => {
+			if (!(await redisReady(1500))) {
+				if (process.env.CI) throw new Error("CI must run a Redis service");
+				ctx.skip();
+			}
+			if (!defaultContext) throw new Error("test context missing");
+			const { owner } = await createSharedTeam(defaultContext);
+			const existing = await createUserAndLogin({
+				email: `known-${ulid().toLowerCase()}@example.com`,
+			});
+			const unverified = await createUserAndLogin(
+				{ email: `unverified-${ulid().toLowerCase()}@example.com` },
+				{ verified: false },
+			);
+			const unknownEmail = `nobody-${ulid().toLowerCase()}@example.com`;
+
+			const invite = async (email: string) => {
+				vi.mocked(tbus.send).mockClear();
+				const row = await teamsClient(owner).addTeamMember({ email, role: "Member" });
+				const task = invitationTask();
+				if (!task) throw new Error(`no invitation queued for ${email}`);
+				return { row, task };
+			};
+			const known = await invite(existing.user.email as string);
+			const unknown = await invite(unknownEmail);
+			const notVerified = await invite(unverified.user.email as string);
+
+			expect(known.task.to.subscriberId).toBe(`email:${existing.user.email}`);
+			expect(known.task.to.subscriberId).not.toContain(existing.user.id);
+			// Only the greeting differs, and only the invitee reads it.
+			expect(known.task.payload.name).toBe(existing.user.name);
+			expect(unknown.task.payload).not.toHaveProperty("name");
+			expect(notVerified.task.payload).not.toHaveProperty("name");
+			const { name: _greeting, email: knownEmail, ...knownRest } = known.task.payload;
+			const { email: unknownTaskEmail, ...unknownRest } = unknown.task.payload;
+			expect(knownEmail).toBe(existing.user.email);
+			expect(unknownTaskEmail).toBe(unknownEmail);
+			expect(knownRest).toEqual(unknownRest);
+			expect(Object.keys(known.task.payload)).not.toContain("hasAccount");
+
+			// The inviter's answer is the same shape and state either way.
+			const comparable = (row: typeof known.row) => {
+				const { id: _id, email: _email, createdAt: _c, updatedAt: _u, ...rest } = row;
+				return rest;
+			};
+			expect(comparable(known.row)).toEqual(comparable(unknown.row));
+		});
+
+		it("refuse adding yourself", async () => {
+			if (!defaultContext) throw new Error("test context missing");
+			const { owner } = await createSharedTeam(defaultContext);
+			await expect(
+				teamsClient(owner).addTeamMember({
+					email: (defaultContext.user.email as string).toUpperCase(),
+					role: "Member",
+				}),
+			).rejects.toMatchObject({ status: 409 });
+		});
+
+		it("by phone number create a pending row and send no email", async () => {
+			if (!defaultContext) throw new Error("test context missing");
+			const { owner } = await createSharedTeam(defaultContext);
+			vi.mocked(tbus.send).mockClear();
+			const row = await teamsClient(owner).addTeamMember({
+				phoneNumber: "+14155550123",
+				role: "Member",
+			});
+			expect(row.userId).toBeNull();
+			expect(row.joinedAt).toBeNull();
+			expect(invitationTask()).toBeUndefined();
 		});
 
 		it("are limited to 30 per inviter per hour", async (ctx) => {
