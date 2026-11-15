@@ -48,7 +48,9 @@ export default function JournalEntriesPage() {
 		const map: Record<string, FileSelectAll[]> = {};
 		if (!allTeamFiles) return map;
 		for (const f of allTeamFiles) {
-			(map[f.tableId] ??= []).push(f);
+			const list = map[f.tableId] ?? [];
+			list.push(f);
+			map[f.tableId] = list;
 		}
 		return map;
 	}, [allTeamFiles]);

@@ -48,11 +48,12 @@ describe("createCustomAdapterOrchid — update contract", () => {
 	it("returns the updated row when a matching session exists", async () => {
 		const sessionId = defaultContext?.session.id;
 		expect(sessionId).toBeDefined();
+		if (!sessionId) throw new Error("expected a session in the test context");
 
 		const newIp = "203.0.113.42";
 		const result = await adapter.update({
 			model: "sessions",
-			where: [eq("id", sessionId!)],
+			where: [eq("id", sessionId)],
 			update: { ipAddress: newIp },
 		});
 
@@ -60,7 +61,7 @@ describe("createCustomAdapterOrchid — update contract", () => {
 		expect((result as { ipAddress: string }).ipAddress).toBe(newIp);
 
 		// And the write actually landed.
-		const persisted = await db.sessions.where({ id: sessionId! }).takeOptional();
+		const persisted = await db.sessions.where({ id: sessionId }).takeOptional();
 		expect(persisted?.ipAddress).toBe(newIp);
 	});
 
@@ -72,16 +73,17 @@ describe("createCustomAdapterOrchid — update contract", () => {
 	it("returns null when the row exists but is hidden by the table's default scope", async () => {
 		const sessionId = defaultContext?.session.id;
 		expect(sessionId).toBeDefined();
+		if (!sessionId) throw new Error("expected a session in the test context");
 
 		// Bypass the default scope to flip the row into "invalid" state.
 		await db.sessions
 			.unscope("default")
-			.where({ id: sessionId! })
+			.where({ id: sessionId })
 			.update({ markedInvalidAt: Date.now() });
 
 		const result = await adapter.update({
 			model: "sessions",
-			where: [eq("id", sessionId!)],
+			where: [eq("id", sessionId)],
 			update: { ipAddress: "198.51.100.7" },
 		});
 
@@ -89,7 +91,7 @@ describe("createCustomAdapterOrchid — update contract", () => {
 
 		// And the row was NOT mutated by the update call (default scope
 		// blocked it upstream — the row's ipAddress must be unchanged).
-		const persisted = await db.sessions.unscope("default").where({ id: sessionId! }).take();
+		const persisted = await db.sessions.unscope("default").where({ id: sessionId }).take();
 		expect(persisted.ipAddress).not.toBe("198.51.100.7");
 	});
 });

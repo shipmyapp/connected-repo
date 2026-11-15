@@ -3,7 +3,6 @@ import { teamsAppRouter } from "@backend/modules/teams/teams_app.router.js";
 import { defaultContext } from "@backend/test/setup";
 import { createRouterClient, type RouterClient } from "@orpc/server";
 import { beforeEach, describe, expect, it } from "vitest";
-import { createTeamService } from "./services/create_team.teams.service";
 
 describe("Teams App Endpoints", () => {
 	let defaultClient: RouterClient<typeof teamsAppRouter>;

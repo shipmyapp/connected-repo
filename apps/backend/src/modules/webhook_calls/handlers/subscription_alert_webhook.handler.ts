@@ -129,7 +129,6 @@ const enforceJsonSizeCap = (payload: Record<string, unknown>): Record<string, un
  * timestampNumber column instead of doing a JSON-path scan on `payload`.
  */
 export const subscriptionAlertWebhookHandler = async ({
-	name,
 	input,
 	trigger,
 }: {

@@ -20,7 +20,7 @@ import { z } from "zod";
 
 // Get all active prompts, optionally filtered by team
 const getAllActive = rpcProtectedProcedure.output(z.array(promptSelectAllZod)).handler(async () => {
-	const query: any = { deletedAt: null };
+	const query = { deletedAt: null };
 
 	const prompts = await db.prompts.select("*").where(query).order({ createdAt: "DESC" });
 
@@ -29,7 +29,7 @@ const getAllActive = rpcProtectedProcedure.output(z.array(promptSelectAllZod)).h
 
 // Get a random active prompt, optionally filtered by team
 const getRandomActive = rpcProtectedProcedure.output(promptSelectAllZod).handler(async () => {
-	const query: any = { deletedAt: null };
+	const query = { deletedAt: null };
 
 	// Get count of active prompts for this scope
 	const count = await db.prompts.where(query).count();
@@ -78,7 +78,7 @@ const getByCategory = rpcProtectedProcedure
 	.input(promptGetByCategoryZod)
 	.output(z.array(promptSelectAllZod))
 	.handler(async ({ input: { category } }) => {
-		const query: any = { category, deletedAt: null };
+		const query = { category, deletedAt: null };
 
 		const prompts = await db.prompts.where(query).select("*").order({ createdAt: "DESC" });
 

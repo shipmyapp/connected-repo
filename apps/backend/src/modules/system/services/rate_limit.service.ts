@@ -83,9 +83,11 @@ export const checkAndRecordRateLimit = async (
 					limit,
 					retryAfterSeconds: 0,
 				};
-			} catch (err: any) {
+			} catch (err) {
 				// 23505 = unique_violation in Postgres
-				if (err.code === "23505") continue;
+				if (typeof err === "object" && err !== null && "code" in err && err.code === "23505") {
+					continue;
+				}
 				throw err;
 			}
 		}

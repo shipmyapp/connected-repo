@@ -75,11 +75,11 @@ function isBlockedIPv6(ip: string): boolean {
 	// Unspecified :: and loopback ::1
 	if (normalized === "::" || normalized === "::1") return true;
 	// IPv4-mapped IPv6 (::ffff:a.b.c.d) — re-check as IPv4
-	const v4Mapped = normalized.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-	if (v4Mapped) return isBlockedIPv4(v4Mapped[1]!);
+	const v4Mapped = normalized.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/)?.[1];
+	if (v4Mapped) return isBlockedIPv4(v4Mapped);
 	// IPv4-compatible IPv6 (deprecated) ::a.b.c.d
-	const v4Compat = normalized.match(/^::(\d+\.\d+\.\d+\.\d+)$/);
-	if (v4Compat) return isBlockedIPv4(v4Compat[1]!);
+	const v4Compat = normalized.match(/^::(\d+\.\d+\.\d+\.\d+)$/)?.[1];
+	if (v4Compat) return isBlockedIPv4(v4Compat);
 	// Parse first hextet for prefix checks
 	const firstHextet = Number.parseInt(normalized.split(":")[0] || "0", 16);
 	// fc00::/7 (Unique Local Address, includes fd00::/8)

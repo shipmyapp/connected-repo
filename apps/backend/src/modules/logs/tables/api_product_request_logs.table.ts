@@ -11,7 +11,7 @@ export class ApiProductRequestLogsTable extends BaseTable {
 			teamApiId: t.uuid(),
 			teamUserReferenceId: t.string(),
 			requestBodyText: t.text().nullable(),
-			requestBodyJson: t.json<{}>().nullable(),
+			requestBodyJson: t.json<Record<string, unknown>>().nullable(),
 			method: t.apiRequestMethodEnum(),
 			path: t.string(),
 			ip: t.string(),

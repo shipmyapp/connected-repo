@@ -90,7 +90,7 @@ export function applyBetterAuthWhere(
 
 		const { field, value, operator = "eq" } = clause;
 
-		let fieldValue: any;
+		let fieldValue: unknown;
 		if (operator === "eq") {
 			fieldValue = value;
 		} else {
@@ -105,7 +105,7 @@ export function applyBetterAuthWhere(
 	const andGroup = whereClauses.filter((w) => w.connector === "AND" || !w.connector);
 	const orGroup = whereClauses.filter((w) => w.connector === "OR");
 
-	const whereObject: Record<string, any> = {};
+	const whereObject: Record<string, unknown> = {};
 
 	// Process AND group - Edge cases 3, 4, 5
 	if (andGroup.length > 0) {
@@ -149,12 +149,12 @@ export function applyBetterAuthWhere(
 
 	// Process OR group - Edge case 6 & 7
 	if (orGroup.length > 0) {
-		const orConditions: Record<string, any>[] = [];
+		const orConditions: Record<string, unknown>[] = [];
 
 		for (const clause of orGroup) {
 			const { field, value, operator = "eq" } = clause;
 
-			let fieldValue: any;
+			let fieldValue: unknown;
 			if (operator === "eq") {
 				fieldValue = value;
 			} else {

@@ -45,9 +45,12 @@ export async function generatePdfThumbnail(file: File): Promise<File> {
 
 		const { blob, extension } = await canvasToBestBlob(canvas);
 		return new File([blob], `thumb_${file.name}.${extension}`, { type: blob.type });
-	} catch (error: any) {
+	} catch (error) {
 		// Handle password-protected PDFs by generating a placeholder
-		if (error?.name === "PasswordException" || error?.message?.includes("password")) {
+		if (
+			error instanceof Error &&
+			(error.name === "PasswordException" || error.message.includes("password"))
+		) {
 			return generatePasswordPlaceholder(file.name);
 		}
 

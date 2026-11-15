@@ -119,7 +119,7 @@ export const auth = betterAuth({
 			// 1. Update static web apple provider if it exists
 			const appleWebProvider = ctx.context.socialProviders.find((p) => p.id === "apple");
 			if (appleWebProvider && appleClientSecret) {
-				(appleWebProvider as any).clientSecret = appleClientSecret;
+				Object.assign(appleWebProvider, { clientSecret: appleClientSecret });
 			}
 
 			// 2. Add native iOS apple provider dynamically
@@ -141,7 +141,7 @@ export const auth = betterAuth({
 			// Social sign-in from native apps sends an idToken. We must match the clientId
 			// to the 'aud' (audience) in the token for verification to pass.
 			if (ctx.path.endsWith("/sign-in/social") && ctx.method === "POST") {
-				const body = (ctx as any).body;
+				const body = ctx.body;
 				const idToken = body?.idToken;
 
 				if (idToken) {
@@ -153,7 +153,7 @@ export const auth = betterAuth({
 						if (aud && (aud === env.GOOGLE_IOS_CLIENT_ID || aud === env.GOOGLE_ANDROID_CLIENT_ID)) {
 							const googleProvider = ctx.context.socialProviders.find((p) => p.id === "google");
 							if (googleProvider) {
-								(googleProvider as any).clientId = aud;
+								Object.assign(googleProvider, { clientId: aud });
 								logger.debug({ aud }, "Swapping Google Client ID for native app");
 							}
 						}

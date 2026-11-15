@@ -1,4 +1,4 @@
-import { HeadObjectCommand } from "@aws-sdk/client-s3";
+import { HeadObjectCommand, S3ServiceException } from "@aws-sdk/client-s3";
 import { env } from "@backend/configs/env.config";
 import { generatePublicUrl, generateS3Key } from "@backend/utils/cdn.utils";
 import { s3Client } from "@backend/utils/s3.client";
@@ -25,8 +25,11 @@ export const checkFileExistsInCdnService = async (
 			}),
 		);
 		return { exists: true, key, fetchUrl: generatePublicUrl(key) };
-	} catch (error: any) {
-		if (error.name === "NotFound" || error.$metadata?.httpStatusCode === 404) {
+	} catch (error) {
+		if (
+			error instanceof S3ServiceException &&
+			(error.name === "NotFound" || error.$metadata?.httpStatusCode === 404)
+		) {
 			return { exists: false, key, fetchUrl: "" };
 		}
 		throw error;
