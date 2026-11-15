@@ -1,5 +1,6 @@
 import { allowedOrigins, teamHostSlugFromOrigin } from "@backend/configs/allowed_origins.config";
 import { db } from "@backend/db/db";
+import { INSTALL_PICTURES } from "@connected-repo/zod-schemas/install_pictures";
 import type {
 	TeamAppSelectAll,
 	TeamBrandingPublic,
@@ -65,6 +66,12 @@ export function buildTenantManifest(branding: TeamBrandingPublic) {
 		: [
 				{ src: "/android-chrome-192x192.png", sizes: "192x192", type: "image/png", purpose: "any" },
 				{ src: "/android-chrome-512x512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+				{
+					src: "/maskable-icon-512x512.png",
+					sizes: "512x512",
+					type: "image/png",
+					purpose: "maskable",
+				},
 				{ src: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
 			];
 
@@ -80,6 +87,9 @@ export function buildTenantManifest(branding: TeamBrandingPublic) {
 		background_color: branding.backgroundColor ?? DEFAULT_APP_BRAND.backgroundColor,
 		theme_color: branding.primaryColor ?? DEFAULT_APP_BRAND.themeColor,
 		icons,
+		// The same pictures as the shared app's manifest (vite.config.ts). Their
+		// `src` is absolute, so they resolve on the team's host too.
+		screenshots: INSTALL_PICTURES,
 	};
 }
 

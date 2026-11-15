@@ -4,6 +4,7 @@ import { Socket } from "node:net";
 import { db } from "@backend/db/db";
 import { buildTenantManifest } from "@backend/modules/teams/services/branding.teams.service";
 import { defaultContext } from "@backend/test/setup";
+import { INSTALL_PICTURES } from "@connected-repo/zod-schemas/install_pictures";
 import type { TeamBrandingPublic } from "@connected-repo/zod-schemas/team_app.zod";
 import { describe, expect, it } from "vitest";
 import { resolveSlugFromRequest, tenantHandler } from "./tenant.handler";
@@ -40,8 +41,22 @@ describe("buildTenantManifest", () => {
 		expect(manifest.icons.map((i) => i.src)).toEqual([
 			"/android-chrome-192x192.png",
 			"/android-chrome-512x512.png",
+			"/maskable-icon-512x512.png",
 			"/apple-touch-icon.png",
 		]);
+		expect(manifest.icons.find((i) => i.purpose === "maskable")?.src).toBe(
+			"/maskable-icon-512x512.png",
+		);
+	});
+
+	it("lists the install pictures with absolute paths, so they resolve on the team's host", () => {
+		const manifest = buildTenantManifest(branding());
+		expect(manifest.screenshots).toHaveLength(INSTALL_PICTURES.length);
+		for (const picture of manifest.screenshots) {
+			expect(picture.src.startsWith("/screenshots/install/")).toBe(true);
+		}
+		expect(manifest.screenshots.some((picture) => picture.form_factor === "narrow")).toBe(true);
+		expect(manifest.screenshots.some((picture) => picture.form_factor === "wide")).toBe(true);
 	});
 
 	it("uses the team's icon without a type", () => {
