@@ -15,6 +15,7 @@ import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { Card, CardContent } from "@connected-repo/ui-mui/layout/Card";
 import { Divider } from "@connected-repo/ui-mui/layout/Divider";
 import { Stack } from "@connected-repo/ui-mui/layout/Stack";
+import { openExternalUrl } from "@frontend/utils/safe_url.utils";
 import FilePresentIcon from "@mui/icons-material/FilePresent";
 import HideImageIcon from "@mui/icons-material/HideImage";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
@@ -353,7 +354,7 @@ export function JournalEntryDetailView({
 												opacity: 1,
 											},
 										}}
-										onClick={() => window.open(file.url, "_blank")}
+										onClick={() => openExternalUrl(file.url)}
 									>
 										<AttachmentPreview file={file} />
 										<Box

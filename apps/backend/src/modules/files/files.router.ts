@@ -8,6 +8,7 @@ import {
 	filePushCdnUpdatesInputZod,
 	filePushCdnUpdatesOutputZod,
 } from "@connected-repo/zod-schemas/files/sync";
+import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 import { pullFilesService, pushFilesCdnUpdatesService } from "./services/sync.files.service";
 
@@ -16,21 +17,27 @@ const create = rpcProtectedActiveTeamProcedure
 	.input(fileCreateInputZod)
 	.output(fileSelectAllZod)
 	.handler(async ({ input, context: { user, activeTeamId } }) => {
-		// Selective .merge() lets late-arriving cdnUrl/thumbnailCdnUrl land on an
-		// existing row without overwriting immutable fields (filename, owner).
-		//
-		// `teamId` is server-owned — pulled from `activeTeamId` on the auth
-		// context, NEVER from the client input, to prevent tenant-forgery.
-		const newFile = await db.files
+		// Insert-or-nothing. The old upsert (`ON CONFLICT (id) DO UPDATE`) had no
+		// tenant condition: a caller who knew any file id rewrote that row and
+		// read it back. URLs are set only by `pushCdnUpdates`. `teamId` is
+		// server-owned, from `activeTeamId`, never from the client input.
+		await db.files
 			.create({
 				...input,
 				teamId: activeTeamId,
 				createdByUserId: user.id,
 			})
-			.onConflict("id")
-			.merge(["cdnUrl", "thumbnailCdnUrl"]);
-
-		return newFile;
+			.onConflictDoNothing("id");
+		// The tenant scope hides another team's row; another member's row in
+		// this team is refused below.
+		const row = await db.files.findOptional(input.id);
+		if (!row || row.createdByUserId !== user.id) {
+			throw new ORPCError("CONFLICT", {
+				status: 409,
+				message: "A file with this id already exists.",
+			});
+		}
+		return row;
 	});
 
 const getByTableId = rpcProtectedActiveTeamProcedure

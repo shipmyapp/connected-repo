@@ -33,9 +33,16 @@ export const fileServerOwnedZod = z.object({
 	teamId: z.ulid().nullable(),
 });
 
+// A file row is created without URLs. They are filled once, after the upload,
+// through `files.pushCdnUpdates` (https, the app's own storage, only while
+// null). Every client sends null here; anything else is refused.
 export const fileCreateInputZod = fileMandatoryZod
 	.omit({ createdByUserId: true })
-	.extend(fileOptionalZod.partial().shape);
+	.extend(fileOptionalZod.omit({ cdnUrl: true, thumbnailCdnUrl: true }).partial().shape)
+	.extend({
+		cdnUrl: z.null().optional(),
+		thumbnailCdnUrl: z.null().optional(),
+	});
 export type FileCreateInput = z.infer<typeof fileCreateInputZod>;
 
 export const fileSelectAllZod = fileMandatoryZod
