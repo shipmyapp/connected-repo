@@ -76,7 +76,7 @@ export async function authLoader({ context }: LoaderFunctionArgs) {
 
 		// Timezone Detection and Auto-Update
 		try {
-			const detectedTimezone = await detectUserTimezone();
+			const detectedTimezone = detectUserTimezone();
 			if (detectedTimezone && detectedTimezone !== session.user.timezone) {
 				toast.info(`Timezone change detected. Updating timezone to match your current location.`, {
 					position: "top-center",

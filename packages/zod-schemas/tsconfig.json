@@ -2,10 +2,7 @@
 	"extends": "@connected-repo/typescript-config/library.json",
 	"compilerOptions": {
 		"outDir": "./dist",
-		"rootDir": "./src",
-		"paths": {
-			"@zod-schemas/*": ["./src/*"]
-		}
+		"rootDir": "./src"
 	},
 	"include": ["src/**/*.ts"],
 	"exclude": ["node_modules", "dist"]
