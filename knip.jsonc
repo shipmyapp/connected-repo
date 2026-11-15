@@ -24,9 +24,7 @@
 		// Client types of the super-admin RPC router, for a console that consumes it.
 		"apps/backend/src/routers/super_admin/super_admin.router.ts": ["types"],
 		// captureSentryMessage: Sentry helper for apps to report handled conditions.
-		"apps/frontend/src/instrumentation.ts": ["exports"],
-		// zTimezone is its own name for the time-zone contract, today an alias of zString.
-		"packages/zod-schemas/src/zod_utils.ts": ["duplicates"]
+		"apps/frontend/src/instrumentation.ts": ["exports"]
 	},
 	"rules": {
 		"exports": "error",

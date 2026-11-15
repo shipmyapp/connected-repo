@@ -1,9 +1,8 @@
 import { themeSettingZod } from "@connected-repo/zod-schemas/enums.zod";
-import { zTimezone } from "@connected-repo/zod-schemas/zod_utils";
+import { uniqueTimeArrayZod, zString, zTimezone } from "@connected-repo/zod-schemas/zod_utils";
 import { env } from "@frontend/configs/env.config";
 import { createAuthClient } from "better-auth/client";
 import { inferAdditionalFields } from "better-auth/client/plugins";
-import { uniqueTimeArrayZod } from "../../../../packages/zod-schemas/src/zod_utils";
 
 // Empty VITE_API_URL = same-origin reverse-proxy deploy. Fall back to the
 // current page origin so better-auth issues cookies against the visible domain.
@@ -22,7 +21,8 @@ export const authClient = createAuthClient({
 					type: "string",
 					validator: {
 						input: zTimezone,
-						output: zTimezone,
+						// Lenient on read: a stored zone must never fail a session fetch.
+						output: zString,
 					},
 				},
 				themeSetting: {

@@ -154,7 +154,19 @@ export const zLongitude = zString.regex(
 	/^(\+|-)?(?:180(?:(?:\.0{1,6})?)|(?:[0-9]|[1-9][0-9]|1[0-7][0-9])(?:(?:\.[0-9]{1,6})?))$/,
 );
 
-export const zTimezone = zString;
+/** True when `zone` is an IANA zone the runtime knows ("Asia/Tashkent"); abbreviations like "UZT" are not. */
+export const isIanaTimeZone = (zone: string): boolean => {
+	try {
+		new Intl.DateTimeFormat("en-US", { timeZone: zone });
+		return true;
+	} catch {
+		return false;
+	}
+};
+export const TIMEZONE_MESSAGE = 'Use an IANA time zone, e.g. "Asia/Tashkent"';
+
+/** An IANA time zone; anything `Intl` (and so dayjs) cannot use is refused at the door. */
+export const zTimezone = zString.max(64).refine(isIanaTimeZone, TIMEZONE_MESSAGE);
 
 export const uniqueTimeArrayZod = z
 	.array(z.iso.time({ precision: -1 }))

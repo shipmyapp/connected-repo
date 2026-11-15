@@ -4,7 +4,7 @@ import { db } from "@backend/db/db";
 import { CLIENT_IP_HEADER } from "@backend/utils/client-info.utils";
 import { logger } from "@backend/utils/logger.utils";
 import { themeSettingZod } from "@connected-repo/zod-schemas/enums.zod";
-import { uniqueTimeArrayZod, zTimezone } from "@connected-repo/zod-schemas/zod_utils";
+import { uniqueTimeArrayZod, zString, zTimezone } from "@connected-repo/zod-schemas/zod_utils";
 import { betterAuth } from "better-auth";
 import { createAuthMiddleware } from "better-auth/api";
 import { bearer } from "better-auth/plugins";
@@ -333,7 +333,8 @@ export const auth = betterAuth({
 				type: "string",
 				validator: {
 					input: zTimezone,
-					output: zTimezone,
+					// Lenient on read: a stored zone must never fail a session fetch.
+					output: zString,
 				},
 			},
 			themeSetting: {

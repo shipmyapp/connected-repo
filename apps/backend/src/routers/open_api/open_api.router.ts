@@ -38,7 +38,8 @@ const healthCheck = openApiPublicProcedure
 			// Test database connection by running a simple query
 			await db.$query`SELECT 1`;
 			const dbTimezoneResult = await db.$query`SELECT current_setting('timezone') as timezone`;
-			const dbTimezone = zTimezone.parse(dbTimezoneResult.rows[0]?.timezone);
+			// Whatever Postgres reports, verbatim: the health check must not fail on a POSIX zone string.
+			const dbTimezone = z.string().min(1).parse(dbTimezoneResult.rows[0]?.timezone);
 			if (!dbTimezone) {
 				throw new Error("Failed to retrieve database timezone");
 			}
