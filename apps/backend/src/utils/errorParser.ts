@@ -1,3 +1,4 @@
+import { isProd } from "@backend/configs/env.config";
 import { captureBackendException } from "@backend/utils/backend-error-tracking.utils";
 import { logger } from "@backend/utils/logger.utils";
 import { ORPCError } from "@orpc/server";
@@ -92,6 +93,18 @@ function snakeToCamel(s: string): string {
 
 const msgPrefix = (m = "", n = 80) => m.slice(0, n);
 
+/**
+ * What an uncaught error adds to the 500's message. Outside production the
+ * error's own text, so a toast says what broke. In production nothing: an
+ * unexpected message can name hosts, buckets, paths or input, and the
+ * response reaches anyone who can call a public procedure. The caller
+ * quotes the `x-trace-id` response header instead; Sentry and the log keep
+ * the whole error. A Postgres error never: its text can quote SQL and row
+ * values.
+ */
+const uncaughtDetail = (message: string, isPgError: boolean): string =>
+	isPgError || isProd ? "" : msgPrefix(message, 300);
+
 interface OrpcValidationCarrier {
 	message?: string;
 	issues: Array<{ path?: Array<string | number>; message?: string }>;
@@ -121,6 +134,13 @@ function extractZodError(error: unknown): ZodError | null {
 	return null;
 }
 
+/** The first thing wrong, said plainly ("timezone: Use an IANA time zone…"), so a toast tells the user what to fix. */
+const validationMessage = (fieldErrors: Record<string, string[]>, formErrors: string[]): string => {
+	const [field, messages] = Object.entries(fieldErrors)[0] ?? [];
+	if (field && messages?.[0]) return `${field}: ${messages[0]}`;
+	return formErrors[0] ?? "Validation failed";
+};
+
 function orpcErrorParser(error: Error, ctx: { handler?: string } = {}): DomainError {
 	const handler = ctx.handler ?? "unknown";
 
@@ -141,7 +161,7 @@ function orpcErrorParser(error: Error, ctx: { handler?: string } = {}): DomainEr
 		return {
 			code: "VALIDATION_ERROR",
 			httpStatus: 400,
-			message: "Validation failed",
+			message: validationMessage(fieldErrors, formErrors),
 			userFriendlyMessage: "Please check the provided data and try again",
 			actionRequired: "Fix validation errors and resubmit",
 			details: { fieldErrors, formErrors },
@@ -172,7 +192,7 @@ function orpcErrorParser(error: Error, ctx: { handler?: string } = {}): DomainEr
 			return {
 				code: "VALIDATION_ERROR",
 				httpStatus: 400,
-				message: "Validation failed",
+				message: validationMessage(fieldErrors, formErrors),
 				userFriendlyMessage: "Please check the provided data and try again",
 				actionRequired: "Fix validation errors and resubmit",
 				details: { fieldErrors, formErrors },
@@ -266,7 +286,11 @@ function orpcErrorParser(error: Error, ctx: { handler?: string } = {}): DomainEr
 			PRECONDITION_FAILED: 412,
 			TOO_MANY_REQUESTS: 429,
 		};
-		const status = statusByCode[error.code] ?? 500;
+		// A code not listed keeps the status oRPC gave it when that is a refusal
+		// (CSRF_TOKEN_MISMATCH is a 403), so a refused request never reads as a
+		// server fault.
+		const status =
+			statusByCode[error.code] ?? (error.status >= 400 && error.status < 500 ? error.status : 500);
 		return {
 			code: error.code,
 			httpStatus: status,
@@ -276,11 +300,13 @@ function orpcErrorParser(error: Error, ctx: { handler?: string } = {}): DomainEr
 		};
 	}
 
-	// Fallthrough: uncaught throws. The literal message is a stable identity for grouping.
+	// Fallthrough: uncaught throws. The fingerprint keeps the stable identity for grouping;
+	// outside production the message also says what broke (uncaughtDetail).
+	const detail = uncaughtDetail(error.message, Boolean(pg.code));
 	return {
 		code: "INTERNAL_SERVER_ERROR",
 		httpStatus: 500,
-		message: "An unexpected error occurred",
+		message: detail ? `An unexpected error occurred: ${detail}` : "An unexpected error occurred",
 		userFriendlyMessage: "Something went wrong on our end",
 		fingerprint: ["uncaught", handler, msgPrefix(error.message, 80)],
 	};
@@ -309,10 +335,19 @@ export function handleBoundaryError(error: unknown, handler: string) {
 	const context = pg ? { pg } : undefined;
 
 	captureBackendException(err, { domain, tags: { handler }, context });
-	logger.error(
-		{ err: cause, code: domain.code, fingerprint: domain.fingerprint },
-		"boundary error",
-	);
+	// A refusal (4xx: a validation error, a stale CSRF token, a 403) is expected,
+	// not an error to chase.
+	if (domain.httpStatus < 500) {
+		logger.warn(
+			{ code: domain.code, status: domain.httpStatus, message: domain.message },
+			"request refused",
+		);
+	} else {
+		logger.error(
+			{ err: cause, code: domain.code, fingerprint: domain.fingerprint },
+			"boundary error",
+		);
+	}
 
 	// Map HTTP status to a standard ORPC error code to satisfy type safety,
 	// while carrying the specific domain code in the response `data` payload.

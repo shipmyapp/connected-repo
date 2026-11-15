@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { isProd } from "@backend/configs/env.config";
 import { auth } from "@backend/modules/auth/auth.config";
 import { captureBackendException } from "@backend/utils/backend-error-tracking.utils";
 import { handleBetterAuthCors } from "@backend/utils/cors.utils";
@@ -34,7 +35,13 @@ export const betterAuthHandler = {
 				res.end(
 					JSON.stringify({
 						error: "Internal Auth Error",
-						message: err instanceof Error ? err.message : String(err),
+						// The thrown text can name internals; production keeps it in
+						// Sentry and the log (both above) and the client quotes x-trace-id.
+						message: isProd
+							? "Sign-in failed. Please try again."
+							: err instanceof Error
+								? err.message
+								: String(err),
 					}),
 				);
 			}
