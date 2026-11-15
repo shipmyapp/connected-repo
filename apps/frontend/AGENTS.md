@@ -105,6 +105,10 @@ Each trigger calls `sync.processQueue()` on the DataWorker, which is idempotent
 - Signed out and online, `authLoader` and the sign-in page ask `account.localDataErasure` whether an account that used this device was deleted, and wipe if so.
 - Profile cards above "Sign out": `SessionsCard` ("Where you're signed in") and `AccountDataCard` (download, delete) in `components/account/`; leave/delete team on the Teams card rows (`TeamRowActions`). A `REAUTH_REQUIRED` refusal opens `ReauthDialog`, which signs in again and returns to `/profile?resume=…`.
 
+### Env and the production image
+- A new `VITE_*` key goes in: the env schema (`utils/env_validator.zod.utils.ts`), `.env.example`, `apps/frontend/Dockerfile` (`ARG` + `ENV`), `docker-compose.prod.yml` build args, `deploy/dokploy/frontend.build-args` and both `deploy/*.env.example`. `yarn check:deploy` fails on a missing one. It is public: it ends up in the bundle.
+- nginx (`nginx.conf.template`, `nginx.security-headers.inc.template`) sends a report-only CSP: a new third-party origin goes in its `connect-src` (or a deployment's `CSP_CONNECT_EXTRA`). A location with its own `add_header` must include `security-headers.inc` again. Every proxied location sends `X-Forwarded-For $remote_addr`, never `$proxy_add_x_forwarded_for` (root ADR-053).
+
 ### UI Standards
 - **Design**: Tasteful, smooth (200-300ms transitions), responsive.
 - **Imports**: Direct imports only (NO barrel exports).

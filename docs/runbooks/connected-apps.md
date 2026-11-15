@@ -17,9 +17,11 @@ The MCP origin is `MCP_PUBLIC_URL` when set, else the API origin (`VITE_API_URL`
 
 ### Own host (optional)
 
-1. DNS `mcp.example.com` → the server.
-2. Route that host straight to the **backend** container (port 3000), keeping the `Host` header (the backend tells the MCP host apart by it).
-3. Set `MCP_PUBLIC_URL=https://mcp.example.com` on the backend; redeploy backend and frontend.
+Use `mcp.<root>` (`<root>` is `TENANT_ROOT_DOMAIN`; `mcp` is a reserved team slug), so the team-host route and wildcard certificate already cover it (`deploy/README.md`).
+
+1. DNS: `*.<root>` already points at the server; nothing to add.
+2. The frontend nginx passes every request for that host to the backend, keeping the `Host` header (the backend tells the MCP host apart by it). It learns the host from `MCP_PUBLIC_URL` in its own runtime environment.
+3. Set `MCP_PUBLIC_URL=https://mcp.example.com` for the backend and the frontend (one shared value in both deploy modes); restart both.
 4. Check: `curl -s https://mcp.example.com/.well-known/oauth-protected-resource/mcp` names `https://mcp.example.com/mcp`; `curl -s -o /dev/null -w '%{http_code}\n' -X POST https://mcp.example.com/mcp` prints `401`.
 
 Nothing else goes in the environment: the issuer comes from `VITE_API_URL`, the consent page from `WEBAPP_URL`, signatures from `BETTER_AUTH_SECRET`. `ALLOWED_ORIGINS` must contain the origin of `VITE_API_URL` (the sign-in resumes at the authorize URL).

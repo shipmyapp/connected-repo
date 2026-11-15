@@ -33,3 +33,4 @@
 
 ## 4. Commands
 - `yarn workspace @connected-repo/superadmin dev | build | check-types | lint`
+- Production image: `apps/superadmin/Dockerfile` (shared install stages, root ADR-051); its nginx proxies only `/api/auth/` and `/api/super-admin/` and answers 404 for the rest of `/api/`. A console call to another backend path needs a location there too.

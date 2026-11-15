@@ -74,10 +74,11 @@ native tooling).
 
 ### Option A — One command with Docker Compose (recommended for first run)
 
-Boots postgres, backend (hot reload), frontend (hot reload), and an nginx
-sidecar that mirrors the prod reverse-proxy layout (`/api/*` → backend,
-`/` → SPA). First boot builds the shared packages, auto-creates the database,
-runs migrations, and seeds.
+Boots postgres, redis, backend (hot reload), frontend (hot reload), the
+superadmin console (hot reload, http://localhost:5175) and an nginx sidecar
+that mirrors the prod reverse-proxy layout (`/api/*`, `/mcp` → backend, `/` →
+SPA). First boot builds the shared packages, auto-creates the database, runs
+migrations, and seeds.
 
 **Prerequisites:** Docker + Docker Compose v2.
 
@@ -86,6 +87,7 @@ git clone git@github.com:shipmyapp/connected-repo.git
 cd connected-repo
 cp apps/backend/.env.example apps/backend/.env
 cp apps/frontend/.env.example apps/frontend/.env
+cp apps/superadmin/.env.example apps/superadmin/.env
 docker compose -f docker-compose.dev.yml up
 ```
 
@@ -95,13 +97,14 @@ Open http://localhost:8080 — same-origin routing exactly like prod. See
 
 ### Option B — Host-mode dev
 
-**Prerequisites:** Node.js 22+, Yarn 1.22.22, PostgreSQL and Redis running locally.
+**Prerequisites:** Node.js 22+, Yarn 1.22.22, PostgreSQL and Redis running locally (or `docker compose -f docker-compose.dev.yml up postgres redis`).
 
 ```bash
 git clone git@github.com:shipmyapp/connected-repo.git
 cd connected-repo
 cp apps/backend/.env.example apps/backend/.env
 cp apps/frontend/.env.example apps/frontend/.env
+cp apps/superadmin/.env.example apps/superadmin/.env
 # Point apps/backend/.env at your local postgres, then:
 yarn install
 yarn build
@@ -325,6 +328,10 @@ Shared Zod schemas in `packages/zod-schemas/`:
 - Entity schemas: `<entity>CreateInputZod`, `<entity>UpdateInputZod`, `<entity>SelectAllZod`
 - Direct TypeScript imports from backend to frontend
 - No code generation required
+
+## Deployment
+
+Production and staging run on Dokploy, either as one **Compose** app (`docker-compose.prod.yml`) or as one **Application** per service built from its own Dockerfile (`deploy/dokploy/`). All three images share one dependency install on the build server. Setup, environment files, the wildcard certificate for team hosts, updates and rollback: [`deploy/README.md`](deploy/README.md). Before launch: [`docs/runbooks/launch-checklist.md`](docs/runbooks/launch-checklist.md).
 
 ## Documentation
 

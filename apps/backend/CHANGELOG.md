@@ -7,6 +7,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Sentry release per deploy: `<OTEL_SERVICE_NAME>@<short commit>` from the image's `.build-sha` (`SENTRY_RELEASE` still overrides).
+- `GET /robots.txt` answers disallow-all.
+
 - `account.*` on the user-app router: `deletionBlockers`, `requestDeletion`, `cancelDeletion`, `exportData`, `listSessions`, `revokeSession`, `revokeOtherSessions`, `acceptLegal`, and the public `localDataErasure` / `ackLocalDataErasure` (device cookie only).
 - The daily `purge_deleted_accounts` cron (`purgeAccount`), the `storage_object_deletions` bucket queue (`DeleteObjects` in batches of 1 000) and `erased_device_keys` (migration `0016_account_lifecycle`).
 - `teams.leaveTeam`; console procedures `cancelAccountDeletion` and `purgeAccountNow` (audited); `deletionRequestedAt` in `listUsers`.
@@ -48,6 +51,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The active-team gate accepts the team whose own host sent the request, without moving the user's active team.
 
 ### Changed
+
+- `LOG_PRETTY`, `GOOGLE_APPLICATION_CREDENTIALS`, `GRACEFUL_SHUTDOWN_TIMEOUT` and `AGENT_TASK_TIMEOUT` are read through the env schema, not `process.env`.
+- `.env.example` lists every schema key and passes the schema as committed (the Docker build boots on it).
 
 - `rpcProtectedProcedure` refuses an account scheduled for deletion (`403 ACCOUNT_DELETION_PENDING`); `rpcSessionProcedure` is the session-only layer. `rpcSensitiveProcedure` requires a session row under 10 minutes old (`403 REAUTH_REQUIRED`).
 - `teams.deleteTeam` takes `{ teamId }`, works on any team the caller owns, soft-deletes every membership and moves members off it; `addTeamMember` refuses a personal team; an account scheduled for deletion claims no invitation.
@@ -94,11 +100,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Removed
 
+- `SESSION_SECRET`, `INTERNAL_API_SECRET` and `DB_SCHEMA` from the env schema (never read).
+
 - `@novu/framework` (and `zod-to-json-schema`, which only it used), the `/api/novu` bridge (`novu.handler.ts`), `yarn novu:sync`, `scripts/deploy_novu_sync.sh` and the `npx novu@latest sync` spawned at every boot.
 
 - The Better Auth phone-number plugin (phone-code sign-in and its routes).
 
 ### Fixed
+
+- The runtime image copies the backend's unhoisted dependencies (`apps/backend/node_modules`).
 
 - A journal entry deleted outside a team request took the tenant scope with it and threw; its attachments are now found by the entry ids alone.
 - Graceful shutdown stops the silent-sync cron.

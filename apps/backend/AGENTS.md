@@ -112,6 +112,11 @@ export const create = rpcProtectedProcedure
 - `teams.addTeamMember` always creates a **pending** invitation (`userId` and `joinedAt` null) and, for an email, queues the same `team-invitation` email whatever the address is (at most 5 a day per address). Nothing on this path looks the person up; who may be added is checked when the invitation is created or claimed, never by reading the invitee here.
 - Nothing but the app under `TENANT_ROOT_DOMAIN`: `S3_PUBLIC_URL` under it fails the env check; `updateTeam` accepts pictures only from the app's own storage; `assignTeamSlug` is the only writer of `teams_app.slug` and writes an operator audit row.
 
+### Environment and image
+- The Docker build boots the runtime image against `.env.example`. A new required variable needs a schema-valid placeholder there, or the image build fails. Read env only through `configs/env.config.ts` (never `process.env` elsewhere); a new key also goes in `.env.example`, `.env.test` when tests need it, `deploy/dokploy/backend.env` and both `deploy/*.env.example`. `yarn check:deploy` fails on a missing one.
+- `OTEL_SERVICE_NAME` is the pg-tbus queue name: never change it on a live environment.
+- A new workspace package the backend imports needs its `dist` copied into the runtime stage of `apps/backend/Dockerfile`; the smoke test fails without it. Packages Yarn cannot hoist land in `apps/backend/node_modules`, which the runtime stage copies too.
+
 ### Testing
 - **Vitest**: Test all CRUD operations. Use `createTestUserAndSession` for auth context.
 - `createUserAndLogin()` returns a verified account (as Google/Apple sign-ins are); pass `{ verified: false }` for an unproved address. `src/test/utils/team.utils.ts` builds shared teams and members (`createSharedTeam`, `addMember`, `onTeam`).

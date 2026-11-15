@@ -7,6 +7,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `public/robots.txt`.
+- `nginx.security-headers.inc.template`: security headers and a report-only CSP (`CSP_ENFORCE`, `CSP_CONNECT_EXTRA`, reports to Sentry); the nginx image also passes the application MCP's own host to the backend.
+
 - Profile: "Where you're signed in", "Your data and account" (download my data, delete my account, with the teams to leave first and a fresh sign-in when needed), and Leave / Delete on each team row.
 - `/account/deletion-pending` (Keep my account) and `/legal/accept` (agree once per `LEGAL_VERSION` when `VITE_TERMS_URL` and `VITE_PRIVACY_URL` are set); Terms and Privacy links on the sign-in page and the profile.
 - `wipeAllLocalData()`: deleting the account removes every local database, the stored files and the offline sign-in on this device; a device of a deleted account erases its copy the next time it opens online.
@@ -30,6 +33,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - A notification tap opens its screen in the window already open, without a reload.
 
 ### Changed
+
+- `.env.example` lists every key the app reads; its `VITE_OTEL_SERVICE_NAME` is `connected-repo-frontend` and its Sentry DSN is blank.
+- The image is built on the shared install stages; blank build args are unset before Vite runs.
 
 - A 401 from the server clears the offline sign-in, so a session ended elsewhere no longer opens offline.
 - Team settings offer "Add Member" only for a shared team.
@@ -65,6 +71,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - A stray `@ts-ignore` in the PDF thumbnailer.
 
 ### Security
+
+- nginx (production and the dev sidecar) trusts `X-Forwarded-For` only from private ranges and sends the backend one address.
 
 - Attachments open only http(s) URLs, in a new tab without opener.
 

@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- `docker-compose.prod.yml` for a Dokploy Compose deploy (production and staging from `deploy/prod.env.example` / `deploy/staging.env.example`, Traefik labels, a DNS-challenge wildcard certificate for team hosts, bundled Postgres and Redis behind profiles), and `deploy/dokploy/` for one Dokploy Application per Dockerfile (Swarm start-first); runbook `deploy/README.md`.
+- One shared dependency install for all three images (`manifests`/`deps` stages, BuildKit cache `yarn-monorepo`); the superadmin console has its own nginx image.
+- `yarn check:deploy`: the env schemas, example env files, build args, compose and deploy files agree, and the shared install stages are identical. CI runs it, validates the compose files, and builds and runs the three images (`scripts/check-images.sh`).
+- Security headers on both nginx images; a report-only Content-Security-Policy on the app (`CSP_ENFORCE=true` enforces it), reported to Sentry.
+- The superadmin console and a persistent Redis in the dev stack; `docs/runbooks/sentry.md` and `docs/runbooks/launch-checklist.md`.
+
 - Delete my account from the profile: after leaving or deleting your teams, a 30-day grace period during which you can keep the account; then everything is deleted, including uploaded files, and your other devices erase their offline copy.
 - Download my data: one JSON file of your own data from the profile.
 - "Where you're signed in": see your sessions and sign out of any other device, or all of them.
@@ -38,6 +44,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `packages/zod-schemas` runs its own tests (`test:run`): the device, install-try and ask rules.
 
 ### Changed
+- The backend image smoke-tests its runtime stage against `apps/backend/.env.example`, which therefore passes the schema as committed.
+- Docker builds upload source maps again (`turbo.json` passes `SENTRY_UPLOAD_SOURCEMAPS` through).
+- The application MCP's own host (`MCP_PUBLIC_URL`) is `mcp.<root>`, routed by the team-host wildcard to the frontend nginx, which passes it to the backend; `mcp` is a reserved team slug.
+
 - Sensitive actions ask you to sign in again when your session is older than 10 minutes.
 - A personal team no longer accepts members.
 - When the server ends a session, the device no longer opens offline with the old account.
@@ -60,10 +70,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `turbo run test:run` builds dependencies first.
 
 ### Removed
+- `docker-compose.yml` (Postgres and Redis only): `docker compose -f docker-compose.dev.yml up postgres redis` does the same.
+- Unread env vars: `SESSION_SECRET`, `INTERNAL_API_SECRET`, `DB_SCHEMA`, `CRON_JOB_*`, `SUPRSEND_*`, `DOCKER_STOP_TIMEOUT`, the backend's `VITE_SENTRY_DSN`, the misnamed `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` and the frontend image's `VITE_SENTRY_RELEASE` build arg (the build sets it from the commit).
+
 - Unused dependencies: `dayjs` and `@types/node-cron` (backend), `axios`, `mp4box` and `zustand` (frontend), `@types/react-dom` (ui-mui).
 - Unused helpers reported by knip: the pg-tbus task query module, the dayjs time-zone helper, `isSystemContext`.
 
 ### Fixed
+- The backend image now ships the dependencies Yarn could not hoist (`apps/backend/node_modules`, e.g. `@better-auth/oauth-provider`); the server failed to start without them.
+- The dev stack mounts Postgres 18's data volume where that image expects it (`/var/lib/postgresql`).
+
 - Deleting a team now removes every member's access (members' devices drop it at their next sync) instead of leaving the deleted team usable.
 - Deleting an account no longer deletes the shared teams it created.
 - Shutdown now stops the silent-sync timer.
@@ -73,6 +89,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - A top-level crash rendered a fallback that itself threw (`useRouteError()` outside the router).
 
 ### Security
+- nginx no longer trusts a client's `X-Forwarded-For`: only the proxy in front (private ranges) is trusted, and the backend receives exactly one address, in every proxied location and in the dev sidecar. Per-address limits and the API key address allowlist can no longer be dodged with a forged header. `TRUSTED_PROXY_COUNT=1` in both deploy modes and the dev compose stack.
+- `/robots.txt` on the API host disallows everything; the app's `robots.txt` keeps crawlers off `/api/`, `/mcp`, the OAuth documents and the sign-in and consent pages.
+
 - Connected apps may register only `https:` or loopback `http:` (with a port) redirect URIs, without fragment or userinfo, by registration and by metadata document; the consent page navigates only to its own request's redirect URI.
 - Metadata-document fetches are limited per IP and in total, registrations in total per day, and the number of registered apps is capped; apps nobody connected are removed after a week.
 - Each `/mcp` call checks that the resource served is one the tokens were issued for.
