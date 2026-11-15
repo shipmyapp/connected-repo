@@ -1,5 +1,6 @@
 import { isDev, isProd, isStaging } from "@backend/configs/env.config";
 import { userAppRouter } from "@backend/routers/user_app/user_app.router";
+import { APP_BODY_LIMIT_BYTES } from "@backend/utils/body_limit.utils";
 import { TRACE_HEADERS_ALLOW, TRACE_HEADERS_EXPOSE } from "@backend/utils/cors.utils";
 import { handleBoundaryError } from "@backend/utils/errorParser";
 import { logger } from "@backend/utils/logger.utils";
@@ -7,6 +8,7 @@ import { trace } from "@opentelemetry/api";
 import { LoggingHandlerPlugin } from "@orpc/experimental-pino";
 import { OpenAPIHandler } from "@orpc/openapi/node";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
+import { BodyLimitPlugin } from "@orpc/server/node";
 import {
 	CORSPlugin,
 	RequestHeadersPlugin,
@@ -20,6 +22,7 @@ import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 // stays identical until the apps need to diverge.
 export const mobileAppHandler = new OpenAPIHandler(userAppRouter, {
 	plugins: [
+		new BodyLimitPlugin({ maxBodySize: APP_BODY_LIMIT_BYTES }),
 		new CORSPlugin({
 			origin: "*",
 			allowMethods: ["GET", "POST", "OPTIONS"],

@@ -1,12 +1,13 @@
 import { allowedOrigins } from "@backend/configs/allowed_origins.config";
 import { isDev, isProd, isStaging } from "@backend/configs/env.config";
 import { userAppRouter } from "@backend/routers/user_app/user_app.router";
+import { APP_BODY_LIMIT_BYTES } from "@backend/utils/body_limit.utils";
 import { TRACE_HEADERS_ALLOW, TRACE_HEADERS_EXPOSE } from "@backend/utils/cors.utils";
 import { handleBoundaryError } from "@backend/utils/errorParser";
 import { logger } from "@backend/utils/logger.utils";
 import { trace } from "@opentelemetry/api";
 import { LoggingHandlerPlugin } from "@orpc/experimental-pino";
-import { RPCHandler } from "@orpc/server/node";
+import { BodyLimitPlugin, RPCHandler } from "@orpc/server/node";
 import {
 	CORSPlugin,
 	RequestHeadersPlugin,
@@ -17,6 +18,7 @@ import {
 
 export const reactAppHandler = new RPCHandler(userAppRouter, {
 	plugins: [
+		new BodyLimitPlugin({ maxBodySize: APP_BODY_LIMIT_BYTES }),
 		new RequestHeadersPlugin(),
 		new ResponseHeadersPlugin(),
 		new CORSPlugin({

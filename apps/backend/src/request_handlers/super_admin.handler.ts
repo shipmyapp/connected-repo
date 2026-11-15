@@ -1,6 +1,7 @@
 import { allowedOrigins } from "@backend/configs/allowed_origins.config";
 import { isDev } from "@backend/configs/env.config";
 import { superAdminRouter } from "@backend/routers/super_admin/super_admin.router";
+import { DEFAULT_BODY_LIMIT_BYTES } from "@backend/utils/body_limit.utils";
 import { TRACE_HEADERS_ALLOW, TRACE_HEADERS_EXPOSE } from "@backend/utils/cors.utils";
 import { handleBoundaryError } from "@backend/utils/errorParser";
 import { logger } from "@backend/utils/logger.utils";
@@ -8,6 +9,7 @@ import { trace } from "@opentelemetry/api";
 import { LoggingHandlerPlugin } from "@orpc/experimental-pino";
 import { OpenAPIHandler } from "@orpc/openapi/node";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
+import { BodyLimitPlugin } from "@orpc/server/node";
 import { CORSPlugin, RequestHeadersPlugin } from "@orpc/server/plugins";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 
@@ -16,6 +18,7 @@ import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 // layer — see `procedures/super_admin.procedure.ts`.
 export const superAdminHandler = new OpenAPIHandler(superAdminRouter, {
 	plugins: [
+		new BodyLimitPlugin({ maxBodySize: DEFAULT_BODY_LIMIT_BYTES }),
 		new CORSPlugin({
 			origin: [...allowedOrigins],
 			allowMethods: ["GET", "POST", "OPTIONS"],

@@ -5,6 +5,7 @@ import { openApiHandler } from "@backend/request_handlers/open_api.handler";
 import { superAdminHandler } from "@backend/request_handlers/super_admin.handler";
 import { reactAppHandler } from "@backend/request_handlers/user_app.handler";
 import { captureBackendException } from "@backend/utils/backend-error-tracking.utils";
+import { declaresTooLargeBody } from "@backend/utils/body_limit.utils";
 import { stampClientIp } from "@backend/utils/client-info.utils";
 import {
 	decrementActiveRequests,
@@ -52,6 +53,18 @@ export async function mainRequestDispatcher(req: NodeHttpRequest, res: NodeHttpR
 				timestamp: health.timestamp,
 			}),
 		);
+		decrementActiveRequests();
+		return;
+	}
+
+	// 2b. A declared body larger than the route accepts is refused before any
+	// handler reads it. Streamed bodies are cut by each oRPC handler's
+	// BodyLimitPlugin.
+	if (declaresTooLargeBody(req.headers, requestUrl)) {
+		res.statusCode = 413;
+		res.setHeader("Content-Type", "application/json");
+		res.setHeader("Connection", "close");
+		res.end(JSON.stringify({ error: "Payload Too Large" }));
 		decrementActiveRequests();
 		return;
 	}

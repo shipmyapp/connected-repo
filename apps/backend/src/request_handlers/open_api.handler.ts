@@ -1,5 +1,6 @@
 import { isProd } from "@backend/configs/env.config";
 import { openApiRouter } from "@backend/routers/open_api/open_api.router";
+import { DEFAULT_BODY_LIMIT_BYTES } from "@backend/utils/body_limit.utils";
 import { TRACE_HEADERS_ALLOW, TRACE_HEADERS_EXPOSE } from "@backend/utils/cors.utils";
 import { handleBoundaryError } from "@backend/utils/errorParser";
 import { logger } from "@backend/utils/logger.utils";
@@ -7,11 +8,13 @@ import { trace } from "@opentelemetry/api";
 import { LoggingHandlerPlugin } from "@orpc/experimental-pino";
 import { OpenAPIHandler } from "@orpc/openapi/node";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
+import { BodyLimitPlugin } from "@orpc/server/node";
 import { CORSPlugin, RequestHeadersPlugin } from "@orpc/server/plugins";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 
 export const openApiHandler = new OpenAPIHandler(openApiRouter, {
 	plugins: [
+		new BodyLimitPlugin({ maxBodySize: DEFAULT_BODY_LIMIT_BYTES }),
 		new CORSPlugin({
 			origin: "*",
 			allowMethods: ["GET", "POST", "OPTIONS"],
