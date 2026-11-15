@@ -66,6 +66,7 @@
 		"clean": "rm -rf node_modules && rm -rf dist",
 		"db": "tsx src/db/db_script.ts",
 		"gen:openapi": "tsx src/scripts/generate_openapi.ts",
+		"check:openapi": "cross-env NODE_ENV=test tsx src/scripts/generate_openapi.ts && git diff --exit-code -- openapi_pretty.json",
 		"novu:sync": "tsx src/scripts/sync_novu_workflows.ts",
 		"dev": "tsx watch --clear-screen=false src/server.ts",
 		"dev:inspect": "tsx watch --inspect src/server.ts",

@@ -42,9 +42,12 @@ async function generateOpenApi() {
 		],
 	});
 
-	await writeFile("openapi_pretty.json", JSON.stringify(spec, null, 2));
+	await writeFile("openapi_pretty.json", `${JSON.stringify(spec, null, 2)}\n`);
 
 	console.log("Generated openapi_pretty.json");
+	// The router's imports open a database pool and a Redis client; nothing
+	// here needs them, so do not wait for them to close.
+	process.exit(0);
 }
 
 generateOpenApi().catch((error) => {

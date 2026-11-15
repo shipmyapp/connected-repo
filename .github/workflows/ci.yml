@@ -90,6 +90,12 @@ jobs:
       - name: Run tests
         run: yarn test:run
 
+      # The mobile app's OpenAPI document must match the user-app router.
+      # A change to a user-app procedure regenerates it:
+      # `NODE_ENV=test yarn workspace @connected-repo/backend gen:openapi`.
+      - name: OpenAPI document is current
+        run: yarn workspace @connected-repo/backend check:openapi
+
   e2e:
     name: E2E (Playwright)
     runs-on: ubuntu-24.04
