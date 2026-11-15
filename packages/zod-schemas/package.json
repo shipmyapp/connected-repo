@@ -8,6 +8,7 @@
 		"@connected-repo/typescript-config": "*",
 		"tsc-alias": "^1.8.16",
 		"typescript": "^5.9.3",
+		"vitest": "^4.0.18",
 		"zod": "^4.3.6"
 	},
 	"exports": {
@@ -31,6 +32,8 @@
 		"dev": "concurrently --kill-others \"tsc -w\" \"tsc-alias -w\"",
 		"format": "biome format . --write",
 		"lint": "biome check .",
+		"test": "vitest",
+		"test:run": "vitest run",
 		"typecheck": "tsc --noEmit"
 	},
 	"sideEffects": false,

@@ -61,7 +61,7 @@
 			"project": ["src/**/*.{ts,tsx}"]
 		},
 		"packages/zod-schemas": {
-			"entry": ["src/**/*.ts"],
+			"entry": ["src/**/*.ts", "vitest.config.ts"],
 			"project": ["src/**/*.ts"]
 		}
 	}
