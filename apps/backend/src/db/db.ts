@@ -10,6 +10,7 @@ import { PushDeviceTable } from "@backend/modules/notifications/tables/push_devi
 import { PromptsTable } from "@backend/modules/prompts/tables/prompts.table";
 import { SubscriptionsTable } from "@backend/modules/subscriptions/tables/subscriptions.table";
 import { FeatureFlagTable } from "@backend/modules/system/tables/feature_flags.table";
+import { OperatorAuditLogTable } from "@backend/modules/system/tables/operator_audit_log.table";
 import { RateLimitTable } from "@backend/modules/system/tables/rate_limits.table";
 import { TeamMemberTable } from "@backend/modules/teams/tables/team_members.table";
 import { TeamApiTable } from "@backend/modules/teams/tables/teams_api.table";
@@ -41,6 +42,7 @@ export const db = orchidORM(
 		verifications: VerificationTable,
 		pgTbusTaskLogs: PgTbusTaskLogTable,
 		featureFlags: FeatureFlagTable,
+		operatorAuditLog: OperatorAuditLogTable,
 		// Unused since rate limits moved to Redis; dropped in a later release.
 		rateLimits: RateLimitTable,
 		pushDevices: PushDeviceTable,

@@ -1,8 +1,22 @@
+import { db } from "@backend/db/db";
 import {
 	deleteFeatureFlag,
 	listFeatureFlags,
 	setFeatureFlag,
 } from "@backend/modules/system/services/feature_flags.service";
+import {
+	listOperatorAudit,
+	withOperatorAudit,
+} from "@backend/modules/system/services/operator_audit.service";
+import {
+	getTeamForAdmin,
+	listTeamsForAdmin,
+} from "@backend/modules/teams/services/admin_teams.service";
+import {
+	countLiveSessionsForAdmin,
+	listUsersForAdmin,
+	revokeAllSessionsForAdmin,
+} from "@backend/modules/users/services/admin_users.service";
 import { rpcSuperAdminProcedure } from "@backend/procedures/super_admin.procedure";
 import {
 	featureFlagDeleteInputZod,
@@ -10,13 +24,29 @@ import {
 	featureFlagSelectAllZod,
 	featureFlagSetInputZod,
 } from "@connected-repo/zod-schemas/feature_flag.zod";
-import type { InferRouterInputs, InferRouterOutputs, RouterClient } from "@orpc/server";
+import {
+	superAdminAuditListInputZod,
+	superAdminAuditListOutputZod,
+	superAdminListInputZod,
+	superAdminRevokeSessionsInputZod,
+	superAdminTeamDetailZod,
+	superAdminTeamListOutputZod,
+	superAdminUserListOutputZod,
+} from "@connected-repo/zod-schemas/super_admin.zod";
+import {
+	type InferRouterInputs,
+	type InferRouterOutputs,
+	ORPCError,
+	type RouterClient,
+} from "@orpc/server";
 import { z } from "zod";
 
 /**
- * Super-admin router. Add admin-only endpoints here. The procedure gate is
- * configured via `SUPER_ADMIN_EMAILS` / `SUPER_ADMIN_PHONE_NUMBERS` env vars
- * — see `procedures/super_admin.procedure.ts`.
+ * Super-admin router — served to the console (`apps/superadmin`) over oRPC
+ * at `/api/super-admin` (request_handlers/super_admin_rpc.handler.ts) and
+ * documented as OpenAPI at `/super-admin/`. Every procedure goes through
+ * `rpcSuperAdminProcedure`: 401 signed out, 403 off the allowlist
+ * (`SUPER_ADMIN_EMAILS` / `SUPER_ADMIN_PHONE_NUMBERS`), 30 calls a minute.
  */
 
 const ping = rpcSuperAdminProcedure
@@ -27,14 +57,58 @@ const ping = rpcSuperAdminProcedure
 			user: z.object({
 				id: z.string(),
 				email: z.string().nullable(),
+				name: z.string(),
 			}),
 		}),
 	)
 	.handler(({ context: { user } }) => {
 		return {
 			ok: true as const,
-			user: { id: user.id, email: user.email ?? null },
+			user: { id: user.id, email: user.email ?? null, name: user.name },
 		};
+	});
+
+// ─── Teams and users ────────────────────────────────────────────────────
+
+const listTeams = rpcSuperAdminProcedure
+	.route({ method: "GET", tags: ["SuperAdmin"] })
+	.input(superAdminListInputZod)
+	.output(superAdminTeamListOutputZod)
+	.handler(async ({ input }) => await listTeamsForAdmin(input));
+
+const getTeam = rpcSuperAdminProcedure
+	.route({ method: "GET", tags: ["SuperAdmin"] })
+	.input(z.object({ teamId: z.ulid() }))
+	.output(superAdminTeamDetailZod)
+	.handler(async ({ input: { teamId } }) => await getTeamForAdmin(teamId));
+
+const listUsers = rpcSuperAdminProcedure
+	.route({ method: "GET", tags: ["SuperAdmin"] })
+	.input(superAdminListInputZod)
+	.output(superAdminUserListOutputZod)
+	.handler(async ({ input }) => await listUsersForAdmin(input));
+
+const revokeUserSessions = rpcSuperAdminProcedure
+	.route({ method: "POST", tags: ["SuperAdmin"] })
+	.input(superAdminRevokeSessionsInputZod)
+	.output(z.object({ ended: z.number().int().min(0) }))
+	.handler(async ({ input, context }) => {
+		if (input.userId === context.user.id) {
+			throw new ORPCError("BAD_REQUEST", {
+				status: 400,
+				message: "Use Sign out to end your own sessions.",
+			});
+		}
+		const user = await db.users.findOptional(input.userId);
+		if (!user) throw new ORPCError("NOT_FOUND", { status: 404, message: "User not found" });
+		return await withOperatorAudit(context, {
+			action: "users.revokeSessions",
+			targetKind: "user",
+			targetId: input.userId,
+			reason: input.reason,
+			before: async () => ({ liveSessions: await countLiveSessionsForAdmin(input.userId) }),
+			apply: () => revokeAllSessionsForAdmin(input.userId),
+		});
 	});
 
 // ─── Feature flags ──────────────────────────────────────────────────────
@@ -74,24 +148,59 @@ const setFlag = rpcSuperAdminProcedure
 	.route({ method: "POST", tags: ["SuperAdmin"] })
 	.input(featureFlagSetInputZod)
 	.output(featureFlagSelectAllZod)
-	.handler(async ({ input }) => {
-		return await setFeatureFlag(input);
+	.handler(async ({ input, context }) => {
+		return await withOperatorAudit(context, {
+			action: "flags.set",
+			targetKind: "flag",
+			targetId: `${input.key}@${input.scope}${input.scopeId ? `:${input.scopeId}` : ""}`,
+			before: async () =>
+				await db.featureFlags
+					.where({ key: input.key, scope: input.scope, scopeId: input.scopeId })
+					.takeOptional(),
+			apply: () => setFeatureFlag(input),
+		});
 	});
 
 const deleteFlag = rpcSuperAdminProcedure
 	.route({ method: "DELETE", tags: ["SuperAdmin"] })
 	.input(featureFlagDeleteInputZod)
 	.output(z.object({ ok: z.literal(true) }))
-	.handler(async ({ input }) => {
-		await deleteFeatureFlag(input.id);
-		return { ok: true as const };
+	.handler(async ({ input, context }) => {
+		return await withOperatorAudit(context, {
+			action: "flags.delete",
+			targetKind: "flag",
+			targetId: input.id,
+			before: async () => await db.featureFlags.findOptional(input.id),
+			apply: async () => {
+				await deleteFeatureFlag(input.id);
+				return { ok: true as const };
+			},
+			after: () => null,
+		});
 	});
 
+// ─── Audit ──────────────────────────────────────────────────────────────
+// Every mutation above goes through `withOperatorAudit`; this reads the
+// trail back, newest first.
+
+const auditList = rpcSuperAdminProcedure
+	.route({ method: "GET", tags: ["SuperAdmin"] })
+	.input(superAdminAuditListInputZod)
+	.output(superAdminAuditListOutputZod)
+	.handler(async ({ input }) => await listOperatorAudit(input));
+
+// Every procedure here that changes data wraps the change in
+// `withOperatorAudit` (modules/system/services/operator_audit.service.ts).
 export const superAdminRouter = {
 	ping,
+	listTeams,
+	getTeam,
+	listUsers,
+	revokeUserSessions,
 	listFlags,
 	setFlag,
 	deleteFlag,
+	auditList,
 };
 
 export type SuperAdminRouter = RouterClient<typeof superAdminRouter>;
