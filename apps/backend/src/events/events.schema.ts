@@ -89,3 +89,28 @@ export const subscriptionAlertWebhookTaskDef = defineTask({
 		keepInSeconds: 604800,
 	},
 });
+
+/**
+ * One notification to send later (`queueNotification`). The handler upserts
+ * the subscriber when an email is given (an address with no account), then
+ * triggers the workflow; it throws so pg-tbus retries.
+ */
+export const notificationDispatchTaskDef = defineTask({
+	task_name: "notification_dispatch",
+	schema: Type.Object({
+		workflowId: Type.String(),
+		to: Type.Object({
+			subscriberId: Type.String(),
+			email: Type.Optional(Type.String()),
+			firstName: Type.Optional(Type.String()),
+		}),
+		payload: Type.Record(Type.String(), Type.Unknown()),
+	}),
+	config: {
+		retryLimit: 3,
+		retryDelay: 60,
+		retryBackoff: true,
+		expireInSeconds: 120,
+		keepInSeconds: 604800, // 7 days
+	},
+});

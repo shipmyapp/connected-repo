@@ -1,5 +1,6 @@
 import {
 	journalEntryCreatedFanoutTaskDef,
+	notificationDispatchTaskDef,
 	subscriptionAlertWebhookTaskDef,
 	userCreatedEventDef,
 	userDeletedEventDef,
@@ -7,6 +8,7 @@ import {
 } from "@backend/events/events.schema";
 import { journalEntryCreatedFanoutHandler } from "@backend/modules/journal-entries/notifications/created_fanout.notifications.journal_entries";
 import { reminderNotificationJournalEntryHandler } from "@backend/modules/journal-entries/notifications/reminder.notifications.journal_entries";
+import { notificationDispatchHandler } from "@backend/modules/notifications/services/dispatch.notifications.service";
 import { userCreatedNotificationHandler } from "@backend/modules/users/notifications/user_created.notifications.user";
 import { userDeletedNotificationHandler } from "@backend/modules/users/notifications/user_deleted.notifications.user";
 import { subscriptionAlertWebhookHandler } from "@backend/modules/webhook_calls/handlers/subscription_alert_webhook.handler";
@@ -76,6 +78,13 @@ export const startEventBus = (): Promise<void> => {
 				createTaskHandler({
 					taskDef: journalEntryCreatedFanoutTaskDef,
 					handler: journalEntryCreatedFanoutHandler,
+				}),
+			);
+
+			tbus.registerTask(
+				createTaskHandler({
+					taskDef: notificationDispatchTaskDef,
+					handler: notificationDispatchHandler,
 				}),
 			);
 
