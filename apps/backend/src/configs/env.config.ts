@@ -57,7 +57,6 @@ const envSchema = z.object({
 	DB_USER: zString.min(1),
 	DB_PASSWORD: zString.min(1),
 	DB_NAME: zString.min(1),
-	DB_SCHEMA: zString.min(1),
 	// TLS to Postgres. `disable` for a database on the same Docker network;
 	// a managed database wants `verify-full` with its CA certificate in
 	// DB_SSL_CA (PEM; literal `\n` sequences are accepted for one-line env
@@ -72,10 +71,15 @@ const envSchema = z.object({
 	GOOGLE_IOS_CLIENT_ID: zString.optional(),
 	GOOGLE_ANDROID_CLIENT_ID: zString.optional(),
 	HOST: optionalString,
-	INTERNAL_API_SECRET: zString
-		.min(32, "Internal API secret must be at least 32 characters")
-		.optional(),
+	// Graceful shutdown (utils/graceful_shutdown.utils.ts): how long to drain
+	// HTTP requests, then in-flight pg-tbus tasks, in milliseconds. The process
+	// force-exits after AGENT_TASK_TIMEOUT + 10 s; give the container that long
+	// to stop (docker-compose.prod.yml stop_grace_period).
+	GRACEFUL_SHUTDOWN_TIMEOUT: z.coerce.number().int().min(0).default(30_000),
+	AGENT_TASK_TIMEOUT: z.coerce.number().int().min(0).default(300_000),
 	IS_E2E_TEST: z.stringbool().optional(),
+	// Development only: pretty single-line logs unless set to false (raw pino JSON).
+	LOG_PRETTY: z.stringbool().optional(),
 	LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal", "silent"]).optional(),
 	NODE_ENV: NODE_ENV_ZOD,
 	OTEL_SERVICE_NAME: zString.min(1),
@@ -91,7 +95,6 @@ const envSchema = z.object({
 	// in dev. Unset = tenant mode off, every host is the shared app. In
 	// production pair it with PROD_COOKIE_DOMAIN=.<root> (or a parent of it).
 	TENANT_ROOT_DOMAIN: optionalString,
-	SESSION_SECRET: zString.min(32, "Session secret must be at least 32 characters"),
 	NOVU_SECRET_KEY: optionalString,
 	NOVU_API_URL: optionalUrl,
 	// Backend-native Sentry env names. Frontend keeps its own VITE_SENTRY_* keys.
@@ -133,6 +136,9 @@ const envSchema = z.object({
 	// both unset disables server-side push. Prefer the inline var for
 	// containerised deploys where filesystem is ephemeral.
 	FIREBASE_SERVICE_ACCOUNT_JSON: optionalString,
+	// Path to a service-account JSON file; firebase-admin's
+	// applicationDefault() reads it. Used when FIREBASE_SERVICE_ACCOUNT_JSON is unset.
+	GOOGLE_APPLICATION_CREDENTIALS: optionalString,
 });
 
 // ----------------------------------------

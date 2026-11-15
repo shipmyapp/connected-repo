@@ -82,7 +82,7 @@ const loggerOptions: pino.LoggerOptions = {
 
 // Pretty single-line logs in dev by default. Set LOG_PRETTY=false to emit raw
 // pino JSON — useful when piping logs into an aggregator locally.
-const usePretty = isDev && process.env.LOG_PRETTY !== "false";
+const usePretty = isDev && env.LOG_PRETTY !== false;
 
 /**
  * Forward every pino log line to Sentry as a *breadcrumb* (not an event).

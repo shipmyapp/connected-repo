@@ -1,4 +1,5 @@
 import type { Server } from "node:http";
+import { env } from "@backend/configs/env.config";
 import { closeRedis } from "@backend/configs/redis.config";
 import { stopOAuthClientsCleanupCron } from "@backend/cron_jobs/oauth_clients_cleanup.cron";
 import { stopPurgeDeletedAccountsCron } from "@backend/cron_jobs/purge_deleted_accounts.cron";
@@ -44,11 +45,8 @@ const waitForActiveRequests = async (timeoutMs: number): Promise<void> => {
 	});
 };
 
-const GRACEFUL_SHUTDOWN_TIMEOUT = Number.parseInt(
-	process.env.GRACEFUL_SHUTDOWN_TIMEOUT || "30000",
-	10,
-);
-const AGENT_TASK_TIMEOUT = Number.parseInt(process.env.AGENT_TASK_TIMEOUT || "300000", 10);
+const GRACEFUL_SHUTDOWN_TIMEOUT = env.GRACEFUL_SHUTDOWN_TIMEOUT;
+const AGENT_TASK_TIMEOUT = env.AGENT_TASK_TIMEOUT;
 
 let isShuttingDown = false;
 let activeRequests = 0;

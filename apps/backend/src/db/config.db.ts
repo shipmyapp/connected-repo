@@ -23,9 +23,8 @@ export const dbConfig = {
 	generatorIgnore: {
 		schemas: ["tbus"],
 	},
-	// Uncomment when you actually need schema-scoped tables. Requires the schema
-	// to exist in the DB (CREATE SCHEMA <name>) before migrations run.
-	// schema: env.DB_SCHEMA,
+	// Schema-scoped tables: add a DB_SCHEMA key to env.config.ts and set
+	// `schema: env.DB_SCHEMA` here; the schema must exist (CREATE SCHEMA) first.
 	// pg pool size. node-postgres defaults to 10 which is too tight under
 	// concurrent oRPC traffic on a shared cluster — see DB_POOL_SIZE in env.config.ts.
 	max: env.DB_POOL_SIZE,

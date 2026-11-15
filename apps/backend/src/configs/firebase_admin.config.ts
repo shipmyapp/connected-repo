@@ -35,7 +35,7 @@ function initFirebaseAdmin(): admin.app.App | null {
 		}
 	}
 
-	if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+	if (env.GOOGLE_APPLICATION_CREDENTIALS) {
 		try {
 			return admin.initializeApp({
 				credential: admin.credential.applicationDefault(),
