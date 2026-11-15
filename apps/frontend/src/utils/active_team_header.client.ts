@@ -95,6 +95,26 @@ export const getActiveTeamIdReady = (): Promise<string | null> => {
 	return workerReady.promise;
 };
 
+/**
+ * Per-call context the RPC link reads (`orpcFetch.x.y(input, { context })`).
+ * `noTeam`: the procedure is not team-scoped (public, or session-only such
+ * as `teams.getBrandingBySlug`, `teams.listMyActiveTeamIds`,
+ * `teams.getDefaultTeam`). Such a call must not wait for the seed: before a
+ * session exists nothing seeds the cache, and the wait would never end (a
+ * team host signed out would show "Loading workspace…" for ever).
+ */
+export interface RpcCallContext {
+	noTeam?: boolean;
+}
+
+/**
+ * The team id a call carries. Team-scoped: wait for the seed in this realm
+ * (main: `authLoader`/`initSyncForUser`; worker: `dataProxy.sync.setActiveTeamId`).
+ * `noTeam`: at once, and none.
+ */
+export const teamIdForCall = (context: RpcCallContext): Promise<string | null> =>
+	context.noTeam ? Promise.resolve(null) : getActiveTeamIdReady();
+
 interface Deferred<T> {
 	promise: Promise<T>;
 	resolve: (v: T) => void;

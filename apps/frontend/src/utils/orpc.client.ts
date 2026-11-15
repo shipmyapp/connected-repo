@@ -9,11 +9,15 @@ import type {
 	UserAppRouterInputs,
 	UserAppRouterOutputs,
 } from "../../../backend/src/routers/user_app/user_app.router";
-import { getActiveTeamIdReady } from "./active_team_header.client";
+import {
+	getActiveTeamIdReady,
+	type RpcCallContext,
+	teamIdForCall,
+} from "./active_team_header.client";
 import { signout } from "./signout.utils";
 import { switchGate } from "./switch_gate";
 
-interface ClientContext {
+interface ClientContext extends RpcCallContext {
 	something?: string;
 }
 
@@ -29,6 +33,7 @@ const orpcBaseUrl = `${resolveApiOrigin(env.VITE_API_URL, globalThis.location.or
 const link = new RPCLink<ClientContext>({
 	url: orpcBaseUrl,
 	// Async by design: awaits two barriers before every outbound request.
+	//   0. A call with context.noTeam skips both barriers and sends no x-team-id.
 	//   1. `switchGate.waitOpen()` — blocks during a team switch so the
 	//      header, worker cache, and backend session cannot disagree.
 	//      Rejects after the gate's default timeout so a hung switch
@@ -41,10 +46,12 @@ const link = new RPCLink<ClientContext>({
 	//      worker). After the first seed, this resolves near-instantly.
 	headers: async ({ context }, path) => {
 		const isSwitchRpc = path[0] === "teams" && path[1] === "setActiveTeam";
-		if (!isSwitchRpc) {
+		// `noTeam` calls carry no team, so a switch cannot make them
+		// inconsistent: they skip the gate as the switch RPC itself does.
+		if (!isSwitchRpc && !context.noTeam) {
 			await switchGate.waitOpen();
 		}
-		const teamId = await getActiveTeamIdReady();
+		const teamId = await teamIdForCall(context);
 		const headers: Record<string, string> = {
 			Authorization: "Bearer token",
 		};
