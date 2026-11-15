@@ -1,4 +1,4 @@
-# Full local dev stack. One command boots postgres + backend (tsx watch) +
+# Full local dev stack. One command boots postgres + redis + backend (tsx watch) +
 # frontend (vite dev) + an nginx sidecar that mirrors the prod reverse-proxy
 # layout, so the browser hits /api/* on the same origin as the SPA (matching
 # how Traefik/nginx serve prod).
@@ -21,6 +21,7 @@
 #   5173  → Vite dev server (direct, for host-mode debugging)
 #   3000  → backend (direct)
 #   5432  → postgres (for DB tools like TablePlus)
+#   6379  → redis (rate-limit buckets; redis-cli for debugging)
 #
 # NOTE: If you also run the base docker-compose.yml (postgres-only) or a
 # host-mode postgres on :5432, stop them first — port will clash.
@@ -55,6 +56,20 @@ services:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-connected_repo_orpc_db}"]
       interval: 5s
       timeout: 5s
+      retries: 10
+    networks:
+      - dev-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: connected_repo_dev_redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
       retries: 10
     networks:
       - dev-network
@@ -106,6 +121,7 @@ services:
       # Override .env host so we hit the postgres SERVICE, not localhost.
       DB_HOST: postgres
       DB_PORT: 5432
+      REDIS_URL: redis://redis:6379
       NODE_ENV: development
       # Bind to all interfaces so the nginx sidecar can reach us over the
       # docker network (127.0.0.1 default would be container-local only).
@@ -128,6 +144,8 @@ services:
     depends_on:
       db-migrate:
         condition: service_completed_successfully
+      redis:
+        condition: service_healthy
     networks:
       - dev-network
 
