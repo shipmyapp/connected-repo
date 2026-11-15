@@ -5,15 +5,21 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Run on demand from the Actions tab, e.g. after a PR is retargeted to main
+  # (changing a PR's base does not trigger pull_request).
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Pinned to ubuntu-24.04: `ubuntu-latest` is Ubuntu 26.04, for which
+# @playwright/test 1.58 ships no chromium build (the E2E job fails to install
+# the browser). Bump the pin together with the Playwright version.
 jobs:
   ci:
     name: Build, type-check & test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     services:
       postgres:
@@ -27,6 +33,18 @@ jobs:
           - 5432:5432
         options: >-
           --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      # Redis for the backend tests, on its default port. Nothing connects to
+      # it yet; it is here so the backend can depend on Redis without a CI change.
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -53,11 +71,14 @@ jobs:
       - name: Type-check
         run: yarn check-types
 
-      # Lint is informational for now — the repo has pre-existing lint debt, so
-      # a failure here should surface without blocking the build/test gates.
+      # No dead code: unused files, exports and dependencies fail the run, as
+      # they fail the pre-push hook (.githooks/pre-push).
+      - name: Dead code (knip)
+        run: yarn knip
+
+      # Blocking: lint is clean on main, so a red lint is the change's own.
       - name: Lint
         run: yarn lint
-        continue-on-error: true
 
       # Backend tests run against NODE_ENV=test using the committed
       # apps/backend/.env.test (placeholder values, DB pointed at localhost).
@@ -71,7 +92,7 @@ jobs:
 
   e2e:
     name: E2E (Playwright)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     services:
       postgres:
@@ -84,6 +105,16 @@ jobs:
           - 5432:5432
         options: >-
           --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
