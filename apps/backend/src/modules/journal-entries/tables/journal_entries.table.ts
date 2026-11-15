@@ -82,7 +82,11 @@ export class JournalEntryTable extends BaseTable {
 
 	init(orm: Db) {
 		this.afterDelete(journalEntrySelectAllZod.keyof().options, async (entries) => {
+			// Named by the entries' own ids, so the tenant scope is not needed:
+			// an entry deleted outside a team request (the account purge) still
+			// takes its attachments with it.
 			await orm.files
+				.unscope("default")
 				.where({
 					tableName: "journalEntries",
 					type: "attachment",

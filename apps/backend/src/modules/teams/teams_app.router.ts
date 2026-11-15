@@ -33,6 +33,7 @@ import {
 import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 import { queueTeamInvitation } from "./notifications/team_invitation.notifications.teams";
+import { moveUsersOffTeams, personalTeamIdOf } from "./services/active_team.teams.service";
 import { getTeamBrandingBySlugService } from "./services/branding.teams.service";
 import { createTeamService } from "./services/create_team.teams.service";
 import { pullTeamMembersService, pullTeamsAppService } from "./services/sync.teams.service";
@@ -46,17 +47,20 @@ const getMyTeams = rpcProtectedProcedure
 
 		// 1. Claim invitations sent to an identifier this account has proved.
 		//    Not a team request: the tenant scope is lifted on purpose.
-		if (user.email && user.emailVerified) {
-			await db.teamMembers
-				.unscope("default")
-				.where({ email: user.email, userId: null })
-				.update({ userId, joinedAt: Date.now() });
-		}
-		if (user.phoneNumber && user.phoneNumberVerified) {
-			await db.teamMembers
-				.unscope("default")
-				.where({ phoneNumber: user.phoneNumber, userId: null })
-				.update({ userId, joinedAt: Date.now() });
+		// An account scheduled for deletion joins no team; the invitation waits until the account is kept.
+		if (user.deletionRequestedAt === null) {
+			if (user.email && user.emailVerified) {
+				await db.teamMembers
+					.unscope("default")
+					.where({ email: user.email, userId: null })
+					.update({ userId, joinedAt: Date.now() });
+			}
+			if (user.phoneNumber && user.phoneNumberVerified) {
+				await db.teamMembers
+					.unscope("default")
+					.where({ phoneNumber: user.phoneNumber, userId: null })
+					.update({ userId, joinedAt: Date.now() });
+			}
 		}
 
 		// 2. Every live team the caller belongs to, with their role. The
@@ -166,6 +170,14 @@ const addTeamMember = rpcTeamOwnerAdminProcedure
 	.input(teamAppMemberAddInputZod)
 	.output(teamAppMemberSelectAllZod)
 	.handler(async ({ input, context: { activeTeamId, user } }) => {
+		// A personal team is one person's space; sharing needs a team of its own.
+		const team = await db.teamsApp.find(activeTeamId).select("personalTeamForUserId");
+		if (team.personalTeamForUserId !== null) {
+			throw new ORPCError("FORBIDDEN", {
+				status: 403,
+				message: "A personal team has no other members. Create a team to share.",
+			});
+		}
 		const { email, phoneNumber } = input;
 		const ownEmail = user.email?.trim().toLowerCase();
 		if (
@@ -317,29 +329,81 @@ const setActiveTeam = rpcProtectedProcedure
 		return { activeTeamAppId: teamAppId };
 	});
 
-// Guarded delete. Personal teams (personalTeamForUserId !== null) are
-// non-deletable by contract — every user must always have exactly one.
-// Only the Owner of the active team can delete it; the middleware also
-// enforces that the client is *on* that team (`x-team-id` header).
-const deleteTeam = rpcTeamOwnerAdminProcedure
-	.route({ method: "DELETE", tags: ["Teams"] })
-	.output(z.object({ success: z.boolean() }))
-	.handler(async ({ context: { activeTeamId, activeTeamMemberRole } }) => {
-		if (activeTeamMemberRole !== "Owner") {
+// Leave a shared team (any team the caller belongs to, active or not). The
+// personal team cannot be left. The last Owner cannot leave (a team always
+// keeps one Owner). If it was the caller's active team, the server points
+// them at their personal team; the client switches first.
+const leaveTeam = rpcProtectedProcedure
+	.route({ method: "POST", tags: ["Teams"] })
+	.input(z.object({ teamId: z.ulid() }))
+	.output(z.object({ activeTeamAppId: z.string().nullable() }))
+	.handler(async ({ input: { teamId }, context: { user } }) => {
+		const membership = await db.teamMembers
+			.unscope("default")
+			.where({ teamId, userId: user.id })
+			.takeOptional();
+		if (!membership) {
+			throw new ORPCError("NOT_FOUND", { status: 404, message: "You are not in this team." });
+		}
+		const team = await db.teamsApp.find(teamId).select("personalTeamForUserId");
+		if (team.personalTeamForUserId !== null) {
 			throw new ORPCError("FORBIDDEN", {
 				status: 403,
-				message: "Only the Owner can delete a team.",
+				message: "You can't leave your personal team.",
 			});
 		}
-		const team = await db.teamsApp.where({ id: activeTeamId }).takeOptional();
-		if (!team) throw new ORPCError("NOT_FOUND", { status: 404, message: "Team not found." });
+		// A team always keeps one Owner with an account (409 CONFLICT otherwise).
+		await assertNotLastOwner(teamId, membership.id);
+		await db.$transaction(async () => {
+			await db.teamMembers.unscope("default").where({ id: membership.id }).delete();
+			// Only the leaver moves; the team lives on for everyone else. The
+			// row decides, not the session's copy of it.
+			const row = await db.users.find(user.id).select("activeTeamAppId");
+			if (row.activeTeamAppId === teamId) {
+				await db.users.find(user.id).update({ activeTeamAppId: await personalTeamIdOf(user.id) });
+			}
+		});
+		const row = await db.users.find(user.id).select("activeTeamAppId");
+		return { activeTeamAppId: row.activeTeamAppId };
+	});
+
+// Delete a shared team the caller owns (any team, active or not). Soft
+// deletes the team AND every membership (tombstones), so members' devices
+// wipe it at their next sync (listMyActiveTeamIds reconciliation), and moves
+// everyone whose active team it was to their personal team. The team's
+// journal entries and files stay in the database, unreachable (no member
+// remains); their retention is a separate decision. API keys and
+// subscriptions (`teams_api`) are not linked to app teams and are untouched.
+const deleteTeam = rpcProtectedProcedure
+	.route({ method: "DELETE", tags: ["Teams"] })
+	.input(z.object({ teamId: z.ulid() }))
+	.output(z.object({ success: z.boolean() }))
+	.handler(async ({ input: { teamId }, context: { user } }) => {
+		const team = await db.teamsApp.where({ id: teamId }).takeOptional();
+		if (!team) {
+			throw new ORPCError("NOT_FOUND", { status: 404, message: "Team not found." });
+		}
 		if (team.personalTeamForUserId !== null) {
 			throw new ORPCError("FORBIDDEN", {
 				status: 403,
 				message: "Personal teams cannot be deleted.",
 			});
 		}
-		await db.teamsApp.where({ id: activeTeamId }).delete();
+		const membership = await db.teamMembers
+			.unscope("default")
+			.where({ teamId, userId: user.id })
+			.takeOptional();
+		if (membership?.role !== "Owner") {
+			throw new ORPCError("FORBIDDEN", {
+				status: 403,
+				message: "Only an Owner can delete a team.",
+			});
+		}
+		await db.$transaction(async () => {
+			await db.teamMembers.unscope("default").where({ teamId }).delete();
+			await db.teamsApp.where({ id: teamId }).delete();
+			await moveUsersOffTeams([teamId]);
+		});
 		return { success: true };
 	});
 
@@ -415,6 +479,7 @@ export const teamsAppRouter = {
 	getBrandingBySlug,
 	setActiveTeam,
 	deleteTeam,
+	leaveTeam,
 	getTeamMembers,
 	addTeamMember,
 	removeTeamMember,

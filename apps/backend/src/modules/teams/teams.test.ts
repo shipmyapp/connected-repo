@@ -259,6 +259,94 @@ describe("Teams App Endpoints", () => {
 		});
 	});
 
+	describe("leaving and deleting a team", () => {
+		const setUp = async () => {
+			if (!defaultContext) throw new Error("test context missing");
+			const { teamId, owner } = await createSharedTeam(defaultContext);
+			const admin = await addMember(owner, teamId, "Admin");
+			const member = await addMember(owner, teamId, "Member");
+			return { teamId, owner, admin, member };
+		};
+
+		it("the personal team cannot be left, and the only Owner cannot leave", async () => {
+			if (!defaultContext) throw new Error("test context missing");
+			const personalId = defaultContext.user.activeTeamAppId as string;
+			await expect(
+				teamsClient(defaultContext).leaveTeam({ teamId: personalId }),
+			).rejects.toMatchObject({ status: 403 });
+			const { teamId, owner } = await setUp();
+			await expect(teamsClient(owner).leaveTeam({ teamId })).rejects.toMatchObject({
+				status: 409,
+			});
+			// Still in it.
+			const ids = await teamsClient(owner).listMyActiveTeamIds();
+			expect(ids.teamIds).toContain(teamId);
+		});
+
+		it("a Member leaves: the membership goes and the active team moves to the personal team", async () => {
+			const { teamId, member } = await setUp();
+			const personalId = (
+				await db.teamsApp.where({ personalTeamForUserId: member.user.id }).select("id").take()
+			).id;
+			const result = await teamsClient(member).leaveTeam({ teamId });
+			expect(result.activeTeamAppId).toBe(personalId);
+			const ids = await teamsClient(member).listMyActiveTeamIds();
+			expect(ids.teamIds).not.toContain(teamId);
+			const row = await db.teamMembers
+				.unscope("default")
+				.includeDeleted()
+				.where({ teamId, userId: member.user.id })
+				.take();
+			expect(row.deletedAt).not.toBeNull();
+			// Someone not in the team gets a 404.
+			await expect(teamsClient(member).leaveTeam({ teamId })).rejects.toMatchObject({
+				status: 404,
+			});
+		});
+
+		it("only an Owner deletes a team; members lose it and move to their personal team", async () => {
+			const { teamId, owner, admin, member } = await setUp();
+			await expect(teamsClient(admin).deleteTeam({ teamId })).rejects.toMatchObject({
+				status: 403,
+			});
+			await expect(teamsClient(member).deleteTeam({ teamId })).rejects.toMatchObject({
+				status: 403,
+			});
+			await expect(teamsClient(owner).deleteTeam({ teamId })).resolves.toEqual({ success: true });
+
+			const team = await db.teamsApp.includeDeleted().find(teamId);
+			expect(team.deletedAt).not.toBeNull();
+			const live = await db.teamMembers.unscope("default").where({ teamId }).count();
+			expect(live).toBe(0);
+			for (const ctx of [owner, admin, member]) {
+				const user = await db.users.find(ctx.user.id).select("activeTeamAppId");
+				const personal = await db.teamsApp
+					.where({ personalTeamForUserId: ctx.user.id })
+					.select("id")
+					.take();
+				expect(user.activeTeamAppId).toBe(personal.id);
+				const ids = await teamsClient(ctx).listMyActiveTeamIds();
+				expect(ids.teamIds).not.toContain(teamId);
+			}
+		});
+
+		it("a personal team cannot be deleted, and accepts no members", async () => {
+			if (!defaultContext) throw new Error("test context missing");
+			const personalId = defaultContext.user.activeTeamAppId as string;
+			await expect(
+				teamsClient(defaultContext).deleteTeam({ teamId: personalId }),
+			).rejects.toMatchObject({ status: 403 });
+			await expect(
+				teamsClient(defaultContext).addTeamMember({
+					email: `friend-${ulid().toLowerCase()}@example.com`,
+					role: "Member",
+				}),
+			).rejects.toMatchObject({ status: 403 });
+			const count = await db.teamMembers.unscope("default").where({ teamId: personalId }).count();
+			expect(count).toBe(1);
+		});
+	});
+
 	describe("invitations", () => {
 		it("never reveal or join an existing account at once", async () => {
 			if (!defaultContext) throw new Error("test context missing");
