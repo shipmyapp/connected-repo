@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Profile: "Where you're signed in", "Your data and account" (download my data, delete my account, with the teams to leave first and a fresh sign-in when needed), and Leave / Delete on each team row.
+- `/account/deletion-pending` (Keep my account) and `/legal/accept` (agree once per `LEGAL_VERSION` when `VITE_TERMS_URL` and `VITE_PRIVACY_URL` are set); Terms and Privacy links on the sign-in page and the profile.
+- `wipeAllLocalData()`: deleting the account removes every local database, the stored files and the offline sign-in on this device; a device of a deleted account erases its copy the next time it opens online.
+
 - The consent screen at `/oauth/consent` for an AI app asking to connect (platform named by its redirect host, write as the person's choice, navigation only to the request's own redirect URI) and "Connected apps" on the profile (narrow to read-only, disconnect, latest changes, the address to add).
 - Signing in from an AI app's authorize request returns to it (the social `callbackURL` is the authorize URL; a copy is kept for the tab).
 - The service worker and the dev proxy leave `/mcp` and `/.well-known/*` to the backend; nginx routes them there.
@@ -26,6 +30,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - A notification tap opens its screen in the window already open, without a reload.
 
 ### Changed
+
+- A 401 from the server clears the offline sign-in, so a session ended elsewhere no longer opens offline.
+- Team settings offer "Add Member" only for a shared team.
 
 - Push registration rides the device report; no push token is cached in the browser; switching push off is per account on a shared device.
 

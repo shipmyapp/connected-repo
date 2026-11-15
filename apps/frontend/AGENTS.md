@@ -100,6 +100,11 @@ Each trigger calls `sync.processQueue()` on the DataWorker, which is idempotent
 - The consent page navigates only through `consentRedirectTarget` (the request's own redirect URI), on Connect and on Cancel.
 - Do not install the provider's `oauthProviderClient()` plugin as well: one resume path.
 
+### Account lifecycle (root ADR-046 to ADR-049)
+- `wipeAllLocalData()` (`utils/local_data_wipe.ts`) is the only full wipe besides the user switch in `initDb`. A main-thread 401 signs out with `clear-cache`. `/account/deletion-pending` and `/legal/accept` sit outside `AppLayout` (no sync; `utils/session_only.loader.ts`); `authLoader` sends an account there through `accountGateRedirect` (`utils/account_gate.ts`).
+- Signed out and online, `authLoader` and the sign-in page ask `account.localDataErasure` whether an account that used this device was deleted, and wipe if so.
+- Profile cards above "Sign out": `SessionsCard` ("Where you're signed in") and `AccountDataCard` (download, delete) in `components/account/`; leave/delete team on the Teams card rows (`TeamRowActions`). A `REAUTH_REQUIRED` refusal opens `ReauthDialog`, which signs in again and returns to `/profile?resume=…`.
+
 ### UI Standards
 - **Design**: Tasteful, smooth (200-300ms transitions), responsive.
 - **Imports**: Direct imports only (NO barrel exports).

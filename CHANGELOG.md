@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Delete my account from the profile: after leaving or deleting your teams, a 30-day grace period during which you can keep the account; then everything is deleted, including uploaded files, and your other devices erase their offline copy.
+- Download my data: one JSON file of your own data from the profile.
+- "Where you're signed in": see your sessions and sign out of any other device, or all of them.
+- Leave a team; delete a team from the profile.
+- Terms and Privacy: links on the sign-in page and the profile (`VITE_TERMS_URL`, `VITE_PRIVACY_URL`), a recorded agreement asked again when `LEGAL_VERSION` changes, and placeholder texts in `docs/legal/` that a fork must replace.
+- Operator runbook for account deletion; the console shows each account's deletion state and can keep or delete-now a requested account, both recorded in the audit trail.
+
 - Application MCP at `/mcp`: people connect Claude, ChatGPT and other AI apps to their account through OAuth 2.1 (Better Auth OAuth provider, dynamic registration, Client ID Metadata Documents, PKCE, opaque hashed tokens) and use them on their teams and journal (`whoami`, `list_teams`, `list_team_members`, `list_journal_entries`, `get_journal_entry`, `list_prompts`, `create_journal_entry` with preview and confirmation).
 - Consent screen at `/oauth/consent` and "Connected apps" on the profile (narrow to read-only, disconnect, latest changes).
 - `MCP_PUBLIC_URL` to serve the MCP on its own host; runbook `docs/runbooks/connected-apps.md`; MCP Registry skeleton in `deploy/mcp-registry/`.
@@ -31,6 +38,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `packages/zod-schemas` runs its own tests (`test:run`): the device, install-try and ask rules.
 
 ### Changed
+- Sensitive actions ask you to sign in again when your session is older than 10 minutes.
+- A personal team no longer accepts members.
+- When the server ends a session, the device no longer opens offline with the old account.
+
 - `better-auth` and `@better-auth/core` pinned to `1.5.0` (the OAuth provider plugin's exact peers).
 - Signing in from an AI app's authorize request returns to that request instead of the dashboard.
 - OAuth access tokens are refused on the oRPC routes.
@@ -53,6 +64,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Unused helpers reported by knip: the pg-tbus task query module, the dayjs time-zone helper, `isSystemContext`.
 
 ### Fixed
+- Deleting a team now removes every member's access (members' devices drop it at their next sync) instead of leaving the deleted team usable.
+- Deleting an account no longer deletes the shared teams it created.
+- Shutdown now stops the silent-sync timer.
+
 - Switching teams on the profile page silently reverted: better-auth's 5-minute session cookie cache handed the loader the old team. The loader now reads the session uncached once after a switch (a one-shot flag, `session_refresh.client.ts`), and the offline auth cache is re-saved with the new team.
 - The theme snapped back after every toggle (the theme context handed out a new setter on each render); toasts drew white on white under the "system" theme.
 - A top-level crash rendered a fallback that itself threw (`useRouteError()` outside the router).

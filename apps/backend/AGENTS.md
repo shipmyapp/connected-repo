@@ -90,6 +90,13 @@ export const create = rpcProtectedProcedure
 - **Logs**: fields named in `LOG_REDACT_PATHS` (`utils/logger.utils.ts`) are censored; add a key there (and a case to `logger.utils.test.ts`) before logging a new kind of secret.
 - **Operations**: after deploying encrypted provider tokens, run `yarn workspace @connected-repo/backend auth:encrypt-tokens` once per environment.
 
+### Account lifecycle (root ADR-046 to ADR-049)
+- `modules/users/account.user_app.router.ts`; services `deletion`, `purge`, `export`, `sessions` (`*.users.service.ts`). Operator actions on a deletion are console procedures (`cancelAccountDeletion`, `purgeAccountNow`) through `withOperatorAudit`. Only the purge deletes a `users` row (Better Auth's `deleteUser` stays off). Any new table with a `user_id` gets a line in `purgeAccount` (or a CASCADE FK), a column list in `exportAccountData`, and an entry in `PERSON_COLUMNS` of `purge.users.test.ts` (the test fails on an unlisted foreign key to `users`); never `selectAll()` in the export.
+- `rpcSessionProcedure`: session only, any account state. Only for `account.cancelDeletion`. Everything else is `rpcProtectedProcedure` or narrower (it refuses an account scheduled for deletion with `403 ACCOUNT_DELETION_PENDING`).
+- `rpcSensitiveProcedure` needs a session row younger than `RECENT_SIGN_IN_MINUTES` (`403 REAUTH_REQUIRED`).
+- A session deleted with Orchid is also passed to `markSessionRevoked` (no Better Auth hook runs).
+- Bucket objects are deleted only through `queueObjectDeletions` (inside the transaction that deletes their rows) and `drainObjectDeletions` (after commit).
+
 ### Application MCP (`modules/user_mcp`, ADR-045)
 - A tool never writes with `db` directly; it calls a procedure through `ctx.app(teamId)` (add the procedure to `connectedAppRouter` in `services/app_client.user_mcp.service.ts` first). Writes use the preview + confirmation pattern of `create_journal_entry`. `RpcContext.connectedApp` is set only by `appClientFor`; never derive it from a request.
 - A team-scoped tool resolves its team with `teamForCall(ctx.principal, args.teamId)` (membership checked; `users.activeTeamAppId` is never written). Direct reads of tenant-scoped tables from a tool use `.unscope("default")` with an explicit team or user condition.

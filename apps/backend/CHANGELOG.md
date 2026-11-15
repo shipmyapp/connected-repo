@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `account.*` on the user-app router: `deletionBlockers`, `requestDeletion`, `cancelDeletion`, `exportData`, `listSessions`, `revokeSession`, `revokeOtherSessions`, `acceptLegal`, and the public `localDataErasure` / `ackLocalDataErasure` (device cookie only).
+- The daily `purge_deleted_accounts` cron (`purgeAccount`), the `storage_object_deletions` bucket queue (`DeleteObjects` in batches of 1 000) and `erased_device_keys` (migration `0016_account_lifecycle`).
+- `teams.leaveTeam`; console procedures `cancelAccountDeletion` and `purgeAccountNow` (audited); `deletionRequestedAt` in `listUsers`.
+
 - The application MCP at `/mcp` (`request_handlers/user_mcp.handler.ts`, `modules/user_mcp`): Better Auth's OAuth provider (`@better-auth/oauth-provider` 1.5.0), tables `oauth_clients`, `oauth_access_tokens`, `oauth_refresh_tokens`, `oauth_consents` and `connected_app_actions` (migration `0015_connected_apps`); seven tools over a curated client of the user app's procedures; discovery at `/.well-known/oauth-protected-resource/mcp` and `/.well-known/oauth-authorization-server/api/auth`.
 - Open client registration in front of Better Auth's (`oauth_registration.handler.ts`): app-chosen metadata only, PKCE forced, redirect URIs `https:` or loopback `http:` with a port; 10 a minute per IP, 500 a day in total, at most 5000 apps. Client ID Metadata Documents fetched through the SSRF guard (per document, per IP and in total). The daily `oauth_clients_cleanup` cron removes apps nobody connected after a week.
 - `connectedApps.address`, `list`, `describe`, `setScopes`, `disconnect` on the user-app router.
@@ -44,6 +48,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The active-team gate accepts the team whose own host sent the request, without moving the user's active team.
 
 ### Changed
+
+- `rpcProtectedProcedure` refuses an account scheduled for deletion (`403 ACCOUNT_DELETION_PENDING`); `rpcSessionProcedure` is the session-only layer. `rpcSensitiveProcedure` requires a session row under 10 minutes old (`403 REAUTH_REQUIRED`).
+- `teams.deleteTeam` takes `{ teamId }`, works on any team the caller owns, soft-deletes every membership and moves members off it; `addTeamMember` refuses a personal team; an account scheduled for deletion claims no invitation.
+- `teams_app.created_by_user_id` is nullable with `ON DELETE SET NULL`.
+- A connected app acts for no account scheduled for deletion; reminders skip such accounts.
 
 - `triggerNotification` drops empty strings and nulls from the payload so templates test optional fields with `{% if payload.x %}`; its error log no longer carries an invitee's address.
 - `user-created`, `user-reminder` and `journal-entry-created` rewritten as Liquid templates; same wording.
@@ -90,6 +99,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The Better Auth phone-number plugin (phone-code sign-in and its routes).
 
 ### Fixed
+
+- A journal entry deleted outside a team request took the tenant scope with it and threw; its attachments are now found by the entry ids alone.
+- Graceful shutdown stops the silent-sync cron.
 
 - The journal fan-out compared the ULID team id as a `uuid`, so the task failed on every run and no teammate was told about a new entry.
 
