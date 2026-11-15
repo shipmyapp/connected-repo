@@ -1,9 +1,9 @@
 import CssBaseline from "@mui/material/CssBaseline";
 import { ThemeProvider as MuiThemeProvider } from "@mui/material/styles";
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { createAppTheme } from "./theme.config";
 
-type ThemeMode = "light" | "dark" | "system";
+export type ThemeMode = "light" | "dark" | "system";
 type ActualThemeMode = "light" | "dark";
 
 interface ThemeContextType {
@@ -28,10 +28,11 @@ interface ThemeContextProviderProps {
 }
 
 export const ThemeContextProvider = ({ children }: ThemeContextProviderProps) => {
-	// Initialize from localStorage or default to light
+	// Initialize from localStorage or follow the system preference. The
+	// signed-in user's own setting replaces this once the session loads.
 	const [mode, setMode] = useState<ThemeMode>(() => {
 		const savedMode = localStorage.getItem("theme-mode");
-		return (savedMode as ThemeMode) || "light";
+		return (savedMode as ThemeMode) || "system";
 	});
 
 	// Detect system theme preference
@@ -60,17 +61,20 @@ export const ThemeContextProvider = ({ children }: ThemeContextProviderProps) =>
 		localStorage.setItem("theme-mode", mode);
 	}, [mode]);
 
-	const setThemeMode = (newMode: ThemeMode) => {
-		setMode(newMode);
-	};
+	// Stable, so a caller's effect that depends on it does not run again after
+	// every change of mode and put the old mode back.
+	const setThemeMode = useCallback((newMode: ThemeMode) => setMode(newMode), []);
 
-	const toggleTheme = () => {
-		setMode((prevMode) => {
-			if (prevMode === "light") return "dark";
-			if (prevMode === "dark") return "system";
-			return "light";
-		});
-	};
+	// Flips what is on screen: from "system" it goes to the opposite of the
+	// system's choice, so a tap always changes something.
+	const toggleTheme = useCallback(
+		() =>
+			setMode((prevMode) => {
+				const shown = prevMode === "system" ? systemPreference : prevMode;
+				return shown === "dark" ? "light" : "dark";
+			}),
+		[systemPreference],
+	);
 
 	// Determine actual theme to use
 	const actualMode: ActualThemeMode = mode === "system" ? systemPreference : mode;
@@ -79,8 +83,13 @@ export const ThemeContextProvider = ({ children }: ThemeContextProviderProps) =>
 	// This preserves all component overrides, typography, and other customizations
 	const theme = useMemo(() => createAppTheme(actualMode), [actualMode]);
 
+	const value = useMemo(
+		() => ({ actualMode, mode, setThemeMode, toggleTheme }),
+		[actualMode, mode, setThemeMode, toggleTheme],
+	);
+
 	return (
-		<ThemeContext.Provider value={{ actualMode, mode, setThemeMode, toggleTheme }}>
+		<ThemeContext.Provider value={value}>
 			<MuiThemeProvider theme={theme}>
 				<CssBaseline />
 				{children}

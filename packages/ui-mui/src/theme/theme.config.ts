@@ -1,6 +1,89 @@
 import type { PaletteMode } from "@mui/material";
-import { createTheme } from "@mui/material/styles";
+import { createTheme, type ThemeOptions } from "@mui/material/styles";
+import { DrawerTransition } from "../feedback/DrawerTransition";
 import "./theme.types"; // Import type augmentations
+
+/**
+ * Behaviour every app shares, independent of the palette:
+ * - iOS zooms the page in on a field whose text is under 16px and stays
+ *   zoomed: on touch screens every field types at 16px. Pinch-zoom is left
+ *   alone (index.html has no maximum-scale).
+ * - The accessibility floor: a visible ring on keyboard focus, no motion
+ *   when the OS asks for less, finger-sized (44px) buttons on touch
+ *   screens (desktop tables stay dense), no double-tap delay.
+ * - Dialogs open as drawers: docked to the bottom of a phone, to the right
+ *   edge from `md` up, full height there and as wide as the dialog's own
+ *   maxWidth allows (DrawerTransition slides them in). Existing dialogs need
+ *   no change.
+ */
+const sharedComponentOverrides: ThemeOptions["components"] = {
+	MuiCssBaseline: {
+		// MUI 7 types this as `CSSObject | string | ((theme: Theme) => CSSInterpolation)`.
+		styleOverrides: (theme) => ({
+			"@media (pointer: coarse)": {
+				"input, textarea, select": { fontSize: "16px !important" },
+				// Finger-sized targets on touch screens; desktop tables stay dense.
+				".MuiButton-root, .MuiIconButton-root, .MuiToggleButton-root": { minHeight: 44 },
+				".MuiIconButton-root": { minWidth: 44 },
+			},
+			// No 300 ms double-tap wait on buttons and links.
+			"button, [role='button'], a": { touchAction: "manipulation" },
+			// A keyboard user always sees where they are; a mouse click shows nothing.
+			":focus-visible": {
+				outline: `2px solid ${theme.palette.primary.main}`,
+				outlineOffset: 2,
+			},
+			// The OS asked for less motion: every animation and transition ends at once.
+			"@media (prefers-reduced-motion: reduce)": {
+				"*, *::before, *::after": {
+					animationDuration: "0.01ms !important",
+					animationIterationCount: "1 !important",
+					transitionDuration: "0.01ms !important",
+					scrollBehavior: "auto !important",
+				},
+			},
+		}),
+	},
+	MuiDialog: {
+		defaultProps: { slots: { transition: DrawerTransition } },
+		styleOverrides: {
+			container: ({ theme }) => ({
+				alignItems: "flex-end",
+				[theme.breakpoints.up("md")]: { alignItems: "stretch", justifyContent: "flex-end" },
+			}),
+			paper: ({ theme }) => ({
+				margin: 0,
+				width: "100%",
+				maxWidth: "100%",
+				maxHeight: "92dvh",
+				borderRadius: "20px 20px 0 0",
+				paddingBottom: "env(safe-area-inset-bottom)",
+				// A grab handle, so a phone's sheet reads as one.
+				"&::before": {
+					content: '""',
+					flex: "none",
+					alignSelf: "center",
+					width: 40,
+					height: 4,
+					marginTop: 8,
+					borderRadius: 2,
+					backgroundColor: theme.palette.divider,
+				},
+				[theme.breakpoints.up("md")]: {
+					height: "100dvh",
+					maxHeight: "100dvh",
+					borderRadius: "20px 0 0 20px",
+					paddingBottom: 0,
+					"&::before": { display: "none" },
+				},
+			}),
+			paperWidthXs: ({ theme }) => ({ [theme.breakpoints.up("md")]: { maxWidth: 480 } }),
+			paperWidthSm: ({ theme }) => ({ [theme.breakpoints.up("md")]: { maxWidth: 600 } }),
+			paperWidthMd: ({ theme }) => ({ [theme.breakpoints.up("md")]: { maxWidth: 760 } }),
+			paperWidthLg: ({ theme }) => ({ [theme.breakpoints.up("md")]: { maxWidth: 960 } }),
+		},
+	},
+};
 
 /**
  * Base theme configuration shared across light and dark modes
@@ -87,6 +170,7 @@ const baseThemeConfig = {
 export const createAppTheme = (mode: PaletteMode = "light") => {
 	return createTheme({
 		...baseThemeConfig,
+		components: { ...baseThemeConfig.components, ...sharedComponentOverrides },
 		palette: {
 			mode,
 			...(mode === "light"
