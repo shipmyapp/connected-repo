@@ -1,4 +1,5 @@
 import path from "node:path";
+import { INSTALL_PICTURES } from "@connected-repo/zod-schemas/install_pictures";
 import { sentryVitePlugin } from "@sentry/vite-plugin";
 import react from "@vitejs/plugin-react-swc";
 import { defineConfig, loadEnv } from "vite";
@@ -7,6 +8,17 @@ import { VitePWA } from "vite-plugin-pwa";
 import pkg from "./package.json";
 import { sentryReleaseName } from "./src/configs/sentry_release.config";
 import { envValidationVitePlugin } from "./src/utils/env_validation_vite_plugin.utils";
+
+/**
+ * Links into the installed app, where the platform allows:
+ * - `handle_links: "preferred"`: Chromium opens the app's links in the installed app.
+ * - `launch_handler`: a link opens in the window already open, not a second one.
+ * iOS has neither: a link always opens in Safari. `as const` for the manifest type's literal fields.
+ */
+const LINK_HANDLING = {
+	handle_links: "preferred" as const,
+	launch_handler: { client_mode: ["navigate-existing" as const, "auto" as const] },
+};
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
@@ -76,6 +88,9 @@ export default defineConfig(({ mode }) => {
 				injectManifest: {
 					swSrc: "src/sw/sw.ts",
 					globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+					// The install dialog's chunk is fetched only where it is offered, never by an
+					// installed app; the install pictures only when shown.
+					globIgnores: ["**/pwa-install*.js", "screenshots/**"],
 				},
 				workbox: {
 					cleanupOutdatedCaches: true,
@@ -92,8 +107,21 @@ export default defineConfig(({ mode }) => {
 				manifest: {
 					name: "OneQ",
 					short_name: "OneQ",
+					description:
+						"Your journal, with a prompt each day, reminders when you want them, and it works offline.",
+					// The app's identity for install (Web Install API, getInstalledRelatedApps). A team's own
+					// host serves its own manifest with its own id.
+					id: "/",
+					scope: "/",
 					start_url: "/",
 					display: "standalone",
+					display_override: ["standalone", "minimal-ui"],
+					categories: ["productivity", "lifestyle"],
+					// Lets Chromium answer getInstalledRelatedApps for this app itself, so the
+					// profile's Install card leaves once it is installed.
+					related_applications: [{ platform: "webapp", url: "/manifest.webmanifest" }],
+					...LINK_HANDLING,
+					lang: "en",
 					background_color: "#ffffff",
 					theme_color: "#1976d2",
 					icons: [
@@ -115,12 +143,11 @@ export default defineConfig(({ mode }) => {
 							type: "image/png",
 							purpose: "maskable",
 						},
-						{
-							src: "apple-touch-icon.png",
-							sizes: "180x180",
-							type: "image/png",
-						},
+						{ src: "apple-touch-icon.png", sizes: "180x180", type: "image/png" },
 					],
+					// The install pictures: the install dialog's gallery, Chrome's richer install
+					// dialog and the app's own sheet. One list in packages/zod-schemas/src/install_pictures.ts.
+					screenshots: INSTALL_PICTURES.map((picture) => ({ ...picture })),
 				},
 			}),
 			// Sentry Vite plugin — only include it when a real prod upload is
