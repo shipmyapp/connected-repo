@@ -29,6 +29,10 @@
 		"files": "error"
 	},
 	"workspaces": {
+		".": {
+			// Repository checks run by CI (yarn check:deploy).
+			"entry": ["scripts/*.mjs"]
+		},
 		"apps/backend": {
 			"ignoreFiles": [
 				"src/db/migrations/**"

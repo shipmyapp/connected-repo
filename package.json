@@ -25,6 +25,7 @@
 	"scripts": {
 		"build": "npx turbo run build",
 		"check-types": "turbo run check-types",
+		"check:deploy": "node scripts/check-deploy-config.mjs",
 		"clean": "turbo run clean && rm -rf node_modules && rm -rf .yarn/cache && yarn cache clean",
 		"db": "turbo db --",
 		"dev": "turbo run dev",
