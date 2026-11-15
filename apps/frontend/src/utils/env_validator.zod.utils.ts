@@ -1,17 +1,17 @@
+import {
+	blankAsUndefined,
+	optionalSampleRate,
+	optionalString,
+	optionalUrl,
+} from "@connected-repo/zod-schemas/env_utils";
 import { NODE_ENV_ZOD } from "@connected-repo/zod-schemas/node_env";
 import { object, preprocess, string, url } from "zod";
-
-const optionalString = preprocess((val) => (val === "" ? undefined : val), string().optional());
-const optionalUrl = preprocess((val) => (val === "" ? undefined : val), url().optional());
 
 // Empty string is a valid production value — signals "same-origin/relative"
 // when the frontend is served behind a reverse proxy (Dokploy/nginx setup)
 // that forwards /api/* to the backend on the same domain. Consumers must
 // tolerate an empty base and build relative URLs.
-const apiUrlOrEmpty = preprocess(
-	(val) => (val === "" ? undefined : val),
-	url("API URL must be a valid URL").optional(),
-);
+const apiUrlOrEmpty = preprocess(blankAsUndefined, url("API URL must be a valid URL").optional());
 
 export const envSchemaZod = object({
 	VITE_USER_NODE_ENV: NODE_ENV_ZOD,
@@ -19,13 +19,21 @@ export const envSchemaZod = object({
 	// Empty in the same-origin Dokploy deploy — consumers fall back to
 	// window.location.origin so OAuth callbacks stay on the visible domain.
 	VITE_USER_APP_URL: apiUrlOrEmpty,
-	VITE_TEST_PASSWORD: string().min(8, "Test password must be at least 8 characters").optional(),
-	VITE_OTEL_SERVICE_NAME: string().min(1),
-	VITE_SENTRY_DSN: preprocess((val) => (val === "" ? undefined : val), url().optional()),
-	VITE_SENTRY_ENV: string().optional(),
-	VITE_SENTRY_RELEASE: string().optional(),
-	VITE_SENTRY_ORG: string().optional(),
-	VITE_SENTRY_PROJECT: string().optional(),
+	// Tests only. Empty = unset, so a deploy that blanks it still builds.
+	VITE_TEST_PASSWORD: preprocess(
+		blankAsUndefined,
+		string().min(8, "Test password must be at least 8 characters").optional(),
+	),
+	VITE_OTEL_SERVICE_NAME: preprocess(blankAsUndefined, string().min(1).default("frontend")),
+	VITE_SENTRY_DSN: optionalUrl,
+	VITE_SENTRY_ENV: optionalString,
+	VITE_SENTRY_RELEASE: optionalString,
+	VITE_SENTRY_ORG: optionalString,
+	VITE_SENTRY_PROJECT: optionalString,
+	// Sampling knobs; empty keeps the defaults in instrumentation.ts.
+	VITE_SENTRY_TRACES_SAMPLE_RATE: optionalSampleRate,
+	VITE_SENTRY_REPLAYS_SESSION_SAMPLE_RATE: optionalSampleRate,
+	VITE_SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE: optionalSampleRate,
 	// Novu — Inbox connects the browser directly to Novu; empty = notification UI hidden.
 	VITE_NOVU_APP_IDENTIFIER: optionalString,
 	VITE_NOVU_API_URL: optionalUrl,

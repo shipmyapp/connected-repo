@@ -5,6 +5,7 @@ import { defineConfig, loadEnv } from "vite";
 import { analyzer } from "vite-bundle-analyzer";
 import { VitePWA } from "vite-plugin-pwa";
 import pkg from "./package.json";
+import { sentryReleaseName } from "./src/configs/sentry_release.config";
 import { envValidationVitePlugin } from "./src/utils/env_validation_vite_plugin.utils";
 
 // https://vite.dev/config/
@@ -14,7 +15,11 @@ export default defineConfig(({ mode }) => {
 	// Sentry release name — MUST match Sentry.init's `release` at runtime, else
 	// uploaded sourcemaps get tagged with a version the runtime never reports
 	// and Sentry silently can't associate errors with them.
-	const sentryRelease = `${env.VITE_OTEL_SERVICE_NAME || "frontend"}@${env.VITE_SENTRY_RELEASE || pkg.version}`;
+	const sentryRelease = sentryReleaseName(
+		env.VITE_OTEL_SERVICE_NAME,
+		env.VITE_SENTRY_RELEASE,
+		pkg.version,
+	);
 
 	// Sourcemap upload is guarded by an explicit marker that only the Docker
 	// prod build sets (see apps/frontend/Dockerfile). Local `yarn build` will

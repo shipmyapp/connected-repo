@@ -137,11 +137,9 @@ export async function authLoader({ context }: LoaderFunctionArgs) {
 			isRegistered: true, // better-auth handles registration
 		};
 
-		setSentryUser({
-			email: session.user.email,
-			username: session.user.name,
-			id: session.user.id,
-		});
+		// The id only: Sentry finds the person from it, and no email or name
+		// travels with every event.
+		void setSentryUser({ id: session.user.id });
 
 		// Set user context in React Router context
 		context.set(userContext, sessionInfo);
