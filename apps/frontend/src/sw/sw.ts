@@ -1,4 +1,5 @@
 import { env, isDev } from "@frontend/configs/env.config";
+import { NAVIGATE_MESSAGE } from "@frontend/utils/sw-navigate";
 import { initializeApp } from "firebase/app";
 import { getMessaging, onBackgroundMessage } from "firebase/messaging/sw";
 import {
@@ -17,18 +18,11 @@ if (isDev) {
 	self.__WB_DISABLE_DEV_LOGS = true;
 }
 
+// App shell: bundled build assets are precached so the app launches offline
+// and from the home screen. The install dialog's chunk and the install
+// pictures are left out (vite.config.ts globIgnores): fetched only when shown.
 precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
-
-// Skip the "waiting" state as soon as a new SW installs — paired with
-// clients.claim() below, this makes new deploys take effect on the next
-// page load instead of waiting for every tab to close. Matches the
-// autoUpdate registerType in vite.config.ts. Without this, an SW that
-// starts intercepting /api/* incorrectly (like the pre-denylist version)
-// can silently break OAuth flows for days on already-installed browsers.
-// self.addEventListener('install', () => {
-//   self.skipWaiting();
-// });
 
 self.addEventListener("message", (event) => {
 	if (event.data?.type === "SKIP_WAITING") {
@@ -40,30 +34,22 @@ self.addEventListener("activate", (event) => {
 	event.waitUntil(self.clients.claim());
 });
 
-// Defensive NetworkOnly for backend paths — belt-and-suspenders to the
-// NavigationRoute denylist below. That denylist handles navigation-mode
-// requests (like Google's OAuth 302), which is the actual bug we hit. This
-// route additionally guarantees that if a future contributor ever adds a
-// catch-all Workbox handler (e.g. runtimeCaching) above, backend calls still
-// bypass the SW pipeline instead of being silently cached or delayed.
-// Match order matters: register this BEFORE NavigationRoute.
-registerRoute(
-	({ url }) =>
-		url.pathname.startsWith("/api/") ||
-		url.pathname.startsWith("/super-admin/") ||
-		url.pathname.startsWith("/mobile-app/"),
-	new NetworkOnly(),
-);
+// Backend paths always go to the network. Registered BEFORE the
+// NavigationRoute so a future catch-all handler can never cache or delay
+// them. The NavigationRoute denylist below mirrors this list: it is what
+// keeps Google's OAuth redirect to /api/auth/callback/* from being served the
+// cached SPA shell (the code would be dropped).
+const isBackendPath = (pathname: string): boolean =>
+	pathname.startsWith("/api/") ||
+	pathname.startsWith("/super-admin/") ||
+	pathname.startsWith("/mobile-app/");
+
+registerRoute(({ url }) => isBackendPath(url.pathname), new NetworkOnly());
 
 try {
-	// Use index.html without leading slash as it's the standard key in the precache manifest.
-	// In development, this might fail because the manifest is handled differently by Vite.
-	//
-	// denylist prevents the SW from intercepting navigations that must reach the
-	// backend via nginx: OAuth callbacks under /api/auth/*, the Novu bridge, oRPC
-	// routes, and any admin/mobile endpoints. Without this, Google's OAuth redirect
-	// to /api/auth/callback/google?code=... gets served the SPA shell from cache
-	// and the code is dropped on the floor.
+	// `index.html` without a leading slash is the standard key in the precache
+	// manifest. In development this can fail because Vite handles the manifest
+	// differently.
 	registerRoute(
 		new NavigationRoute(createHandlerBoundToURL("index.html"), {
 			denylist: [/^\/api\//, /^\/super-admin\//, /^\/mobile-app\//],
@@ -76,6 +62,54 @@ try {
 		console.debug("[SW] NavigationRoute skipped in dev mode (standard behavior).");
 	}
 }
+
+// ─── Notification taps ──────────────────────────────────────────────────
+//
+/**
+ * The page a tap on a push opens: its link, the URL it carries, or the app's
+ * start. A notification Firebase showed itself keeps its payload under
+ * `FCM_MSG`; one this worker showed keeps `{ url }`.
+ */
+const pushTargetOf = (notificationData: unknown): string => {
+	const data = (notificationData ?? {}) as {
+		url?: string;
+		FCM_MSG?: { fcmOptions?: { link?: string }; data?: { url?: string } };
+	};
+	return data.FCM_MSG?.fcmOptions?.link ?? data.FCM_MSG?.data?.url ?? data.url ?? "/";
+};
+
+/**
+ * A tap opens its screen in the app's own window: the window already on it is
+ * focused; otherwise the open window is focused and told to go there through
+ * the router (no reload, no second window: the DataWorker and pending writes
+ * carry on); only with no window open is one opened. Other origins are ignored.
+ */
+const openOrFocus = async (url: string) => {
+	const targetUrl = new URL(url, self.location.origin);
+	if (targetUrl.origin !== self.location.origin) return;
+	const clientsList = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+	const exact = clientsList.find((client) => client.url === targetUrl.href);
+	if (exact) return exact.focus();
+	const open = clientsList.find((client) => client.focused) ?? clientsList[0];
+	if (open) {
+		const focused = await open.focus();
+		focused.postMessage({
+			type: NAVIGATE_MESSAGE,
+			path: `${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`,
+		});
+		return focused;
+	}
+	return self.clients.openWindow?.(targetUrl.href);
+};
+
+// Registered BEFORE Firebase's own listener (added by getMessaging below), so
+// a tap always opens something: Firebase's handler does nothing for a push
+// without a link and stops every other listener from running.
+self.addEventListener("notificationclick", (event) => {
+	event.stopImmediatePropagation();
+	event.notification.close();
+	event.waitUntil(openOrFocus(pushTargetOf(event.notification.data)));
+});
 
 // ─── Firebase Cloud Messaging — background push handler ─────────────────
 //
@@ -105,13 +139,11 @@ if (
 	const messaging = getMessaging(firebaseApp);
 
 	onBackgroundMessage(messaging, (payload) => {
-		// Silent-sync path: data-only push from the backend cron
-		// (silent_sync_dispatch.cron.ts) asking us to wake up and drain
-		// the sync queue. No user-visible notification — post to open
-		// clients so their DataWorker calls `sync.processQueue()`. If no
-		// clients are open, the push is effectively a no-op (the SW has
-		// no worker access itself); the client's own periodic timer will
-		// eventually catch up when the user returns.
+		// Silent-sync path (ADR-014): data-only push from the backend cron
+		// (silent_sync_dispatch.cron.ts) asking open clients to drain the sync
+		// queue. No user-visible notification. MUST stay before the
+		// `payload.notification` check below (silent pushes carry no
+		// notification block, so they would otherwise be shown).
 		if (payload.data?.type === "silent-sync") {
 			void (async () => {
 				const clientsList = await self.clients.matchAll({
@@ -125,45 +157,24 @@ if (
 			return;
 		}
 
-		// Normal user-visible push. Novu FCM provider maps the workflow's push step
-		// to `payload.notification` (title/body) and any custom fields to
-		// `payload.data`. Some browsers auto-render `notification` payloads without
-		// hitting this handler; we still call showNotification here so the click
-		// URL from `data.url` is applied.
-		const title = payload.notification?.title ?? payload.data?.title ?? "Notification";
-		const body = payload.notification?.body ?? payload.data?.body ?? "";
+		// A push with `notification` (title and body: what Novu's FCM provider
+		// sends for a workflow's push step) has already been shown by Firebase
+		// before this runs; showing it here too was the duplicate every push
+		// arrived with. Only a data-only push is shown here.
+		if (payload.notification) return;
+		const title = payload.data?.title ?? "Notification";
+		const body = payload.data?.body ?? "";
 		const url = payload.data?.url ?? payload.fcmOptions?.link ?? "/";
 		void self.registration.showNotification(title, {
 			body,
-			icon: "/pwa-192x192.png",
-			badge: "/pwa-192x192.png",
+			icon: "/android-chrome-192x192.png",
+			// Monochrome (white on transparent): Android draws the badge as a mask.
+			badge: "/badge-96x96.png",
 			data: { url },
 			tag: payload.messageId,
 		});
 	});
 }
-
-self.addEventListener("notificationclick", (event) => {
-	event.notification.close();
-	const url = (event.notification.data as { url?: string } | undefined)?.url ?? "/";
-	event.waitUntil(
-		(async () => {
-			const targetUrl = new URL(url, self.location.origin).href;
-			const clientsList = await self.clients.matchAll({
-				type: "window",
-				includeUncontrolled: true,
-			});
-			for (const client of clientsList) {
-				if (client.url === targetUrl && "focus" in client) {
-					return client.focus();
-				}
-			}
-			if (self.clients.openWindow) {
-				return self.clients.openWindow(targetUrl);
-			}
-		})(),
-	);
-});
 
 // ─── OPFS virtual-media fetch handler ───────────────────────────────────
 //
