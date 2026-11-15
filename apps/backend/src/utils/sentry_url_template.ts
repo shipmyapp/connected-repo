@@ -40,6 +40,10 @@ export function normalizeUrl(url: string): string {
 	try {
 		const u = new URL(url);
 		u.pathname = normalizeUrlPath(u.pathname);
+		// The query and fragment can carry codes, tokens and ids (an OAuth
+		// `code`, an invite token): the shape of the URL is enough.
+		u.search = "";
+		u.hash = "";
 		return u.toString();
 	} catch {
 		// Relative path or non-URL — treat as raw path.

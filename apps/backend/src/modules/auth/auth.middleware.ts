@@ -26,13 +26,10 @@ export const rpcAuthMiddleware = async ({
 
 	const { session, user } = transformSessionAndUserData(sessionData);
 
-	// Set user context in Sentry for this request.
-	Sentry.setUser({
-		id: user.id,
-		email: user.email ?? undefined,
-		phoneNumber: user.phoneNumber ?? undefined,
-		username: user.name,
-	});
+	// The account's id only: email, phone number and name went with every
+	// Sentry event. The super-admin console finds the
+	// person from the id.
+	Sentry.setUser({ id: user.id });
 
 	// Team memberships are loaded LAZILY inside `rpcProtectedActiveTeamProcedure`
 	// for the one active team. Eager-loading every membership here scaled poorly

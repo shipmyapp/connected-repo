@@ -1,5 +1,5 @@
 // Initialize OpenTelemetry + Sentry before the HTTP server (or any instrumented module) loads.
-import { env, isDev, isProd } from "@backend/configs/env.config";
+import { env, isProd } from "@backend/configs/env.config";
 import { normalizeUrl, normalizeUrlPath } from "@backend/utils/sentry_url_template";
 import {
 	CompositePropagator,
@@ -16,6 +16,13 @@ import { ORPCInstrumentation } from "@orpc/otel";
 import * as Sentry from "@sentry/node";
 import { SentryPropagator, SentrySampler, SentrySpanProcessor } from "@sentry/opentelemetry";
 import { nodeProfilingIntegration } from "@sentry/profiling-node";
+
+/**
+ * Requests that arrive constantly and say nothing on their own: health
+ * checks (Docker/Dokploy probe every few seconds) and the Sentry tunnel.
+ * Never traced, so they do not eat the span quota.
+ */
+const UNTRACED_PATHS = [/^\/health\b/, /^\/?$/, /^\/\?/, /^\/api\/sentry-tunnel\b/];
 
 const sentryClient = Sentry.init({
 	dsn: env.SENTRY_DSN,
@@ -43,8 +50,15 @@ const sentryClient = Sentry.init({
 	// headers on errors — which would ship `Authorization`, `Cookie`, `x-api-key`,
 	// and `x-tbus-*` tokens straight to Sentry.
 	sendDefaultPii: false,
-	profilesSampleRate: env.SENTRY_PROFILES_SAMPLE_RATE ?? 0,
-	tracesSampleRate: env.SENTRY_TRACES_SAMPLE_RATE ?? (isProd ? 0.1 : 1.0),
+	// Continuous profiling while a traced request runs (Sentry v10 names;
+	// `profilesSampleRate` is the deprecated v8 option). Off unless set.
+	profileSessionSampleRate: env.SENTRY_PROFILES_SAMPLE_RATE ?? 0,
+	profileLifecycle: "trace",
+	tracesSampler: ({ name, attributes, inheritOrSampleWith }) => {
+		const path = String(attributes?.["url.path"] ?? attributes?.["http.target"] ?? name ?? "");
+		if (UNTRACED_PATHS.some((pattern) => pattern.test(path))) return 0;
+		return inheritOrSampleWith(env.SENTRY_TRACES_SAMPLE_RATE ?? (isProd ? 0.1 : 1.0));
+	},
 	// Strip bound SQL parameter values from Postgres spans before they leave the
 	// process. `PgInstrumentation({ enhancedDatabaseReporting: true })` attaches
 	// the parameter array to every span as `db.statement.parameters` (and the
@@ -127,6 +141,10 @@ export const otelNodeSdk = new NodeSDK({
 otelNodeSdk.start();
 Sentry.validateOpenTelemetrySetup();
 
-if (isDev) {
-	console.info("Backend Sentry initialized:", Sentry.isInitialized());
-}
+// One line on every start, whatever LOG_LEVEL says, so a container's output
+// always shows whether errors and traces can reach Sentry.
+console.info(
+	Sentry.isInitialized()
+		? `Sentry: on (environment ${env.SENTRY_ENVIRONMENT || env.NODE_ENV}, release ${env.SENTRY_RELEASE ?? "unset"})`
+		: "Sentry: off (SENTRY_DSN is empty)",
+);
