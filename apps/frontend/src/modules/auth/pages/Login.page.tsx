@@ -10,8 +10,13 @@ import { Paper } from "@connected-repo/ui-mui/layout/Paper";
 import { Stack } from "@connected-repo/ui-mui/layout/Stack";
 import { AppVersionLabel } from "@frontend/components/AppVersionLabel";
 import { env, isTest } from "@frontend/configs/env.config";
+import {
+	authorizeUrl,
+	oauthResumeQuery,
+	rememberOAuth,
+} from "@frontend/modules/auth/lib/pending-oauth";
 import { useTenant } from "@frontend/tenant/TenantContext";
-import { authClient } from "@frontend/utils/auth.client";
+import { authBaseUrl, authClient } from "@frontend/utils/auth.client";
 import { getLastLogin } from "@frontend/utils/auth.persistence";
 import * as Sentry from "@sentry/react";
 import { useEffect, useState } from "react";
@@ -25,6 +30,13 @@ export const LoginPage = () => {
 	const [searchParams] = useSearchParams();
 	const error = searchParams.get("error");
 	const lastLogin = getLastLogin();
+
+	// An AI app asking to connect sends a signed-out person here with its
+	// authorize request in the address (ADR-045): remember it for this tab,
+	// and after sign-in go back to authorize, not the dashboard.
+	useEffect(() => {
+		rememberOAuth(searchParams);
+	}, [searchParams]);
 	const { brand, isTenant } = useTenant();
 
 	// Track OAuth errors in Sentry when they occur
@@ -62,7 +74,10 @@ export const LoginPage = () => {
 		const appOrigin = isTenant
 			? window.location.origin
 			: env.VITE_USER_APP_URL || window.location.origin;
-		const callbackURL = `${appOrigin}/dashboard`;
+		const oauthResume = oauthResumeQuery(searchParams);
+		const callbackURL = oauthResume
+			? authorizeUrl(authBaseUrl ?? window.location.origin, oauthResume)
+			: `${appOrigin}/dashboard`;
 
 		try {
 			if (isTest) {

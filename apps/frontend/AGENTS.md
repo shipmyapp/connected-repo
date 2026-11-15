@@ -94,6 +94,12 @@ Each trigger calls `sync.processQueue()` on the DataWorker, which is idempotent
 - RPC context `noTeam`: skips the seed wait and the switch gate and sends no `x-team-id`, in both realms. Use it only for public or session-only procedures.
 - Dev: `VITE_TENANT_ROOT_DOMAIN=localhost` and `TENANT_ROOT_DOMAIN=localhost`, a team with a slug, then `http://<slug>.localhost:5173` in Chrome. Google sign-in cannot finish on a team host in dev (host-only cookies on localhost).
 
+### Connected apps (ADR-045)
+- `/oauth/consent` lives outside `AppLayout` (no sync start, no local database); its loader seeds the `x-team-id` header cache.
+- Sign-in pages pass `oauthResumeQuery(searchParams)` into the social `callbackURL` (`modules/auth/lib/pending-oauth.ts`). The authorize endpoint is on the API's origin, so resume with a document navigation (`redirectDocument` / `window.location`), never the router.
+- The consent page navigates only through `consentRedirectTarget` (the request's own redirect URI), on Connect and on Cancel.
+- Do not install the provider's `oauthProviderClient()` plugin as well: one resume path.
+
 ### UI Standards
 - **Design**: Tasteful, smooth (200-300ms transitions), responsive.
 - **Imports**: Direct imports only (NO barrel exports).

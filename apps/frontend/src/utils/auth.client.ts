@@ -6,7 +6,7 @@ import { inferAdditionalFields } from "better-auth/client/plugins";
 
 // Empty VITE_API_URL = same-origin reverse-proxy deploy. Fall back to the
 // current page origin so better-auth issues cookies against the visible domain.
-const authBaseUrl =
+export const authBaseUrl =
 	env.VITE_API_URL || (typeof window !== "undefined" ? window.location.origin : undefined);
 
 export const authClient = createAuthClient({

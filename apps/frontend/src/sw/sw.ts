@@ -38,11 +38,15 @@ self.addEventListener("activate", (event) => {
 // NavigationRoute so a future catch-all handler can never cache or delay
 // them. The NavigationRoute denylist below mirrors this list: it is what
 // keeps Google's OAuth redirect to /api/auth/callback/* from being served the
-// cached SPA shell (the code would be dropped).
+// cached SPA shell (the code would be dropped). /mcp and /.well-known/*
+// (the application MCP and its OAuth discovery) are the backend's too.
 const isBackendPath = (pathname: string): boolean =>
 	pathname.startsWith("/api/") ||
 	pathname.startsWith("/super-admin/") ||
-	pathname.startsWith("/mobile-app/");
+	pathname.startsWith("/mobile-app/") ||
+	pathname === "/mcp" ||
+	pathname.startsWith("/mcp/") ||
+	pathname.startsWith("/.well-known/");
 
 registerRoute(({ url }) => isBackendPath(url.pathname), new NetworkOnly());
 
@@ -52,7 +56,13 @@ try {
 	// differently.
 	registerRoute(
 		new NavigationRoute(createHandlerBoundToURL("index.html"), {
-			denylist: [/^\/api\//, /^\/super-admin\//, /^\/mobile-app\//],
+			denylist: [
+				/^\/api\//,
+				/^\/super-admin\//,
+				/^\/mobile-app\//,
+				/^\/mcp(\/|$)/,
+				/^\/\.well-known\//,
+			],
 		}),
 	);
 } catch (err) {

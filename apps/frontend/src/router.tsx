@@ -3,7 +3,7 @@ import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { CustomErrorBoundary } from "@frontend/components/error_fallback";
 import { AppLayout } from "@frontend/components/layout/AppLayout";
 import { RootLayout } from "@frontend/components/layout/RootLayout";
-import { authLoader } from "@frontend/utils/auth.loader";
+import { authLoader, oauthConsentLoader } from "@frontend/utils/auth.loader";
 import * as Sentry from "@sentry/react";
 import { createBrowserRouter, type RouteObject, redirect } from "react-router";
 
@@ -53,6 +53,13 @@ const routerObjectWithNavbar: ReactRouterWithNavbar[] = [
 			{
 				path: "auth/*",
 				lazy: lazyRoute(() => import("@frontend/modules/auth/auth.router")),
+			},
+			// An AI app asking to connect (ADR-045): the consent screen, after
+			// sign-in. Outside AppLayout: no sync, no local database.
+			{
+				path: "oauth/consent",
+				loader: oauthConsentLoader,
+				lazy: lazyRoute(() => import("@frontend/modules/connected-apps/pages/OAuthConsent.page")),
 			},
 			// Authenticated routes with AppLayout
 			{

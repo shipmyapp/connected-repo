@@ -88,6 +88,37 @@ server {
         proxy_buffering off;
     }
 
+    # The application MCP (ADR-045) and its OAuth discovery documents. The
+    # issuer is this origin's /api/auth, so its RFC 8414 metadata lives at
+    # /.well-known/oauth-authorization-server/api/auth here. /mcp and
+    # /.well-known/oauth-protected-resource/mcp are served here while
+    # MCP_PUBLIC_URL is unset; when it is set the backend answers 404 for them
+    # on this host and the MCP host is routed straight to the backend.
+    location = /mcp {
+        proxy_pass http://backend_upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header Connection "";
+        proxy_read_timeout 120s;
+        proxy_send_timeout 120s;
+        proxy_buffering off;
+    }
+
+    location ^~ /.well-known/oauth- {
+        proxy_pass http://backend_upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header Connection "";
+    }
+
     # PWA service worker: must not be cached, so an updated shell can register.
     location = /sw.js {
         add_header Cache-Control "no-cache, no-store, must-revalidate";

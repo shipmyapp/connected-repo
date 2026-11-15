@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- The consent screen at `/oauth/consent` for an AI app asking to connect (platform named by its redirect host, write as the person's choice, navigation only to the request's own redirect URI) and "Connected apps" on the profile (narrow to read-only, disconnect, latest changes, the address to add).
+- Signing in from an AI app's authorize request returns to it (the social `callbackURL` is the authorize URL; a copy is kept for the tab).
+- The service worker and the dev proxy leave `/mcp` and `/.well-known/*` to the backend; nginx routes them there.
+
 - Each device reports what it is and can do; the install offer and the profile's Install card follow this very device (an iPhone's Safari knows its Home Screen app).
 - "Not now" on the notification asks comes back after 3, 7, 14, then 30 days, the same on every device.
 

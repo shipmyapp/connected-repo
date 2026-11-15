@@ -15,6 +15,7 @@ vi.mock("@frontend/configs/env.config", () => ({
 	isDev: false,
 }));
 vi.mock("@frontend/utils/auth.client", () => ({
+	authBaseUrl: "https://api.example.test",
 	authClient: { signIn: { social: signInSocial } },
 }));
 vi.mock("@frontend/utils/auth.persistence", () => ({ getLastLogin: () => null }));
@@ -76,6 +77,34 @@ describe("LoginPage", () => {
 			callbackURL: `${window.location.origin}/dashboard`,
 			errorCallbackURL: `${window.location.origin}/auth/error`,
 		});
+	});
+
+	it("returns to an AI app's authorize request after sign-in, not to the dashboard", async () => {
+		signInSocial.mockResolvedValueOnce({});
+		const authorize = new URLSearchParams({
+			response_type: "code",
+			client_id: "abc",
+			redirect_uri: "https://claude.ai/api/mcp/auth_callback",
+			scope: "read write",
+			prompt: "login consent",
+			exp: String(Math.floor(Date.now() / 1000) + 600),
+			sig: "signature",
+		});
+		renderWithTheme(
+			<MemoryRouter initialEntries={[`/auth/login?${authorize}`]}>
+				<LoginPage />
+			</MemoryRouter>,
+		);
+		fireEvent.click(screen.getByText("Continue with Google"));
+		await vi.waitFor(() => expect(signInSocial).toHaveBeenCalled());
+		const callbackURL = new URL(signInSocial.mock.lastCall?.[0].callbackURL);
+		expect(`${callbackURL.origin}${callbackURL.pathname}`).toBe(
+			"https://api.example.test/api/auth/oauth2/authorize",
+		);
+		expect(callbackURL.searchParams.get("client_id")).toBe("abc");
+		expect(callbackURL.searchParams.get("prompt")).toBe("consent");
+		expect(callbackURL.searchParams.has("sig")).toBe(false);
+		sessionStorage.clear();
 	});
 
 	it("never loads the test fixture outside test mode", () => {

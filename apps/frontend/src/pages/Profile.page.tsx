@@ -16,6 +16,7 @@ import { InstallCard } from "@frontend/components/pwa/InstallCard";
 import { useSessionInfo } from "@frontend/contexts/UserContext";
 import { useWorkspace } from "@frontend/contexts/WorkspaceContext";
 import { useSaveThemeSetting } from "@frontend/hooks/useSaveThemeSetting";
+import { ConnectedAppsCard } from "@frontend/modules/connected-apps/components/ConnectedAppsCard";
 import { TeamsCard } from "@frontend/modules/teams/components/TeamsCard";
 import { useTenant } from "@frontend/tenant/TenantContext";
 import { signout } from "@frontend/utils/signout.utils";
@@ -116,6 +117,8 @@ export default function ProfilePage() {
 				<InstallCard />
 
 				<NotificationSettings />
+
+				<ConnectedAppsCard />
 
 				<Card sx={{ p: 3, borderRadius: 2, border: "1px solid", borderColor: "divider" }}>
 					<Stack

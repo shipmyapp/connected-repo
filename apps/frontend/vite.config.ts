@@ -64,6 +64,16 @@ export default defineConfig(({ mode }) => {
 					target: devBackendProxyTarget,
 					changeOrigin: true,
 				},
+				// The application MCP and its OAuth discovery documents, as nginx
+				// routes them in production (ADR-045).
+				"/mcp": {
+					target: devBackendProxyTarget,
+					changeOrigin: true,
+				},
+				"/.well-known/oauth-": {
+					target: devBackendProxyTarget,
+					changeOrigin: true,
+				},
 			},
 		},
 		plugins: [

@@ -1,5 +1,10 @@
 import { userContext } from "@frontend/contexts/UserContext";
 import { setSentryUser } from "@frontend/instrumentation";
+import {
+	authorizeUrl,
+	rememberOAuth,
+	takePendingOAuth,
+} from "@frontend/modules/auth/lib/pending-oauth";
 import { offlineTenantDecision } from "@frontend/tenant/tenant.lock";
 import {
 	getTenantSlug,
@@ -7,7 +12,7 @@ import {
 	readCachedBranding,
 } from "@frontend/tenant/tenant.resolver";
 import { setActiveTeamIdForRequests } from "@frontend/utils/active_team_header.client";
-import { authClient } from "@frontend/utils/auth.client";
+import { authBaseUrl, authClient } from "@frontend/utils/auth.client";
 import type { CachedSession } from "@frontend/utils/auth.persistence";
 import { getAuthCache, saveAuthCache, saveLastLogin } from "@frontend/utils/auth.persistence";
 import { mirrorToLocalDb } from "@frontend/utils/mirror_to_local_db";
@@ -15,7 +20,7 @@ import { orpcFetch } from "@frontend/utils/orpc.client";
 import { consumeFreshSessionRequest } from "@frontend/utils/session_refresh.client";
 import { detectUserTimezone } from "@frontend/utils/timezone.utils";
 import type { LoaderFunctionArgs } from "react-router";
-import { redirect } from "react-router";
+import { redirect, redirectDocument } from "react-router";
 import { toast } from "react-toastify";
 
 /**
@@ -106,6 +111,14 @@ export async function authLoader({ context }: LoaderFunctionArgs) {
 			email: session.user.email,
 			image: session.user.image,
 		});
+
+		// A sign-in that started from an AI app's authorize request carries on
+		// there (ADR-045). A document redirect: the authorize endpoint is on the
+		// app's own origin, and the router would render it as a page of the app.
+		const pendingOAuth = takePendingOAuth();
+		if (pendingOAuth) {
+			throw redirectDocument(authorizeUrl(authBaseUrl ?? window.location.origin, pendingOAuth));
+		}
 
 		// Timezone Detection and Auto-Update
 		try {
@@ -199,4 +212,24 @@ export async function authLoader({ context }: LoaderFunctionArgs) {
 
 		throw redirect("/auth");
 	}
+}
+
+/**
+ * Loader for `/oauth/consent` (ADR-045). Online only: the consent must reach
+ * the server. A person whose session ended between the app's request and
+ * this screen goes back to sign in with the request kept. The `x-team-id`
+ * header cache is seeded so the page's oRPC call does not wait for
+ * `AppLayout`.
+ */
+export async function oauthConsentLoader({ request }: LoaderFunctionArgs) {
+	const params = new URL(request.url).searchParams;
+	// The request is answered here; nothing left to resume.
+	takePendingOAuth();
+	const { data: session } = await authClient.getSession().catch(() => ({ data: null }));
+	if (!session) {
+		rememberOAuth(params);
+		throw redirect("/auth/login");
+	}
+	setActiveTeamIdForRequests(session.user.activeTeamAppId ?? null);
+	return null;
 }
