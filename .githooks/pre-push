@@ -1,0 +1,17 @@
+#!/bin/sh
+# Before anything leaves this machine: no dead code and a clean
+# typecheck. knip finds unused files, exports, types and dependencies across every
+# workspace (knip.jsonc); check-types is the whole monorepo's tsc. CI runs both again.
+set -e
+echo "pre-push: knip (unused files, exports, dependencies)"
+if ! yarn -s knip; then
+	echo "pre-push: knip found dead code. Remove it (or, if it is truly used, teach knip.jsonc why)."
+	exit 1
+fi
+echo "pre-push: check-types"
+if ! yarn -s check-types > /tmp/connected-repo-check-types.log 2>&1; then
+	grep -E "error TS" /tmp/connected-repo-check-types.log | head -20
+	echo "pre-push: the typecheck failed (full log: /tmp/connected-repo-check-types.log)."
+	exit 1
+fi
+echo "pre-push: clean"

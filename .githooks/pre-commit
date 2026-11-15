@@ -1,0 +1,13 @@
+#!/bin/sh
+# Fast, on what you are committing: Biome on the staged files, where unused imports and
+# unused variables are errors (biome.json), with the format and the rest of the lint.
+# Dead files, exports and dependencies across the monorepo are pre-push (knip).
+files=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(ts|tsx|js|jsx|mjs|cjs|json|jsonc)$' | grep -v '^apps/backend/\.novu-pull/')
+[ -z "$files" ] && exit 0
+# shellcheck disable=SC2086
+if ! npx --no-install biome check --no-errors-on-unmatched $files; then
+	echo ""
+	echo "pre-commit: Biome found problems in the staged files."
+	echo "  npx biome check --write <files> fixes the format and the safe ones; git commit --no-verify skips (don't)."
+	exit 1
+fi
