@@ -13,8 +13,56 @@ const prettyStream = () =>
 			"{msg} {if req.method}[{req.method} {req.url}]{end} {if rpc.method}[{rpc.method}]{end} {if res.status}→ {res.status}{end}",
 	});
 
+/**
+ * Never written to stdout or to Sentry breadcrumbs: credentials, raw tokens,
+ * cookies, API keys. pino redacts before serialising, so every stream (the
+ * breadcrumb stream included) gets the censored line. Not `code`: error
+ * codes (`err.code`, Postgres SQLSTATE) must stay readable.
+ */
+export const LOG_REDACT_PATHS = [
+	"password",
+	"*.password",
+	"newPassword",
+	"*.newPassword",
+	"token",
+	"*.token",
+	"accessToken",
+	"*.accessToken",
+	"refreshToken",
+	"*.refreshToken",
+	"idToken",
+	"*.idToken",
+	"apiKey",
+	"*.apiKey",
+	"secret",
+	"*.secret",
+	"fcmToken",
+	"*.fcmToken",
+	"subscriptionAlertWebhookBearerToken",
+	"*.subscriptionAlertWebhookBearerToken",
+	// Free text a person typed for an AI client (the application MCP logs
+	// each tool call's `request` argument): personal content.
+	"request",
+	"*.request",
+	"input.request",
+	"*.input.request",
+	"authorization",
+	"*.authorization",
+	"cookie",
+	"*.cookie",
+	"headers.authorization",
+	"headers.cookie",
+	'headers["x-api-key"]',
+	'headers["set-cookie"]',
+	"*.headers.authorization",
+	"*.headers.cookie",
+	'*.headers["x-api-key"]',
+	'*.headers["set-cookie"]',
+];
+
 const loggerOptions: pino.LoggerOptions = {
 	level: env.LOG_LEVEL ?? (isDev ? "debug" : "info"),
+	redact: { paths: LOG_REDACT_PATHS, censor: "[redacted]" },
 	base: {
 		service: env.OTEL_SERVICE_NAME,
 		environment: env.NODE_ENV,
