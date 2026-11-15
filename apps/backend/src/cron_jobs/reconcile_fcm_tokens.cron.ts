@@ -1,5 +1,6 @@
 import { db } from "@backend/db/db";
 import { reconcileUserFcmDevices } from "@backend/modules/notifications/services/reconcile_devices.notifications.service";
+import { captureBackendException } from "@backend/utils/backend-error-tracking.utils";
 import { logger } from "@backend/utils/logger.utils";
 import cron, { type ScheduledTask } from "node-cron";
 
@@ -19,7 +20,7 @@ let scheduledTask: ScheduledTask | null = null;
  * subscriber.retrieve() calls is easier to 429 than to control. Nightly
  * cadence means even N=10k users at 200ms each finishes in under an hour.
  */
-async function reconcileFcmTokensTick(): Promise<void> {
+export async function reconcileFcmTokensTick(): Promise<void> {
 	try {
 		await db.$transaction(async () => {
 			const lockResult = await db.$query<{ acquired: boolean }>`
@@ -51,6 +52,10 @@ async function reconcileFcmTokensTick(): Promise<void> {
 		});
 	} catch (error) {
 		logger.error({ err: error }, "FCM token reconciliation tick failed");
+		captureBackendException(error, {
+			captureAll: true,
+			tags: { handler: "cron.reconcile_fcm_tokens" },
+		});
 	}
 }
 

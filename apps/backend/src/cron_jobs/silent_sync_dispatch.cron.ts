@@ -1,5 +1,6 @@
 import { firebaseMessaging } from "@backend/configs/firebase_admin.config";
 import { db } from "@backend/db/db";
+import { captureBackendException } from "@backend/utils/backend-error-tracking.utils";
 import { logger } from "@backend/utils/logger.utils";
 import cron, { type ScheduledTask } from "node-cron";
 
@@ -101,6 +102,10 @@ export async function silentSyncDispatchTick(): Promise<void> {
 		});
 	} catch (error) {
 		logger.error({ err: error }, "Silent sync dispatch tick failed");
+		captureBackendException(error, {
+			captureAll: true,
+			tags: { handler: "cron.silent_sync_dispatch" },
+		});
 	}
 }
 

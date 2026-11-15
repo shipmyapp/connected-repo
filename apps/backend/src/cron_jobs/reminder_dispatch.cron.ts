@@ -1,6 +1,7 @@
 import { db } from "@backend/db/db";
 import { userReminderTaskDef } from "@backend/events/events.schema";
 import { tbus } from "@backend/events/tbus";
+import { captureBackendException } from "@backend/utils/backend-error-tracking.utils";
 import { logger } from "@backend/utils/logger.utils";
 import cron, { type ScheduledTask } from "node-cron";
 
@@ -20,7 +21,7 @@ let scheduledTask: ScheduledTask | null = null;
  * (a) the cron tick running >1s and dispatching twice in the same minute,
  * (b) a stale replica racing before the advisory lock is acquired.
  */
-async function reminderDispatchTick(): Promise<void> {
+export async function reminderDispatchTick(): Promise<void> {
 	try {
 		await db.$transaction(async () => {
 			const lockResult = await db.$query<{ acquired: boolean }>`
@@ -88,6 +89,10 @@ async function reminderDispatchTick(): Promise<void> {
 		});
 	} catch (error) {
 		logger.error({ err: error }, "Reminder dispatch tick failed");
+		captureBackendException(error, {
+			captureAll: true,
+			tags: { handler: "cron.reminder_dispatch" },
+		});
 	}
 }
 
