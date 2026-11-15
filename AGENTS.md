@@ -18,9 +18,9 @@
 ---
 
 ## Layer 2: Active Task
-- **Objective**: Platform hardening: client address, limits, logs, uploads, secrets, sessions, webhooks, CI.
+- **Objective**: Frontend and shared packages: generic fixes.
 - **Status**: Completed.
-- **Context**: The client address is stamped once per request from a counted proxy chain (`TRUSTED_PROXY_COUNT`, ADR-024); authenticated, anonymous OpenAPI and public calls are limited before their work, request bodies are limited and the DataWorker pushes creates 20 at a time (ADR-025); ended sessions are refused at once through a Redis mark (ADR-026); uploads live under the uploader's folder and active content types are refused (ADR-027); provider tokens are encrypted, bearer tokens must be signed, the example auth secret is refused at boot (ADR-028); logs redact secrets; webhooks are guarded at connect time and signed; API responses carry security headers; CI runs with a read-only token and SHA-pinned actions.
+- **Context**: A team switch sticks and survives an offline restart (one uncached session read after the switch, the offline auth cache patched, ADR-029); the theme is chosen on the profile page and saved to the account; `packages/ui-mui` holds the shared confirm dialog, relative time, error screens, toast container, drawer transition and `utils/*` (ADR-030); blank `VITE_*` keys are unset (ADR-031); Sentry sends without a boot probe or PII; the avatar is a plain link to the profile page, which holds Teams, Appearance and Sign out; Back closes an open dialog; component tests run in jsdom.
 
 ## Layer 3: Decision Records
 
@@ -54,6 +54,9 @@
 | [ADR-026] | Ended sessions refused at once | Accepted | databaseHooks.session.delete.after writes revoked-session:<id> to Redis for the cookie cache's life; rpcAuthMiddleware refuses it (one EXISTS per call; Redis down = the 5-minute cookie bound). The session-security middleware logs an address change and never refuses on it. |
 | [ADR-027] | Objects under the uploader's folder | Accepted | The presigner derives `<team>/<uploader>/<resource>/<id>_<name>` and refuses active types (SVG, HTML, XML, JS) and non-canonical type strings; pushCdnUpdates accepts only a URL naming the row's own object. The bucket stays public-read by URL (offline media path); its public host must not be under the app's cookie domain. |
 | [ADR-028] | Secrets at rest and at boot | Accepted | Provider tokens encrypted (account.encryptOAuthTokens; `auth:encrypt-tokens` once for older rows); bearer requires a signed token; CSRF is skipped only for bearer requests without cookies; a production/staging boot refuses the example BETTER_AUTH_SECRET; Better Auth telemetry off. |
+| [ADR-029] | Fresh session after a team switch | Accepted | `teams.setActiveTeam` writes `users.activeTeamAppId` outside better-auth, whose 5-minute `session.cookieCache` keeps the old team. The switch patches the cached user (`patchAuthCacheUser`), calls `requestFreshSession()` and awaits the router revalidation inside the closed switch gate; `authLoader`'s online path consumes the flag for one `disableCookieCache` read. The backend gate's row re-read (`rpcProtectedActiveTeamProcedure`) stays. |
+| [ADR-030] | One copy of shared web pieces | Accepted | Components and browser helpers used by more than one Vite app live in `packages/ui-mui` (`components/ConfirmDialog`, `components/When`, `feedback/AppErrorBoundary`, `feedback/ErrorScreen`, `feedback/AppToastContainer`, `feedback/DrawerTransition`, `utils/*`); env primitives in `packages/zod-schemas/src/env_utils.ts`. An app never copies one. |
+| [ADR-031] | Blank env means unset | Accepted | Every optional `VITE_*` key goes through `blankAsUndefined` (`@connected-repo/zod-schemas/env_utils`): an empty Docker build arg must build, not fail validation. |
 
 ## Quick Reference
 - **Dev**: `yarn dev`

@@ -29,7 +29,7 @@ Entity schemas, validators, compliance (GSTIN, PAN)
 📖 See [zod-schemas/AGENTS.md](./zod-schemas/AGENTS.md)
 
 ### @connected-repo/ui-mui
-Material-UI components + RHF wrappers
+Material-UI components + RHF wrappers + the web pieces shared by every Vite app (confirm dialog, relative time, error screens, toasts, utils)
 
 📖 See [ui-mui/AGENTS.md](./ui-mui/AGENTS.md)
 
@@ -39,6 +39,7 @@ Material-UI components + RHF wrappers
 2. Add package.json: `"sideEffects": false`, configure `exports`
 3. Create tsconfig.json extending base
 4. Add to root workspaces
+5. A package that compiles against peer dependencies lists each of them in `devDependencies` too (same range), or a pruned Docker build of one app cannot build it.
 
 ```json
 {

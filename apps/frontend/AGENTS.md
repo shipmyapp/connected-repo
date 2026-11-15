@@ -29,6 +29,14 @@
 | [ADR-F04] | Wave-1 anchor | Accepted | `teams.pullBundles` mints `topLevelSyncedAt`; downstream waves echo it back for a consistent snapshot. |
 | [ADR-F05] | Active team header + worker cache | Accepted | Header cache and worker caches flip in lockstep — desync causes "Active team id mismatch." |
 | [ADR-F06] | OPFS-backed file uploads | Accepted | Blobs live in OPFS; `FileUploadWorker` drives the CDN pipeline off OPFS paths. |
+| [ADR-F07] | Theme on the account | Accepted | Light / Dark / System is `users.theme_setting`, written by `useSaveThemeSetting` through `authClient.updateUser` (better-auth refreshes its cookie) and patched into the offline auth cache; `AppLayout` applies the loader's value. `ThemeContext`'s setters are stable: an effect that depends on them must not re-run after every theme change. Toasts take `actualMode`, never the setting. |
+| [ADR-F08] | Destructive acts are confirmed | Accepted | Every act that deletes or removes asks first through `ConfirmDialog` (`@connected-repo/ui-mui/components/ConfirmDialog`): Cancel left, the act red and named for what it does, no dismissal while it runs. |
+| [ADR-F09] | Dialogs are drawers | Accepted | The theme docks every MUI `Dialog` to the bottom on phones and the right edge from `md`; write new dialogs as plain `Dialog`s. Fields type at 16 px on touch screens (no iOS zoom); pinch-zoom stays. |
+| [ADR-F10] | Errors have pages | Accepted | `AppErrorBoundary` (ui-mui) is the top-level net and never calls `useRouteError()`; route errors render `ErrorScreen` via `components/error_fallback.tsx`. A page restored from the back/forward cache reloads (`pageshow` in `main.tsx`). |
+| [ADR-F11] | Times read relative | Accepted | Past and planned times show through `<When at={ms} />` ("5 min ago", one shared ticker, the exact time on hover); positions inside a recording stay exact. |
+| [ADR-F12] | Back closes what it opened | Accepted | Every dialog or sheet without an address of its own calls `useBackCloses(open, onClose)` (`@connected-repo/ui-mui/utils/use_back_closes`; `ConfirmDialog` does it for you). While open it holds one same-URL history entry; Back pops it and closes the overlay (React Router re-runs the matched loaders: one session read online, the cached user offline). |
+| [ADR-F13] | The profile page is the account hub | Accepted | The avatar is a plain link to `/profile`; there is no account menu. Teams are listed, switched and created only in `modules/teams/components/TeamsCard.tsx` on the profile page; the navbars show the active team's name as text. Sign out, theme and per-device settings are profile cards. |
+| [ADR-F14] | Leave history clean around sign-in | Accepted | Sign-in (test mode) and sign-out navigate with `location.replace`, so Back never returns to the page just left; a failed sign-in start is shown under the button and sent to Sentry; test-only fixtures are imported dynamically inside the test branch. |
 
 ---
 
@@ -73,6 +81,7 @@ Each trigger calls `sync.processQueue()` on the DataWorker, which is idempotent
 1. `setActiveTeamIdForRequests` (main-thread header cache used by ORPC).
 2. `dataProxy.sync.setActiveTeamId(...)` (DataWorker cache; triggers a sync).
 3. `mediaProxy.setActiveTeamId(...)` if the media worker is already warm.
+4. The cached user is patched (`patchAuthCacheUser`) and `requestFreshSession()` makes the awaited revalidation read the session past better-auth's cookie cache; the gate reopens after it.
 
 ### UI Standards
 - **Design**: Tasteful, smooth (200-300ms transitions), responsive.
@@ -80,4 +89,5 @@ Each trigger calls `sync.processQueue()` on the DataWorker, which is idempotent
 - **Responsive**: `xs` for mobile, `md`+ for desktop. Touch targets min 44px.
 
 ### Testing
+- **Unit**: `yarn workspace @connected-repo/frontend test:run`. Node by default (worker/db logic, utils); a component test starts with `// @vitest-environment jsdom` and renders through `renderWithTheme` (`src/test/render.tsx`).
 - **E2E**: Playwright tests are state-dependent. Use conditional logic.
