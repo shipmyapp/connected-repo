@@ -11,6 +11,12 @@ import { TeamMemberTable } from "./team_members.table";
 // This is unrelated to `teams_api` — that table models external API-key
 // consumers (rate limits, IP allowlists, secret hashes) and shares only the
 // `x-team-id` header name at the transport layer.
+//
+// White-label branding: a team may have a `slug` (its `<slug>.<root>` host,
+// assigned by the operator) and override the app name, colours, icon and
+// tagline. Team hosts read these via the public `teams.getBrandingBySlug`
+// and `/api/tenant/manifest.webmanifest`. All nullable: unset = the
+// template's default brand (`DEFAULT_APP_BRAND`).
 export class TeamAppTable extends BaseTable {
 	readonly table = "teams_app";
 
@@ -35,6 +41,15 @@ export class TeamAppTable extends BaseTable {
 					onUpdate: "RESTRICT",
 				})
 				.nullable(),
+			// ─── Branding / team host ───────────────────────────────────
+			slug: t.string(63).nullable(),
+			appName: t.string(60).nullable(),
+			appShortName: t.string(12).nullable(),
+			tagline: t.string(160).nullable(),
+			pwaIconUrl: t.string(2048).nullable(),
+			primaryColor: t.string(7).nullable(),
+			secondaryColor: t.string(7).nullable(),
+			backgroundColor: t.string(7).nullable(),
 			deletedAt: t.timestampNumber().nullable(),
 
 			...t.timestamps(),
@@ -43,6 +58,12 @@ export class TeamAppTable extends BaseTable {
 			t.unique(["personalTeamForUserId"], {
 				name: "teams_app_personal_team_for_user_id_idx",
 				where: "deleted_at IS NULL AND personal_team_for_user_id IS NOT NULL",
+			}),
+			// One live team per subdomain. Partial so a deleted team's slug can
+			// be re-assigned.
+			t.unique(["slug"], {
+				name: "teams_app_slug_idx",
+				where: "deleted_at IS NULL AND slug IS NOT NULL",
 			}),
 			// Pull delta (migration 0001). Declared so `yarn db g` sees it.
 			t.index(["id", { column: "updatedAt", order: "DESC" }], {
