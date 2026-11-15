@@ -2,13 +2,14 @@
 
 ## 1. Blueprint
 **Intent**: Robust, event-driven oRPC backend with strict schema enforcement and zero-downtime compatibility.
-**Core Stack**: oRPC, Orchid ORM, pg-tbus, Better Auth, Novu.
+**Core Stack**: oRPC, Orchid ORM, pg-tbus, Better Auth, Novu, Redis (rate limits only).
 
 **Key Architectures**:
 - **Event-Driven**: `pg-tbus` for async tasks (notifications, usage tracking) and events.
 - **Delta Sync**: Client-pull `pullBundles` procedures over the generic two-cursor `syncDeltaService`. There is NO SSE and no ORM-hook push channel.
 - **Backward Compatibility**: N-1 frontend support; additive-only migrations; two-step deletions.
 - **Dual Team Model**: `teams_app` (Session/UI) vs `teams_api` (Key/External).
+- **Redis**: `configs/redis.config.ts` (`getRedis()`, one ioredis connection opened on first use, `closeRedis()` on shutdown) and `utils/redis.utils.ts` (`getRedisStatus`, `redisReady`). Holds only the rate-limit buckets (`modules/system/services/rate_limit.service.ts`); limits fail open when it is down. Tests use Redis database 1; tests that need a live Redis skip locally and fail in CI when it is missing.
 
 ---
 
@@ -27,6 +28,7 @@
 | [ADR-B03] | Soft Delete | Accepted | Mandatory for sync compatibility (use `deletedAt` field). |
 | [ADR-B04] | Files Sync Rationale | Accepted | Use .merge() on create to backup asynchronous metadata. |
 | [ADR-B05] | Backend Hardening | Accepted | Strict SSRF guards on webhooks, dummy hashes for API keys, and server-owned teamId scoping. |
+| [ADR-B06] | Redis down = limits open | Accepted | `checkAndRecordRateLimit` lets a request through when Redis errors or times out (500 ms), logging once a minute; `{ failClosed: true }` (service) / `failClosed: true` (middleware) refuses instead. All four template limits (`app`, `sensitive`, `super-admin`, `openapi`) are fail-open. |
 
 ## Technical Guidelines
 
