@@ -6947,6 +6947,7 @@
                     },
                     "timezone": {
                       "type": "string",
+                      "maxLength": 64,
                       "default": "Etc/UTC"
                     },
                     "journalReminderTimes": {
