@@ -7,13 +7,21 @@ import {
 	rpcProtectedProcedure,
 	rpcTeamOwnerAdminProcedure,
 } from "@backend/procedures/protected.procedure";
+import {
+	type RpcContextWithHeaders,
+	rpcPublicProcedure,
+} from "@backend/procedures/public.procedure";
 import { assertOwnCdnUrl } from "@backend/utils/cdn_url.utils";
+import { getClientIpAddress } from "@backend/utils/client-info.utils";
 import {
 	teamAppCreateApiInputZod,
 	teamAppMemberAddInputZod,
 	teamAppMemberRoleZod,
 	teamAppMemberSelectAllZod,
 	teamAppSelectAllZod,
+	teamAppUpdateApiInputZod,
+	teamBrandingLookupInputZod,
+	teamBrandingPublicZod,
 	teamWithRoleZod,
 } from "@connected-repo/zod-schemas/team_app.zod";
 import {
@@ -24,6 +32,7 @@ import {
 } from "@connected-repo/zod-schemas/teams/sync";
 import { ORPCError } from "@orpc/server";
 import { z } from "zod";
+import { getTeamBrandingBySlugService } from "./services/branding.teams.service";
 import { createTeamService } from "./services/create_team.teams.service";
 import { pullTeamMembersService, pullTeamsAppService } from "./services/sync.teams.service";
 import { assertNotLastOwner, personalOwnerOf } from "./services/team_roles.teams.service";
@@ -87,6 +96,43 @@ const createTeam = rpcProtectedProcedure
 		// provisioning is exclusively a server-only path (`getDefaultTeam` /
 		// `UserTable.afterCreate`).
 		return await createTeamService(userId, user.email, user.phoneNumber, input);
+	});
+
+// Owner/Admin edit of the active team's identity + white-label branding.
+// `slug` is not accepted (zod strips it): the operator assigns it from the
+// super-admin console (`assignTeamSlug`).
+const updateTeam = rpcTeamOwnerAdminProcedure
+	.route({ method: "PUT", tags: ["Teams"] })
+	.input(teamAppUpdateApiInputZod)
+	.output(teamAppSelectAllZod)
+	.handler(async ({ input, context: { activeTeamId } }) => {
+		// Pictures shown to every member and to every visitor of the team's
+		// login page must come from the app's own storage, never a host the
+		// editor controls (it would log every visitor and could swap the icon).
+		assertOwnCdnUrl(input.logoUrl, "logoUrl");
+		assertOwnCdnUrl(input.pwaIconUrl, "pwaIconUrl");
+		return await db.teamsApp.find(activeTeamId).selectAll().update(input);
+	});
+
+// Public (pre-login) branding lookup for `<slug>.<root>` hosts. Only ever
+// returns the white-label projection, never members or ownership.
+// IP-bucketed because it is unauthenticated.
+const getBrandingBySlug = rpcPublicProcedure
+	.use(
+		createRateLimitMiddleware<RpcContextWithHeaders>({
+			bucketFn: (ctx) => ({
+				key: `branding:ip:${getClientIpAddress(ctx.reqHeaders)}`,
+				limit: 60,
+				windowSeconds: 60,
+			}),
+			label: "branding",
+		}),
+	)
+	.route({ method: "GET", tags: ["Teams"] })
+	.input(teamBrandingLookupInputZod)
+	.output(teamBrandingPublicZod.nullable())
+	.handler(async ({ input: { slug } }) => {
+		return await getTeamBrandingBySlugService(slug);
 	});
 
 // Team-scoped reads/mutations use `rpcProtectedActiveTeamProcedure`, which
@@ -344,6 +390,8 @@ export const teamsAppRouter = {
 	getMyTeams,
 	listMyActiveTeamIds,
 	createTeam,
+	updateTeam,
+	getBrandingBySlug,
 	setActiveTeam,
 	deleteTeam,
 	getTeamMembers,

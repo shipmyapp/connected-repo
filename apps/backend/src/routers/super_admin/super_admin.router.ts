@@ -33,6 +33,10 @@ import {
 	superAdminTeamListOutputZod,
 	superAdminUserListOutputZod,
 } from "@connected-repo/zod-schemas/super_admin.zod";
+import {
+	teamAppSelectAllZod,
+	teamSlugAssignInputZod,
+} from "@connected-repo/zod-schemas/team_app.zod";
 import { type InferRouterOutputs, ORPCError, type RouterClient } from "@orpc/server";
 import { z } from "zod";
 
@@ -76,6 +80,39 @@ const getTeam = rpcSuperAdminProcedure
 	.input(z.object({ teamId: z.ulid() }))
 	.output(superAdminTeamDetailZod)
 	.handler(async ({ input: { teamId } }) => await getTeamForAdmin(teamId));
+
+// The subdomain is the operator's to hand out: it needs the wildcard DNS
+// record and certificate on their side, so the team sees it and never
+// edits it (ADR-036). The partial unique index `teams_app_slug_idx` turns a
+// clash into 23505, surfaced as CONFLICT.
+const assignTeamSlug = rpcSuperAdminProcedure
+	.route({ method: "POST", tags: ["SuperAdmin"] })
+	.input(teamSlugAssignInputZod)
+	.output(teamAppSelectAllZod)
+	.handler(async ({ input: { teamId, slug }, context }) => {
+		const team = await db.teamsApp.findOptional(teamId);
+		if (!team) throw new ORPCError("NOT_FOUND", { status: 404, message: "Team not found" });
+		try {
+			// The value before, the change and the audit row share one
+			// transaction, so a refused (23505) assignment leaves no row.
+			return await withOperatorAudit(context, {
+				action: "teams.assignSlug",
+				targetKind: "team",
+				targetId: teamId,
+				before: async () => ({ slug: team.slug }),
+				apply: async () => await db.teamsApp.find(teamId).selectAll().update({ slug }),
+				after: (updated) => ({ slug: updated.slug }),
+			});
+		} catch (err) {
+			if (slug && err instanceof Error && "code" in err && err.code === "23505") {
+				throw new ORPCError("CONFLICT", {
+					status: 409,
+					message: `The subdomain "${slug}" is already taken.`,
+				});
+			}
+			throw err;
+		}
+	});
 
 const listUsers = rpcSuperAdminProcedure
 	.route({ method: "GET", tags: ["SuperAdmin"] })
@@ -190,6 +227,7 @@ export const superAdminRouter = {
 	ping,
 	listTeams,
 	getTeam,
+	assignTeamSlug,
 	listUsers,
 	revokeUserSessions,
 	listFlags,
