@@ -7069,6 +7069,97 @@
                               }
                             ]
                           },
+                          "slug": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "appName": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 60
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "appShortName": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 12
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "tagline": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 160
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "pwaIconUrl": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 2048,
+                                "format": "uri"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "primaryColor": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "secondaryColor": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "backgroundColor": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "id": {
                             "type": "string",
                             "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
@@ -7091,6 +7182,14 @@
                           "createdByUserId",
                           "personalTeamForUserId",
                           "deletedAt",
+                          "slug",
+                          "appName",
+                          "appShortName",
+                          "tagline",
+                          "pwaIconUrl",
+                          "primaryColor",
+                          "secondaryColor",
+                          "backgroundColor",
                           "id",
                           "createdAt",
                           "updatedAt"
@@ -10962,6 +11061,97 @@
                           }
                         ]
                       },
+                      "slug": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "appName": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 60
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "appShortName": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 12
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "tagline": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 160
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "pwaIconUrl": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 2048,
+                            "format": "uri"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "primaryColor": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "secondaryColor": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "backgroundColor": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
                       "id": {
                         "type": "string",
                         "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
@@ -11004,6 +11194,14 @@
                       "createdByUserId",
                       "personalTeamForUserId",
                       "deletedAt",
+                      "slug",
+                      "appName",
+                      "appShortName",
+                      "tagline",
+                      "pwaIconUrl",
+                      "primaryColor",
+                      "secondaryColor",
+                      "backgroundColor",
                       "id",
                       "createdAt",
                       "updatedAt",
@@ -11606,6 +11804,97 @@
                         }
                       ]
                     },
+                    "slug": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "appName": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 60
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "appShortName": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 12
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "tagline": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 160
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "pwaIconUrl": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 2048,
+                          "format": "uri"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "primaryColor": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "secondaryColor": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "backgroundColor": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "id": {
                       "type": "string",
                       "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
@@ -11628,9 +11917,941 @@
                     "createdByUserId",
                     "personalTeamForUserId",
                     "deletedAt",
+                    "slug",
+                    "appName",
+                    "appShortName",
+                    "tagline",
+                    "pwaIconUrl",
+                    "primaryColor",
+                    "secondaryColor",
+                    "backgroundColor",
                     "id",
                     "createdAt",
                     "updatedAt"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "422",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": {
+                          "const": true
+                        },
+                        "code": {
+                          "const": "INPUT_VALIDATION_FAILED"
+                        },
+                        "status": {
+                          "const": 422
+                        },
+                        "message": {
+                          "type": "string",
+                          "default": "INPUT_VALIDATION_FAILED"
+                        },
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "formErrors": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "fieldErrors": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          },
+                          "required": [
+                            "formErrors",
+                            "fieldErrors"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "defined",
+                        "code",
+                        "status",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": {
+                          "const": false
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "number"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {}
+                      },
+                      "required": [
+                        "defined",
+                        "code",
+                        "status",
+                        "message"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "429",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": {
+                          "const": true
+                        },
+                        "code": {
+                          "const": "RATE_LIMITED"
+                        },
+                        "status": {
+                          "const": 429
+                        },
+                        "message": {
+                          "type": "string",
+                          "default": "RATE_LIMITED"
+                        },
+                        "data": {}
+                      },
+                      "required": [
+                        "defined",
+                        "code",
+                        "status",
+                        "message"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": {
+                          "const": false
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "number"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {}
+                      },
+                      "required": [
+                        "defined",
+                        "code",
+                        "status",
+                        "message"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "500",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": {
+                          "const": true
+                        },
+                        "code": {
+                          "const": "OUTPUT_VALIDATION_FAILED"
+                        },
+                        "status": {
+                          "const": 500
+                        },
+                        "message": {
+                          "type": "string",
+                          "default": "OUTPUT_VALIDATION_FAILED"
+                        },
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "formErrors": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "fieldErrors": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          },
+                          "required": [
+                            "formErrors",
+                            "fieldErrors"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "defined",
+                        "code",
+                        "status",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": {
+                          "const": false
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "number"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {}
+                      },
+                      "required": [
+                        "defined",
+                        "code",
+                        "status",
+                        "message"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/updateTeam": {
+      "put": {
+        "operationId": "teams.updateTeam",
+        "tags": [
+          "Teams"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "logoUrl": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 2048,
+                        "format": "uri"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "appName": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 60
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "appShortName": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 12
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "tagline": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 160
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "pwaIconUrl": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 2048,
+                        "format": "uri"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "primaryColor": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "secondaryColor": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "backgroundColor": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "logoUrl": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 2048,
+                          "format": "uri"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "createdByUserId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "personalTeamForUserId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "deletedAt": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "slug": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "appName": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 60
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "appShortName": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 12
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "tagline": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 160
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "pwaIconUrl": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 2048,
+                          "format": "uri"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "primaryColor": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "secondaryColor": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "backgroundColor": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                    },
+                    "createdAt": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 20,
+                      "pattern": "^(0|[1-9]\\d{0,19})$"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "logoUrl",
+                    "createdByUserId",
+                    "personalTeamForUserId",
+                    "deletedAt",
+                    "slug",
+                    "appName",
+                    "appShortName",
+                    "tagline",
+                    "pwaIconUrl",
+                    "primaryColor",
+                    "secondaryColor",
+                    "backgroundColor",
+                    "id",
+                    "createdAt",
+                    "updatedAt"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "422",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": {
+                          "const": true
+                        },
+                        "code": {
+                          "const": "INPUT_VALIDATION_FAILED"
+                        },
+                        "status": {
+                          "const": 422
+                        },
+                        "message": {
+                          "type": "string",
+                          "default": "INPUT_VALIDATION_FAILED"
+                        },
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "formErrors": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "fieldErrors": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          },
+                          "required": [
+                            "formErrors",
+                            "fieldErrors"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "defined",
+                        "code",
+                        "status",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": {
+                          "const": false
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "number"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {}
+                      },
+                      "required": [
+                        "defined",
+                        "code",
+                        "status",
+                        "message"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "429",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": {
+                          "const": true
+                        },
+                        "code": {
+                          "const": "RATE_LIMITED"
+                        },
+                        "status": {
+                          "const": 429
+                        },
+                        "message": {
+                          "type": "string",
+                          "default": "RATE_LIMITED"
+                        },
+                        "data": {}
+                      },
+                      "required": [
+                        "defined",
+                        "code",
+                        "status",
+                        "message"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": {
+                          "const": false
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "number"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {}
+                      },
+                      "required": [
+                        "defined",
+                        "code",
+                        "status",
+                        "message"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "500",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": {
+                          "const": true
+                        },
+                        "code": {
+                          "const": "OUTPUT_VALIDATION_FAILED"
+                        },
+                        "status": {
+                          "const": 500
+                        },
+                        "message": {
+                          "type": "string",
+                          "default": "OUTPUT_VALIDATION_FAILED"
+                        },
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "formErrors": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "fieldErrors": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          },
+                          "required": [
+                            "formErrors",
+                            "fieldErrors"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "defined",
+                        "code",
+                        "status",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": {
+                          "const": false
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "number"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {}
+                      },
+                      "required": [
+                        "defined",
+                        "code",
+                        "status",
+                        "message"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/getBrandingBySlug": {
+      "get": {
+        "operationId": "teams.getBrandingBySlug",
+        "tags": [
+          "Teams"
+        ],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$"
+            },
+            "allowEmptyValue": true,
+            "allowReserved": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "slug": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$"
+                        },
+                        "appName": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 60
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "appShortName": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 12
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "tagline": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 160
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "pwaIconUrl": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 2048,
+                              "format": "uri"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "primaryColor": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "secondaryColor": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "backgroundColor": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "teamId": {
+                          "type": "string",
+                          "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "logoUrl": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 2048,
+                              "format": "uri"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "slug",
+                        "appName",
+                        "appShortName",
+                        "tagline",
+                        "pwaIconUrl",
+                        "primaryColor",
+                        "secondaryColor",
+                        "backgroundColor",
+                        "teamId",
+                        "name",
+                        "logoUrl"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
                   ]
                 }
               }
@@ -13913,6 +15134,97 @@
                         }
                       ]
                     },
+                    "slug": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "appName": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 60
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "appShortName": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 12
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "tagline": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 160
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "pwaIconUrl": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 2048,
+                          "format": "uri"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "primaryColor": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "secondaryColor": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "backgroundColor": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "id": {
                       "type": "string",
                       "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
@@ -13935,6 +15247,14 @@
                     "createdByUserId",
                     "personalTeamForUserId",
                     "deletedAt",
+                    "slug",
+                    "appName",
+                    "appShortName",
+                    "tagline",
+                    "pwaIconUrl",
+                    "primaryColor",
+                    "secondaryColor",
+                    "backgroundColor",
                     "id",
                     "createdAt",
                     "updatedAt"
@@ -14354,6 +15674,97 @@
                               }
                             ]
                           },
+                          "slug": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "appName": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 60
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "appShortName": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 12
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "tagline": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 160
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "pwaIconUrl": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 2048,
+                                "format": "uri"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "primaryColor": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "secondaryColor": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "backgroundColor": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "id": {
                             "type": "string",
                             "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
@@ -14376,6 +15787,14 @@
                           "createdByUserId",
                           "personalTeamForUserId",
                           "deletedAt",
+                          "slug",
+                          "appName",
+                          "appShortName",
+                          "tagline",
+                          "pwaIconUrl",
+                          "primaryColor",
+                          "secondaryColor",
+                          "backgroundColor",
                           "id",
                           "createdAt",
                           "updatedAt"
