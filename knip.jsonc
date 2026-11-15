@@ -15,6 +15,8 @@
 		// Types named in other modules' emitted declarations (tsc fails with TS4023 if they are
 		// not exported): the active-team procedure context, the worker APIs, the install state.
 		"apps/backend/src/procedures/protected.procedure.ts": ["types"],
+		// The session-security result, named in rpcSensitiveProcedure's context.
+		"apps/backend/src/middlewares/session-security.middleware.ts": ["types"],
 		"apps/frontend/src/worker/sync/sync.orchestrator.ts": ["types"],
 		"apps/frontend/src/worker/db/files.db.ts": ["types"],
 		"apps/frontend/src/worker/cdn/media-upload.service.ts": ["types"],
@@ -33,10 +35,7 @@
 	"workspaces": {
 		"apps/backend": {
 			"ignoreFiles": [
-				"src/db/migrations/**",
-				// Step-up auth building blocks kept for apps that need them (ADR-012); not wired in the template.
-				"src/middlewares/session-security.middleware.ts",
-				"src/procedures/sensitive.procedure.ts"
+				"src/db/migrations/**"
 			],
 			"project": ["src/**/*.ts"]
 		},

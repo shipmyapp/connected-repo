@@ -1,7 +1,7 @@
 import type { IncomingHttpHeaders } from "node:http";
 
 /** Sign-in and session calls carry small JSON. */
-export const AUTH_BODY_LIMIT_BYTES = 64 * 1024;
+const AUTH_BODY_LIMIT_BYTES = 64 * 1024;
 /**
  * The app's RPC and mobile handlers: the largest body is an offline push of
  * 20 journal entries (sync.orchestrator.ts batches them).

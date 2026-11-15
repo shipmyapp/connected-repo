@@ -1,6 +1,7 @@
 import { allowedOrigins } from "@backend/configs/allowed_origins.config";
 import { env, isDev, isProd, isStaging, isTest } from "@backend/configs/env.config";
 import { db } from "@backend/db/db";
+import { CLIENT_IP_HEADER } from "@backend/utils/client-info.utils";
 import { logger } from "@backend/utils/logger.utils";
 import { themeSettingZod } from "@connected-repo/zod-schemas/enums.zod";
 import { uniqueTimeArrayZod, zTimezone } from "@connected-repo/zod-schemas/zod_utils";
@@ -113,7 +114,7 @@ export const auth = betterAuth({
 		// Better Auth's limiter and sessions.ip_address use the address the
 		// server stamped (main.handler.ts), never a client-sent header.
 		ipAddress: {
-			ipAddressHeaders: ["x-client-ip"],
+			ipAddressHeaders: [CLIENT_IP_HEADER],
 		},
 		database: {
 			// Setting generateId to false allows your database handle all ID generation
