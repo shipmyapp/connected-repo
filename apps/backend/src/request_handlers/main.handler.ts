@@ -3,6 +3,10 @@ import { betterAuthHandler } from "@backend/request_handlers/better_auth.handler
 import { novuHandler } from "@backend/request_handlers/novu.handler";
 import { openApiHandler } from "@backend/request_handlers/open_api.handler";
 import { superAdminHandler } from "@backend/request_handlers/super_admin.handler";
+import {
+	SUPER_ADMIN_RPC_PREFIX,
+	superAdminRpcHandler,
+} from "@backend/request_handlers/super_admin_rpc.handler";
 import { reactAppHandler } from "@backend/request_handlers/user_app.handler";
 import { captureBackendException } from "@backend/utils/backend-error-tracking.utils";
 import { declaresTooLargeBody } from "@backend/utils/body_limit.utils";
@@ -85,6 +89,16 @@ export async function mainRequestDispatcher(req: NodeHttpRequest, res: NodeHttpR
 		// to discover code-defined workflows in apps/backend/src/novu/.
 		if (requestUrl?.startsWith("/api/novu")) {
 			return await novuHandler.handle(req, res);
+		}
+
+		// 3c0. The super-admin console's RPC (/api/super-admin/*). Before the
+		// /api/* OpenAPI catch-all below, which would try to match it as a route.
+		if (requestUrl?.startsWith(SUPER_ADMIN_RPC_PREFIX)) {
+			const superAdminRpcResult = await superAdminRpcHandler.handle(req, res, {
+				context: {},
+				prefix: SUPER_ADMIN_RPC_PREFIX,
+			});
+			if (superAdminRpcResult.matched) return;
 		}
 
 		// 3c. oRPC User App Routes (/api/user-app/*)
