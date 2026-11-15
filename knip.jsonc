@@ -21,8 +21,6 @@
 		"apps/frontend/src/worker/db/files.db.ts": ["types"],
 		"apps/frontend/src/worker/cdn/media-upload.service.ts": ["types"],
 		"apps/frontend/src/hooks/usePwaInstall.ts": ["types"],
-		// Client types of the super-admin RPC router, for a console that consumes it.
-		"apps/backend/src/routers/super_admin/super_admin.router.ts": ["types"],
 		// captureSentryMessage: Sentry helper for apps to report handled conditions.
 		"apps/frontend/src/instrumentation.ts": ["exports"]
 	},
@@ -48,6 +46,10 @@
 				// Ambient JSX typing for the <pwa-install> element (PwaInstallHost.tsx); tsc loads it through tsconfig.app.json "include".
 				"src/types/pwa-install.d.ts"
 			],
+			"project": ["src/**/*.{ts,tsx}"]
+		},
+		"apps/superadmin": {
+			"entry": ["index.html"],
 			"project": ["src/**/*.{ts,tsx}"]
 		},
 		"packages/typescript-config": {

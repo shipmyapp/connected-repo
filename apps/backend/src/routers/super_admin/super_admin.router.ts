@@ -33,12 +33,7 @@ import {
 	superAdminTeamListOutputZod,
 	superAdminUserListOutputZod,
 } from "@connected-repo/zod-schemas/super_admin.zod";
-import {
-	type InferRouterInputs,
-	type InferRouterOutputs,
-	ORPCError,
-	type RouterClient,
-} from "@orpc/server";
+import { type InferRouterOutputs, ORPCError, type RouterClient } from "@orpc/server";
 import { z } from "zod";
 
 /**
@@ -204,5 +199,4 @@ export const superAdminRouter = {
 };
 
 export type SuperAdminRouter = RouterClient<typeof superAdminRouter>;
-export type SuperAdminRouterInputs = InferRouterInputs<typeof superAdminRouter>;
 export type SuperAdminRouterOutputs = InferRouterOutputs<typeof superAdminRouter>;
