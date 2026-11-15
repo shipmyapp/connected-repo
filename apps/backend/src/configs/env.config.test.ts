@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseEnv } from "./env.config";
+import { deploymentEnvProblem, parseEnv } from "./env.config";
 
 // The test process has already loaded .env.test (and NODE_ENV=test), so
 // process.env satisfies the schema; each case overrides a few keys.
@@ -42,5 +42,25 @@ describe("the env schema reads a blank value as unset", () => {
 	it("refuses a required variable left blank", () => {
 		expect(() => withValues({ BETTER_AUTH_SECRET: "" })).toThrow(/BETTER_AUTH_SECRET/);
 		expect(() => withValues({ REDIS_URL: "" })).toThrow(/REDIS_URL/);
+	});
+});
+
+describe("deploymentEnvProblem", () => {
+	const example = "32-characters-or-more-better-auth-secret=";
+	it("refuses the example secret in production and staging", () => {
+		expect(deploymentEnvProblem({ NODE_ENV: "production", BETTER_AUTH_SECRET: example })).toMatch(
+			/example value/,
+		);
+		expect(deploymentEnvProblem({ NODE_ENV: "staging", BETTER_AUTH_SECRET: example })).toMatch(
+			/example value/,
+		);
+	});
+	it("allows it in development and tests, and allows a real secret anywhere", () => {
+		expect(
+			deploymentEnvProblem({ NODE_ENV: "development", BETTER_AUTH_SECRET: example }),
+		).toBeNull();
+		expect(
+			deploymentEnvProblem({ NODE_ENV: "production", BETTER_AUTH_SECRET: "k".repeat(48) }),
+		).toBeNull();
 	});
 });

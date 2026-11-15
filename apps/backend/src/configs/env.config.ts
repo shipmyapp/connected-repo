@@ -141,3 +141,19 @@ export const isDev = env.NODE_ENV === "development";
 export const isProd = env.NODE_ENV === "production";
 export const isStaging = env.NODE_ENV === "staging";
 export const isTest = env.NODE_ENV === "test";
+
+const EXAMPLE_AUTH_SECRET_PREFIX = "32-characters-or-more-better-auth-secret";
+
+/**
+ * Why these values must not serve production or staging traffic, or null.
+ * Checked by server.ts before listening (not in the schema: the image's
+ * smoke test validates the committed example on purpose).
+ */
+export const deploymentEnvProblem = (values: {
+	NODE_ENV: string;
+	BETTER_AUTH_SECRET: string;
+}): string | null =>
+	(values.NODE_ENV === "production" || values.NODE_ENV === "staging") &&
+	values.BETTER_AUTH_SECRET.startsWith(EXAMPLE_AUTH_SECRET_PREFIX)
+		? "BETTER_AUTH_SECRET is the example value; generate one with `openssl rand -base64 48`"
+		: null;

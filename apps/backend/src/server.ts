@@ -3,7 +3,14 @@ import "./otel.sdk";
 import { spawn } from "node:child_process";
 import { createServer as createHttpServer, Server as HttpServer } from "node:http";
 import { allowedOrigins } from "@backend/configs/allowed_origins.config";
-import { env, isDev, isProd, isStaging, isTest } from "@backend/configs/env.config";
+import {
+	deploymentEnvProblem,
+	env,
+	isDev,
+	isProd,
+	isStaging,
+	isTest,
+} from "@backend/configs/env.config";
 import { startReconcileFcmTokensCron } from "@backend/cron_jobs/reconcile_fcm_tokens.cron";
 import { startReminderDispatchCron } from "@backend/cron_jobs/reminder_dispatch.cron";
 import { startSilentSyncDispatchCron } from "@backend/cron_jobs/silent_sync_dispatch.cron";
@@ -75,6 +82,13 @@ function syncNovuWorkflowsInBackground(): void {
 }
 
 try {
+	// A deployment that copied the example secret would sign every session
+	// with a public key. The smoke test (image build) runs the example on purpose.
+	const envProblem = deploymentEnvProblem(env);
+	if (envProblem && !process.argv.includes("--smoke-test")) {
+		throw new Error(envProblem);
+	}
+
 	const host = env.HOST ?? (isTest ? "127.0.0.1" : "0.0.0.0");
 
 	const requestListener = (req: NodeHttpRequest, res: NodeHttpResponse) => {
