@@ -1,5 +1,6 @@
 import type { Server } from "node:http";
 import { closeRedis } from "@backend/configs/redis.config";
+import { stopOAuthClientsCleanupCron } from "@backend/cron_jobs/oauth_clients_cleanup.cron";
 import { stopReconcileFcmTokensCron } from "@backend/cron_jobs/reconcile_fcm_tokens.cron";
 import { stopReminderDispatchCron } from "@backend/cron_jobs/reminder_dispatch.cron";
 import { db } from "@backend/db/db";
@@ -98,6 +99,7 @@ export const handleServerClose = (server: Server) => {
 
 			stopReminderDispatchCron();
 			stopReconcileFcmTokensCron();
+			stopOAuthClientsCleanupCron();
 
 			await tbus.stop().catch((error) => {
 				logger.error({ err: error }, "Error stopping pg-tbus event bus");

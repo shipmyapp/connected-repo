@@ -40,6 +40,17 @@ export const LOG_REDACT_PATHS = [
 	"*.fcmToken",
 	"subscriptionAlertWebhookBearerToken",
 	"*.subscriptionAlertWebhookBearerToken",
+	// OAuth wire names (connected apps): tokens, client secrets, codes.
+	"access_token",
+	"*.access_token",
+	"refresh_token",
+	"*.refresh_token",
+	"client_secret",
+	"*.client_secret",
+	"clientSecret",
+	"*.clientSecret",
+	"code_verifier",
+	"*.code_verifier",
 	// Free text a person typed for an AI client (the application MCP logs
 	// each tool call's `request` argument): personal content.
 	"request",

@@ -1,6 +1,11 @@
 import { env, isDev } from "@backend/configs/env.config";
 import { applyDeviceCookie } from "@backend/modules/devices/device_cookie.devices.middleware";
+import { prepareAuthorizeClient } from "@backend/modules/user_mcp/services/client_metadata_document.user_mcp.service";
 import { betterAuthHandler } from "@backend/request_handlers/better_auth.handler";
+import {
+	handleOAuthRegistration,
+	isOAuthRegistrationRequest,
+} from "@backend/request_handlers/oauth_registration.handler";
 import { openApiHandler } from "@backend/request_handlers/open_api.handler";
 import { superAdminHandler } from "@backend/request_handlers/super_admin.handler";
 import {
@@ -9,6 +14,7 @@ import {
 } from "@backend/request_handlers/super_admin_rpc.handler";
 import { tenantHandler } from "@backend/request_handlers/tenant.handler";
 import { reactAppHandler } from "@backend/request_handlers/user_app.handler";
+import { handleUserMcpRequest, userMcpRouteFor } from "@backend/request_handlers/user_mcp.handler";
 import { captureBackendException } from "@backend/utils/backend-error-tracking.utils";
 import { declaresTooLargeBody } from "@backend/utils/body_limit.utils";
 import { stampClientIp } from "@backend/utils/client-info.utils";
@@ -19,6 +25,7 @@ import {
 } from "@backend/utils/graceful_shutdown.utils";
 import { healthBody } from "@backend/utils/health_response.utils";
 import { logger } from "@backend/utils/logger.utils";
+import { nodeRequestHeaders } from "@backend/utils/node_headers.utils";
 import { getRedisStatus } from "@backend/utils/redis.utils";
 import { applyApiSecurityHeaders } from "@backend/utils/security_headers.utils";
 import { trace } from "@opentelemetry/api";
@@ -78,7 +85,26 @@ export async function mainRequestDispatcher(req: NodeHttpRequest, res: NodeHttpR
 	}
 
 	try {
-		// 2c. The device cookie: sign-in and the app's procedures carry it,
+		// 2c. The application MCP (ADR-045), first: on its own host
+		// (MCP_PUBLIC_URL) it is the only thing served, and the app host
+		// answers 404 for its paths. Bearer only: no device cookie.
+		const mcpRoute = userMcpRouteFor(req.headers.host, requestUrl);
+		if (mcpRoute === "serve") return await handleUserMcpRequest(req, res);
+		if (mcpRoute === "not_found") {
+			res.statusCode = 404;
+			res.setHeader("Content-Type", "application/json");
+			res.end(JSON.stringify({ error: "Not found" }));
+			return;
+		}
+
+		// 2d. Connected apps register themselves here, public or confidential;
+		// Better Auth's own /oauth2/register takes confidential clients only
+		// from a signed-in person, which no AI app is when it registers.
+		if (isOAuthRegistrationRequest(requestUrl)) {
+			return await handleOAuthRegistration(req, res);
+		}
+
+		// 2e. The device cookie: sign-in and the app's procedures carry it,
 		// issued here when missing; bearer calls and other paths get none.
 		applyDeviceCookie(req, res);
 
@@ -87,6 +113,11 @@ export async function mainRequestDispatcher(req: NodeHttpRequest, res: NodeHttpR
 		// frontend nginx (see nginx.conf.template) and never reaches this
 		// dispatcher.
 		if (requestUrl?.startsWith("/api/auth")) {
+			// A connected app whose client_id is its metadata document is
+			// fetched into oauth_clients before Better Auth looks it up.
+			if (method === "GET" && requestUrl.startsWith("/api/auth/oauth2/authorize?")) {
+				await prepareAuthorizeClient(requestUrl, nodeRequestHeaders(req));
+			}
 			return await betterAuthHandler.handle(req, res);
 		}
 

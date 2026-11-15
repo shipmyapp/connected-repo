@@ -109,6 +109,12 @@ const envSchema = z.object({
 	TRUSTED_PROXY_COUNT: z.coerce.number().int().min(0).max(5).default(0),
 	VITE_API_URL: z.url(),
 	WEBAPP_URL: z.url(),
+	// The application MCP's own host, e.g. https://mcp.example.com. Set: /mcp
+	// and its protected-resource document are served there only, that host
+	// serves nothing else, and the app host answers 404 for them. Unset (dev,
+	// tests, single-host deploys): they are served on the API origin
+	// (VITE_API_URL).
+	MCP_PUBLIC_URL: optionalUrl,
 	S3_ENDPOINT: z.url(),
 	S3_REGION: zString.min(1),
 	S3_ACCESS_KEY_ID: zString.min(1),

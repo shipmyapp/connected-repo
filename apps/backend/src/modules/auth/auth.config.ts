@@ -3,8 +3,17 @@ import { env, isDev, isProd, isStaging, isTest } from "@backend/configs/env.conf
 import { db } from "@backend/db/db";
 import { deviceKeyOf } from "@backend/modules/devices/device_cookie.devices.middleware";
 import { teamOriginsForAuthRequest } from "@backend/modules/teams/services/branding.teams.service";
+import {
+	ACCESS_TOKEN_SECONDS,
+	hashOAuthToken,
+	OAUTH_SCOPES,
+	OAUTH_TOKEN_PREFIX,
+	REFRESH_TOKEN_SECONDS,
+	userMcpAudiences,
+} from "@backend/modules/user_mcp/oauth.user_mcp.config";
 import { CLIENT_IP_HEADER, describeClientDevice } from "@backend/utils/client-info.utils";
 import { logger } from "@backend/utils/logger.utils";
+import { oauthProvider } from "@better-auth/oauth-provider";
 import { themeSettingZod } from "@connected-repo/zod-schemas/enums.zod";
 import { uniqueTimeArrayZod, zString, zTimezone } from "@connected-repo/zod-schemas/zod_utils";
 import { betterAuth } from "better-auth";
@@ -195,7 +204,33 @@ export const auth = betterAuth({
 	},
 	// Mobile clients send the signed token from the `set-auth-token` response
 	// header. A raw sessions.token (stored in plain text) is not accepted.
-	plugins: [bearer({ requireSignature: true })],
+	plugins: [
+		bearer({ requireSignature: true }),
+		// Connected apps (ADR-045): AI apps sign in to a person's own account
+		// and work through the application MCP at /mcp. The choices are
+		// explained in `modules/user_mcp/oauth.user_mcp.config.ts`.
+		oauthProvider({
+			loginPage: `${env.WEBAPP_URL}/auth/login`,
+			consentPage: `${env.WEBAPP_URL}/oauth/consent`,
+			scopes: [...OAUTH_SCOPES],
+			clientRegistrationDefaultScopes: [...OAUTH_SCOPES],
+			allowDynamicClientRegistration: true,
+			allowUnauthenticatedClientRegistration: true,
+			grantTypes: ["authorization_code", "refresh_token"],
+			disableJwtPlugin: true,
+			validAudiences: userMcpAudiences(),
+			accessTokenExpiresIn: ACCESS_TOKEN_SECONDS,
+			refreshTokenExpiresIn: REFRESH_TOKEN_SECONDS,
+			storeTokens: { hash: async (token) => hashOAuthToken(token) },
+			prefix: { ...OAUTH_TOKEN_PREFIX },
+			schema: {
+				oauthClient: { modelName: "oauthClients" },
+				oauthAccessToken: { modelName: "oauthAccessTokens" },
+				oauthRefreshToken: { modelName: "oauthRefreshTokens" },
+				oauthConsent: { modelName: "oauthConsents" },
+			},
+		}),
+	],
 	hooks: {
 		before: createAuthMiddleware(async (ctx) => {
 			const appleClientSecret = await getAppleClientSecret();
@@ -299,6 +334,9 @@ export const auth = betterAuth({
 	},
 	secret: env.BETTER_AUTH_SECRET,
 	session: {
+		// Sessions already live in the database (there is no secondaryStorage);
+		// stated because the OAuth provider refuses to start without it.
+		storeSessionInDatabase: true,
 		expiresIn: 60 * 60 * 24 * 30, // 30 days
 		updateAge: 60 * 60 * 24, // 24 hours
 		cookieCache: {

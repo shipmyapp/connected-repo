@@ -1,3 +1,4 @@
+import { OAUTH_TOKEN_PREFIX } from "@backend/modules/user_mcp/oauth.user_mcp.config";
 import type { RpcContextWithHeaders } from "@backend/procedures/public.procedure";
 import { transformSessionAndUserData } from "@backend/utils/session.utils";
 import { type MiddlewareNextFn, ORPCError } from "@orpc/server";
@@ -12,8 +13,31 @@ export const rpcAuthMiddleware = async ({
 	context: RpcContextWithHeaders;
 	next: MiddlewareNextFn<unknown>;
 }) => {
+	// 1. A connected app's call (ADR-045): the /mcp handler verified the OAuth
+	// access token and resolved the person, then called this procedure through
+	// its in-process router client. `connectedApp` is never read from a
+	// request (every HTTP handler passes `context: {}`).
+	if (context.connectedApp && context.session && context.user) {
+		return next({
+			context: { ...context, session: context.session, user: context.user },
+		});
+	}
+
 	const reqHeaders = context.reqHeaders;
 
+	// 2. An OAuth access token is for /mcp only. The bearer plugin would try it
+	// as a session token and find nothing, but refuse it explicitly so a
+	// connected app can never stand in for a session on the oRPC routes.
+	const bearer = (reqHeaders.get("authorization") ?? "").trim().replace(/^bearer\s+/i, "");
+	if (bearer.startsWith(OAUTH_TOKEN_PREFIX.opaqueAccessToken)) {
+		throw new ORPCError("UNAUTHORIZED", {
+			status: 401,
+			message: "OAuth access tokens are accepted on /mcp only.",
+		});
+	}
+
+	// 3. Cookie session (web) or Better Auth bearer session token (mobile,
+	// bearer plugin).
 	const sessionData = await auth.api.getSession({
 		headers: reqHeaders,
 	});

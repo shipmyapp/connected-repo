@@ -1,5 +1,11 @@
 import { dbConfig } from "@backend/db/config.db";
 import { AccountTable } from "@backend/modules/auth/tables/account.auth.table";
+import {
+	OAuthAccessTokenTable,
+	OAuthClientTable,
+	OAuthConsentTable,
+	OAuthRefreshTokenTable,
+} from "@backend/modules/auth/tables/oauth.auth.tables";
 import { SessionTable } from "@backend/modules/auth/tables/session.auth.table";
 import { VerificationTable } from "@backend/modules/auth/tables/verification.auth.table";
 import { DeviceTable } from "@backend/modules/devices/tables/devices.table";
@@ -16,6 +22,7 @@ import { RateLimitTable } from "@backend/modules/system/tables/rate_limits.table
 import { TeamMemberTable } from "@backend/modules/teams/tables/team_members.table";
 import { TeamApiTable } from "@backend/modules/teams/tables/teams_api.table";
 import { TeamAppTable } from "@backend/modules/teams/tables/teams_app.table";
+import { ConnectedAppActionTable } from "@backend/modules/user_mcp/tables/connected_app_actions.table";
 import { UserTable } from "@backend/modules/users/tables/users.table";
 import { orchidORM } from "orchid-orm/node-postgres";
 
@@ -50,6 +57,12 @@ export const db = orchidORM(
 		pushDevices: PushDeviceTable,
 		// One row per device, per account: installs, push address and permissions.
 		devices: DeviceTable,
+		// Connected apps (ADR-045)
+		oauthClients: OAuthClientTable,
+		oauthAccessTokens: OAuthAccessTokenTable,
+		oauthRefreshTokens: OAuthRefreshTokenTable,
+		oauthConsents: OAuthConsentTable,
+		connectedAppActions: ConnectedAppActionTable,
 	},
 );
 

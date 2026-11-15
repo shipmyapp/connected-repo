@@ -5,6 +5,7 @@ import { journalEntriesRouter } from "@backend/modules/journal-entries/journal-e
 import { notificationsRouter } from "@backend/modules/notifications/notifications.router";
 import { promptsRouter } from "@backend/modules/prompts/prompts.router";
 import { teamsAppRouter } from "@backend/modules/teams/teams_app.router";
+import { connectedAppsRouter } from "@backend/modules/user_mcp/connected_apps.router";
 import { meRouter } from "@backend/modules/users/me.user_app.router";
 import { rpcPublicProcedure } from "@backend/procedures/public.procedure";
 import type { InferRouterInputs, InferRouterOutputs, RouterClient } from "@orpc/server";
@@ -35,6 +36,7 @@ const healthCheck = rpcPublicProcedure
 
 export const userAppRouter = {
 	cdn: cdnRouter,
+	connectedApps: connectedAppsRouter,
 	devices: devicesRouter,
 	files: filesRouter,
 	health: healthCheck,

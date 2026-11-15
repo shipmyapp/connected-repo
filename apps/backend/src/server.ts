@@ -10,6 +10,7 @@ import {
 	isStaging,
 	isTest,
 } from "@backend/configs/env.config";
+import { startOAuthClientsCleanupCron } from "@backend/cron_jobs/oauth_clients_cleanup.cron";
 import { startReconcileFcmTokensCron } from "@backend/cron_jobs/reconcile_fcm_tokens.cron";
 import { startReminderDispatchCron } from "@backend/cron_jobs/reminder_dispatch.cron";
 import { startSilentSyncDispatchCron } from "@backend/cron_jobs/silent_sync_dispatch.cron";
@@ -89,6 +90,8 @@ try {
 	// directly. Gated on FIREBASE_SERVICE_ACCOUNT_JSON / GOOGLE_APPLICATION_CREDENTIALS
 	// being set (see firebase_admin.config.ts); the cron self-noops otherwise.
 	startSilentSyncDispatchCron();
+	// Connected apps nobody connected (registration is open): removed daily.
+	startOAuthClientsCleanupCron();
 
 	handleServerClose(server);
 } catch (err) {

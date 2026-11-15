@@ -13,6 +13,13 @@ import { z } from "zod";
 export interface RpcContext extends RequestHeadersPluginContext, ResponseHeadersPluginContext {
 	session?: ActiveSessionSelectAll;
 	user?: UserSelectAll;
+	/**
+	 * Set only by the application MCP's in-process router client (ADR-045),
+	 * never from a request: the connected app whose verified OAuth token this
+	 * call carries. `session` and `user` are then already resolved from the
+	 * token.
+	 */
+	connectedApp?: { clientId: string };
 }
 
 export interface RpcContextWithHeaders extends RpcContext {
