@@ -1,4 +1,4 @@
-import { z } from "zod";
+import type { z } from "zod";
 import { promptSelectAllZod } from "../prompt.zod.js";
 import { makePullBundlesOutput, syncDeltaInputZod } from "../sync.zod.js";
 

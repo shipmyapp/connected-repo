@@ -1,6 +1,6 @@
-import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { Badge } from "@connected-repo/ui-mui/data-display/Badge";
 import { Tooltip } from "@connected-repo/ui-mui/data-display/Tooltip";
+import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { IconButton } from "@connected-repo/ui-mui/navigation/IconButton";
 import { getDataProxy } from "@frontend/worker/worker.proxy";
 import CloudDoneIcon from "@mui/icons-material/CloudDone";

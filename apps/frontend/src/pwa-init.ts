@@ -1,5 +1,5 @@
-import { getDataProxy } from "@frontend/worker/worker.proxy";
 import { registerSW } from "virtual:pwa-register";
+import { getDataProxy } from "@frontend/worker/worker.proxy";
 
 /**
  * True when the app is running as an installed PWA rather than a regular

@@ -13,13 +13,13 @@ import { wipeTeamDataFromDb } from "../db/team_data.wipe";
 import { teamsAppDb } from "../db/teams_app.db";
 import { setActiveTeamId as _setActiveTeamId, getActiveTeamId } from "./active_team";
 import { fileUploadWorker } from "./file_upload.worker";
-import { pendingEditLockRegistry } from "./pending-edit-lock.registry";
 import { teamsToWipeFromReconciliation } from "./membership_reconciliation";
-import { DOWNSTREAM_SYNCED_ENTITIES } from "./synced_entities.registry";
+import { pendingEditLockRegistry } from "./pending-edit-lock.registry";
 import {
 	SYNC_ENGINE_STATE_CHANNEL,
 	type SyncEngineStateMessage,
 } from "./sync-engine-state.channel";
+import { DOWNSTREAM_SYNCED_ENTITIES } from "./synced_entities.registry";
 
 // Producer-side channel for the "your active team is gone" signal.
 // Guarded because unit-test environments may lack `BroadcastChannel`.

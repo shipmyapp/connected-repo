@@ -4,7 +4,7 @@ import { subscriptionAlertWebhookTaskDef } from "@backend/events/events.schema";
 import { logger } from "@backend/utils/logger.utils";
 import axios from "axios";
 import { ulid } from "ulid";
-import { SsrfBlockedError, assertSafeWebhookUrl } from "./ssrf_guard.utils";
+import { assertSafeWebhookUrl, SsrfBlockedError } from "./ssrf_guard.utils";
 
 // Cap response body at 1 MiB — webhooks should return small ack payloads.
 const MAX_WEBHOOK_RESPONSE_BYTES = 1024 * 1024;
