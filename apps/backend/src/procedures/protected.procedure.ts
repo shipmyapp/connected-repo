@@ -26,8 +26,22 @@ export interface RpcActiveTeamContext extends RpcAuthenticatedContext {
 	activeTeamMemberRole: TeamMemberRole;
 }
 
-/** Requires a valid session. */
-export const rpcProtectedProcedure = rpcPublicProcedure.use(rpcAuthMiddleware);
+/**
+ * Requires a valid session. Every authenticated call is charged once to
+ * `app:user:<id>` (300 per minute, refilling 5 per second): it caps a
+ * runaway client or script, not real traffic (the sync engine runs well
+ * under it). Redis down: the limit lets calls through.
+ */
+export const rpcProtectedProcedure = rpcPublicProcedure.use(rpcAuthMiddleware).use(
+	createRateLimitMiddleware<RpcAuthenticatedContext>({
+		bucketFn: (ctx) => ({
+			key: `app:user:${ctx.user.id}`,
+			limit: 300,
+			windowSeconds: 60,
+		}),
+		label: "app",
+	}),
+);
 
 /**
  * Requires a valid session + the client to have explicitly selected an active
@@ -38,25 +52,10 @@ export const rpcProtectedProcedure = rpcPublicProcedure.use(rpcAuthMiddleware);
  * `x-team-id` is checked against the user row when Better Auth's cached
  * cookie copy disagrees (see the comment in the gate).
  *
- * Rate limit: 300 requests/min per authenticated user (5 req/sec sustained,
- * with a full-bucket burst up to 300). This is the highest-volume procedure
- * in the app, so the budget is deliberately generous — a normal interactive
- * session runs well under 1 req/sec even during sync bursts. The purpose is
- * to cap runaway clients (infinite-loop bugs, malicious scripts), not to
- * throttle real traffic.
- *
- * Cost per accepted request: one Redis script call (the token bucket, key
- * `rl:app:user:<userId>`); when Redis is down the limit fails open.
- * The rate-limit gate runs BEFORE the handler's own DB reads and BEFORE input
- * validation, so a throttled request never touches the domain tables.
- *
- * Placement rationale: the rate-limit middleware is chained after the
- * team-membership gate. A user hitting the wrong team gets a 403 without
- * costing their rate-limit budget; a legitimate user is bucketed once they
- * pass the identity checks.
+ * The app:user rate limit is charged by rpcProtectedProcedure, before this gate.
  */
-export const rpcProtectedActiveTeamProcedure = rpcProtectedProcedure
-	.use(async ({ context, next }) => {
+export const rpcProtectedActiveTeamProcedure = rpcProtectedProcedure.use(
+	async ({ context, next }) => {
 		const headerTeamId = context.reqHeaders.get("x-team-id");
 		if (!headerTeamId) {
 			throw new ORPCError("FORBIDDEN", {
@@ -131,17 +130,8 @@ export const rpcProtectedActiveTeamProcedure = rpcProtectedProcedure
 					},
 				}),
 		);
-	})
-	.use(
-		createRateLimitMiddleware<RpcActiveTeamContext>({
-			bucketFn: (ctx) => ({
-				key: `app:user:${ctx.user.id}`,
-				limit: 300,
-				windowSeconds: 60,
-			}),
-			label: "app",
-		}),
-	);
+	},
+);
 
 /** Active team + Owner/Admin role gate. */
 export const rpcTeamOwnerAdminProcedure = rpcProtectedActiveTeamProcedure.use(

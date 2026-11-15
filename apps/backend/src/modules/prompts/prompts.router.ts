@@ -1,10 +1,15 @@
 import { db } from "@backend/db/db";
+import { createRateLimitMiddleware } from "@backend/middlewares/rate_limit.middleware";
 import { syncDeltaService } from "@backend/modules/sync/services/sync_delta.sync.service";
 import {
 	rpcProtectedActiveTeamProcedure,
 	rpcProtectedProcedure,
 } from "@backend/procedures/protected.procedure";
-import { rpcPublicProcedure } from "@backend/procedures/public.procedure";
+import {
+	type RpcContextWithHeaders,
+	rpcPublicProcedure,
+} from "@backend/procedures/public.procedure";
+import { getClientIpAddress } from "@backend/utils/client-info.utils";
 import {
 	type PromptSelectAll,
 	promptGetByCategoryZod,
@@ -58,6 +63,16 @@ const getRandomActive = rpcProtectedProcedure.output(promptSelectAllZod).handler
 
 // Get prompt by ID
 const getById = rpcPublicProcedure
+	.use(
+		createRateLimitMiddleware<RpcContextWithHeaders>({
+			bucketFn: (ctx) => ({
+				key: `public:ip:${getClientIpAddress(ctx.reqHeaders)}`,
+				limit: 60,
+				windowSeconds: 60,
+			}),
+			label: "public",
+		}),
+	)
 	.input(promptGetByIdZod)
 	.output(promptSelectAllZod)
 	.handler(async ({ input: { id } }) => {

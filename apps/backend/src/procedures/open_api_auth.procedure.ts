@@ -6,6 +6,7 @@ import {
 	type OpenApiContextWithHeaders,
 	openApiPublicProcedure,
 } from "@backend/procedures/open_api_public.procedure";
+import { getClientIpAddress } from "@backend/utils/client-info.utils";
 import type { TeamApiSelectAll } from "@connected-repo/zod-schemas/team_api.zod";
 
 export interface OpenApiAuthContext extends OpenApiContextWithHeaders {
@@ -17,6 +18,19 @@ export interface OpenApiAuthContext extends OpenApiContextWithHeaders {
 // rate limiting driven by the team's configured `rateLimitPerMinute`.
 // A row with `rateLimitPerMinute <= 0` disables the limit for that key.
 export const openApiAuthProcedure = openApiPublicProcedure
+	// Before the key check: its scrypt verify costs CPU and memory, also for
+	// an unknown team id (on purpose, for constant timing). An anonymous flood
+	// must not buy that.
+	.use(
+		createRateLimitMiddleware<OpenApiContextWithHeaders>({
+			bucketFn: (ctx) => ({
+				key: `openapi:ip:${getClientIpAddress(ctx.reqHeaders)}`,
+				limit: 120,
+				windowSeconds: 60,
+			}),
+			label: "openapi-ip",
+		}),
+	)
 	.use(apiKeyAuthMiddleware)
 	.use(ipWhitelistMiddleware)
 	.use(

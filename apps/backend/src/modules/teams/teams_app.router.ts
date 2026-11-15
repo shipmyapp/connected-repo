@@ -2,6 +2,7 @@ import { db } from "@backend/db/db";
 import { createRateLimitMiddleware } from "@backend/middlewares/rate_limit.middleware";
 import {
 	type RpcActiveTeamContext,
+	type RpcAuthenticatedContext,
 	rpcProtectedActiveTeamProcedure,
 	rpcProtectedProcedure,
 	rpcTeamOwnerAdminProcedure,
@@ -63,6 +64,18 @@ const getMyTeams = rpcProtectedProcedure
 
 const createTeam = rpcProtectedProcedure
 	.route({ method: "POST", tags: ["Teams"] })
+	// Teams are free; a script must not mint thousands (each is a workspace,
+	// and an invitation sender).
+	.use(
+		createRateLimitMiddleware<RpcAuthenticatedContext>({
+			bucketFn: (ctx) => ({
+				key: `create-team:user:${ctx.user.id}`,
+				limit: 10,
+				windowSeconds: 3600,
+			}),
+			label: "create-team",
+		}),
+	)
 	.input(teamAppCreateApiInputZod)
 	.output(teamAppSelectAllZod)
 	.handler(async ({ input, context: { user } }) => {
