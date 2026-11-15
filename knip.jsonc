@@ -55,7 +55,7 @@
 			"project": ["*.json"]
 		},
 		"packages/ui-mui": {
-			"entry": ["src/**/*.ts"],
+			"entry": ["src/**/*.{ts,tsx}"],
 			"project": ["src/**/*.{ts,tsx}"]
 		},
 		"packages/zod-schemas": {
