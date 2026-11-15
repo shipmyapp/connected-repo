@@ -27,6 +27,13 @@ if (isTest) {
 	});
 }
 
+// A page restored from the back/forward cache never re-runs its loaders, so
+// Back after signing out could show the signed-in page as it was. Reload it
+// and let the session decide (offline, the service worker serves the shell).
+window.addEventListener("pageshow", (event) => {
+	if (event.persisted) window.location.reload();
+});
+
 // Defensive mounting: ensure the root element exists and create the root
 // only once. This pattern is compatible with React 18/19 root API and is
 // resilient for incremental upgrades and hydration strategies.

@@ -7,63 +7,44 @@
  * (at your option) any later version.
  */
 import { LoadingSpinner } from "@connected-repo/ui-mui/components/LoadingSpinner";
-import { ThemeContextProvider, useThemeMode } from "@connected-repo/ui-mui/theme/ThemeContext";
-import { CustomErrorBoundary } from "@frontend/components/error_fallback";
+import { AppErrorBoundary } from "@connected-repo/ui-mui/feedback/AppErrorBoundary";
+import { AppToastContainer } from "@connected-repo/ui-mui/feedback/AppToastContainer";
+import { ThemeContextProvider } from "@connected-repo/ui-mui/theme/ThemeContext";
 import { PwaInstallHost } from "@frontend/components/notifications/PwaInstallHost";
+import { captureTopLevelError } from "@frontend/instrumentation";
 import { router } from "@frontend/router";
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
-import { ErrorBoundary } from "@sentry/react";
 import { Suspense } from "react";
 import { RouterProvider } from "react-router";
-import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 // App focuses on rendering the router tree and error boundaries. Providers
 // (QueryClient + oRPC client) are created and mounted at the root in
 // `main.tsx` following the oRPC + TanStack React Query recommended setup.
-function ToastProvider() {
-	const { mode } = useThemeMode();
-
-	return (
-		<ToastContainer
-			position="top-right"
-			autoClose={5000}
-			hideProgressBar={false}
-			newestOnTop={false}
-			closeOnClick
-			rtl={false}
-			pauseOnFocusLoss
-			draggable
-			pauseOnHover
-			theme={mode}
-			style={{
-				fontFamily:
-					'-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-			}}
-			toastStyle={{
-				borderRadius: "5px",
-			}}
-		/>
-	);
-}
-
 function App() {
 	return (
 		<LocalizationProvider dateAdapter={AdapterDayjs}>
 			<ThemeContextProvider>
 				<Suspense fallback={<LoadingSpinner text="Loading..." />}>
-					<ErrorBoundary
-						fallback={<CustomErrorBoundary />}
-						beforeCapture={(scope) => {
-							scope.setTag("level", "top-level");
-						}}
+					<AppErrorBoundary
+						onError={(error, info) => void captureTopLevelError(error, info.componentStack)}
 					>
 						<PwaInstallHost>
 							<RouterProvider router={router} />
-							<ToastProvider />
+							<AppToastContainer
+								newestOnTop={false}
+								rtl={false}
+								pauseOnFocusLoss
+								hideProgressBar={false}
+								style={{
+									fontFamily:
+										'-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+								}}
+								toastStyle={{ borderRadius: "5px" }}
+							/>
 						</PwaInstallHost>
-					</ErrorBoundary>
+					</AppErrorBoundary>
 				</Suspense>
 			</ThemeContextProvider>
 		</LocalizationProvider>

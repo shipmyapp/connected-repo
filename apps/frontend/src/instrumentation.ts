@@ -148,6 +148,16 @@ export async function captureSentryMessage(
 	return Sentry.captureMessage(message, options);
 }
 
+/** The top-level crash `AppErrorBoundary` caught (App.tsx). */
+export async function captureTopLevelError(error: Error, componentStack?: string | null) {
+	const Sentry = await import("@sentry/react");
+	Sentry.withScope((scope) => {
+		scope.setTag("level", "top-level");
+		if (componentStack) scope.setExtra("componentStack", componentStack);
+		Sentry.captureException(error);
+	});
+}
+
 /**
  * Lazily set the Sentry user.
  */
