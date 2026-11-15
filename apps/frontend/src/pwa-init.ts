@@ -12,7 +12,7 @@ function isInstalledPWA(): boolean {
 	return Boolean(standalone || iosStandalone);
 }
 
-export async function requestStoragePersistence() {
+async function requestStoragePersistence() {
 	if (!navigator.storage || !navigator.storage.persist) {
 		return;
 	}

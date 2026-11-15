@@ -14,7 +14,7 @@ const isBuggyError = (e: unknown) => {
 	return e.status >= 500 || e.code === "INTERNAL_SERVER_ERROR";
 };
 
-export interface CaptureOptions {
+interface CaptureOptions {
 	captureAll?: boolean;
 	domain?: DomainError;
 	context?: Record<string, unknown>;

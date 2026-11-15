@@ -6,9 +6,9 @@ import {
 } from "@frontend/worker/sync/sync-engine-state.channel";
 import { useEffect, useState } from "react";
 
-export type SyncStatus = "offline" | "syncing" | "error" | "pending" | "synced" | "idle";
+type SyncStatus = "offline" | "syncing" | "error" | "pending" | "synced" | "idle";
 
-export interface SyncStatusSnapshot {
+interface SyncStatusSnapshot {
 	status: SyncStatus;
 	lastCompletedAt: number | null;
 	lastAttemptedAt: number | null;

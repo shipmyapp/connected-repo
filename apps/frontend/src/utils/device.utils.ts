@@ -18,12 +18,12 @@ import type { DevicePlatform } from "@connected-repo/zod-schemas/enums.zod";
 
 const isBrowser = typeof window !== "undefined";
 
-export const isMobile = (): boolean => {
+const isMobile = (): boolean => {
 	if (!isBrowser) return false;
 	return /iPad|iPhone|iPod|Android/.test(navigator.userAgent);
 };
 
-export const isIOS = (): boolean => {
+const isIOS = (): boolean => {
 	if (!isBrowser) return false;
 	// iPadOS 13+ masquerades as Mac in UA but exposes touch — the multi-touch
 	// check catches iPads pretending to be MacBooks.
@@ -31,12 +31,12 @@ export const isIOS = (): boolean => {
 	return /iPad|iPhone|iPod/.test(navigator.userAgent) || iPadOSMasquerade;
 };
 
-export const isAndroid = (): boolean => {
+const isAndroid = (): boolean => {
 	if (!isBrowser) return false;
 	return /Android/.test(navigator.userAgent);
 };
 
-export const isStandalone = (): boolean => {
+const isStandalone = (): boolean => {
 	if (!isBrowser) return false;
 	if (window.matchMedia("(display-mode: standalone)").matches) return true;
 	// Legacy iOS Safari path — sets navigator.standalone on the installed PWA.
@@ -50,7 +50,7 @@ export const isStandalone = (): boolean => {
  * True iff the runtime can, in principle, receive Web Push right now.
  * Combines API availability with iOS's PWA-only constraint.
  */
-export const canReceivePush = (): boolean => {
+const canReceivePush = (): boolean => {
 	if (!isBrowser) return false;
 	if (!("serviceWorker" in navigator)) return false;
 	if (!("PushManager" in window)) return false;
@@ -65,7 +65,7 @@ export const canReceivePush = (): boolean => {
  * Uses `navigator.userAgent` heuristics — good enough for analytics, not
  * a security control. Falls through to "other" for anything unrecognized.
  */
-export const getPlatform = (): DevicePlatform => {
+const getPlatform = (): DevicePlatform => {
 	if (!isBrowser) return "other";
 	const ua = navigator.userAgent;
 	if (isIOS()) return "ios";
@@ -77,7 +77,7 @@ export const getPlatform = (): DevicePlatform => {
 	return "other";
 };
 
-export interface DeviceEnv {
+interface DeviceEnv {
 	platform: DevicePlatform;
 	isMobile: boolean;
 	isIOS: boolean;

@@ -38,7 +38,7 @@ async function fetchTimezoneFromIP(retryCount: number = 1): Promise<string | nul
 /**
  * Synchronous browser timezone detection
  */
-export function getBrowserTimezone(): string | null {
+function getBrowserTimezone(): string | null {
 	try {
 		return Intl.DateTimeFormat().resolvedOptions().timeZone;
 	} catch (error) {

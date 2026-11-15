@@ -1,5 +1,5 @@
 import { env } from "@backend/configs/env.config";
-import createTBus, { type Bus } from "pg-tbus";
+import createTBus from "pg-tbus";
 
 export const tbus = createTBus(env.OTEL_SERVICE_NAME, {
 	db: {
@@ -18,5 +18,3 @@ export const tbus = createTBus(env.OTEL_SERVICE_NAME, {
 		intervalInMs: 1000,
 	},
 });
-
-export type TBus = Bus;

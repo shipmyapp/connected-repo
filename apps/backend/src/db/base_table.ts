@@ -22,7 +22,7 @@ import { ulid } from "ulid";
  * at microsecond precision. String because JSON has no bigint and the value
  * overflows Number.MAX_SAFE_INTEGER around year 2255.
  */
-export function parseMicrosecondsToEpochStr(input: unknown): string {
+function parseMicrosecondsToEpochStr(input: unknown): string {
 	if (!input) return "0";
 
 	const dateStr = input instanceof Date ? input.toISOString() : String(input);

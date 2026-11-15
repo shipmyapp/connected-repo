@@ -20,7 +20,7 @@ let scheduledTask: ScheduledTask | null = null;
  * (a) the cron tick running >1s and dispatching twice in the same minute,
  * (b) a stale replica racing before the advisory lock is acquired.
  */
-export async function reminderDispatchTick(): Promise<void> {
+async function reminderDispatchTick(): Promise<void> {
 	try {
 		await db.$transaction(async () => {
 			const lockResult = await db.$query<{ acquired: boolean }>`

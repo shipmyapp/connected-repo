@@ -19,7 +19,7 @@ let scheduledTask: ScheduledTask | null = null;
  * subscriber.retrieve() calls is easier to 429 than to control. Nightly
  * cadence means even N=10k users at 200ms each finishes in under an hour.
  */
-export async function reconcileFcmTokensTick(): Promise<void> {
+async function reconcileFcmTokensTick(): Promise<void> {
 	try {
 		await db.$transaction(async () => {
 			const lockResult = await db.$query<{ acquired: boolean }>`

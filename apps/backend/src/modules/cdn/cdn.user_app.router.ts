@@ -16,7 +16,7 @@ const generateUrlOutput = z.object({
 /**
  * Generates a presigned URL for uploading a file to S3.
  */
-export const generatePresignedUrl = rpcProtectedActiveTeamProcedure
+const generatePresignedUrl = rpcProtectedActiveTeamProcedure
 	.route({ method: "GET", tags: ["CDN"] })
 	.input(generateUrlInput)
 	.output(generateUrlOutput)
@@ -35,7 +35,7 @@ export const generatePresignedUrl = rpcProtectedActiveTeamProcedure
 /**
  * Generates multiple presigned URLs for batch uploads.
  */
-export const generateBatchPresignedUrls = rpcProtectedActiveTeamProcedure
+const generateBatchPresignedUrls = rpcProtectedActiveTeamProcedure
 	.route({ method: "POST", tags: ["CDN"] })
 	.input(z.array(generateUrlInput).max(100))
 	.output(z.array(generateUrlOutput))
@@ -56,7 +56,7 @@ export const generateBatchPresignedUrls = rpcProtectedActiveTeamProcedure
 /**
  * Checks if a file exists in S3.
  */
-export const checkFileExistsInCdn = rpcProtectedActiveTeamProcedure
+const checkFileExistsInCdn = rpcProtectedActiveTeamProcedure
 	.route({ method: "GET", tags: ["CDN"] })
 	.input(cdnFileLocatorInput)
 	.output(z.object({ exists: z.boolean(), key: z.string(), fetchUrl: z.string() }))

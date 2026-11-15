@@ -90,7 +90,7 @@ export async function syncPushIfGranted(): Promise<void> {
 	}
 }
 
-export type PromptResult = "granted" | "denied" | "unsupported";
+type PromptResult = "granted" | "denied" | "unsupported";
 
 /**
  * User-gesture path — safe to call the browser's native permission modal.

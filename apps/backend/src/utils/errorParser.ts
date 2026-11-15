@@ -121,7 +121,7 @@ function extractZodError(error: unknown): ZodError | null {
 	return null;
 }
 
-export function orpcErrorParser(error: Error, ctx: { handler?: string } = {}): DomainError {
+function orpcErrorParser(error: Error, ctx: { handler?: string } = {}): DomainError {
 	const handler = ctx.handler ?? "unknown";
 
 	const zodError = extractZodError(error);

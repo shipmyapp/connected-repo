@@ -14,12 +14,12 @@ import { useRevalidator } from "react-router";
 import { toast } from "react-toastify";
 import type { SessionInfo } from "./UserContext";
 
-export type Team = UserAppBackendOutputs["teams"]["getMyTeams"][number];
+type Team = UserAppBackendOutputs["teams"]["getMyTeams"][number];
 
 // Kept for backwards compatibility with existing consumers. Every user
 // always has an active team (personal on signup), so `activeWorkspace` is
 // never undefined once the session is loaded.
-export interface Workspace {
+interface Workspace {
 	id: string;
 	name: string;
 	// A workspace is "personal" iff it is the user's personal team on the

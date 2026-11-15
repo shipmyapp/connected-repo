@@ -1,4 +1,3 @@
-import type { TablesToSync } from "@connected-repo/zod-schemas/enums.zod";
 import type { FileSelectAll } from "@connected-repo/zod-schemas/file.zod";
 import type { SyncMetadata } from "@connected-repo/zod-schemas/sync.zod";
 
@@ -70,5 +69,3 @@ export interface SyncCycleState {
 	lastAttemptedAt?: number;
 	lastError?: string | null;
 }
-
-export type { TablesToSync };

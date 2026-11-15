@@ -5,7 +5,7 @@ import { env } from "../configs/env.config";
  * Sanitizes a filename to be safe for S3 storage.
  * Removes non-alphanumeric characters except for dots, dashes, and underscores.
  */
-export const sanitizeFileName = (fileName: string): string => {
+const sanitizeFileName = (fileName: string): string => {
 	return fileName
 		.replace(/[^a-zA-Z0-9.\-_]/g, "_")
 		.replace(/_{2,}/g, "_")

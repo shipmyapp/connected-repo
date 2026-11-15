@@ -19,7 +19,7 @@ import type React from "react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 
-export type ViewMode = "card" | "table";
+type ViewMode = "card" | "table";
 
 export default function JournalEntriesPage() {
 	const navigate = useNavigate();

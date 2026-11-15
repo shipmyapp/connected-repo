@@ -13,7 +13,7 @@ import { DesktopNavbar } from "./DesktopNavbar";
 import { MobileNavbar } from "./MobileNavbar";
 import { OfflineBanner } from "./OfflineBanner";
 
-export const AppLayoutContent = () => {
+const AppLayoutContent = () => {
 	const { activeWorkspace } = useWorkspace();
 	const sessionInfo = useSessionInfo();
 	return (

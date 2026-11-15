@@ -1,7 +1,7 @@
 import { db } from "@backend/db/db";
 import { logger } from "@backend/utils/logger.utils";
 
-export interface RateLimitCheckResult {
+interface RateLimitCheckResult {
 	allowed: boolean;
 	/** Number of hits mathematically implied by the missing tokens. */
 	currentCount: number;

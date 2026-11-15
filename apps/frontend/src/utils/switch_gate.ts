@@ -99,7 +99,7 @@ function broadcast(msg: GateMessage): void {
 	}
 }
 
-export interface SwitchGate {
+interface SwitchGate {
 	/**
 	 * Resolves immediately when the gate is open, otherwise waits until
 	 * `open()` fires. Rejects after `timeoutMs` (default 30s) to prevent

@@ -23,7 +23,7 @@ import { getDataProxy } from "@frontend/worker/worker.proxy";
  * route it in the switch below. The switch is exhaustive, so TS will
  * flag missing cases.
  */
-export type MirrorPayload =
+type MirrorPayload =
 	| { table: "teamsApp"; rows: TeamAppSelectAll[] }
 	| { table: "teamMembers"; rows: TeamAppMemberSelectAll[] }
 	| { table: "prompts"; rows: PromptSelectAll[] }

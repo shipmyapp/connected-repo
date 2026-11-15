@@ -44,7 +44,7 @@ const STUCK_UPLOADING_CUTOFF_MS = 5 * 60 * 1_000;
  * Explicit interface so TypeScript can emit a proper declaration —
  * the class itself has private members (TS4094).
  */
-export interface FileUploadWorkerApi {
+interface FileUploadWorkerApi {
 	run(): Promise<void>;
 }
 

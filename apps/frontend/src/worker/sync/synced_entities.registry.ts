@@ -27,14 +27,14 @@ import { teamMembersDb } from "../db/team_members.db";
  */
 
 /** Standard downstream pull input. */
-export interface PullContext {
+interface PullContext {
 	/** Cursor for this (table, team); null on first sync. */
 	cursor: SyncMetadata | null;
 	/** Snapshot ceiling minted by the wave-1 anchor. */
 	topLevelSyncedAt: number;
 }
 
-export interface PullResult {
+interface PullResult {
 	/** Advanced cursor to persist for this (table, team). */
 	syncMetadata: SyncMetadata;
 	/**
@@ -47,7 +47,7 @@ export interface PullResult {
 	wipeTeamIds: string[];
 }
 
-export interface DownstreamSyncedEntity {
+interface DownstreamSyncedEntity {
 	table: Exclude<TablesToSync, "teamsApp">;
 	pull(ctx: PullContext): Promise<PullResult>;
 }

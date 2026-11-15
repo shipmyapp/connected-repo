@@ -3,7 +3,7 @@ import { logger } from "@backend/utils/logger.utils";
 import type { MiddlewareNextFn } from "@orpc/server";
 import { ORPCError } from "@orpc/server";
 
-export interface RateLimitBucket {
+interface RateLimitBucket {
 	/**
 	 * Sliding-window bucket key. Convention: prefix with the caller type —
 	 * `openapi:teamApi:${id}`, `sensitive:user:${id}`, `login:ip:${addr}` —
@@ -16,7 +16,7 @@ export interface RateLimitBucket {
 	windowSeconds: number;
 }
 
-export interface RateLimitOptions<Ctx> {
+interface RateLimitOptions<Ctx> {
 	/**
 	 * Derive the bucket from the request context. Return `null` to skip
 	 * rate-limiting for this request entirely (e.g. rateLimit disabled

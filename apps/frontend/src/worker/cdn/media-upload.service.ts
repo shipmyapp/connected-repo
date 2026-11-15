@@ -18,7 +18,7 @@ const mediaWorkerSemaphore = pLimit(3);
  * directly; the same helper is invoked by `FileUploadWorker` when it
  * lazily derives the thumbnail from the OPFS blob at upload time.
  */
-export class MediaUploadService {
+class MediaUploadService {
 	/**
 	 * Statelessly generates a thumbnail for a given file.
 	 */

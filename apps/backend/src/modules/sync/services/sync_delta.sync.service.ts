@@ -5,7 +5,7 @@ import type { SyncMetadata } from "@connected-repo/zod-schemas/sync.zod";
 import { ORPCError } from "@orpc/server";
 import type { Query } from "orchid-orm";
 
-export interface SyncDeltaOptions {
+interface SyncDeltaOptions {
 	/**
 	 * Pre-scoped ORM query — the caller applies any tenant / user filters
 	 * before passing it in (e.g. `db.journalEntries.where({ teamId })` or

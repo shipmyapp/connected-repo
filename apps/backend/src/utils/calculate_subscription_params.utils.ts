@@ -5,7 +5,7 @@ import { API_PRODUCTS, type ApiProductSku } from "@connected-repo/zod-schemas/en
  * @param sku - API product SKU
  * @returns Product configuration object or undefined if not found
  */
-export function getProductConfig(sku: ApiProductSku) {
+function getProductConfig(sku: ApiProductSku) {
 	return API_PRODUCTS.find((product) => product.sku === sku);
 }
 

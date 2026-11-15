@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useRouteError } from "react-router";
 
-export const ErrorFallback = ({ error }: { error: Error }) => {
+const ErrorFallback = ({ error }: { error: Error }) => {
 	return <div>{error.message}</div>;
 };
 

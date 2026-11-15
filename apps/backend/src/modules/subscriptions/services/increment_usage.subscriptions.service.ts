@@ -120,7 +120,7 @@ const checkAndScheduleWebhookAt90Percent = async (
  * has already consumed its full quota. Callers should treat this as a signal to
  * rollback any work that was gated on quota availability.
  */
-export class SubscriptionQuotaExceededError extends Error {
+class SubscriptionQuotaExceededError extends Error {
 	constructor(public readonly subscriptionId: string) {
 		super(`Subscription ${subscriptionId} has exceeded its request quota`);
 		this.name = "SubscriptionQuotaExceededError";
