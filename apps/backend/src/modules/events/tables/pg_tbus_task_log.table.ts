@@ -19,7 +19,7 @@ export class PgTbusTaskLogTable extends BaseTable {
 			// Task payload summary (for querying)
 			entityType: t.string().nullable(), // e.g., "subscription", "user"
 			entityId: t.string().nullable(), // e.g., subscriptionId, userId
-			teamApiId: t.uuid().nullable(), // For team-scoped tasks
+			teamApiId: t.string(26).nullable(), // teams_api id (a ULID), for API-team tasks
 
 			// Execution tracking
 			status: t.pgTbusTaskStatusEnum(),

@@ -13,7 +13,7 @@ export class SubscriptionsTable extends BaseTable {
 			apiProductSku: t.apiProductSkuEnum(),
 			apiProductQuantity: t.smallint(),
 			requestsConsumed: t.integer(),
-			teamApiId: t.uuid(),
+			teamApiId: t.string(26),
 			teamUserReferenceId: t.string(),
 
 			billingInvoiceNumber: t.string().nullable(),

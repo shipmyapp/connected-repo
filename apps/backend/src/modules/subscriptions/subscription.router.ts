@@ -1,5 +1,6 @@
 import { sql } from "@backend/db/base_table";
 import { db } from "@backend/db/db";
+import { activeSubscriptionsQuery } from "@backend/modules/subscriptions/services/get_active.subscriptions.service";
 import { openApiAuthProcedure } from "@backend/procedures/open_api_auth.procedure";
 import { calculateSubscriptionParams } from "@backend/utils/calculate_subscription_params.utils";
 import {
@@ -7,6 +8,7 @@ import {
 	subscriptionGetActiveByTeamUserZod,
 	subscriptionSelectAllZod,
 } from "@connected-repo/zod-schemas/subscription.zod";
+import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 
 const createSubscription = openApiAuthProcedure
@@ -19,7 +21,11 @@ const createSubscription = openApiAuthProcedure
 			context: { teamApi },
 		}) => {
 			if (!teamApi.allowApiSubsCreationForSkus.includes(apiProductSku)) {
-				throw new Error("API subscription creation not allowed for this SKU");
+				// A refusal, not a fault: a plain Error reached the client as a 500.
+				throw new ORPCError("FORBIDDEN", {
+					status: 403,
+					message: "API subscription creation not allowed for this SKU",
+				});
 			}
 
 			const { maxRequests, validityDays } = calculateSubscriptionParams(
@@ -44,21 +50,7 @@ const getActiveSubscriptions = openApiAuthProcedure
 	.input(subscriptionGetActiveByTeamUserZod)
 	.output(z.array(subscriptionSelectAllZod))
 	.handler(async ({ input: { apiProductSku, teamUserReferenceId }, context: { teamApi } }) => {
-		const query = db.subscriptions
-			.selectAll()
-			.where({
-				teamApiId: teamApi.teamApiId,
-				teamUserReferenceId,
-				expiresAt: { gt: sql`NOW()` },
-				requestsConsumed: { lt: sql`max_requests` },
-			})
-			.order({ createdAt: "DESC" });
-
-		if (apiProductSku) {
-			query.where({ apiProductSku });
-		}
-
-		return await query;
+		return await activeSubscriptionsQuery(teamApi.teamApiId, teamUserReferenceId, apiProductSku);
 	});
 
 export const subscriptionOpenApiRouter = {
