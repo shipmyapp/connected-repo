@@ -4,6 +4,7 @@ import { CustomErrorBoundary } from "@frontend/components/error_fallback";
 import { AppLayout } from "@frontend/components/layout/AppLayout";
 import { RootLayout } from "@frontend/components/layout/RootLayout";
 import { authLoader, oauthConsentLoader } from "@frontend/utils/auth.loader";
+import { sessionOnlyLoader } from "@frontend/utils/session_only.loader";
 import * as Sentry from "@sentry/react";
 import { createBrowserRouter, type RouteObject, redirect } from "react-router";
 
@@ -60,6 +61,18 @@ const routerObjectWithNavbar: ReactRouterWithNavbar[] = [
 				path: "oauth/consent",
 				loader: oauthConsentLoader,
 				lazy: lazyRoute(() => import("@frontend/modules/connected-apps/pages/OAuthConsent.page")),
+			},
+			// An account scheduled for deletion, and the Terms/Privacy agreement:
+			// one page each, outside AppLayout (no sync, no local database).
+			{
+				path: "account/deletion-pending",
+				loader: sessionOnlyLoader,
+				lazy: lazyRoute(() => import("@frontend/pages/DeletionPending.page")),
+			},
+			{
+				path: "legal/accept",
+				loader: sessionOnlyLoader,
+				lazy: lazyRoute(() => import("@frontend/pages/AcceptLegal.page")),
 			},
 			// Authenticated routes with AppLayout
 			{

@@ -1,7 +1,7 @@
 import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
 import { Box } from "@connected-repo/ui-mui/layout/Box";
+import { useOnlineStatus } from "@frontend/hooks/useOnlineStatus";
 import CloudOffIcon from "@mui/icons-material/CloudOff";
-import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 
 /**
@@ -11,20 +11,7 @@ import { useNavigate } from "react-router";
  */
 export const OfflineBanner = () => {
 	const navigate = useNavigate();
-	const [online, setOnline] = useState<boolean>(
-		typeof navigator !== "undefined" ? navigator.onLine : true,
-	);
-
-	useEffect(() => {
-		const on = () => setOnline(true);
-		const off = () => setOnline(false);
-		window.addEventListener("online", on);
-		window.addEventListener("offline", off);
-		return () => {
-			window.removeEventListener("online", on);
-			window.removeEventListener("offline", off);
-		};
-	}, []);
+	const online = useOnlineStatus();
 
 	if (online) return null;
 

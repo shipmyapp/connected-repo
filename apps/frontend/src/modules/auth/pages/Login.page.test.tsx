@@ -19,6 +19,7 @@ vi.mock("@frontend/utils/auth.client", () => ({
 	authClient: { signIn: { social: signInSocial } },
 }));
 vi.mock("@frontend/utils/auth.persistence", () => ({ getLastLogin: () => null }));
+vi.mock("@frontend/utils/local_data_wipe", () => ({ runLocalErasureCheck: vi.fn() }));
 vi.mock("@frontend/tenant/TenantContext", () => ({
 	useTenant: () => ({
 		isTenant: tenant.isTenant,

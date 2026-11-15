@@ -49,4 +49,9 @@ export const envSchemaZod = object({
 	VITE_FIREBASE_MESSAGING_SENDER_ID: optionalString,
 	VITE_FIREBASE_APP_ID: optionalString,
 	VITE_FIREBASE_VAPID_KEY: optionalString,
+	// Where the project publishes its Terms and Privacy Policy (docs/legal/ holds
+	// skeletons). Both set: sign-in and profile link them and every account is
+	// asked to agree once per LEGAL_VERSION. Either blank: no links, no question.
+	VITE_TERMS_URL: optionalUrl,
+	VITE_PRIVACY_URL: optionalUrl,
 });

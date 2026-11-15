@@ -1,3 +1,4 @@
+import { isLegalConfigured } from "@frontend/components/LegalLinks";
 import { userContext } from "@frontend/contexts/UserContext";
 import { setSentryUser } from "@frontend/instrumentation";
 import {
@@ -11,10 +12,17 @@ import {
 	loadTenantBranding,
 	readCachedBranding,
 } from "@frontend/tenant/tenant.resolver";
+import { accountGateRedirect } from "@frontend/utils/account_gate";
 import { setActiveTeamIdForRequests } from "@frontend/utils/active_team_header.client";
 import { authBaseUrl, authClient } from "@frontend/utils/auth.client";
 import type { CachedSession } from "@frontend/utils/auth.persistence";
-import { getAuthCache, saveAuthCache, saveLastLogin } from "@frontend/utils/auth.persistence";
+import {
+	getAuthCache,
+	patchAuthCacheUser,
+	saveAuthCache,
+	saveLastLogin,
+} from "@frontend/utils/auth.persistence";
+import { runLocalErasureCheck } from "@frontend/utils/local_data_wipe";
 import { mirrorToLocalDb } from "@frontend/utils/mirror_to_local_db";
 import { orpcFetch } from "@frontend/utils/orpc.client";
 import { consumeFreshSessionRequest } from "@frontend/utils/session_refresh.client";
@@ -29,7 +37,14 @@ import { toast } from "react-toastify";
  * otherwise refuse. Sign-out cannot reach the server offline; the login
  * page asks again once online.
  */
-function sessionFromCache(cached: CachedSession, context: LoaderFunctionArgs["context"]) {
+function sessionFromCache(cached: CachedSession, context: LoaderFunctionArgs["context"], url: URL) {
+	// A pending deletion shows its page offline too; the legal question waits
+	// for the network (never block offline use on paperwork).
+	const gate = accountGateRedirect(cached.user, url, {
+		online: false,
+		legalConfigured: isLegalConfigured(),
+	});
+	if (gate) throw redirect(gate);
 	const slug = getTenantSlug();
 	const decision = offlineTenantDecision({
 		slug,
@@ -78,12 +93,13 @@ async function enforceTenantTeam(): Promise<string | null> {
  * Fetches the session, locks a team host to its team, seeds the `x-team-id`
  * header cache once, and falls back to the cached session offline.
  */
-export async function authLoader({ context }: LoaderFunctionArgs) {
+export async function authLoader({ context, request }: LoaderFunctionArgs) {
+	const url = new URL(request.url);
 	const cached = getAuthCache();
 	const isOffline = !navigator.onLine;
 
 	// 0. If offline and we have a cache, skip the network call entirely
-	if (isOffline && cached) return sessionFromCache(cached, context);
+	if (isOffline && cached) return sessionFromCache(cached, context, url);
 
 	try {
 		// A team switch (or anything else that writes the `users` row outside
@@ -101,7 +117,9 @@ export async function authLoader({ context }: LoaderFunctionArgs) {
 			// If we have a cached session and it seems like a network error or we are known to be offline
 			// Note: error.status might be undefined for network errors in better-auth
 			const isNetworkError = error && (!error.status || error.status >= 500);
-			if (cached && (isOffline || isNetworkError)) return sessionFromCache(cached, context);
+			if (cached && (isOffline || isNetworkError)) return sessionFromCache(cached, context, url);
+			// Signed out and online: was an account that used this device deleted?
+			await runLocalErasureCheck();
 			throw redirect("/auth");
 		}
 
@@ -111,6 +129,22 @@ export async function authLoader({ context }: LoaderFunctionArgs) {
 			email: session.user.email,
 			image: session.user.image,
 		});
+
+		// Deletion pending, or the legal texts changed: one page first. Before
+		// an AI app's authorize resume, which then waits for the next load.
+		const deletionRequestedAt = session.user.deletionRequestedAt
+			? new Date(session.user.deletionRequestedAt).getTime()
+			: null;
+		const gate = accountGateRedirect(
+			{ deletionRequestedAt, legalAcceptedVersion: session.user.legalAcceptedVersion ?? null },
+			url,
+			{ online: true, legalConfigured: isLegalConfigured() },
+		);
+		if (gate) {
+			// The offline copy learns of the deletion too, so it never opens the app.
+			if (deletionRequestedAt !== null) patchAuthCacheUser({ deletionRequestedAt });
+			throw redirect(gate);
+		}
 
 		// A sign-in that started from an AI app's authorize request carries on
 		// there (ADR-045). A document redirect: the authorize endpoint is on the
@@ -207,7 +241,7 @@ export async function authLoader({ context }: LoaderFunctionArgs) {
 			const isFetchError =
 				errorMessage.toLowerCase().includes("fetch") ||
 				errorMessage.toLowerCase().includes("network");
-			if (isOffline || isFetchError) return sessionFromCache(cached, context);
+			if (isOffline || isFetchError) return sessionFromCache(cached, context, url);
 		}
 
 		throw redirect("/auth");

@@ -9,6 +9,7 @@ import { Container } from "@connected-repo/ui-mui/layout/Container";
 import { Paper } from "@connected-repo/ui-mui/layout/Paper";
 import { Stack } from "@connected-repo/ui-mui/layout/Stack";
 import { AppVersionLabel } from "@frontend/components/AppVersionLabel";
+import { LegalLinks } from "@frontend/components/LegalLinks";
 import { env, isTest } from "@frontend/configs/env.config";
 import {
 	authorizeUrl,
@@ -18,6 +19,7 @@ import {
 import { useTenant } from "@frontend/tenant/TenantContext";
 import { authBaseUrl, authClient } from "@frontend/utils/auth.client";
 import { getLastLogin } from "@frontend/utils/auth.persistence";
+import { runLocalErasureCheck } from "@frontend/utils/local_data_wipe";
 import * as Sentry from "@sentry/react";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
@@ -37,6 +39,11 @@ export const LoginPage = () => {
 	useEffect(() => {
 		rememberOAuth(searchParams);
 	}, [searchParams]);
+
+	// Signed out and online: a device whose account was deleted erases its copy.
+	useEffect(() => {
+		void runLocalErasureCheck();
+	}, []);
 	const { brand, isTenant } = useTenant();
 
 	// Track OAuth errors in Sentry when they occur
@@ -384,16 +391,7 @@ export const LoginPage = () => {
 
 							{/* Footer */}
 							<Box sx={{ mt: 2, textAlign: "center" }}>
-								<Typography
-									variant="caption"
-									sx={{
-										color: "text.disabled",
-										fontSize: { xs: "0.8rem", sm: "0.75rem" },
-										display: "block",
-									}}
-								>
-									By continuing, you agree to our Terms of Service and Privacy Policy
-								</Typography>
+								<LegalLinks lead="By continuing, you agree to our" />
 								<AppVersionLabel />
 							</Box>
 						</Stack>
