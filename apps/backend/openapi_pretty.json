@@ -1040,28 +1040,6 @@
                     "maxLength": 127,
                     "pattern": "^[a-zA-Z0-9!#$&^_.+-]+\\/[a-zA-Z0-9!#$&^_.+-]+$"
                   },
-                  "cdnUrl": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "format": "uri"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "thumbnailCdnUrl": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "format": "uri"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
                   "deletedAt": {
                     "anyOf": [
                       {
@@ -1077,6 +1055,12 @@
                   "isMainFileLost": {
                     "type": "boolean",
                     "default": false
+                  },
+                  "cdnUrl": {
+                    "type": "null"
+                  },
+                  "thumbnailCdnUrl": {
+                    "type": "null"
                   }
                 },
                 "required": [
@@ -3300,50 +3284,12 @@
                       "author": {
                         "type": "object",
                         "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
                           "name": {
                             "type": "string"
-                          },
-                          "themeSetting": {
-                            "enum": [
-                              "dark",
-                              "light",
-                              "system"
-                            ],
-                            "type": "string",
-                            "default": "system"
-                          },
-                          "timezone": {
-                            "type": "string",
-                            "default": "Etc/UTC"
-                          },
-                          "journalReminderTimes": {
-                            "type": "array",
-                            "items": {
-                              "type": "string",
-                              "format": "time"
-                            },
-                            "default": []
-                          },
-                          "email": {
-                            "anyOf": [
-                              {
-                                "type": "string",
-                                "format": "email"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "phoneNumber": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
                           },
                           "image": {
                             "anyOf": [
@@ -3355,49 +3301,12 @@
                                 "type": "null"
                               }
                             ]
-                          },
-                          "activeTeamAppId": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "createdAt": {
-                            "type": "integer",
-                            "minimum": 0,
-                            "maximum": 9007199254740991
-                          },
-                          "updatedAt": {
-                            "type": "integer",
-                            "minimum": 0,
-                            "maximum": 9007199254740991
-                          },
-                          "id": {
-                            "type": "string",
-                            "format": "uuid"
-                          },
-                          "emailVerified": {
-                            "type": "boolean"
-                          },
-                          "phoneNumberVerified": {
-                            "type": "boolean",
-                            "default": false
                           }
                         },
                         "required": [
-                          "name",
-                          "email",
-                          "phoneNumber",
-                          "image",
-                          "activeTeamAppId",
-                          "createdAt",
-                          "updatedAt",
                           "id",
-                          "emailVerified"
+                          "name",
+                          "image"
                         ]
                       }
                     },
@@ -4231,28 +4140,6 @@
                               "maxLength": 127,
                               "pattern": "^[a-zA-Z0-9!#$&^_.+-]+\\/[a-zA-Z0-9!#$&^_.+-]+$"
                             },
-                            "cdnUrl": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "format": "uri"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
-                            "thumbnailCdnUrl": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "format": "uri"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
                             "deletedAt": {
                               "anyOf": [
                                 {
@@ -4268,6 +4155,12 @@
                             "isMainFileLost": {
                               "type": "boolean",
                               "default": false
+                            },
+                            "cdnUrl": {
+                              "type": "null"
+                            },
+                            "thumbnailCdnUrl": {
+                              "type": "null"
                             }
                           },
                           "required": [
@@ -5248,50 +5141,12 @@
                       "author": {
                         "type": "object",
                         "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
                           "name": {
                             "type": "string"
-                          },
-                          "themeSetting": {
-                            "enum": [
-                              "dark",
-                              "light",
-                              "system"
-                            ],
-                            "type": "string",
-                            "default": "system"
-                          },
-                          "timezone": {
-                            "type": "string",
-                            "default": "Etc/UTC"
-                          },
-                          "journalReminderTimes": {
-                            "type": "array",
-                            "items": {
-                              "type": "string",
-                              "format": "time"
-                            },
-                            "default": []
-                          },
-                          "email": {
-                            "anyOf": [
-                              {
-                                "type": "string",
-                                "format": "email"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "phoneNumber": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
                           },
                           "image": {
                             "anyOf": [
@@ -5303,49 +5158,12 @@
                                 "type": "null"
                               }
                             ]
-                          },
-                          "activeTeamAppId": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "createdAt": {
-                            "type": "integer",
-                            "minimum": 0,
-                            "maximum": 9007199254740991
-                          },
-                          "updatedAt": {
-                            "type": "integer",
-                            "minimum": 0,
-                            "maximum": 9007199254740991
-                          },
-                          "id": {
-                            "type": "string",
-                            "format": "uuid"
-                          },
-                          "emailVerified": {
-                            "type": "boolean"
-                          },
-                          "phoneNumberVerified": {
-                            "type": "boolean",
-                            "default": false
                           }
                         },
                         "required": [
-                          "name",
-                          "email",
-                          "phoneNumber",
-                          "image",
-                          "activeTeamAppId",
-                          "createdAt",
-                          "updatedAt",
                           "id",
-                          "emailVerified"
+                          "name",
+                          "image"
                         ]
                       }
                     },
@@ -5986,28 +5804,6 @@
                                     "maxLength": 127,
                                     "pattern": "^[a-zA-Z0-9!#$&^_.+-]+\\/[a-zA-Z0-9!#$&^_.+-]+$"
                                   },
-                                  "cdnUrl": {
-                                    "anyOf": [
-                                      {
-                                        "type": "string",
-                                        "format": "uri"
-                                      },
-                                      {
-                                        "type": "null"
-                                      }
-                                    ]
-                                  },
-                                  "thumbnailCdnUrl": {
-                                    "anyOf": [
-                                      {
-                                        "type": "string",
-                                        "format": "uri"
-                                      },
-                                      {
-                                        "type": "null"
-                                      }
-                                    ]
-                                  },
                                   "deletedAt": {
                                     "anyOf": [
                                       {
@@ -6023,6 +5819,12 @@
                                   "isMainFileLost": {
                                     "type": "boolean",
                                     "default": false
+                                  },
+                                  "cdnUrl": {
+                                    "type": "null"
+                                  },
+                                  "thumbnailCdnUrl": {
+                                    "type": "null"
                                   }
                                 },
                                 "required": [
@@ -13017,16 +12819,13 @@
                   },
                   "role": {
                     "enum": [
-                      "Owner",
                       "Admin",
                       "Member"
                     ],
-                    "type": "string"
+                    "type": "string",
+                    "default": "Member"
                   }
-                },
-                "required": [
-                  "role"
-                ]
+                }
               }
             }
           }

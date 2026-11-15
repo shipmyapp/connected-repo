@@ -18,6 +18,12 @@ describe("Journal Entries Endpoints", () => {
 	});
 
 	describe("getAll", () => {
+		it("embeds only the author's public fields", async () => {
+			await defaultClient.create(dummyEntry);
+			const [row] = await defaultClient.getAll({});
+			expect(Object.keys(row?.author ?? {}).sort()).toEqual(["id", "image", "name"]);
+		});
+
 		it("should return empty array when user has no journal entries", async () => {
 			const result = await defaultClient.getAll({});
 

@@ -24,6 +24,15 @@ export class TeamApiTable extends BaseTable {
 		rateLimitPerMinute: t.integer(),
 		subscriptionAlertWebhookUrl: t.string().nullable(),
 		subscriptionAlertWebhookBearerToken: t.string().nullable().select(false),
+		// The team member whose name and team entries created with this key
+		// carry (journal create-request). Set by the operator with the key;
+		// null refuses those writes. Read only where the write is resolved
+		// (`resolveApiWriter`), so it stays out of the key's request context.
+		writesAsTeamMemberId: t
+			.ulid()
+			.foreignKey("team_members", "id", { onDelete: "SET NULL", onUpdate: "RESTRICT" })
+			.nullable()
+			.select(false),
 		...t.timestampsAsNumbers(),
 	}));
 }

@@ -1,5 +1,5 @@
 import { db } from "@backend/db/db";
-import { getRequestContext } from "@backend/lib/request-context";
+import { requestContext } from "@backend/lib/request-context";
 import { incrementSubscriptionUsage } from "@backend/modules/subscriptions/services/increment_usage.subscriptions.service";
 import { openApiAuthProcedure } from "@backend/procedures/open_api_auth.procedure";
 import { captureBackendException } from "@backend/utils/backend-error-tracking.utils";
@@ -13,6 +13,7 @@ import {
 	openapiJournalEntryCreateInputZod,
 	openapiJournalEntryCreateResponseOutputZod,
 } from "@connected-repo/zod-schemas/journal_entry.zod";
+import { resolveApiWriter } from "./services/openapi_author.journal_entries.service";
 
 const createJournalEntryRequest = openApiAuthProcedure
 	.route({ method: "POST", tags: ["Journal Entries"] })
@@ -25,6 +26,7 @@ const createJournalEntryRequest = openApiAuthProcedure
 			"/api/v1/journal-entries/create-request",
 			teamApi.teamApiId,
 		);
+		const writer = await resolveApiWriter(teamApi.teamApiId);
 
 		const { newLogEntry, subscription } = await checkSubscriptionAndUpdateLog(
 			logEntry,
@@ -44,36 +46,45 @@ const createJournalEntryRequest = openApiAuthProcedure
 		// floating promise rejections after the success response has been sent.
 		//
 		// `teamApi` (external API-key consumer) and `teams_app` (user workspace)
-		// are independent tenancy models — see `teams_api.table.ts`. OpenAPI
-		// requests don't run inside an active-team ALS scope, so
-		// `getRequestContext()` is typically undefined here and the feature-flag
-		// resolver falls back to the global `subscriptions.alert_webhook_enabled`
-		// row. If a future code path invokes this handler from inside a
-		// tenant-scoped ALS run, the tenant override is respected automatically.
-		const tenantTeamId = getRequestContext()?.tenantTeamId ?? null;
-		db.$transaction(async () => {
-			const entry = await db.journalEntries.create(input.data).onConflictDoNothing();
-			if (entry) {
-				await incrementSubscriptionUsage(subscription.subscriptionId, teamApi, tenantTeamId);
-			}
-			return entry;
-		}).catch((err) =>
-			captureBackendException(err, {
-				captureAll: true,
-				tags: {
-					handler: "journal-entries.create-request",
-					phase: "fire-and-forget-transaction",
-				},
-				context: {
-					backend: {
-						teamApiId: teamApi.teamApiId,
-						subscriptionId: subscription.subscriptionId,
-						apiProductRequestId: newLogEntry.apiProductRequestId,
-						apiProductSku: input.apiProductSku,
+		// are independent tenancy models — see `teams_api.table.ts`. The write
+		// runs inside the configured writer's team context (`resolveApiWriter`),
+		// so the feature-flag resolver sees that team.
+		//
+		// The write runs in the writer's team: `teamId` is stamped from this
+		// context and the tenant scopes apply as in any team request.
+		requestContext
+			.run(writer, () =>
+				db.$transaction(async () => {
+					const entry = await db.journalEntries
+						.create({ ...input.data, authorUserId: writer.userId })
+						.onConflictDoNothing();
+					if (entry) {
+						await incrementSubscriptionUsage(
+							subscription.subscriptionId,
+							teamApi,
+							writer.tenantTeamId,
+						);
+					}
+					return entry;
+				}),
+			)
+			.catch((err) =>
+				captureBackendException(err, {
+					captureAll: true,
+					tags: {
+						handler: "journal-entries.create-request",
+						phase: "fire-and-forget-transaction",
 					},
-				},
-			}),
-		);
+					context: {
+						backend: {
+							teamApiId: teamApi.teamApiId,
+							subscriptionId: subscription.subscriptionId,
+							apiProductRequestId: newLogEntry.apiProductRequestId,
+							apiProductSku: input.apiProductSku,
+						},
+					},
+				}),
+			);
 
 		return newLogEntry;
 	});
