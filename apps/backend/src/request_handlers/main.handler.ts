@@ -5,6 +5,7 @@ import { openApiHandler } from "@backend/request_handlers/open_api.handler";
 import { superAdminHandler } from "@backend/request_handlers/super_admin.handler";
 import { reactAppHandler } from "@backend/request_handlers/user_app.handler";
 import { captureBackendException } from "@backend/utils/backend-error-tracking.utils";
+import { stampClientIp } from "@backend/utils/client-info.utils";
 import {
 	decrementActiveRequests,
 	getServerHealth,
@@ -20,6 +21,8 @@ import { mobileAppHandler } from "./mobile_app.handler";
  * Main request dispatcher that orchestrates all handlers and pre-checks.
  */
 export async function mainRequestDispatcher(req: NodeHttpRequest, res: NodeHttpResponse) {
+	// The one place the client's address is decided (utils/client-info.utils.ts).
+	stampClientIp(req);
 	incrementActiveRequests();
 
 	const requestUrl = req.url;

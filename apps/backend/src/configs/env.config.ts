@@ -92,6 +92,10 @@ const envSchema = z.object({
 	// Comma-separated list of emails/phones with super-admin access (see rpcSuperAdminProcedure).
 	SUPER_ADMIN_EMAILS: optionalString,
 	SUPER_ADMIN_PHONE_NUMBERS: optionalString,
+	// Trusted proxy hops counted from the right of X-Forwarded-For. 0: no
+	// proxy, the socket address is the client (host-mode dev, tests).
+	// Deployed and dev-compose stacks (the app's nginx in front): 1.
+	TRUSTED_PROXY_COUNT: z.coerce.number().int().min(0).max(5).default(0),
 	VITE_API_URL: z.url(),
 	WEBAPP_URL: z.url(),
 	S3_ENDPOINT: z.url(),

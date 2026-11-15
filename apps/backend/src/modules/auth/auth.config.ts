@@ -99,6 +99,11 @@ export const auth = betterAuth({
 			// HTTPS. Left off only for local dev/test over http://localhost.
 			secure: isProd || isStaging,
 		},
+		// Better Auth's limiter and sessions.ip_address use the address the
+		// server stamped (main.handler.ts), never a client-sent header.
+		ipAddress: {
+			ipAddressHeaders: ["x-client-ip"],
+		},
 		database: {
 			// Setting generateId to false allows your database handle all ID generation
 			generateId: false,

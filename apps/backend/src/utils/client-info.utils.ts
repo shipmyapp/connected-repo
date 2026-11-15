@@ -1,72 +1,73 @@
 import { createHash } from "node:crypto";
-import { isProd, isStaging } from "@backend/configs/env.config";
+import type { IncomingHttpHeaders } from "node:http";
+import { isIP } from "node:net";
+import { env, isProd, isStaging } from "@backend/configs/env.config";
 import { UAParser } from "ua-parser-js";
 
+/** Request header the server writes with the client's address (main.handler.ts). */
+export const CLIENT_IP_HEADER = "x-client-ip";
+
+const unmapV4 = (ip: string): string =>
+	ip.startsWith("::ffff:") && isIP(ip.slice(7)) === 4 ? ip.slice(7) : ip;
+
 /**
- * Extract the client IP address from request headers.
- *
- * ============================================================================
- * !!! SECURITY-CRITICAL TRUST ASSUMPTION — READ BEFORE CHANGING DEPLOYMENT !!!
- * ============================================================================
- *
- * This function UNCONDITIONALLY TRUSTS the `x-forwarded-for` and `x-real-ip`
- * request headers. It performs NO validation of the upstream socket, NO
- * trusted-proxy CIDR check, and NO hop-count enforcement.
- *
- * That trust is safe ONLY when this app is deployed strictly behind a reverse
- * proxy (e.g. Cloudflare, AWS ALB, nginx, Caddy, Fly.io edge) that:
- *   1. Terminates every inbound connection from the public internet, AND
- *   2. STRIPS any client-supplied `x-forwarded-for` / `x-real-ip` values on
- *      ingress and REWRITES them with the true client IP on every hop.
- *
- * If this app is EVER exposed directly to untrusted clients — even briefly,
- * even on a "temporary" dev/staging endpoint reachable from the internet —
- * a malicious client can forge these headers and spoof any IP they want.
- * That spoofing silently breaks every security control that keys off the
- * return value of this function, including but not limited to:
- *
- *   - Rate-limit bucket keys such as `login:ip:${addr}` — an attacker can
- *     rotate forged IPs to bypass per-IP throttles on auth, OTP, etc.
- *   - The OpenAPI IP-whitelist enforcement — an attacker can claim any
- *     whitelisted source IP and gain access they should not have.
- *   - Session-security IP-change detection — an attacker who steals a
- *     session token can forge the original IP and evade re-auth prompts.
- *
- * IF THE DEPLOYMENT TOPOLOGY EVER CHANGES so that this process can receive
- * connections directly from untrusted clients, THIS FUNCTION MUST BE HARDENED
- * BEFORE THAT CHANGE SHIPS. The correct fix is to gate the header extraction
- * on `req.socket.remoteAddress` matching a configured trusted-proxy allowlist
- * (CIDR ranges of your known proxies); fall back to the socket peer address
- * whenever the immediate peer is not a trusted proxy.
- *
- * Do not "just trust the header" in a new topology because it worked in the
- * old one. The failure mode is silent, remote, and unauthenticated.
- * ============================================================================
+ * The client's address. `trustedHops` is the number of trusted proxy hops
+ * counted from the right of X-Forwarded-For: each trusted hop wrote one
+ * entry, so the client is the entry `trustedHops` places from the right.
+ * Entries further left were written by the client and are never read.
+ * 0 means no proxy: the socket (TCP peer) address is the client. Returns
+ * null when the chosen value is not an IP address.
+ */
+export const resolveClientIp = (
+	forwardedFor: string | string[] | undefined,
+	peerAddress: string | undefined,
+	trustedHops: number,
+): string | null => {
+	const pick = (value: string | undefined): string | null => {
+		if (!value) return null;
+		const ip = unmapV4(value);
+		return isIP(ip) ? ip : null;
+	};
+	if (trustedHops === 0) return pick(peerAddress);
+	const entries = [forwardedFor ?? []]
+		.flat()
+		.flatMap((value) => value.split(","))
+		.map((value) => value.trim())
+		.filter(Boolean);
+	// Fewer entries than trusted hops: the request did not come through every
+	// proxy (it should not happen when the backend port is internal only).
+	// The left-most entry, else the socket, is the best remaining guess.
+	return pick(entries[entries.length - trustedHops] ?? entries[0] ?? peerAddress);
+};
+
+/**
+ * Decides the client address once per request and writes it into
+ * `x-client-ip`, dropping any value the client sent. Called first thing in
+ * mainRequestDispatcher; every handler (oRPC, Better Auth) reads req.headers
+ * after it.
+ */
+export const stampClientIp = (req: {
+	headers: IncomingHttpHeaders;
+	socket?: { remoteAddress?: string } | null;
+}): void => {
+	delete req.headers[CLIENT_IP_HEADER];
+	const ip = resolveClientIp(
+		req.headers["x-forwarded-for"],
+		req.socket?.remoteAddress,
+		env.TRUSTED_PROXY_COUNT,
+	);
+	if (ip) req.headers[CLIENT_IP_HEADER] = ip;
+};
+
+/**
+ * The client address the server stamped for this request. Never reads
+ * X-Forwarded-For or X-Real-IP. Without a stamp (a test client, a script)
+ * production and staging say "unknown", which the API-key IP allowlist
+ * refuses; elsewhere it is the loopback address, as Better Auth records it.
  */
 export function getClientIpAddress(headers: Headers) {
-	// Check X-Forwarded-For header (set by proxies/load balancers)
-	const forwardedFor = headers.get("x-forwarded-for");
-	if (forwardedFor) {
-		// X-Forwarded-For can contain multiple IPs, get the first one (client IP)
-		const ips = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
-		const ip = typeof ips === "string" ? ips.split(",")[0]?.trim() : ips;
-		if (ip) {
-			return ip;
-		}
-	}
-
-	const xRealIp = headers.get("x-real-ip");
-
-	// Check X-Real-IP header
-	const realIp = Array.isArray(xRealIp) ? xRealIp[0] : xRealIp;
-	if (realIp && typeof realIp === "string") {
-		return realIp;
-	}
-
-	// No proxy header. Better Auth records the loopback address for a session
-	// opened without one outside production; mirror it so the strict session
-	// check (same IP, same device) holds in development and tests. Production
-	// and staging keep "unknown", which the IP allowlist refuses.
+	const ip = headers.get(CLIENT_IP_HEADER);
+	if (ip && isIP(ip)) return ip;
 	return isProd || isStaging ? "unknown" : "127.0.0.1";
 }
 
