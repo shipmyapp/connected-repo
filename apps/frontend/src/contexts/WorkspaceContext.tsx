@@ -2,6 +2,7 @@ import {
 	ACTIVE_TEAM_WIPED_CHANNEL,
 	type ActiveTeamWipedMessage,
 } from "@frontend/utils/active_team_wiped.channel";
+import { authClient } from "@frontend/utils/auth.client";
 import type { UserAppBackendOutputs } from "@frontend/utils/orpc.client";
 import { orpc } from "@frontend/utils/orpc.tanstack.client";
 import { syncPushIfGranted } from "@frontend/utils/push.utils";
@@ -112,6 +113,17 @@ export function WorkspaceProvider({ children, sessionInfo }: WorkspaceProviderPr
 					//    what the closed gate is protecting: no other RPC can
 					//    dispatch until both caches are flipped.
 					await syncSetActiveTeam(newId);
+					// 1b. `setActiveTeam` wrote the user row behind Better Auth's back,
+					//     and the signed session cookie (`session.cookieCache`, five
+					//     minutes) still holds the old team: the loader below would read
+					//     it and put the OLD id back into the header cache while the
+					//     DataWorker keeps the new one. One uncached read makes Better
+					//     Auth re-sign the cookie from the row. Not an oRPC call, so the
+					//     closed switch gate does not block it; offline it fails and is
+					//     ignored (the backend gate re-reads the row on a mismatch).
+					await authClient
+						.getSession({ query: { disableCookieCache: true } })
+						.catch(() => undefined);
 					// 2. Re-run the router's authLoader so `sessionInfo.user.activeTeamAppId`
 					//    (fed via useLoaderData) reflects the new value. Without this,
 					//    the loader-derived prop stays at the old team and downstream

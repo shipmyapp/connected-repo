@@ -1,4 +1,5 @@
 import { db } from "@backend/db/db";
+import { auth } from "@backend/modules/auth/auth.config";
 import { teamsAppRouter } from "@backend/modules/teams/teams_app.router.js";
 import { defaultContext } from "@backend/test/setup";
 import { createRouterClient, type RouterClient } from "@orpc/server";
@@ -82,6 +83,44 @@ describe("Teams App Endpoints", () => {
 			expect(after.teamIds).not.toContain(second.id);
 			// Personal team (still an active membership) survives.
 			expect(after.teamIds).toContain(personal.id);
+		});
+	});
+
+	// `setActiveTeam` writes the row behind Better Auth's back, and the signed
+	// session cookie keeps the previous team for up to five minutes. The gate
+	// used to compare `x-team-id` with that stale copy and refuse the team the
+	// client had just switched to ("Active team id mismatch"). The row decides now.
+	describe("rpcProtectedActiveTeamProcedure behind a stale session cookie", () => {
+		it("accepts the team the row names while the cookie still says the old one", async () => {
+			if (!defaultContext) throw new Error("test context missing");
+			const personalId = defaultContext.user.activeTeamAppId as string;
+			const second = await defaultClient.createTeam({ name: "Second Team" });
+			await defaultClient.setActiveTeam({ teamAppId: second.id });
+
+			// The cookie in these headers was signed at login, with the personal
+			// team; the user object the middleware derives from it says so too.
+			const cached = await auth.api.getSession({ headers: defaultContext.reqHeaders });
+			expect(cached?.user.activeTeamAppId).toBe(personalId);
+
+			const onSecond = new Headers(defaultContext.reqHeaders);
+			onSecond.set("x-team-id", second.id);
+			const client = createRouterClient(teamsAppRouter, {
+				context: { ...defaultContext, reqHeaders: onSecond },
+			});
+			const members = await client.getTeamMembers();
+			expect(members.map((m) => m.teamId)).toEqual([second.id]);
+
+			// A team the row does not name is still refused, cookie or no cookie.
+			const third = await defaultClient.createTeam({ name: "Third Team" });
+			const onThird = new Headers(defaultContext.reqHeaders);
+			onThird.set("x-team-id", third.id);
+			const strayClient = createRouterClient(teamsAppRouter, {
+				context: { ...defaultContext, reqHeaders: onThird },
+			});
+			await expect(strayClient.getTeamMembers()).rejects.toMatchObject({
+				status: 403,
+				message: "Active team id mismatch.",
+			});
 		});
 	});
 });

@@ -35,6 +35,8 @@ export const rpcProtectedProcedure = rpcPublicProcedure.use(rpcAuthMiddleware);
  * runs the rest of the handler inside an AsyncLocalStorage scope carrying the
  * tenant identity — base-table `setOnCreate` hooks read this to auto-stamp
  * `teamId` and `createdByTeamMemberId` on every insert.
+ * `x-team-id` is checked against the user row when Better Auth's cached
+ * cookie copy disagrees (see the comment in the gate).
  *
  * Rate limit: 300 requests/min per authenticated user (5 req/sec sustained,
  * with a full-bucket burst up to 300). This is the highest-volume procedure
@@ -55,7 +57,30 @@ export const rpcProtectedProcedure = rpcPublicProcedure.use(rpcAuthMiddleware);
  */
 export const rpcProtectedActiveTeamProcedure = rpcProtectedProcedure
 	.use(async ({ context, next }) => {
-		const activeTeamAppId = context.user.activeTeamAppId;
+		const headerTeamId = context.reqHeaders.get("x-team-id");
+		if (!headerTeamId) {
+			throw new ORPCError("FORBIDDEN", {
+				status: 403,
+				message: "Active team id mismatch.",
+			});
+		}
+
+		// `context.user` comes out of Better Auth's signed session cookie, a
+		// copy of the user row up to five minutes old (`session.cookieCache` in
+		// auth.config.ts). `teams.setActiveTeam` and `teams.getDefaultTeam` write
+		// `users.activeTeamAppId` behind Better Auth's back, so right after a
+		// team switch the copy names the previous team while the client (main
+		// thread and DataWorker) already sends the new one. When the two
+		// disagree the row decides, with one read that only the stale-cookie
+		// window pays for.
+		let activeTeamAppId = context.user.activeTeamAppId;
+		if (activeTeamAppId !== headerTeamId) {
+			const row = await db.users
+				.where({ id: context.user.id })
+				.select("activeTeamAppId")
+				.takeOptional();
+			activeTeamAppId = row?.activeTeamAppId ?? null;
+		}
 
 		if (!activeTeamAppId) {
 			throw new ORPCError("FORBIDDEN", {
@@ -64,10 +89,7 @@ export const rpcProtectedActiveTeamProcedure = rpcProtectedProcedure
 			});
 		}
 
-		if (
-			!context.reqHeaders.has("x-team-id") ||
-			context.reqHeaders.get("x-team-id") !== activeTeamAppId
-		) {
+		if (headerTeamId !== activeTeamAppId) {
 			throw new ORPCError("FORBIDDEN", {
 				status: 403,
 				message: "Active team id mismatch.",
