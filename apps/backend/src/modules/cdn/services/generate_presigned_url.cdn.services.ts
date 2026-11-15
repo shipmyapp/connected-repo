@@ -34,8 +34,29 @@ const ALLOWED_CONTENT_TYPE_PREFIXES = [
 	"application/vnd.ms-powerpoint",
 ] as const;
 
-const isAllowedContentType = (contentType: string): boolean =>
-	ALLOWED_CONTENT_TYPE_PREFIXES.some((prefix) => contentType.startsWith(prefix));
+// Types a browser runs, or renders as a page, when the object is opened from
+// the bucket's public host. SVG is XML that can carry script, and the
+// `image/` prefix would admit it.
+const ACTIVE_CONTENT_TYPES: ReadonlySet<string> = new Set([
+	"image/svg+xml",
+	"text/html",
+	"application/xhtml+xml",
+	"text/xml",
+	"application/xml",
+	"text/javascript",
+	"application/javascript",
+]);
+
+// The type is signed into the PUT exactly as given, so it must already be
+// the bare, lower-case form a browser's File.type has: no parameters, no
+// case variants that slip past the list above.
+export const isAllowedContentType = (contentType: string): boolean => {
+	if (contentType !== contentType.trim().toLowerCase() || contentType.includes(";")) {
+		return false;
+	}
+	if (ACTIVE_CONTENT_TYPES.has(contentType)) return false;
+	return ALLOWED_CONTENT_TYPE_PREFIXES.some((prefix) => contentType.startsWith(prefix));
+};
 
 // Fields shared by presign and file-existence lookups. Kept separate so the
 // existence check does not have to lie about contentType / contentLength.
@@ -61,7 +82,7 @@ export const generateUrlInput = cdnFileLocatorInput.extend({
 
 export const generatePresignedUrlService = async (
 	input: z.infer<typeof generateUrlInput>,
-	_userId: string,
+	userId: string,
 	activeTeamId: string,
 ) => {
 	if (!isAllowedContentType(input.contentType)) {
@@ -70,10 +91,12 @@ export const generatePresignedUrlService = async (
 		});
 	}
 
-	// Folder prefix is derived server-side from the authenticated caller's
-	// active team id so the client cannot write under another tenant's namespace.
+	// The folder is derived on the server: the caller's active team, then the
+	// caller. A member can write only under their own folder, so nobody can
+	// replace a teammate's object, and pushCdnUpdates can tie a URL to the
+	// row's creator.
 	const key = generateS3Key({
-		folderName: activeTeamId,
+		folderName: `${activeTeamId}/${userId}`,
 		fileName: input.fileName,
 		resourceType: input.resourceType,
 		id: input.id,

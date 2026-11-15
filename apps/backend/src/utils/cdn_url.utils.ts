@@ -1,4 +1,5 @@
 import { env } from "@backend/configs/env.config";
+import { generatePublicUrl } from "@backend/utils/cdn.utils";
 import { ORPCError } from "@orpc/server";
 
 /**
@@ -37,4 +38,22 @@ export const assertOwnCdnUrl = (url: string | null | undefined, field: string): 
 			message: `${field}: upload the picture here; links to other sites are not accepted.`,
 		});
 	}
+};
+
+/**
+ * True for a URL the presigner could have handed this row's creator for this
+ * row: `<team>/<creator>/<resource>/<id>_<name>`, or the form used before
+ * per-uploader folders, `<team>/media/<id>_<name>`. Compared in its
+ * normalised form, so `..` segments cannot step into another folder.
+ */
+export const isOwnUploadUrl = (
+	url: string,
+	row: { id: string; teamId: string | null; createdByUserId: string },
+): boolean => {
+	if (!row.teamId || !isAllowedCdnUrl(url)) return false;
+	const parsed = new URL(url);
+	const lastSegment = parsed.pathname.split("/").pop() ?? "";
+	if (!lastSegment.startsWith(`${row.id}_`)) return false;
+	const under = (key: string) => parsed.href.startsWith(new URL(generatePublicUrl(key)).href);
+	return under(`${row.teamId}/${row.createdByUserId}/`) || under(`${row.teamId}/media/${row.id}_`);
 };

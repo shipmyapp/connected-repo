@@ -1,6 +1,6 @@
 import { db } from "@backend/db/db";
 import { syncDeltaService } from "@backend/modules/sync/services/sync_delta.sync.service";
-import { isAllowedCdnUrl } from "@backend/utils/cdn_url.utils";
+import { isOwnUploadUrl } from "@backend/utils/cdn_url.utils";
 import type { FileSelectAll } from "@connected-repo/zod-schemas/file.zod";
 import type {
 	FilePullBundlesInput,
@@ -71,8 +71,10 @@ export async function pushFilesCdnUpdatesService(
 			// skip both URL buckets for this row; `isMainFileLost` on the same
 			// patch is still honoured because the flag isn't attacker-controlled
 			// URL content.
-			const cdnUrlBad = u.cdnUrl != null && !isAllowedCdnUrl(u.cdnUrl);
-			const thumbUrlBad = u.thumbnailCdnUrl != null && !isAllowedCdnUrl(u.thumbnailCdnUrl);
+			// A URL must name this row's own object (its creator's folder, its id),
+			// not merely live in our bucket.
+			const cdnUrlBad = u.cdnUrl != null && !isOwnUploadUrl(u.cdnUrl, current);
+			const thumbUrlBad = u.thumbnailCdnUrl != null && !isOwnUploadUrl(u.thumbnailCdnUrl, current);
 			if (cdnUrlBad || thumbUrlBad) {
 				rejectedUrlIds.add(u.id);
 				continue;

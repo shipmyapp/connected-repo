@@ -7,31 +7,32 @@ import type { cdnFileLocatorInput } from "./generate_presigned_url.cdn.services"
 
 export const checkFileExistsInCdnService = async (
 	input: z.infer<typeof cdnFileLocatorInput>,
-	_userId: string,
+	userId: string,
 	activeTeamId: string,
 ) => {
-	const key = generateS3Key({
-		folderName: activeTeamId,
-		fileName: input.fileName,
-		resourceType: input.resourceType,
-		id: input.id,
-	});
-
-	try {
-		await s3Client.send(
-			new HeadObjectCommand({
-				Bucket: env.S3_BUCKET_NAME,
-				Key: key,
-			}),
-		);
-		return { exists: true, key, fetchUrl: generatePublicUrl(key) };
-	} catch (error) {
-		if (
-			error instanceof S3ServiceException &&
-			(error.name === "NotFound" || error.$metadata?.httpStatusCode === 404)
-		) {
-			return { exists: false, key, fetchUrl: "" };
+	const keyFor = (folderName: string) =>
+		generateS3Key({
+			folderName,
+			fileName: input.fileName,
+			resourceType: input.resourceType,
+			id: input.id,
+		});
+	// The caller's own folder first, then the team-only form objects were
+	// stored under before per-uploader folders.
+	const ownKey = keyFor(`${activeTeamId}/${userId}`);
+	for (const key of [ownKey, keyFor(activeTeamId)]) {
+		try {
+			await s3Client.send(new HeadObjectCommand({ Bucket: env.S3_BUCKET_NAME, Key: key }));
+			return { exists: true, key, fetchUrl: generatePublicUrl(key) };
+		} catch (error) {
+			if (
+				error instanceof S3ServiceException &&
+				(error.name === "NotFound" || error.$metadata?.httpStatusCode === 404)
+			) {
+				continue;
+			}
+			throw error;
 		}
-		throw error;
 	}
+	return { exists: false, key: ownKey, fetchUrl: "" };
 };
