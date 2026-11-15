@@ -7,8 +7,9 @@ import { uniqueTimeArrayZod, zTimezone } from "@connected-repo/zod-schemas/zod_u
 import { betterAuth } from "better-auth";
 import { createAuthMiddleware } from "better-auth/api";
 import { bearer, phoneNumber } from "better-auth/plugins";
-import { apple } from "better-auth/social-providers";
+import { apple, type GoogleOptions } from "better-auth/social-providers";
 import { generateAppleClientSecret } from "./lib/apple.lib";
+import { googleProviderForAudience } from "./lib/native_google.lib";
 import { orchidAdapter } from "./orchid-adapter/factory.orchid_adapter";
 
 // Apple Client Secret is a short-lived JWT (currently signed with a 1h expiry in
@@ -73,6 +74,16 @@ async function getAppleClientSecret(): Promise<string | undefined> {
 // - Password management (change, set, reset)
 // - Email verification
 
+// The web Google client. Native apps sign in with an id token issued to
+// their own client id; `hooks.before` swaps in a provider built for that id
+// for the one request (native_google.lib.ts).
+const googleWebOptions = {
+	clientId: env.GOOGLE_WEB_CLIENT_ID,
+	clientSecret: env.GOOGLE_WEB_CLIENT_SECRET,
+	prompt: "select_account",
+	redirectURI: `${env.VITE_API_URL}/api/auth/callback/google`,
+} satisfies GoogleOptions;
+
 export const auth = betterAuth({
 	account: {
 		modelName: "accounts",
@@ -116,13 +127,13 @@ export const auth = betterAuth({
 		before: createAuthMiddleware(async (ctx) => {
 			const appleClientSecret = await getAppleClientSecret();
 
-			// 1. Update static web apple provider if it exists
-			const appleWebProvider = ctx.context.socialProviders.find((p) => p.id === "apple");
-			if (appleWebProvider && appleClientSecret) {
-				Object.assign(appleWebProvider, { clientSecret: appleClientSecret });
-			}
+			// Each request gets its own copy of the auth context, so providers
+			// put in `ctx.context.socialProviders` here exist for this request
+			// only. Never edit a provider object found in that list: it is
+			// shared by every request, and better-auth reads a provider's
+			// settings from the options it was built with, not from the object.
 
-			// 2. Add native iOS apple provider dynamically
+			// 1. Native iOS Apple provider, built with the current client secret.
 			if (env.APPLE_APP_BUNDLE_ID && appleClientSecret) {
 				ctx.context.socialProviders = [
 					...ctx.context.socialProviders,
@@ -137,28 +148,25 @@ export const auth = betterAuth({
 				];
 			}
 
-			// 3. Dynamic Google Client ID for Native Apps
-			// Social sign-in from native apps sends an idToken. We must match the clientId
-			// to the 'aud' (audience) in the token for verification to pass.
+			// 2. Native Google: an id token from the iOS or Android app is
+			// verified against the client id it was issued to.
 			if (ctx.path.endsWith("/sign-in/social") && ctx.method === "POST") {
-				const body = ctx.body;
-				const idToken = body?.idToken;
-
-				if (idToken) {
+				const idToken: unknown = ctx.body?.idToken?.token ?? ctx.body?.idToken;
+				if (typeof idToken === "string") {
 					try {
 						const { decodeJwt } = await import("jose");
-						const payload = decodeJwt(idToken);
-						const aud = payload.aud as string;
-
-						if (aud && (aud === env.GOOGLE_IOS_CLIENT_ID || aud === env.GOOGLE_ANDROID_CLIENT_ID)) {
-							const googleProvider = ctx.context.socialProviders.find((p) => p.id === "google");
-							if (googleProvider) {
-								Object.assign(googleProvider, { clientId: aud });
-								logger.debug({ aud }, "Swapping Google Client ID for native app");
-							}
+						const nativeGoogle = googleProviderForAudience(
+							googleWebOptions,
+							decodeJwt(idToken).aud,
+							[env.GOOGLE_IOS_CLIENT_ID, env.GOOGLE_ANDROID_CLIENT_ID],
+						);
+						if (nativeGoogle) {
+							ctx.context.socialProviders = ctx.context.socialProviders.map((p) =>
+								p.id === "google" ? nativeGoogle : p,
+							);
 						}
-					} catch (_err) {
-						// Ignore decode errors, better-auth will handle verification
+					} catch {
+						// Not a JWT: better-auth refuses it during verification.
 					}
 				}
 			}
@@ -207,13 +215,14 @@ export const auth = betterAuth({
 		errorURL: `${env.WEBAPP_URL}/auth/error`,
 	},
 	rateLimit: {
-		enabled: true,
+		// Better Auth's own per-process burst limiter on /api/auth/* (its
+		// defaults: 3 sign-ins per 10 s per IP, 100 requests per 10 s). Off in
+		// test mode, where the e2e suite signs several test users in a row.
+		// The app's own limits are the Redis buckets (rate_limit.service.ts).
+		enabled: !isTest,
 		window: 10,
 		max: 100,
 		storage: "memory",
-		// TODO: Enable database rate limiting
-		// storage: "database",
-		// modelName: "betterauth_ratelimit"
 	},
 	secret: env.BETTER_AUTH_SECRET,
 	session: {
@@ -254,12 +263,7 @@ export const auth = betterAuth({
 		},
 	},
 	socialProviders: {
-		google: {
-			clientId: env.GOOGLE_WEB_CLIENT_ID,
-			clientSecret: env.GOOGLE_WEB_CLIENT_SECRET,
-			prompt: "select_account",
-			redirectURI: `${env.VITE_API_URL}/api/auth/callback/google`,
-		},
+		google: googleWebOptions,
 	},
 	telemetry: {
 		enabled: true,
