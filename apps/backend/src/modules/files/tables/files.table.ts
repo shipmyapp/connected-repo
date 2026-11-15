@@ -1,5 +1,5 @@
 import { BaseTable } from "@backend/db/base_table";
-import { getRequestContext } from "@backend/lib/request-context";
+import { getRequestContext, tenantTeamIdOrThrow } from "@backend/lib/request-context";
 
 export class FileTable extends BaseTable {
 	readonly table = "files";
@@ -46,13 +46,12 @@ export class FileTable extends BaseTable {
 		],
 	);
 
-	// Default tenant scope. Bypass with `.unscope('default')` where a
-	// cross-tenant read is genuinely required.
+	// Default tenant scope: the request's team. Fails closed: a query with no
+	// team request context throws instead of reading every team. Lift it with
+	// `.unscope("default")` where a cross-team query is meant. Inserts are
+	// not scoped.
 	scopes = this.setScopes({
-		default: (q) => {
-			const ctx = getRequestContext();
-			return ctx ? q.where({ teamId: ctx.tenantTeamId }) : q;
-		},
+		default: (q) => q.where({ teamId: tenantTeamIdOrThrow("files") }),
 	});
 
 	// Disable soft delete during non-E2E tests to avoid SQL syntax errors when using onConflictDoNothing()

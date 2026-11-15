@@ -66,7 +66,7 @@ const inboxCredentials = rpcProtectedProcedure
 // The users table declares an inner `.parse()` to strip the seconds but
 // orchid does not fan array-inner parses across elements, so we normalise at
 // the API boundary. Same treatment is applied wherever `journalReminderTimes`
-// is emitted (see journal-entries getAll for the joined-author case).
+// is emitted (see me.profile).
 const stripSeconds = (t: string): string => (t.length > 5 ? t.slice(0, 5) : t);
 
 const getReminderTimes = rpcProtectedProcedure

@@ -14,7 +14,7 @@ import type { TeamMemberRole } from "@connected-repo/zod-schemas/enums.zod";
  * rather than fall through to an allow branch; treating the sentinel as
  * Owner/Admin would silently privilege the worker.
  */
-interface RequestContext {
+export interface RequestContext {
 	tenantTeamId: string;
 	userId: string;
 	teamMemberId: string;
@@ -23,3 +23,19 @@ interface RequestContext {
 
 export const requestContext = new AsyncLocalStorage<RequestContext>();
 export const getRequestContext = () => requestContext.getStore();
+
+/**
+ * The team a tenant-scoped query belongs to. Throws outside a team request:
+ * a query on a team-scoped table that has no team is a bug (it would read
+ * every team). A deliberate cross-team query says so with
+ * `.unscope("default")`.
+ */
+export const tenantTeamIdOrThrow = (table: string): string => {
+	const ctx = requestContext.getStore();
+	if (!ctx) {
+		throw new Error(
+			`${table} queried outside a team request: run it inside requestContext.run, or use .unscope("default") for a deliberate cross-team query`,
+		);
+	}
+	return ctx.tenantTeamId;
+};

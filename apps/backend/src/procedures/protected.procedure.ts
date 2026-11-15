@@ -96,7 +96,10 @@ export const rpcProtectedActiveTeamProcedure = rpcProtectedProcedure
 			});
 		}
 
+		// Before the team request context exists: the scope is lifted, the
+		// where names the team.
 		const activeMember = await db.teamMembers
+			.unscope("default")
 			.where({
 				teamId: activeTeamAppId,
 				userId: context.user.id,

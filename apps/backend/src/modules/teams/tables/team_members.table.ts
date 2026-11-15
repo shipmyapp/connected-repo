@@ -1,14 +1,14 @@
 import { BaseTable } from "@backend/db/base_table";
-import { getRequestContext } from "@backend/lib/request-context";
+import { tenantTeamIdOrThrow } from "@backend/lib/request-context";
 import { UserTable } from "@backend/modules/users/tables/users.table";
 import { TeamAppTable } from "./teams_app.table";
 
 // Membership join between `users` and `teams_app`. A row may exist without a
 // `userId` (invite pending — matched later by email or phoneNumber when the
 // invitee signs up; see `UserTable.afterCreate`). Role gates most write
-// paths. This table is scoped to the caller's active team by default — see
-// `scopes.default` below — so any query outside a team-scoped RPC (e.g.
-// `getMyTeams`) must call `.unscope("default")`.
+// paths. This table is scoped to the caller's active team by default and
+// refuses a query without a team request context; cross-team queries call
+// .unscope("default").
 export class TeamMemberTable extends BaseTable {
 	readonly table = "team_members";
 
@@ -59,13 +59,12 @@ export class TeamMemberTable extends BaseTable {
 		],
 	);
 
-	// Default tenant scope. Returns unchanged query when no context exists
-	// (auth bootstrap creates the first team_member before ALS is set).
+	// Default tenant scope: the request's team. Fails closed: a query with no
+	// team request context throws instead of reading every team. Lift it with
+	// `.unscope("default")` where a cross-team query is meant. Inserts are
+	// not scoped.
 	scopes = this.setScopes({
-		default: (q) => {
-			const ctx = getRequestContext();
-			return ctx ? q.where({ teamId: ctx.tenantTeamId }) : q;
-		},
+		default: (q) => q.where({ teamId: tenantTeamIdOrThrow("team_members") }),
 	});
 
 	// Disable soft delete during non-E2E tests to avoid SQL syntax errors when using onConflictDoNothing()
