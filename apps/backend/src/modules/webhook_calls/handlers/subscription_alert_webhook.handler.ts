@@ -1,6 +1,6 @@
-import { env } from "@backend/configs/env.config";
 import { db } from "@backend/db/db";
 import { subscriptionAlertWebhookTaskDef } from "@backend/events/events.schema";
+import { API_QUEUE } from "@backend/events/queue_names";
 import { logger } from "@backend/utils/logger.utils";
 import axios from "axios";
 import { ulid } from "ulid";
@@ -197,7 +197,7 @@ export const subscriptionAlertWebhookHandler = async ({
 		pgTbusTaskLogId: logId,
 		tbusTaskId,
 		taskName,
-		queueName: env.OTEL_SERVICE_NAME,
+		queueName: API_QUEUE,
 		entityType: "subscription",
 		entityId: input.subscriptionId,
 		teamApiId: input.teamApiId,
