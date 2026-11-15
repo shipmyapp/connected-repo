@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Super-admin router over oRPC at `/api/super-admin` (`super_admin_rpc.handler.ts`) for the console; `listTeams`, `getTeam`, `listUsers`, `revokeUserSessions`, `auditList`; `ping` returns the operator's name.
+- `operator_audit_log` (migration `0012`) and `withOperatorAudit`: every super-admin change is recorded with the operator, before and after, reason and client IP, in the same transaction as the change.
 - `TRUSTED_PROXY_COUNT`: trusted proxy hops counted from the right of X-Forwarded-For (0 = socket address).
 - `auth:encrypt-tokens` script: encrypts provider tokens stored before encryption was on.
 - Webhook bodies carry `X-Webhook-Signature` when a webhook secret is configured.
@@ -66,6 +68,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Security
 
+- `/super-admin/` (OpenAPI) requires `x-csrf-token: orpc` in production and staging, as `/api/super-admin` does.
 - X-Forwarded-For and X-Real-IP no longer decide the client address (API-key IP allowlist, limits, session IP).
 - Credentials, tokens, cookies and API keys are redacted from logs and Sentry breadcrumbs.
 - SVG and other active content types are refused for upload; a member can no longer overwrite a teammate's object or point a file at another object.

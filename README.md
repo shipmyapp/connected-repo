@@ -115,6 +115,8 @@ proxies `/api/*` to :3000 so the SPA hits the same origin it does in prod —
 no separate backend URL, no CORS in dev. Set `VITE_DEV_BACKEND_PROXY_TARGET`
 in `apps/frontend/.env` if your backend runs somewhere else.
 
+- Superadmin console: http://localhost:5175 (add it to ALLOWED_ORIGINS and your email to SUPER_ADMIN_EMAILS in apps/backend/.env)
+
 ## Available Scripts
 
 ### Development

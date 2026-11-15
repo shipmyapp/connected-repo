@@ -38,6 +38,7 @@
 | [ADR-B12] | Crons report their failures | Accepted | Every cron's outer `catch` logs and calls `captureBackendException(error, { captureAll: true, tags: { handler: "cron.<name>" } })`. |
 | [ADR-B13] | API keys write as a team member | Accepted | `teams_api.writes_as_team_member_id` names the membership the journal create-request writes as; the write runs inside that team's request context. Null refuses the write (403). Set it when issuing a key: `UPDATE teams_api SET writes_as_team_member_id = '<team_members.id>' WHERE team_api_id = '<key id>';`. |
 | [ADR-B14] | Teammates see public user fields only | Accepted | A relation that shows one member to another selects `userPublicZod` (`id`, `name`, `image`), never `userSelectAllZod`. |
+| [ADR-B15] | Super-admin over RPC and OpenAPI | Accepted | `superAdminRouter` is served twice: RPC at `/api/super-admin` for the console's typed client, OpenAPI + Scalar at `/super-admin/` for people and scripts. Admin reads are cross-tenant on purpose (`team_members` through `.unscope("default")`); lists count the filter and order only the page (`count()` on an ordered query fails in Postgres). Every mutation is wrapped in `withOperatorAudit` (root ADR-033). |
 
 ## Technical Guidelines
 

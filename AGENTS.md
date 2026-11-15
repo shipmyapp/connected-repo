@@ -18,9 +18,9 @@
 ---
 
 ## Layer 2: Active Task
-- **Objective**: Frontend and shared packages: generic fixes.
+- **Objective**: The superadmin console (`apps/superadmin`).
 - **Status**: Completed.
-- **Context**: A team switch sticks and survives an offline restart (one uncached session read after the switch, the offline auth cache patched, ADR-029); the theme is chosen on the profile page and saved to the account; `packages/ui-mui` holds the shared confirm dialog, relative time, error screens, toast container, drawer transition and `utils/*` (ADR-030); blank `VITE_*` keys are unset (ADR-031); Sentry sends without a boot probe or PII; the avatar is a plain link to the profile page, which holds Teams, Appearance and Sign out; Back closes an open dialog; component tests run in jsdom.
+- **Context**: A third deployable, the operator console, signs in with Google through the app's Better Auth and talks only to the super-admin router over RPC at `/api/super-admin` (ADR-032): Teams with members, Users with "Sign out everywhere", Feature flags and Audit. Every super-admin mutation is recorded in `operator_audit_log` through `withOperatorAudit`, in the same transaction as the change (ADR-033). Both super-admin transports require `x-csrf-token: orpc` in production and staging (ADR-034). Its shared components and helpers (`QueryState`, `PageHeader`, `DataTable`, `utils/rpc_errors`, `utils/api_origin`) live in `packages/ui-mui`; `yarn dev` serves it on :5175.
 
 ## Layer 3: Decision Records
 
@@ -57,6 +57,9 @@
 | [ADR-029] | Fresh session after a team switch | Accepted | `teams.setActiveTeam` writes `users.activeTeamAppId` outside better-auth, whose 5-minute `session.cookieCache` keeps the old team. The switch patches the cached user (`patchAuthCacheUser`), calls `requestFreshSession()` and awaits the router revalidation inside the closed switch gate; `authLoader`'s online path consumes the flag for one `disableCookieCache` read. The backend gate's row re-read (`rpcProtectedActiveTeamProcedure`) stays. |
 | [ADR-030] | One copy of shared web pieces | Accepted | Components and browser helpers used by more than one Vite app live in `packages/ui-mui` (`components/ConfirmDialog`, `components/When`, `feedback/AppErrorBoundary`, `feedback/ErrorScreen`, `feedback/AppToastContainer`, `feedback/DrawerTransition`, `utils/*`); env primitives in `packages/zod-schemas/src/env_utils.ts`. An app never copies one. |
 | [ADR-031] | Blank env means unset | Accepted | Every optional `VITE_*` key goes through `blankAsUndefined` (`@connected-repo/zod-schemas/env_utils`): an empty Docker build arg must build, not fail validation. |
+| [ADR-032] | Superadmin console as its own app | Accepted | `apps/superadmin` (`@connected-repo/superadmin`) talks only to the super-admin router, over oRPC at `/api/super-admin` (`request_handlers/super_admin_rpc.handler.ts`, dispatched before the `/api` OpenAPI catch-all; CORS from `ALLOWED_ORIGINS`, CSRF in prod/staging). Super-admins are the `SUPER_ADMIN_EMAILS` / `SUPER_ADMIN_PHONE_NUMBERS` allowlist; ordinary users get 403 on every procedure. Its shared UI and helpers come from `packages/ui-mui`, never copies. |
+| [ADR-033] | Operator changes are audited | Accepted | Every super-admin mutation runs through `withOperatorAudit` (`apps/backend/src/modules/system/services/operator_audit.service.ts`): the value before, the change and one `operator_audit_log` row (operator id and email, action, target, before, after, reason, client IP, time) commit in one transaction; a refused change writes nothing. The table is append-only and has no foreign key to `users`. `auditList` and the console's Audit page read it. It is the compensating control for a console without a second factor. Every later console mutation (team subdomains first) must use it. |
+| [ADR-034] | CSRF on both super-admin transports | Accepted | `/api/super-admin` (RPC) and `/super-admin/` (OpenAPI) both run `SimpleCsrfProtectionHandlerPlugin` in production and staging: every call needs `x-csrf-token: orpc`. The OpenAPI node handler decodes form bodies, and session cookies ride on same-site form posts. |
 
 ## Quick Reference
 - **Dev**: `yarn dev`
@@ -64,10 +67,12 @@
 - **Check**: `yarn lint`, `yarn format`, `yarn check-types`, `yarn knip`
 - **Hooks** (no dead code, as we go): `yarn install` points git at `.githooks/`. **pre-commit** runs Biome on the staged files (unused imports and variables are errors); **pre-push** runs `yarn knip` (unused files, exports, types, dependencies) and `yarn check-types`; CI runs both and lint. They are clean on `main`, so a red one is yours: remove what the change left unused (an old path a new one replaced, a helper nobody calls, a dependency) rather than exporting it again or skipping the hook. Code of a kept feature that knip cannot see is taught to `knip.jsonc` with a comment, never deleted.
 - **DB**: `yarn db g <name>`, `yarn db up`, `yarn db seed`
+- **Console**: http://localhost:5175 (superadmin; needs ALLOWED_ORIGINS + SUPER_ADMIN_EMAILS)
 
 ## Module Deep Dives
 - [apps/backend/AGENTS.md](apps/backend/AGENTS.md)
 - [apps/frontend/AGENTS.md](apps/frontend/AGENTS.md)
+- [apps/superadmin/AGENTS.md](apps/superadmin/AGENTS.md)
 - [packages/AGENTS.md](packages/AGENTS.md)
 - [packages/ui-mui/AGENTS.md](packages/ui-mui/AGENTS.md)
 - [packages/zod-schemas/AGENTS.md](packages/zod-schemas/AGENTS.md)

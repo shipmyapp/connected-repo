@@ -14,6 +14,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `packages/zod-schemas/src/env_utils.ts`: blank-means-unset env primitives.
 - The theme's accessibility floor: focus ring, reduced motion, 44px touch targets on touch screens.
 - Back closes an open dialog or drawer (`useBackCloses`).
+- `apps/superadmin`: the operator console (Teams with members, Users, Feature flags, Audit) behind Google sign-in and the super-admin allowlist; `yarn dev` serves it on :5175.
+- Backend: the super-admin router over oRPC at `/api/super-admin`; `listTeams`, `getTeam`, `listUsers`; `ping` returns the operator's name.
+- `packages/ui-mui`: `QueryState`, `PageHeader`, `DataTable`, `utils/rpc_errors`, `utils/api_origin`.
+- Operator audit trail: `operator_audit_log` and `withOperatorAudit` (every super-admin change with who, before, after, reason, IP); `auditList`; the console's Audit page.
+- "Sign out everywhere" for an account from the console's Users page (`revokeUserSessions`, with a reason, audited).
 
 ### Changed
 - CI runs on `ubuntu-24.04` (Playwright 1.58 has no chromium for `ubuntu-latest` = 26.04); lint now fails the build.
@@ -38,6 +43,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Security
 - CI runs with a read-only token and SHA-pinned actions (Dependabot keeps them current).
+- The OpenAPI super-admin surface (`/super-admin/`) requires `x-csrf-token: orpc` in production and staging.
 
 ## [1.1.0] - 2026-07-03
 
