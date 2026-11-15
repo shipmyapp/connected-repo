@@ -1,4 +1,6 @@
 // Initialize OpenTelemetry + Sentry before the HTTP server (or any instrumented module) loads.
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { env, isProd } from "@backend/configs/env.config";
 import { normalizeUrl, normalizeUrlPath } from "@backend/utils/sentry_url_template";
 import {
@@ -24,13 +26,46 @@ import { nodeProfilingIntegration } from "@sentry/profiling-node";
  */
 const UNTRACED_PATHS = [/^\/health\b/, /^\/?$/, /^\/\?/, /^\/api\/sentry-tunnel\b/];
 
+const readTrimmed = (file: string): string | undefined => {
+	try {
+		return readFileSync(file, "utf8").trim() || undefined;
+	} catch {
+		return undefined;
+	}
+};
+
+const packageVersion = (file: string): string | undefined => {
+	const text = readTrimmed(file);
+	if (!text) return undefined;
+	const parsed: { version?: unknown } = JSON.parse(text);
+	return typeof parsed.version === "string" ? parsed.version : undefined;
+};
+
+/**
+ * `<OTEL_SERVICE_NAME>@<short commit>`: the image build writes the commit to
+ * `.build-sha` (apps/backend/Dockerfile), so every deploy is its own release.
+ * SENTRY_RELEASE, when set, wins. A build without git, or a local run, falls
+ * back to the package version.
+ */
+const sentryRelease = (): string | undefined => {
+	if (env.SENTRY_RELEASE) return env.SENTRY_RELEASE;
+	// dist/otel.sdk.js (or src/otel.sdk.ts under tsx) → apps/backend
+	const backendDir = path.resolve(__dirname, "..");
+	const version =
+		readTrimmed(path.join(backendDir, ".build-sha")) ??
+		packageVersion(path.join(backendDir, "package.json"));
+	return version ? `${env.OTEL_SERVICE_NAME}@${version}` : undefined;
+};
+
+const release = sentryRelease();
+
 const sentryClient = Sentry.init({
 	dsn: env.SENTRY_DSN,
 	// `enabled: false` makes every Sentry.* call a no-op, so the SDK is safe to
 	// keep wired up everywhere even when no DSN is configured (CI, local dev).
 	enabled: Boolean(env.SENTRY_DSN),
 	environment: env.SENTRY_ENVIRONMENT || env.NODE_ENV,
-	release: env.SENTRY_RELEASE,
+	release,
 	sampleRate: 1.0,
 	skipOpenTelemetrySetup: true,
 	integrations: [
@@ -145,6 +180,6 @@ Sentry.validateOpenTelemetrySetup();
 // always shows whether errors and traces can reach Sentry.
 console.info(
 	Sentry.isInitialized()
-		? `Sentry: on (environment ${env.SENTRY_ENVIRONMENT || env.NODE_ENV}, release ${env.SENTRY_RELEASE ?? "unset"})`
+		? `Sentry: on (environment ${env.SENTRY_ENVIRONMENT || env.NODE_ENV}, release ${release ?? "unset"})`
 		: "Sentry: off (SENTRY_DSN is empty)",
 );
