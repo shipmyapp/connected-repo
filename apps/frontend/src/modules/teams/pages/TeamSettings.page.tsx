@@ -33,12 +33,13 @@ export default function TeamSettingsPage() {
 
 	const team = teams.find((t) => t.id === teamId);
 	const isPersonal = team?.personalTeamForUserId === user?.id;
-	const canManage =
-		activeWorkspace.role === "Owner" || activeWorkspace.role === "Admin";
+	const canManage = activeWorkspace.role === "Owner" || activeWorkspace.role === "Admin";
 
-	const { data: members = [], isLoading, refetch } = useQuery(
-		orpc.teams.getTeamMembers.queryOptions(),
-	);
+	const {
+		data: members = [],
+		isLoading,
+		refetch,
+	} = useQuery(orpc.teams.getTeamMembers.queryOptions());
 
 	if (!teamId) return null;
 
@@ -64,8 +65,8 @@ export default function TeamSettingsPage() {
 						Not your active team
 					</Typography>
 					<Typography color="text.secondary" sx={{ mb: 2 }}>
-						You're viewing a team you haven't switched into. Switch
-						active team from your profile page to manage it.
+						You're viewing a team you haven't switched into. Switch active team from your profile
+						page to manage it.
 					</Typography>
 					<Button variant="contained" onClick={() => navigate("/profile")}>
 						Go to Profile
@@ -109,11 +110,11 @@ export default function TeamSettingsPage() {
 							fontSize: "1.8rem",
 						}}
 					>
-						{team?.logoUrl
-							? null
-							: isPersonal
-								? <PersonIcon fontSize="large" />
-								: <GroupIcon fontSize="large" />}
+						{team?.logoUrl ? null : isPersonal ? (
+							<PersonIcon fontSize="large" />
+						) : (
+							<GroupIcon fontSize="large" />
+						)}
 					</Avatar>
 					<Box sx={{ flexGrow: 1 }}>
 						<Stack direction="row" spacing={1} alignItems="center">
@@ -121,17 +122,12 @@ export default function TeamSettingsPage() {
 								{team?.name || "Team"}
 							</Typography>
 							{isPersonal && (
-								<Chip
-									label="Personal"
-									size="small"
-									color="primary"
-									variant="outlined"
-								/>
+								<Chip label="Personal" size="small" color="primary" variant="outlined" />
 							)}
 						</Stack>
 						<Typography variant="body2" color="text.secondary">
-							{members.length} member{members.length === 1 ? "" : "s"} · You
-							are {activeWorkspace.role}
+							{members.length} member{members.length === 1 ? "" : "s"} · You are{" "}
+							{activeWorkspace.role}
 						</Typography>
 					</Box>
 				</Stack>
@@ -139,12 +135,7 @@ export default function TeamSettingsPage() {
 
 			<Divider sx={{ my: 3 }} />
 
-			<Stack
-				direction="row"
-				justifyContent="space-between"
-				alignItems="center"
-				sx={{ mb: 2 }}
-			>
+			<Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
 				<Typography variant="h5" sx={{ fontWeight: 700 }}>
 					Members
 				</Typography>

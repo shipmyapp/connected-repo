@@ -28,7 +28,7 @@ export const LoginPage = () => {
 	useEffect(() => {
 		if (error) {
 			const errorMessage = decodeURIComponent(error);
-			
+
 			// Capture OAuth error in Sentry for monitoring
 			Sentry.captureMessage(`OAuth Error: ${errorMessage}`, {
 				level: "warning",
@@ -46,42 +46,48 @@ export const LoginPage = () => {
 		}
 	}, [error]);
 
-   const handleGoogleLogin = async () => {
-    setIsLoading(true);
- 		let data: { url?: string } | undefined;
+	const handleGoogleLogin = async () => {
+		setIsLoading(true);
+		let data: { url?: string } | undefined;
 		// Same-origin deploys leave VITE_USER_APP_URL empty; fall back to the
 		// visible origin so OAuth callbacks land on the frontend domain.
 		const appOrigin = env.VITE_USER_APP_URL || window.location.origin;
 		const callbackURL = `${appOrigin}/dashboard`;
-		
-    try {
-			if(isTest){
+
+		try {
+			if (isTest) {
 				const dummyUser = userCreateFixture();
 				const password = env.VITE_TEST_PASSWORD;
 				const email = dummyUser.email ?? "test@example.com";
-				if(!password){
+				if (!password) {
 					throw new Error("Test password is not set in environment variables");
 				}
 
-				await authClient.signUp.email({
-					...dummyUser,
-					email,
-					image: dummyUser.image ?? undefined,
-					password,
-					callbackURL,
-					journalReminderTimes: []
-				}, {
-					throw: true
-				});
+				await authClient.signUp.email(
+					{
+						...dummyUser,
+						email,
+						image: dummyUser.image ?? undefined,
+						password,
+						callbackURL,
+						journalReminderTimes: [],
+					},
+					{
+						throw: true,
+					},
+				);
 
-				await authClient.signIn.email({
-					email,
-					password,
-					rememberMe: true,
-					callbackURL,
-				}, {
-					throw: true
-				});
+				await authClient.signIn.email(
+					{
+						email,
+						password,
+						rememberMe: true,
+						callbackURL,
+					},
+					{
+						throw: true,
+					},
+				);
 				// Email/password sign-in does NOT return a redirect URL — it
 				// just sets the session cookie. Navigate manually so the
 				// Playwright e2e globalSetup's `waitForURL('**/dashboard')`
@@ -89,24 +95,27 @@ export const LoginPage = () => {
 				window.location.href = callbackURL;
 				return;
 			} else {
-				data = await authClient.signIn.social({
-					provider: 'google',
-					callbackURL,
-					errorCallbackURL: `${appOrigin}/auth/error`,
-					// newUserCallbackURL: "/welcome",
-					disableRedirect: true,
-				}, {
-					throw: true,
-				});
+				data = await authClient.signIn.social(
+					{
+						provider: "google",
+						callbackURL,
+						errorCallbackURL: `${appOrigin}/auth/error`,
+						// newUserCallbackURL: "/welcome",
+						disableRedirect: true,
+					},
+					{
+						throw: true,
+					},
+				);
 			}
-      if (data?.url) {
-        window.location.href = data.url;
-      }
-    } catch (error) {
-      console.error('OAuth initiation failed:', error);
-      setIsLoading(false);
-    }
-  };
+			if (data?.url) {
+				window.location.href = data.url;
+			}
+		} catch (error) {
+			console.error("OAuth initiation failed:", error);
+			setIsLoading(false);
+		}
+	};
 
 	return (
 		<Box
@@ -123,205 +132,207 @@ export const LoginPage = () => {
 			<Container maxWidth="sm">
 				<Fade in={showContent} timeout={600}>
 					<Paper
-							elevation={0}
-							sx={{
-								p: { xs: 4, sm: 5, md: 6 },
-								borderRadius: 3,
-								border: "1px solid",
-								borderColor: "divider",
-								boxShadow: "0 8px 32px rgba(0,0,0,0.1)",
-								bgcolor: "background.paper",
-								transition: "all 0.3s ease-in-out",
-								"&:hover": {
-									boxShadow: "0 12px 48px rgba(0,0,0,0.15)",
-								},
-							}}
-						>
-							<Stack spacing={4} alignItems="center">
-								{/* Header Section */}
-								<Box sx={{ textAlign: "center" }}>
-
-									<Typography
-										variant="h6"
-										sx={{
-											color: "text.secondary",
-											lineHeight: 1.7,
-											fontWeight: 400,
-											mb: 1,
-											fontSize: { xs: "1.1rem", sm: "1.25rem" },
-										}}
-									>
-										Scheduled Prompt & Journal
-									</Typography>
-									<Typography
-										variant="body1"
-										sx={{
-											color: "text.secondary",
-											lineHeight: 1.8,
-											fontSize: { xs: "0.95rem", sm: "1rem" },
-											maxWidth: 400,
-											mx: "auto",
-										}}
-									>
-										A simple way to journal and reflect on your day with timely, thought-provoking prompts
-									</Typography>
-								</Box>
-
-								{/* Error Alert */}
-								{error && (
-									<Fade in>
-										<Alert
-											severity="error"
-											sx={{
-												width: "100%",
-												maxWidth: 400,
-												borderRadius: 2,
-											}}
-										>
-											{error === "oauth_failed"
-												? "Authentication failed. Please try again."
-												: error === "state_mismatch"
-													? "Session expired. Please try signing in again."
-													: error === "callback_error"
-														? "OAuth callback error. Please try again."
-														: `An error occurred: ${decodeURIComponent(error)}`}
-										</Alert>
-									</Fade>
-								)}
-
-								{/* Welcome message */}
+						elevation={0}
+						sx={{
+							p: { xs: 4, sm: 5, md: 6 },
+							borderRadius: 3,
+							border: "1px solid",
+							borderColor: "divider",
+							boxShadow: "0 8px 32px rgba(0,0,0,0.1)",
+							bgcolor: "background.paper",
+							transition: "all 0.3s ease-in-out",
+							"&:hover": {
+								boxShadow: "0 12px 48px rgba(0,0,0,0.15)",
+							},
+						}}
+					>
+						<Stack spacing={4} alignItems="center">
+							{/* Header Section */}
+							<Box sx={{ textAlign: "center" }}>
 								<Typography
-									variant="h3"
+									variant="h6"
 									sx={{
-										fontWeight: 600,
-										color: "text.primary",
-										mb: 2,
-										fontSize: { xs: "2rem", sm: "2.5rem", md: "2.75rem" },
-										letterSpacing: "-1px",
+										color: "text.secondary",
+										lineHeight: 1.7,
+										fontWeight: 400,
+										mb: 1,
+										fontSize: { xs: "1.1rem", sm: "1.25rem" },
 									}}
 								>
-									{lastLogin ? "Welcome back" : "Welcome"}
+									Scheduled Prompt & Journal
 								</Typography>
+								<Typography
+									variant="body1"
+									sx={{
+										color: "text.secondary",
+										lineHeight: 1.8,
+										fontSize: { xs: "0.95rem", sm: "1rem" },
+										maxWidth: 400,
+										mx: "auto",
+									}}
+								>
+									A simple way to journal and reflect on your day with timely, thought-provoking
+									prompts
+								</Typography>
+							</Box>
 
-								{lastLogin && (
-									<Stack 
-										direction="row" 
-										spacing={2} 
-										alignItems="center" 
-										justifyContent="center"
-										onClick={handleGoogleLogin}
-										sx={{ 
-											mb: 4, 
-											width: "115%",
-											p: 2, 
-											borderRadius: 2, 
-											bgcolor: 'action.hover',
-											border: '1px solid',
-											borderColor: 'divider',
-											cursor: 'pointer',
-											transition: 'all 0.2s ease-in-out',
-											'&:hover': {
-												bgcolor: 'action.selected',
-												borderColor: 'primary.main',
-												transform: 'translateY(-2px)',
-												boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
-											},
-											'&:active': {
-												transform: 'translateY(0)'
-											}
-										}}
-									>
-										<Avatar src={lastLogin.image || undefined} alt={lastLogin.name}>
-											{lastLogin.name[0]}
-										</Avatar>
-										<Box sx={{ textAlign: 'left' }}>
-											<Typography variant="subtitle1" fontWeight={600}>
-												{lastLogin.name}
-											</Typography>
-											<Typography variant="body2" color="text.secondary">
-												{lastLogin.email}
-											</Typography>
-										</Box>
-									</Stack>
-								)}
-
-								{/* Google Sign In Button */}
-								<Box sx={{ width: "115%" }}>
-									<Button
-										variant="outlined"
-										fullWidth
-										onClick={handleGoogleLogin}
-										disabled={isLoading}
+							{/* Error Alert */}
+							{error && (
+								<Fade in>
+									<Alert
+										severity="error"
 										sx={{
-											py: { xs: 1.75, sm: 1.5 },
-											px: 3,
-											fontSize: { xs: "1rem", sm: "0.95rem" },
-											fontWeight: 600,
-											textTransform: "none",
+											width: "100%",
+											maxWidth: 400,
 											borderRadius: 2,
+										}}
+									>
+										{error === "oauth_failed"
+											? "Authentication failed. Please try again."
+											: error === "state_mismatch"
+												? "Session expired. Please try signing in again."
+												: error === "callback_error"
+													? "OAuth callback error. Please try again."
+													: `An error occurred: ${decodeURIComponent(error)}`}
+									</Alert>
+								</Fade>
+							)}
+
+							{/* Welcome message */}
+							<Typography
+								variant="h3"
+								sx={{
+									fontWeight: 600,
+									color: "text.primary",
+									mb: 2,
+									fontSize: { xs: "2rem", sm: "2.5rem", md: "2.75rem" },
+									letterSpacing: "-1px",
+								}}
+							>
+								{lastLogin ? "Welcome back" : "Welcome"}
+							</Typography>
+
+							{lastLogin && (
+								<Stack
+									direction="row"
+									spacing={2}
+									alignItems="center"
+									justifyContent="center"
+									onClick={handleGoogleLogin}
+									sx={{
+										mb: 4,
+										width: "115%",
+										p: 2,
+										borderRadius: 2,
+										bgcolor: "action.hover",
+										border: "1px solid",
+										borderColor: "divider",
+										cursor: "pointer",
+										transition: "all 0.2s ease-in-out",
+										"&:hover": {
+											bgcolor: "action.selected",
+											borderColor: "primary.main",
+											transform: "translateY(-2px)",
+											boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+										},
+										"&:active": {
+											transform: "translateY(0)",
+										},
+									}}
+								>
+									<Avatar src={lastLogin.image || undefined} alt={lastLogin.name}>
+										{lastLogin.name[0]}
+									</Avatar>
+									<Box sx={{ textAlign: "left" }}>
+										<Typography variant="subtitle1" fontWeight={600}>
+											{lastLogin.name}
+										</Typography>
+										<Typography variant="body2" color="text.secondary">
+											{lastLogin.email}
+										</Typography>
+									</Box>
+								</Stack>
+							)}
+
+							{/* Google Sign In Button */}
+							<Box sx={{ width: "115%" }}>
+								<Button
+									variant="outlined"
+									fullWidth
+									onClick={handleGoogleLogin}
+									disabled={isLoading}
+									sx={{
+										py: { xs: 1.75, sm: 1.5 },
+										px: 3,
+										fontSize: { xs: "1rem", sm: "0.95rem" },
+										fontWeight: 600,
+										textTransform: "none",
+										borderRadius: 2,
+										borderWidth: 2,
+										borderColor: "divider",
+										color: "text.primary",
+										bgcolor: "background.paper",
+										minHeight: { xs: 56, sm: 52 },
+										transition: "all 0.25s ease-in-out",
+										boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+										"&:hover": {
 											borderWidth: 2,
-											borderColor: "divider",
-											color: "text.primary",
-											bgcolor: "background.paper",
-											minHeight: { xs: 56, sm: 52 },
-											transition: "all 0.25s ease-in-out",
-											boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
-											"&:hover": {
-												borderWidth: 2,
-												borderColor: "primary.main",
-												bgcolor: "primary.light",
-												transform: "translateY(-2px)",
-												boxShadow: "0 4px 16px rgba(102, 126, 234, 0.2)",
-											},
-											"&:active": {
-												transform: "translateY(0)",
-												boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-											},
-											"&.Mui-disabled": {
-												borderColor: "action.disabledBackground",
-												bgcolor: "action.disabledBackground",
-												color: "action.disabled",
-											},
-										}}
-									>
-										<Box
-											sx={{
-												display: "flex",
-												alignItems: "center",
-												justifyContent: "center",
-												gap: 1.5,
-											}}
-										>
-											<GoogleIcon width={20} height={20} />
-											<span>{isLoading ? "Connecting..." : "Continue with Google"}</span>
-										</Box>
-									</Button>
-								</Box>
-
-								{/* Feature Highlights */}
-								<Box sx={{ mt: 4, pt: 4, borderTop: "1px solid", borderColor: "divider", width: "100%" }}>
-									<Stack spacing={2}>
-										<FeatureItem icon="📝" text="Daily thought-provoking prompts" />
-										<FeatureItem icon="⏰" text="Scheduled notifications at your chosen time" />
-										<FeatureItem icon="🔍" text="Simple search to revisit past reflections" />
-									</Stack>
-								</Box>
-
-								{/* Footer */}
-								<Box sx={{ mt: 2, textAlign: "center" }}>
-									<Typography
-										variant="caption"
+											borderColor: "primary.main",
+											bgcolor: "primary.light",
+											transform: "translateY(-2px)",
+											boxShadow: "0 4px 16px rgba(102, 126, 234, 0.2)",
+										},
+										"&:active": {
+											transform: "translateY(0)",
+											boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+										},
+										"&.Mui-disabled": {
+											borderColor: "action.disabledBackground",
+											bgcolor: "action.disabledBackground",
+											color: "action.disabled",
+										},
+									}}
+								>
+									<Box
 										sx={{
-											color: "text.disabled",
-											fontSize: { xs: "0.8rem", sm: "0.75rem" },
-											display: "block",
+											display: "flex",
+											alignItems: "center",
+											justifyContent: "center",
+											gap: 1.5,
 										}}
 									>
-										By continuing, you agree to our Terms of Service and Privacy Policy
-									</Typography>
-									<AppVersionLabel />
-								</Box>
-							</Stack>
+										<GoogleIcon width={20} height={20} />
+										<span>{isLoading ? "Connecting..." : "Continue with Google"}</span>
+									</Box>
+								</Button>
+							</Box>
+
+							{/* Feature Highlights */}
+							<Box
+								sx={{ mt: 4, pt: 4, borderTop: "1px solid", borderColor: "divider", width: "100%" }}
+							>
+								<Stack spacing={2}>
+									<FeatureItem icon="📝" text="Daily thought-provoking prompts" />
+									<FeatureItem icon="⏰" text="Scheduled notifications at your chosen time" />
+									<FeatureItem icon="🔍" text="Simple search to revisit past reflections" />
+								</Stack>
+							</Box>
+
+							{/* Footer */}
+							<Box sx={{ mt: 2, textAlign: "center" }}>
+								<Typography
+									variant="caption"
+									sx={{
+										color: "text.disabled",
+										fontSize: { xs: "0.8rem", sm: "0.75rem" },
+										display: "block",
+									}}
+								>
+									By continuing, you agree to our Terms of Service and Privacy Policy
+								</Typography>
+								<AppVersionLabel />
+							</Box>
+						</Stack>
 					</Paper>
 				</Fade>
 			</Container>

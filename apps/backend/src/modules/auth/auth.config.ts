@@ -3,10 +3,7 @@ import { env, isDev, isProd, isStaging, isTest } from "@backend/configs/env.conf
 import { db } from "@backend/db/db";
 import { logger } from "@backend/utils/logger.utils";
 import { themeSettingZod } from "@connected-repo/zod-schemas/enums.zod";
-import {
-	uniqueTimeArrayZod,
-	zTimezone,
-} from "@connected-repo/zod-schemas/zod_utils";
+import { uniqueTimeArrayZod, zTimezone } from "@connected-repo/zod-schemas/zod_utils";
 import { betterAuth } from "better-auth";
 import { createAuthMiddleware } from "better-auth/api";
 import { bearer, phoneNumber } from "better-auth/plugins";
@@ -22,18 +19,11 @@ import { orchidAdapter } from "./orchid-adapter/factory.orchid_adapter";
 const APPLE_SECRET_TTL_MS = 60 * 60 * 1000; // must stay <= JWT expiry in apple.lib.ts
 const APPLE_SECRET_REFRESH_MARGIN_MS = 60 * 1000;
 
-let appleClientSecretCache:
-	| { secret: string; expiresAt: number }
-	| undefined;
+let appleClientSecretCache: { secret: string; expiresAt: number } | undefined;
 let appleClientSecretInflight: Promise<string | undefined> | undefined;
 
 async function getAppleClientSecret(): Promise<string | undefined> {
-	if (
-		!env.APPLE_CLIENT_ID ||
-		!env.APPLE_TEAM_ID ||
-		!env.APPLE_KEY_ID ||
-		!env.APPLE_PRIVATE_KEY
-	) {
+	if (!env.APPLE_CLIENT_ID || !env.APPLE_TEAM_ID || !env.APPLE_KEY_ID || !env.APPLE_PRIVATE_KEY) {
 		return undefined;
 	}
 
@@ -127,9 +117,7 @@ export const auth = betterAuth({
 			const appleClientSecret = await getAppleClientSecret();
 
 			// 1. Update static web apple provider if it exists
-			const appleWebProvider = ctx.context.socialProviders.find(
-				(p) => p.id === "apple",
-			);
+			const appleWebProvider = ctx.context.socialProviders.find((p) => p.id === "apple");
 			if (appleWebProvider && appleClientSecret) {
 				(appleWebProvider as any).clientSecret = appleClientSecret;
 			}
@@ -162,20 +150,11 @@ export const auth = betterAuth({
 						const payload = decodeJwt(idToken);
 						const aud = payload.aud as string;
 
-						if (
-							aud &&
-							(aud === env.GOOGLE_IOS_CLIENT_ID ||
-								aud === env.GOOGLE_ANDROID_CLIENT_ID)
-						) {
-							const googleProvider = ctx.context.socialProviders.find(
-								(p) => p.id === "google",
-							);
+						if (aud && (aud === env.GOOGLE_IOS_CLIENT_ID || aud === env.GOOGLE_ANDROID_CLIENT_ID)) {
+							const googleProvider = ctx.context.socialProviders.find((p) => p.id === "google");
 							if (googleProvider) {
 								(googleProvider as any).clientId = aud;
-								logger.debug(
-									{ aud },
-									"Swapping Google Client ID for native app",
-								);
+								logger.debug({ aud }, "Swapping Google Client ID for native app");
 							}
 						}
 					} catch (_err) {
@@ -199,9 +178,7 @@ export const auth = betterAuth({
 			// Extract the first Error separately so pino serializes its stack,
 			// and expose remaining args in a stable `details` field instead of
 			// numeric-key spreading them (which loses everything on Error instances).
-			const firstErr = args.find((a) => a instanceof Error) as
-				| Error
-				| undefined;
+			const firstErr = args.find((a) => a instanceof Error) as Error | undefined;
 			const otherArgs = args.filter((a) => a !== firstErr);
 			const payload: Record<string, unknown> = {
 				module: "better-auth",

@@ -1,9 +1,6 @@
 import type { userCreatedEventDef } from "@backend/events/events.schema";
 import { logger } from "@backend/utils/logger.utils";
-import {
-	triggerNotification,
-	upsertSubscriber,
-} from "@backend/utils/notifications.utils";
+import { triggerNotification, upsertSubscriber } from "@backend/utils/notifications.utils";
 import type { Static } from "pg-tbus";
 
 export const userCreatedNotificationHandler = async (props: {
@@ -19,10 +16,7 @@ export const userCreatedNotificationHandler = async (props: {
 			payload: { name },
 		});
 	} catch (error) {
-		logger.error(
-			{ userId, error },
-			"Error processing user.created notification",
-		);
+		logger.error({ userId, error }, "Error processing user.created notification");
 		// Re-throw so pg-tbus applies the task's retry policy.
 		throw error;
 	}

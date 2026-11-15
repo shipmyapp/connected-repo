@@ -67,8 +67,7 @@ class FileUploadWorker implements FileUploadWorkerApi {
 			for (const row of pending) {
 				if (this.inFlight.size >= MAX_CONCURRENT) break;
 				if (this.inFlight.has(row.id)) continue;
-				if (!this.isDueForRetry(row, "main") && !this.isDueForRetry(row, "thumbnail"))
-					continue;
+				if (!this.isDueForRetry(row, "main") && !this.isDueForRetry(row, "thumbnail")) continue;
 
 				this.inFlight.add(row.id);
 				void this.processFile(row).finally(() => {
@@ -105,19 +104,13 @@ class FileUploadWorker implements FileUploadWorkerApi {
 			// and clobber a legitimate `uploaded_to_cdn` transition.
 			if (this.inFlight.has(row.id)) continue;
 
-			if (
-				row.mainUploadState === "uploading" &&
-				(row.mainLastAttemptAt ?? 0) < cutoff
-			) {
+			if (row.mainUploadState === "uploading" && (row.mainLastAttemptAt ?? 0) < cutoff) {
 				await filesDb.updateUploadState(row.id, "main", {
 					state: "failed",
 					lastError: "recovered from stuck uploading state",
 				});
 			}
-			if (
-				row.thumbnailUploadState === "uploading" &&
-				(row.thumbnailLastAttemptAt ?? 0) < cutoff
-			) {
+			if (row.thumbnailUploadState === "uploading" && (row.thumbnailLastAttemptAt ?? 0) < cutoff) {
 				await filesDb.updateUploadState(row.id, "thumbnail", {
 					state: "failed",
 					lastError: "recovered from stuck uploading state",
@@ -187,9 +180,7 @@ class FileUploadWorker implements FileUploadWorkerApi {
 
 		try {
 			// Read the main source blob (thumbnails derive from it).
-			const sourceBlob = row.mainOpfsPath
-				? await OPFSManager.readFile(row.mainOpfsPath)
-				: null;
+			const sourceBlob = row.mainOpfsPath ? await OPFSManager.readFile(row.mainOpfsPath) : null;
 			if (!sourceBlob) {
 				await filesDb.updateUploadState(row.id, "thumbnail", {
 					state: "not_attempted",
@@ -234,8 +225,7 @@ class FileUploadWorker implements FileUploadWorkerApi {
 			});
 		} catch (err) {
 			await filesDb.updateUploadState(row.id, "thumbnail", {
-				state:
-					row.thumbnailUploadAttempts + 1 >= MAX_ATTEMPTS ? "abandoned" : "failed",
+				state: row.thumbnailUploadAttempts + 1 >= MAX_ATTEMPTS ? "abandoned" : "failed",
 				lastError: err instanceof Error ? err.message : String(err),
 			});
 		}

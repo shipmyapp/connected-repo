@@ -18,7 +18,7 @@ export const AppLayoutContent = () => {
 	const sessionInfo = useSessionInfo();
 	return (
 		<Fade key={activeWorkspace.id} in timeout={400}>
-			<Box sx={{ height: '100%', width: '100%' }}>
+			<Box sx={{ height: "100%", width: "100%" }}>
 				<Outlet context={sessionInfo} />
 			</Box>
 		</Fade>

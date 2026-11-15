@@ -48,8 +48,7 @@ export const OfflineBanner = () => {
 		>
 			<CloudOffIcon fontSize="small" />
 			<Typography variant="body2" sx={{ fontWeight: 600 }}>
-				You're offline — changes will sync when you're back online. Tap for
-				details.
+				You're offline — changes will sync when you're back online. Tap for details.
 			</Typography>
 		</Box>
 	);

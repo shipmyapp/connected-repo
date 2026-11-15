@@ -42,8 +42,7 @@ export class TeamAppTable extends BaseTable {
 		(t) => [
 			t.unique(["personalTeamForUserId"], {
 				name: "teams_app_personal_team_for_user_id_idx",
-				where:
-					"deleted_at IS NULL AND personal_team_for_user_id IS NOT NULL",
+				where: "deleted_at IS NULL AND personal_team_for_user_id IS NOT NULL",
 			}),
 		],
 	);

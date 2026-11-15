@@ -78,9 +78,7 @@ export const NotificationSettings = () => {
 					setPushOn(true);
 					toast.success("Push notifications enabled");
 				} else if (result === "denied") {
-					toast.info(
-						"Push is blocked by the browser. Enable it in site settings, then try again.",
-					);
+					toast.info("Push is blocked by the browser. Enable it in site settings, then try again.");
 					setPushOn(false);
 				} else {
 					toast.info("Push is not supported in this browser.");
@@ -141,17 +139,11 @@ export const NotificationSettings = () => {
 						Notifications
 					</Typography>
 					<Typography variant="body2" color="text.secondary">
-						Push notifications are per-device. In-app notifications land in
-						the bell regardless.
+						Push notifications are per-device. In-app notifications land in the bell regardless.
 					</Typography>
 				</Box>
 
-				<Stack
-					direction="row"
-					alignItems="center"
-					justifyContent="space-between"
-					sx={{ py: 1 }}
-				>
+				<Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ py: 1 }}>
 					<Box>
 						<Typography variant="body1" sx={{ fontWeight: 600 }}>
 							Push notifications on this device
@@ -181,16 +173,10 @@ export const NotificationSettings = () => {
 				</Stack>
 
 				{!needsInstallFirst && !device.isStandalone && pushOn && (
-					<Stack
-						direction="row"
-						alignItems="center"
-						justifyContent="space-between"
-						sx={{ py: 1 }}
-					>
+					<Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ py: 1 }}>
 						<Box>
 							<Typography variant="body2" color="text.secondary">
-								Add the app to your home screen for a native-app feel with its
-								own window and icon.
+								Add the app to your home screen for a native-app feel with its own window and icon.
 							</Typography>
 						</Box>
 						<Button
@@ -232,10 +218,7 @@ export const NotificationSettings = () => {
 								minutesStep={5}
 								sx={{ flex: 1 }}
 							/>
-							<IconButton
-								onClick={() => removeAt(index)}
-								aria-label="Remove reminder time"
-							>
+							<IconButton onClick={() => removeAt(index)} aria-label="Remove reminder time">
 								<CloseIcon />
 							</IconButton>
 						</Stack>

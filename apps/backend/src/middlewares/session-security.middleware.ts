@@ -1,8 +1,5 @@
 import type { RpcAuthenticatedContext } from "@backend/procedures/protected.procedure";
-import {
-	generateDeviceFingerprint,
-	getClientIpAddress,
-} from "@backend/utils/client-info.utils";
+import { generateDeviceFingerprint, getClientIpAddress } from "@backend/utils/client-info.utils";
 import { logger } from "@backend/utils/logger.utils";
 import { type MiddlewareNextFn, ORPCError } from "@orpc/server";
 
@@ -43,10 +40,7 @@ export const rpcSessionSecurityMiddleware =
 		const currentIP = getClientIpAddress(reqHeaders);
 
 		// Check device fingerprint match
-		if (
-			session.deviceFingerprint &&
-			session.deviceFingerprint !== currentFingerprint
-		) {
+		if (session.deviceFingerprint && session.deviceFingerprint !== currentFingerprint) {
 			result.isSuspicious = true;
 			result.reasons.push(
 				`Device fingerprint mismatch: stored=${session.deviceFingerprint}, current=${currentFingerprint}`,
@@ -129,12 +123,7 @@ function areSameSubnet(ip1: string, ip2: string): boolean {
 			const p1 = ip1.split(":");
 			const p2 = ip2.split(":");
 			if (p1.length < 4 || p2.length < 4) return false;
-			return (
-				p1[0] === p2[0] &&
-				p1[1] === p2[1] &&
-				p1[2] === p2[2] &&
-				p1[3] === p2[3]
-			);
+			return p1[0] === p2[0] && p1[1] === p2[1] && p1[2] === p2[2] && p1[3] === p2[3];
 		}
 
 		const parts1 = ip1.split(".");

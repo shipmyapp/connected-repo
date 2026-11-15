@@ -1,14 +1,7 @@
 import { z } from "zod";
 import { fileCreateInputZod, fileSelectAllZod } from "../file.zod.js";
-import {
-	journalEntryCreateInputZod,
-	journalEntrySelectAllZod,
-} from "../journal_entry.zod.js";
-import {
-	makePullBundlesOutput,
-	pushCreateResultZod,
-	syncDeltaInputZod,
-} from "../sync.zod.js";
+import { journalEntryCreateInputZod, journalEntrySelectAllZod } from "../journal_entry.zod.js";
+import { makePullBundlesOutput, pushCreateResultZod, syncDeltaInputZod } from "../sync.zod.js";
 
 /**
  * The create-input shape used by BOTH the online `journalEntries.create`

@@ -42,11 +42,9 @@ export function mergeServerFileRow(
 		cdnUrl: row.cdnUrl ?? existing?.cdnUrl ?? null,
 		thumbnailCdnUrl: row.thumbnailCdnUrl ?? existing?.thumbnailCdnUrl ?? null,
 		isMainFileLost: row.isMainFileLost || existing?.isMainFileLost || false,
-		mainUploadState: serverHasMain
-			? "uploaded"
-			: existing?.mainUploadState ?? "pending",
+		mainUploadState: serverHasMain ? "uploaded" : (existing?.mainUploadState ?? "pending"),
 		mainUploadAttempts: existing?.mainUploadAttempts ?? 0,
-		mainLastError: serverHasMain ? null : existing?.mainLastError ?? null,
+		mainLastError: serverHasMain ? null : (existing?.mainLastError ?? null),
 		mainLastAttemptAt: existing?.mainLastAttemptAt ?? null,
 		// `mainChecksum` / `mainOpfsPath` are device-local — the blob physically
 		// lives in this device's OPFS at that path. For rows arriving from the
@@ -58,10 +56,10 @@ export function mergeServerFileRow(
 		mainOpfsPath: existing?.mainOpfsPath ?? null,
 		thumbnailUploadState: serverHasThumb
 			? "uploaded"
-			: existing?.thumbnailUploadState ??
-				(canGenerateThumbnail(row.mimeType) ? "pending" : "not_attempted"),
+			: (existing?.thumbnailUploadState ??
+				(canGenerateThumbnail(row.mimeType) ? "pending" : "not_attempted")),
 		thumbnailUploadAttempts: existing?.thumbnailUploadAttempts ?? 0,
-		thumbnailLastError: serverHasThumb ? null : existing?.thumbnailLastError ?? null,
+		thumbnailLastError: serverHasThumb ? null : (existing?.thumbnailLastError ?? null),
 		thumbnailLastAttemptAt: existing?.thumbnailLastAttemptAt ?? null,
 		thumbnailChecksum: existing?.thumbnailChecksum ?? null,
 		thumbnailOpfsPath: existing?.thumbnailOpfsPath ?? null,

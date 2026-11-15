@@ -17,10 +17,7 @@ export const reminderNotificationJournalEntryHandler = async ({
 			payload: { reminderTime },
 		});
 	} catch (error) {
-		logger.error(
-			{ userId, error },
-			"Error processing journal-entry reminder notification",
-		);
+		logger.error({ userId, error }, "Error processing journal-entry reminder notification");
 		// Re-throw so pg-tbus applies the task's retry policy.
 		throw error;
 	}

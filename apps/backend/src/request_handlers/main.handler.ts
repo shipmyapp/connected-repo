@@ -12,19 +12,13 @@ import {
 } from "@backend/utils/graceful_shutdown.utils";
 import { logger } from "@backend/utils/logger.utils";
 import { trace } from "@opentelemetry/api";
-import type {
-	NodeHttpRequest,
-	NodeHttpResponse,
-} from "@orpc/standard-server-node";
+import type { NodeHttpRequest, NodeHttpResponse } from "@orpc/standard-server-node";
 import { mobileAppHandler } from "./mobile_app.handler";
 
 /**
  * Main request dispatcher that orchestrates all handlers and pre-checks.
  */
-export async function mainRequestDispatcher(
-	req: NodeHttpRequest,
-	res: NodeHttpResponse,
-) {
+export async function mainRequestDispatcher(req: NodeHttpRequest, res: NodeHttpResponse) {
 	incrementActiveRequests();
 
 	const requestUrl = req.url;
@@ -38,10 +32,7 @@ export async function mainRequestDispatcher(
 		// W3C Trace Context — sampled flag is bit 0 of traceFlags.
 		// Format: 00-<32-hex traceId>-<16-hex spanId>-<2-hex flags>
 		const flags = (spanContext.traceFlags & 0x01) === 0x01 ? "01" : "00";
-		res.setHeader(
-			"traceparent",
-			`00-${spanContext.traceId}-${spanContext.spanId}-${flags}`,
-		);
+		res.setHeader("traceparent", `00-${spanContext.traceId}-${spanContext.spanId}-${flags}`);
 	}
 
 	// 2. Health & Shutdown Check
@@ -88,11 +79,7 @@ export async function mainRequestDispatcher(
 		}
 
 		// 4. Root Path / Health Check
-		if (
-			requestUrl === "/" ||
-			requestUrl === "/health" ||
-			requestUrl?.startsWith("/?")
-		) {
+		if (requestUrl === "/" || requestUrl === "/health" || requestUrl?.startsWith("/?")) {
 			res.statusCode = 200;
 			res.setHeader("Content-Type", "application/json");
 			res.end(

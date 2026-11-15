@@ -4,4 +4,3 @@ export { default as TableCell, type TableCellProps } from "@mui/material/TableCe
 export { default as TableContainer, type TableContainerProps } from "@mui/material/TableContainer";
 export { default as TableHead, type TableHeadProps } from "@mui/material/TableHead";
 export { default as TableRow, type TableRowProps } from "@mui/material/TableRow";
-

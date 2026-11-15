@@ -77,10 +77,7 @@ export const SyncBubble = () => {
 				sx={{
 					color: colorFor(),
 					"& svg": {
-						animation:
-							snap.status === "syncing"
-								? "spin 2s linear infinite"
-								: "none",
+						animation: snap.status === "syncing" ? "spin 2s linear infinite" : "none",
 					},
 					"@keyframes spin": {
 						from: { transform: "rotate(0deg)" },

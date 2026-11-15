@@ -90,15 +90,13 @@ export async function pullTeamMembersService(
 ): Promise<TeamMembersPullBundlesOutput> {
 	const baseQuery = db.teamMembers;
 
-	const { data, syncMetadata } = await syncDeltaService<TeamAppMemberSelectAll>(
-		{
-			// biome-ignore lint/suspicious/noExplicitAny: __scopes generic is not preserved through the ORM chain.
-			baseQuery: baseQuery as any,
-			syncMetadataInput: input.syncMetadata,
-			topLevelSyncedAt: input.topLevelSyncedAt,
-			syncedTable: "teamMembers",
-		},
-	);
+	const { data, syncMetadata } = await syncDeltaService<TeamAppMemberSelectAll>({
+		// biome-ignore lint/suspicious/noExplicitAny: __scopes generic is not preserved through the ORM chain.
+		baseQuery: baseQuery as any,
+		syncMetadataInput: input.syncMetadata,
+		topLevelSyncedAt: input.topLevelSyncedAt,
+		syncedTable: "teamMembers",
+	});
 
 	return { rows: data, syncMetadata };
 }

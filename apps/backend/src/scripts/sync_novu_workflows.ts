@@ -14,9 +14,7 @@ import { env } from "@backend/configs/env.config";
 const bridgeUrl = `${env.VITE_API_URL}/api/novu`;
 
 if (!env.NOVU_SECRET_KEY) {
-	console.error(
-		"NOVU_SECRET_KEY is not set. Add it to .env.local and re-run.",
-	);
+	console.error("NOVU_SECRET_KEY is not set. Add it to .env.local and re-run.");
 	process.exit(1);
 }
 

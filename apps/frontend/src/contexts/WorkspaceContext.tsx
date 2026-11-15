@@ -7,10 +7,7 @@ import { orpc } from "@frontend/utils/orpc.tanstack.client";
 import { syncPushIfGranted } from "@frontend/utils/push.utils";
 import { signout } from "@frontend/utils/signout.utils";
 import { switchGate } from "@frontend/utils/switch_gate";
-import {
-	initSyncForUser,
-	setActiveTeam as syncSetActiveTeam,
-} from "@frontend/utils/sync-triggers";
+import { initSyncForUser, setActiveTeam as syncSetActiveTeam } from "@frontend/utils/sync-triggers";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, type ReactNode, useContext, useEffect } from "react";
 import { useRevalidator } from "react-router";
@@ -40,9 +37,7 @@ interface WorkspaceContextType {
 	isSwitching: boolean;
 }
 
-const WorkspaceContext = createContext<WorkspaceContextType | undefined>(
-	undefined,
-);
+const WorkspaceContext = createContext<WorkspaceContextType | undefined>(undefined);
 
 interface WorkspaceProviderProps {
 	children: ReactNode;
@@ -59,10 +54,7 @@ const PLACEHOLDER_WORKSPACE: Workspace = {
 	role: "Owner",
 };
 
-export function WorkspaceProvider({
-	children,
-	sessionInfo,
-}: WorkspaceProviderProps) {
+export function WorkspaceProvider({ children, sessionInfo }: WorkspaceProviderProps) {
 	const queryClient = useQueryClient();
 	const revalidator = useRevalidator();
 	const userId = sessionInfo?.user?.id;
@@ -180,9 +172,7 @@ export function WorkspaceProvider({
 			// The wiped team is already gone from the server (the tombstone
 			// is exactly how we learned about it), so `getMyTeams` will not
 			// include it.
-			const remaining = await queryClient.fetchQuery(
-				orpc.teams.getMyTeams.queryOptions({}),
-			);
+			const remaining = await queryClient.fetchQuery(orpc.teams.getMyTeams.queryOptions({}));
 
 			const fallback = remaining.find((t) => t.id !== msg.wipedTeamId);
 			if (fallback) {
@@ -194,10 +184,7 @@ export function WorkspaceProvider({
 						`You were removed from the previous workspace. Switched to "${fallback.name}".`,
 					);
 				} catch (err) {
-					console.warn(
-						"[WorkspaceContext] auto-switch after wipe failed",
-						err,
-					);
+					console.warn("[WorkspaceContext] auto-switch after wipe failed", err);
 				}
 				return;
 			}

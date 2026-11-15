@@ -133,7 +133,10 @@ export const checkAndRecordRateLimit = async (
 		};
 	}
 
-	logger.warn({ key, limit, windowSeconds, retries: MAX_RETRIES }, "[rateLimit] optimistic lock exhausted — shedding as rate-limited");
+	logger.warn(
+		{ key, limit, windowSeconds, retries: MAX_RETRIES },
+		"[rateLimit] optimistic lock exhausted — shedding as rate-limited",
+	);
 	logExhaustionOncePerMinute(key, limit, windowSeconds, MAX_RETRIES);
 	return { allowed: false, currentCount: limit, limit, retryAfterSeconds: 1 };
 };

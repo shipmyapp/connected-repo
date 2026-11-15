@@ -4,10 +4,7 @@ import { subscriptionAlertWebhookTaskDef } from "@backend/events/events.schema";
 import { logger } from "@backend/utils/logger.utils";
 import axios from "axios";
 import { ulid } from "ulid";
-import {
-	SsrfBlockedError,
-	assertSafeWebhookUrl,
-} from "./ssrf_guard.utils";
+import { SsrfBlockedError, assertSafeWebhookUrl } from "./ssrf_guard.utils";
 
 // Cap response body at 1 MiB — webhooks should return small ack payloads.
 const MAX_WEBHOOK_RESPONSE_BYTES = 1024 * 1024;
@@ -31,25 +28,17 @@ const ALLOWED_RESPONSE_HEADERS = new Set([
  * binary blobs, etc. are recorded only as a stub to prevent stored XSS and
  * DB bloat.
  */
-const SAFE_BODY_CONTENT_TYPES = [
-	"application/json",
-	"application/problem+json",
-	"text/plain",
-];
+const SAFE_BODY_CONTENT_TYPES = ["application/json", "application/problem+json", "text/plain"];
 
 // Truncate response bodies at 2 KB before writing to the audit log.
 const MAX_AUDIT_BODY_BYTES = 2 * 1024;
 // Hard cap on the final JSONB payload written to `response`.
 const MAX_AUDIT_JSON_BYTES = 8 * 1024;
 
-const sanitizeResponseHeaders = (
-	headers: unknown,
-): Record<string, string> => {
+const sanitizeResponseHeaders = (headers: unknown): Record<string, string> => {
 	if (!headers || typeof headers !== "object") return {};
 	const out: Record<string, string> = {};
-	for (const [rawKey, rawVal] of Object.entries(
-		headers as Record<string, unknown>,
-	)) {
+	for (const [rawKey, rawVal] of Object.entries(headers as Record<string, unknown>)) {
 		const key = rawKey.toLowerCase();
 		if (!ALLOWED_RESPONSE_HEADERS.has(key)) continue;
 		if (rawVal == null) continue;
@@ -82,9 +71,7 @@ const sanitizeResponseBody = (
 } => {
 	if (data == null) return {};
 	const contentType = getContentType(headers);
-	const isSafe = SAFE_BODY_CONTENT_TYPES.some((ct) =>
-		contentType.startsWith(ct),
-	);
+	const isSafe = SAFE_BODY_CONTENT_TYPES.some((ct) => contentType.startsWith(ct));
 	if (!isSafe) {
 		return {
 			bodyOmittedReason: `unsupported content-type: ${contentType || "unknown"}`,
@@ -107,9 +94,7 @@ const sanitizeResponseBody = (
 	return { body: text };
 };
 
-const enforceJsonSizeCap = (
-	payload: Record<string, unknown>,
-): Record<string, unknown> => {
+const enforceJsonSizeCap = (payload: Record<string, unknown>): Record<string, unknown> => {
 	try {
 		const serialized = JSON.stringify(payload);
 		if (serialized.length > MAX_AUDIT_JSON_BYTES) {
@@ -163,9 +148,7 @@ export const subscriptionAlertWebhookHandler = async ({
 			timestamp: number;
 		};
 	};
-	trigger:
-		| { type: "direct" }
-		| { type: "event"; e: { id: string; name: string; p: number } };
+	trigger: { type: "direct" } | { type: "event"; e: { id: string; name: string; p: number } };
 }) => {
 	const startTime = Date.now();
 	const logId = ulid();
@@ -259,10 +242,7 @@ export const subscriptionAlertWebhookHandler = async ({
 		// Get team webhook configuration
 		const team = await db.teamsApi
 			.find(input.teamApiId)
-			.select(
-				"subscriptionAlertWebhookBearerToken",
-				"subscriptionAlertWebhookUrl",
-			);
+			.select("subscriptionAlertWebhookBearerToken", "subscriptionAlertWebhookUrl");
 
 		if (!team.subscriptionAlertWebhookUrl) {
 			logger.warn(
@@ -358,8 +338,7 @@ export const subscriptionAlertWebhookHandler = async ({
 				? (error.code ?? "HTTP_ERROR")
 				: "INTERNAL_ERROR";
 
-		const statusCode =
-			isAxiosError && error.response ? error.response.status : null;
+		const statusCode = isAxiosError && error.response ? error.response.status : null;
 
 		logger.error(
 			{
@@ -389,10 +368,7 @@ export const subscriptionAlertWebhookHandler = async ({
 							statusCode: error.response.status,
 							statusText: error.response.statusText,
 							headers: sanitizeResponseHeaders(error.response.headers),
-							...sanitizeResponseBody(
-								error.response.data,
-								error.response.headers,
-							),
+							...sanitizeResponseBody(error.response.data, error.response.headers),
 						})
 					: null,
 			willRetry: !isSsrfBlocked, // pg-tbus will retry based on config, except SSRF

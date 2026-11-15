@@ -33,10 +33,7 @@ export async function hashApiKey(plainKey: string): Promise<string> {
  * @param hash - The hash in format: salt:hash (both hex encoded)
  * @returns True if the key matches the hash, false otherwise
  */
-export async function verifyApiKey(
-	plainKey: string,
-	hash: string,
-): Promise<boolean> {
+export async function verifyApiKey(plainKey: string, hash: string): Promise<boolean> {
 	const [salt, storedHash] = hash.split(":");
 	if (!salt || !storedHash) {
 		return false;
@@ -46,8 +43,5 @@ export async function verifyApiKey(
 	const derivedHash = derivedKey.toString("hex");
 
 	// Use timing-safe comparison
-	return crypto.timingSafeEqual(
-		Buffer.from(storedHash, "hex"),
-		Buffer.from(derivedHash, "hex"),
-	);
+	return crypto.timingSafeEqual(Buffer.from(storedHash, "hex"), Buffer.from(derivedHash, "hex"));
 }

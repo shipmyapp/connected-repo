@@ -102,9 +102,7 @@ export function applyBetterAuthWhere(
 	}
 
 	// Separate AND and OR groups (following Drizzle adapter pattern)
-	const andGroup = whereClauses.filter(
-		(w) => w.connector === "AND" || !w.connector,
-	);
+	const andGroup = whereClauses.filter((w) => w.connector === "AND" || !w.connector);
 	const orGroup = whereClauses.filter((w) => w.connector === "OR");
 
 	const whereObject: Record<string, any> = {};

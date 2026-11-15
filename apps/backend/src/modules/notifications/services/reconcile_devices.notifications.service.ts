@@ -14,9 +14,7 @@ import { logger } from "@backend/utils/logger.utils";
  * Runs nightly via the reconcile-fcm-tokens cron. Also safe to call
  * directly for a specific user on demand.
  */
-export const reconcileUserFcmDevices = async (
-	userId: string,
-): Promise<{ pruned: number }> => {
+export const reconcileUserFcmDevices = async (userId: string): Promise<{ pruned: number }> => {
 	if (!novu) return { pruned: 0 };
 
 	const now = Date.now();
@@ -32,34 +30,25 @@ export const reconcileUserFcmDevices = async (
 			// Subscriber deleted upstream — soft-delete every active row for
 			// this user. The CASCADE on `users` deletion still handles the
 			// hard cleanup when the user itself is gone.
-			const pruned = await db.pushDevices
-				.where({ userId, uninstalledAt: null })
-				.update({
-					uninstalledAt: now,
-					deactivationReason: "subscriber_deleted",
-				});
+			const pruned = await db.pushDevices.where({ userId, uninstalledAt: null }).update({
+				uninstalledAt: now,
+				deactivationReason: "subscriber_deleted",
+			});
 			return { pruned };
 		}
-		logger.error(
-			{ userId, error },
-			"Failed to fetch Novu subscriber during reconciliation",
-		);
+		logger.error({ userId, error }, "Failed to fetch Novu subscriber during reconciliation");
 		throw error;
 	}
 
 	const localTokens = await db.pushDevices
 		.where({ userId, uninstalledAt: null })
 		.select("fcmToken");
-	const toPrune = localTokens
-		.map((r) => r.fcmToken)
-		.filter((t) => !liveTokens.has(t));
+	const toPrune = localTokens.map((r) => r.fcmToken).filter((t) => !liveTokens.has(t));
 	if (toPrune.length === 0) return { pruned: 0 };
 
-	await db.pushDevices
-		.where({ userId, fcmToken: { in: toPrune }, uninstalledAt: null })
-		.update({
-			uninstalledAt: now,
-			deactivationReason: "novu_pruned",
-		});
+	await db.pushDevices.where({ userId, fcmToken: { in: toPrune }, uninstalledAt: null }).update({
+		uninstalledAt: now,
+		deactivationReason: "novu_pruned",
+	});
 	return { pruned: toPrune.length };
 };

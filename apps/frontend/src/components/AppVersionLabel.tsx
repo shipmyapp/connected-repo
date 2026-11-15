@@ -17,10 +17,7 @@ interface AppVersionLabelProps {
  * and toasts the outcome. If a new SW is found, the global PwaUpdatePrompt
  * takes over (same flow as the automatic periodic check).
  */
-export const AppVersionLabel = ({
-	prefix,
-	align = "center",
-}: AppVersionLabelProps) => {
+export const AppVersionLabel = ({ prefix, align = "center" }: AppVersionLabelProps) => {
 	const [checking, setChecking] = useState(false);
 
 	const handleClick = async () => {

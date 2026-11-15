@@ -6,11 +6,7 @@ import { promptsRouter } from "@backend/modules/prompts/prompts.router";
 import { teamsAppRouter } from "@backend/modules/teams/teams_app.router";
 import { meRouter } from "@backend/modules/users/me.user_app.router";
 import { rpcPublicProcedure } from "@backend/procedures/public.procedure";
-import type {
-	InferRouterInputs,
-	InferRouterOutputs,
-	RouterClient,
-} from "@orpc/server";
+import type { InferRouterInputs, InferRouterOutputs, RouterClient } from "@orpc/server";
 import { z } from "zod";
 
 // Phase 1: Basic health check and testing endpoints

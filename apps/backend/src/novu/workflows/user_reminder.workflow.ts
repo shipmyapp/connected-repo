@@ -38,7 +38,6 @@ export const userReminderWorkflow = workflow(
 			additionalProperties: false,
 		} as const,
 		name: "Journal Reminder",
-		description:
-			"Daily nudge to write a journal entry at the user's chosen time.",
+		description: "Daily nudge to write a journal entry at the user's chosen time.",
 	},
 );

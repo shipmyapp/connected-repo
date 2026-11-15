@@ -32,40 +32,39 @@ if (isTest) {
 // resilient for incremental upgrades and hydration strategies.
 const container = document.getElementById("root");
 if (!container) {
-	throw new Error("Root element with id \"root\" not found");
+	throw new Error('Root element with id "root" not found');
 }
 
 const root = createRoot(container, {
-  // Simple error logging until Sentry loads
-  onUncaughtError: (error, errorInfo) => {
-    console.error('Uncaught error:', error, errorInfo.componentStack);
-  },
-});;
+	// Simple error logging until Sentry loads
+	onUncaughtError: (error, errorInfo) => {
+		console.error("Uncaught error:", error, errorInfo.componentStack);
+	},
+});
 
 root.render(
 	<StrictMode>
 		<QueryClientProvider client={queryClient}>
-				<App />
+			<App />
 		</QueryClientProvider>
 	</StrictMode>,
 );
 
 const startDeferredTasks = () => {
+	// Wait one frame to ensure root.render() has settled visually
+	requestAnimationFrame(() => {
+		document.body.classList.add("app-mounted");
+	});
 
-  // Wait one frame to ensure root.render() has settled visually
-  requestAnimationFrame(() => {
-    document.body.classList.add('app-mounted');
-  });
+	// Initialize PWA and background tasks after the critical path
+	import("./pwa-init").then((m) => m.initPWA());
 
-  // Initialize PWA and background tasks after the critical path
-  import('./pwa-init').then(m => m.initPWA());
-
-  // Initialize Sentry/Instrumentation lazily
-  initInstrumentation();
+	// Initialize Sentry/Instrumentation lazily
+	initInstrumentation();
 };
 
-if ('requestIdleCallback' in window) {
-  window.requestIdleCallback(() => startDeferredTasks());
+if ("requestIdleCallback" in window) {
+	window.requestIdleCallback(() => startDeferredTasks());
 } else {
-  setTimeout(startDeferredTasks, 2000); // Fallback for browsers without idle support
+	setTimeout(startDeferredTasks, 2000); // Fallback for browsers without idle support
 }

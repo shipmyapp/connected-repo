@@ -21,10 +21,7 @@ import {
 import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 import { createTeamService } from "./services/create_team.teams.service";
-import {
-	pullTeamMembersService,
-	pullTeamsAppService,
-} from "./services/sync.teams.service";
+import { pullTeamMembersService, pullTeamsAppService } from "./services/sync.teams.service";
 
 const getMyTeams = rpcProtectedProcedure
 	.route({ method: "GET", tags: ["Teams"] })
@@ -43,12 +40,10 @@ const getMyTeams = rpcProtectedProcedure
 
 		// 2. Claim any memberships added by phoneNumber but without userId
 		if (user.phoneNumber) {
-			await db.teamMembers
-				.where({ phoneNumber: user.phoneNumber, userId: null })
-				.update({
-					userId,
-					joinedAt: Date.now(),
-				});
+			await db.teamMembers.where({ phoneNumber: user.phoneNumber, userId: null }).update({
+				userId,
+				joinedAt: Date.now(),
+			});
 		}
 
 		// 3. Join teams with team_members to get user role
@@ -117,22 +112,20 @@ const removeTeamMember = rpcTeamOwnerAdminProcedure
 	.route({ method: "DELETE", tags: ["Teams"] })
 	.input(z.object({ id: z.ulid() }))
 	.output(z.object({ success: z.boolean() }))
-	.handler(
-		async ({ input: { id }, context: { activeTeamMemberRole } }) => {
-			// Default scope on team_members restricts to the active team, so
-			// looking up by id will 404 for members of other teams.
-			const target = await db.teamMembers.where({ id }).takeOptional();
-			if (!target) throw new Error("Member not found");
+	.handler(async ({ input: { id }, context: { activeTeamMemberRole } }) => {
+		// Default scope on team_members restricts to the active team, so
+		// looking up by id will 404 for members of other teams.
+		const target = await db.teamMembers.where({ id }).takeOptional();
+		if (!target) throw new Error("Member not found");
 
-			// Owners cannot be removed by Admins
-			if (target.role === "Owner" && activeTeamMemberRole === "Admin") {
-				throw new Error("Unauthorized: Admins cannot remove the Owner");
-			}
+		// Owners cannot be removed by Admins
+		if (target.role === "Owner" && activeTeamMemberRole === "Admin") {
+			throw new Error("Unauthorized: Admins cannot remove the Owner");
+		}
 
-			await db.teamMembers.where({ id }).delete();
-			return { success: true };
-		},
-	);
+		await db.teamMembers.where({ id }).delete();
+		return { success: true };
+	});
 
 const updateMemberRole = rpcProtectedActiveTeamProcedure
 	.route({ method: "PUT", tags: ["Teams"] })
@@ -154,11 +147,7 @@ const updateMemberRole = rpcProtectedActiveTeamProcedure
 		const target = await db.teamMembers.where({ id }).takeOptional();
 		if (!target) throw new Error("Member not found");
 
-		return await db.teamMembers
-			.where({ id })
-			.selectAll()
-			.take()
-			.update({ role });
+		return await db.teamMembers.where({ id }).selectAll().take().update({ role });
 	});
 
 // Session-only membership reconciliation. Returns the ids of every team the
@@ -240,16 +229,12 @@ const getDefaultTeam = rpcProtectedProcedure
 
 		// 1. If user already has an active team, return it
 		if (user.activeTeamAppId) {
-			const team = await db.teamsApp
-				.where({ id: user.activeTeamAppId })
-				.takeOptional();
+			const team = await db.teamsApp.where({ id: user.activeTeamAppId }).takeOptional();
 			if (team) return team;
 		}
 
 		// 2. No default team set, or it was deleted. Check for an existing personal team.
-		let personalTeam = await db.teamsApp
-			.where({ personalTeamForUserId: userId })
-			.takeOptional();
+		let personalTeam = await db.teamsApp.where({ personalTeamForUserId: userId }).takeOptional();
 
 		if (!personalTeam) {
 			// 3. Create a new personal team
@@ -266,9 +251,7 @@ const getDefaultTeam = rpcProtectedProcedure
 		}
 
 		// 4. Update user's active team
-		await db.users
-			.where({ id: userId })
-			.update({ activeTeamAppId: personalTeam.id });
+		await db.users.where({ id: userId }).update({ activeTeamAppId: personalTeam.id });
 
 		return personalTeam;
 	});

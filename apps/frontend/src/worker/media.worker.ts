@@ -32,7 +32,6 @@ Comlink.expose(mediaWorkerApi);
 // through the main thread. Comlink's default listener ignores this message
 // (it isn't a Comlink protocol message), so the two coexist.
 self.addEventListener("message", (event: MessageEvent) => {
-	const port = (event.data as { __connectMediaPort?: MessagePort } | null)
-		?.__connectMediaPort;
+	const port = (event.data as { __connectMediaPort?: MessagePort } | null)?.__connectMediaPort;
 	if (port) Comlink.expose(mediaWorkerApi, port);
 });

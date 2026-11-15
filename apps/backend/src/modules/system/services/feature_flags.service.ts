@@ -98,9 +98,7 @@ export const isFeatureEnabled = async (
  * from a UI toggle handler without race concerns; the unique index absorbs
  * concurrent writes.
  */
-export const setFeatureFlag = async (
-	input: FeatureFlagSetInput,
-): Promise<FeatureFlagSelectAll> => {
+export const setFeatureFlag = async (input: FeatureFlagSetInput): Promise<FeatureFlagSelectAll> => {
 	const result = await db.featureFlags
 		.create({
 			key: input.key,

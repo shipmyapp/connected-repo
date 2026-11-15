@@ -37,9 +37,7 @@ describe("Notifications Endpoints", () => {
 		});
 
 		it("rejects unauthenticated requests", async () => {
-			await expect(unauthClient.getReminderTimes({})).rejects.toThrowError(
-				ORPCError,
-			);
+			await expect(unauthClient.getReminderTimes({})).rejects.toThrowError(ORPCError);
 		});
 	});
 

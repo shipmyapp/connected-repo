@@ -15,10 +15,7 @@ type SubscriberAttrs = {
  * Upsert a Novu subscriber. Safe to call on every notification trigger —
  * Novu treats this as idempotent. No-op when NOVU_SECRET_KEY is unset.
  */
-export const upsertSubscriber = async (
-	subscriberId: string,
-	attrs: SubscriberAttrs,
-) => {
+export const upsertSubscriber = async (subscriberId: string, attrs: SubscriberAttrs) => {
 	if (!novu) return;
 	await novu.subscribers.create({
 		subscriberId,

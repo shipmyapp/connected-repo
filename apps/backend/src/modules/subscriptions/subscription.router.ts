@@ -43,28 +43,23 @@ const getActiveSubscriptions = openApiAuthProcedure
 	.route({ method: "GET", tags: ["Subscriptions"] })
 	.input(subscriptionGetActiveByTeamUserZod)
 	.output(z.array(subscriptionSelectAllZod))
-	.handler(
-		async ({
-			input: { apiProductSku, teamUserReferenceId },
-			context: { teamApi },
-		}) => {
-			const query = db.subscriptions
-				.selectAll()
-				.where({
-					teamApiId: teamApi.teamApiId,
-					teamUserReferenceId,
-					expiresAt: { gt: sql`NOW()` },
-					requestsConsumed: { lt: sql`max_requests` },
-				})
-				.order({ createdAt: "DESC" });
+	.handler(async ({ input: { apiProductSku, teamUserReferenceId }, context: { teamApi } }) => {
+		const query = db.subscriptions
+			.selectAll()
+			.where({
+				teamApiId: teamApi.teamApiId,
+				teamUserReferenceId,
+				expiresAt: { gt: sql`NOW()` },
+				requestsConsumed: { lt: sql`max_requests` },
+			})
+			.order({ createdAt: "DESC" });
 
-			if (apiProductSku) {
-				query.where({ apiProductSku });
-			}
+		if (apiProductSku) {
+			query.where({ apiProductSku });
+		}
 
-			return await query;
-		},
-	);
+		return await query;
+	});
 
 export const subscriptionOpenApiRouter = {
 	create: createSubscription,

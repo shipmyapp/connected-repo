@@ -80,21 +80,11 @@ export interface RateLimitOptions<Ctx> {
 export const createRateLimitMiddleware = <Ctx extends Record<PropertyKey, any>>(
 	opts: RateLimitOptions<Ctx>,
 ) => {
-	return async ({
-		context,
-		next,
-	}: {
-		context: Ctx;
-		next: MiddlewareNextFn<unknown>;
-	}) => {
+	return async ({ context, next }: { context: Ctx; next: MiddlewareNextFn<unknown> }) => {
 		const bucket = opts.bucketFn(context);
 		if (!bucket) return next({ context });
 
-		const result = await checkAndRecordRateLimit(
-			bucket.key,
-			bucket.limit,
-			bucket.windowSeconds,
-		);
+		const result = await checkAndRecordRateLimit(bucket.key, bucket.limit, bucket.windowSeconds);
 
 		if (!result.allowed) {
 			logger.warn(

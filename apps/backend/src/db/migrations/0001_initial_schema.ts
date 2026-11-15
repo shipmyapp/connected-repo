@@ -11,12 +11,7 @@ change(async (db) => {
 
 	await db.createEnum("api_product_enum", ["journal_entry_create"]);
 
-	await db.createEnum("api_request_method_enum", [
-		"GET",
-		"POST",
-		"PUT",
-		"DELETE",
-	]);
+	await db.createEnum("api_request_method_enum", ["GET", "POST", "PUT", "DELETE"]);
 
 	await db.createEnum("api_status_enum", [
 		"AI Error",
@@ -235,7 +230,7 @@ change(async (db) => {
 	);
 
 	await db.createTable(
-		"teams_app", 
+		"teams_app",
 		(t) => ({
 			id: t.string(26).primaryKey(),
 			name: t.string(),
@@ -260,7 +255,7 @@ change(async (db) => {
 				name: "teams_app_personal_team_for_user_id_idx",
 				where: "deleted_at IS NULL AND personal_team_for_user_id IS NOT NULL",
 			}),
-		]
+		],
 	);
 
 	await db.changeTable("users", (t) => ({
@@ -383,19 +378,13 @@ change(async (db) => {
 		updatedAt: t.timestamps().updatedAt,
 	}));
 
-	await db.addIndex(
-		"teams_app",
-		["id", { column: "updated_at", order: "DESC" }],
-		{ name: "teams_app_sync_delta_idx" },
-	);
+	await db.addIndex("teams_app", ["id", { column: "updated_at", order: "DESC" }], {
+		name: "teams_app_sync_delta_idx",
+	});
 
 	await db.addIndex(
 		"team_members",
-		[
-			"team_id",
-			{ column: "updated_at", order: "DESC" },
-			{ column: "id", order: "DESC" },
-		],
+		["team_id", { column: "updated_at", order: "DESC" }, { column: "id", order: "DESC" }],
 		{ name: "team_members_sync_delta_idx" },
 	);
 
@@ -410,21 +399,13 @@ change(async (db) => {
 
 	await db.addIndex(
 		"journal_entries",
-		[
-			"team_id",
-			{ column: "updated_at", order: "DESC" },
-			{ column: "id", order: "DESC" },
-		],
+		["team_id", { column: "updated_at", order: "DESC" }, { column: "id", order: "DESC" }],
 		{ name: "journal_entries_sync_delta_idx" },
 	);
 
 	await db.addIndex(
 		"files",
-		[
-			"team_id",
-			{ column: "updated_at", order: "DESC" },
-			{ column: "id", order: "DESC" },
-		],
+		["team_id", { column: "updated_at", order: "DESC" }, { column: "id", order: "DESC" }],
 		{ name: "files_sync_delta_idx" },
 	);
 

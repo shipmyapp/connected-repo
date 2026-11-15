@@ -48,9 +48,7 @@ export const generateBatchPresignedUrls = rpcProtectedActiveTeamProcedure
 			},
 		}) => {
 			return await Promise.all(
-				input.map((file) =>
-					generatePresignedUrlService(file, userId, activeTeamId),
-				),
+				input.map((file) => generatePresignedUrlService(file, userId, activeTeamId)),
 			);
 		},
 	);
@@ -61,9 +59,7 @@ export const generateBatchPresignedUrls = rpcProtectedActiveTeamProcedure
 export const checkFileExistsInCdn = rpcProtectedActiveTeamProcedure
 	.route({ method: "GET", tags: ["CDN"] })
 	.input(cdnFileLocatorInput)
-	.output(
-		z.object({ exists: z.boolean(), key: z.string(), fetchUrl: z.string() }),
-	)
+	.output(z.object({ exists: z.boolean(), key: z.string(), fetchUrl: z.string() }))
 	.handler(
 		async ({
 			input,

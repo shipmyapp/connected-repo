@@ -6,10 +6,7 @@ import { usePwaInstallCtx } from "@frontend/components/notifications/PwaInstallH
 import { getDeviceEnv } from "@frontend/utils/device.utils";
 import { orpcFetch } from "@frontend/utils/orpc.client";
 import { promptAndRegisterPush } from "@frontend/utils/push.utils";
-import {
-	OfflineWriteError,
-	onlineOnlyWrite,
-} from "@frontend/worker/db/online-first.adapter";
+import { OfflineWriteError, onlineOnlyWrite } from "@frontend/worker/db/online-first.adapter";
 import { TimePicker } from "@mui/x-date-pickers/TimePicker";
 import dayjs, { type Dayjs } from "dayjs";
 import { useState } from "react";
@@ -66,9 +63,7 @@ export const NotificationPermissionDialog = ({
 			onClose("set");
 		} catch (error) {
 			if (error instanceof OfflineWriteError) {
-				toast.error(
-					"You're offline — reminders couldn't be saved. Try again when back online.",
-				);
+				toast.error("You're offline — reminders couldn't be saved. Try again when back online.");
 			} else {
 				console.error("[NotificationPermissionDialog] Set reminder failed", error);
 				toast.error("Couldn't save reminder time — please try again from Profile.");
@@ -105,10 +100,9 @@ export const NotificationPermissionDialog = ({
 							Add OneQ to your home screen
 						</Typography>
 						<Typography variant="body2" color="text.secondary">
-							Daily journal reminders need iOS to install the app first —
-							Safari can't deliver push alerts from a browser tab. Once
-							installed, we'll ask for notification permission and set your
-							reminder time.
+							Daily journal reminders need iOS to install the app first — Safari can't deliver push
+							alerts from a browser tab. Once installed, we'll ask for notification permission and
+							set your reminder time.
 						</Typography>
 					</Stack>
 				</DialogContent>
@@ -132,8 +126,8 @@ export const NotificationPermissionDialog = ({
 						Get daily journal reminders?
 					</Typography>
 					<Typography variant="body2" color="text.secondary">
-						Pick a time and we'll nudge you to log an entry each day.
-						You can change or remove reminders anytime from Profile.
+						Pick a time and we'll nudge you to log an entry each day. You can change or remove
+						reminders anytime from Profile.
 					</Typography>
 					<TimePicker
 						label="Reminder time"
@@ -148,11 +142,7 @@ export const NotificationPermissionDialog = ({
 				<Button onClick={handleDismiss} color="inherit" disabled={submitting}>
 					Not now
 				</Button>
-				<Button
-					onClick={handleSetReminder}
-					variant="contained"
-					disabled={submitting}
-				>
+				<Button onClick={handleSetReminder} variant="contained" disabled={submitting}>
 					{submitting ? "Saving…" : "Set reminder"}
 				</Button>
 			</DialogActions>

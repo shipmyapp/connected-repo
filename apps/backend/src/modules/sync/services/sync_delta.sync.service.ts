@@ -28,8 +28,7 @@ export interface SyncDeltaOptions {
  * `numeric / 1000000` keeps the microsecond precision through the cast
  * (no double-to-float truncation).
  */
-const toPgTimestamp = (usStr: string) =>
-	sql`to_timestamp(${usStr}::numeric / 1000000)`;
+const toPgTimestamp = (usStr: string) => sql`to_timestamp(${usStr}::numeric / 1000000)`;
 
 /**
  * Generic pull-delta engine. Implements a two-cursor protocol with the two
@@ -67,9 +66,7 @@ const toPgTimestamp = (usStr: string) =>
  * disjoint (`toCursor >= fromCursor` always), and the client applies rows with
  * an idempotent `bulkPut`, so returning both directions in one response is safe.
  */
-export async function syncDeltaService<
-	T extends { id: string; updatedAt: string },
->({
+export async function syncDeltaService<T extends { id: string; updatedAt: string }>({
 	baseQuery,
 	syncMetadataInput,
 	topLevelSyncedAt,

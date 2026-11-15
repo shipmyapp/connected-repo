@@ -47,9 +47,7 @@ export async function reminderDispatchTick(): Promise<void> {
 			if (dueUsers.length === 0) return;
 
 			const utcDate = new Date();
-			const withEmail = dueUsers.filter(
-				(u): u is typeof u & { email: string } => Boolean(u.email),
-			);
+			const withEmail = dueUsers.filter((u): u is typeof u & { email: string } => Boolean(u.email));
 			await Promise.all(
 				withEmail.map((user) => {
 					const hhmm = new Intl.DateTimeFormat("en-GB", {

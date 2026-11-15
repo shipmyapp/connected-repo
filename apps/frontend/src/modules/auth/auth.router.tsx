@@ -4,7 +4,7 @@ import { Navigate, Route, Routes, useSearchParams } from "react-router";
 const AuthErrorRedirect = () => {
 	const [searchParams] = useSearchParams();
 	const error = searchParams.get("error");
-	
+
 	// Redirect to login page with error parameter
 	return <Navigate to={`/auth/login?error=${error || "unknown_error"}`} replace />;
 };

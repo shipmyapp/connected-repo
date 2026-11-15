@@ -1,10 +1,6 @@
 import { db } from "@backend/db/db";
 import type { OpenApiContextWithHeaders } from "@backend/procedures/open_api_public.procedure";
-import {
-	generateApiKey,
-	hashApiKey,
-	verifyApiKey,
-} from "@backend/utils/apiKeyGenerator.utils";
+import { generateApiKey, hashApiKey, verifyApiKey } from "@backend/utils/apiKeyGenerator.utils";
 import { omitKeys } from "@backend/utils/omit.utils";
 import type { MiddlewareNextFn } from "@orpc/server";
 import { ORPCError } from "@orpc/server";
@@ -67,10 +63,7 @@ export const apiKeyAuthMiddleware = async ({
 		// an attacker distinguish "team exists" from "team missing" via
 		// response time (the exists path pays for a full scrypt verify).
 		const lookup = () =>
-			db.teamsApi
-				.where({ teamApiId })
-				.select("*", "apiSecretHash")
-				.takeOptional();
+			db.teamsApi.where({ teamApiId }).select("*", "apiSecretHash").takeOptional();
 		type TeamApiRow = NonNullable<Awaited<ReturnType<typeof lookup>>>;
 
 		let teamApiFromDb: TeamApiRow | undefined;

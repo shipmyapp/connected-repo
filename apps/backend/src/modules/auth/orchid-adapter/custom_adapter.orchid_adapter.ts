@@ -72,8 +72,7 @@ export const createCustomAdapterOrchid =
 
 			if (sortBy) {
 				query = query.order({
-					[sortBy.field]:
-						sortBy.direction.toLowerCase() === "asc" ? "ASC" : "DESC",
+					[sortBy.field]: sortBy.direction.toLowerCase() === "asc" ? "ASC" : "DESC",
 				});
 			}
 

@@ -8,14 +8,14 @@ export const ErrorFallback = ({ error }: { error: Error }) => {
 export const CustomErrorBoundary = () => {
 	const error = useRouteError() as Error;
 
-  useEffect(() => {
+	useEffect(() => {
 		if (error) {
-            // Lazily capture exception if Sentry is available
-            import("@sentry/react").then((Sentry) => {
-                Sentry.captureException(error);
-            });
+			// Lazily capture exception if Sentry is available
+			import("@sentry/react").then((Sentry) => {
+				Sentry.captureException(error);
+			});
 		}
 	}, [error]);
 
-	return <ErrorFallback error={error}/>;
-}
+	return <ErrorFallback error={error} />;
+};

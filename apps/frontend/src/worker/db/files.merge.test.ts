@@ -88,8 +88,8 @@ describe("mergeServerFileRow (Q7 — no CDN-URL clobber)", () => {
 		expect(mergeServerFileRow(localRow({ isMainFileLost: true }), serverRow()).isMainFileLost).toBe(
 			true,
 		);
-		expect(
-			mergeServerFileRow(undefined, serverRow({ isMainFileLost: true })).isMainFileLost,
-		).toBe(true);
+		expect(mergeServerFileRow(undefined, serverRow({ isMainFileLost: true })).isMainFileLost).toBe(
+			true,
+		);
 	});
 });

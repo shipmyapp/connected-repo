@@ -12,12 +12,7 @@ export function SecondaryButton({
 	...props
 }: SecondaryButtonProps) {
 	return (
-		<Button
-			variant="outlined"
-			color="secondary"
-			disabled={disabled || loading}
-			{...props}
-		>
+		<Button variant="outlined" color="secondary" disabled={disabled || loading} {...props}>
 			{loading ? "Loading..." : children}
 		</Button>
 	);

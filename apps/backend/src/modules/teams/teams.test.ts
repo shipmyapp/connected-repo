@@ -17,20 +17,14 @@ describe("Teams App Endpoints", () => {
 	describe("getDefaultTeam", () => {
 		it("should create a personal team if none exists and set it as default", async () => {
 			// Ensure user has no default team and no personal team
-			await db.users
-				.where({ id: defaultContext?.user.id })
-				.update({ activeTeamAppId: null });
-			await db.teamsApp
-				.where({ personalTeamForUserId: defaultContext?.user.id })
-				.delete();
+			await db.users.where({ id: defaultContext?.user.id }).update({ activeTeamAppId: null });
+			await db.teamsApp.where({ personalTeamForUserId: defaultContext?.user.id }).delete();
 
 			const result = await defaultClient.getDefaultTeam({});
 
 			expect(result).toBeDefined();
 			expect(result.personalTeamForUserId).toBe(defaultContext?.user.id);
-			expect(result.name).toBe(
-				`${defaultContext?.user.name.split(" ")[0]}'s Team`,
-			);
+			expect(result.name).toBe(`${defaultContext?.user.name.split(" ")[0]}'s Team`);
 
 			// Verify user's activeTeamAppId is updated
 			const user = await db.users.where({ id: defaultContext?.user.id }).take();
@@ -83,10 +77,7 @@ describe("Teams App Endpoints", () => {
 
 			// Soft-delete the caller's membership in the second team (what
 			// removeTeamMember does), bypassing the active-team scope.
-			await db.teamMembers
-				.unscope("default")
-				.where({ teamId: second.id, userId })
-				.delete();
+			await db.teamMembers.unscope("default").where({ teamId: second.id, userId }).delete();
 
 			const after = await defaultClient.listMyActiveTeamIds();
 			expect(after.teamIds).not.toContain(second.id);

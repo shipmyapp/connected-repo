@@ -111,8 +111,8 @@ export function CreateJournalEntryForm() {
 				const createInput = {
 					id: entryId,
 					content: data.content,
-					prompt: writingMode === "free" ? null : data.prompt ?? null,
-					promptId: writingMode === "free" ? null : randomPrompt?.id ?? null,
+					prompt: writingMode === "free" ? null : (data.prompt ?? null),
+					promptId: writingMode === "free" ? null : (randomPrompt?.id ?? null),
 					files: attachments.map((a) => ({
 						id: a.id,
 						tableName: "journalEntries" as const,
@@ -139,8 +139,8 @@ export function CreateJournalEntryForm() {
 						await dataProxy.journalEntriesDb.upsertPendingLocal({
 							id: entryId,
 							content: data.content,
-							prompt: writingMode === "free" ? null : data.prompt ?? null,
-							promptId: writingMode === "free" ? null : randomPrompt?.id ?? null,
+							prompt: writingMode === "free" ? null : (data.prompt ?? null),
+							promptId: writingMode === "free" ? null : (randomPrompt?.id ?? null),
 							authorUserId: user?.id ?? "",
 							teamId: teamId ?? null,
 							deletedAt: null,
@@ -189,8 +189,7 @@ export function CreateJournalEntryForm() {
 				// never asked before AND the browser permission is still in
 				// the "default" state (never touched). If the user has opted
 				// out from a previous session, don't re-nag.
-				const alreadyShown =
-					localStorage.getItem(INITIAL_PROMPT_SHOWN_KEY) === "true";
+				const alreadyShown = localStorage.getItem(INITIAL_PROMPT_SHOWN_KEY) === "true";
 				const optedOut = localStorage.getItem(OPTED_OUT_KEY) === "true";
 				if (
 					!alreadyShown &&
@@ -205,8 +204,7 @@ export function CreateJournalEntryForm() {
 				console.error("[CreateJournalEntryForm] Create failed:", error);
 				formMethods.setError("root.unexpected", {
 					type: "create-failed",
-					message:
-						error instanceof Error ? error.message : "Failed to save journal entry",
+					message: error instanceof Error ? error.message : "Failed to save journal entry",
 				});
 			}
 		},
@@ -237,10 +235,7 @@ export function CreateJournalEntryForm() {
 		await refetchPrompt();
 	};
 
-	const handleModeChange = (
-		_event: React.MouseEvent<HTMLElement>,
-		newMode: WritingMode | null,
-	) => {
+	const handleModeChange = (_event: React.MouseEvent<HTMLElement>, newMode: WritingMode | null) => {
 		if (newMode !== null) {
 			setWritingMode(newMode);
 		}
@@ -424,7 +419,15 @@ export function CreateJournalEntryForm() {
 						}}
 					/>
 
-					<Box sx={{ bgcolor: "background.paper", borderRadius: 2, p: 1.5, border: "1px dashed", borderColor: "divider" }}>
+					<Box
+						sx={{
+							bgcolor: "background.paper",
+							borderRadius: 2,
+							p: 1.5,
+							border: "1px dashed",
+							borderColor: "divider",
+						}}
+					>
 						<SmartMediaUploader value={attachments} onChange={setAttachments} maxFiles={20} />
 					</Box>
 

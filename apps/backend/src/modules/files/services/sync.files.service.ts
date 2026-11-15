@@ -75,9 +75,7 @@ export async function pushFilesCdnUpdatesService(
 			.where({ id: { in: ids } })
 			.forUpdate()
 			.selectAll();
-		const byId = new Map<string, FileSelectAll>(
-			existing.map((r) => [r.id, r as FileSelectAll]),
-		);
+		const byId = new Map<string, FileSelectAll>(existing.map((r) => [r.id, r as FileSelectAll]));
 
 		const patches: Array<{
 			id: string;
@@ -100,10 +98,8 @@ export async function pushFilesCdnUpdatesService(
 			// skip both URL buckets for this row; `isMainFileLost` on the same
 			// patch is still honoured because the flag isn't attacker-controlled
 			// URL content.
-			const cdnUrlBad =
-				u.cdnUrl != null && !isAllowedCdnUrl(u.cdnUrl);
-			const thumbUrlBad =
-				u.thumbnailCdnUrl != null && !isAllowedCdnUrl(u.thumbnailCdnUrl);
+			const cdnUrlBad = u.cdnUrl != null && !isAllowedCdnUrl(u.cdnUrl);
+			const thumbUrlBad = u.thumbnailCdnUrl != null && !isAllowedCdnUrl(u.thumbnailCdnUrl);
 			if (cdnUrlBad || thumbUrlBad) {
 				rejectedUrlIds.add(u.id);
 				continue;
@@ -158,8 +154,7 @@ export async function pushFilesCdnUpdatesService(
 				return {
 					ok: false as const,
 					id: u.id,
-					error:
-						"File row not found — parent bundle likely hasn't landed yet",
+					error: "File row not found — parent bundle likely hasn't landed yet",
 				};
 			}
 			if (rejectedUrlIds.has(u.id)) {

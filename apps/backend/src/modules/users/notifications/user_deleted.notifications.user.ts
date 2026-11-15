@@ -23,16 +23,10 @@ export const userDeletedNotificationHandler = async (props: {
 	} catch (error) {
 		const status = (error as { statusCode?: number })?.statusCode;
 		if (status === 404) {
-			logger.info(
-				{ userId },
-				"Novu subscriber already absent; treating as deleted",
-			);
+			logger.info({ userId }, "Novu subscriber already absent; treating as deleted");
 			return;
 		}
-		logger.error(
-			{ userId, error },
-			"Error deleting Novu subscriber for removed user",
-		);
+		logger.error({ userId, error }, "Error deleting Novu subscriber for removed user");
 		throw error;
 	}
 };

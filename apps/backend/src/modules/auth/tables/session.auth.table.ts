@@ -59,7 +59,4 @@ type NonNullableFields<T> = {
 
 type NonNullableField<T, K extends keyof T> = T & NonNullableFields<Pick<T, K>>;
 
-export type ActiveSessionSelectAll = NonNullableField<
-	Selectable<SessionTable>,
-	"userId"
->;
+export type ActiveSessionSelectAll = NonNullableField<Selectable<SessionTable>, "userId">;

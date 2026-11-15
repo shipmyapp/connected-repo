@@ -34,11 +34,10 @@ const HydrateFallback = () => (
 // react-router `lazy` route property: the router awaits the chunk before
 // swapping the page, so `useNavigation().state` is "loading" during the fetch
 // (which drives the TopProgressBar) instead of React.lazy's blank-Suspense flash.
-const lazyRoute = (importer: () => Promise<{ default: React.ComponentType }>) =>
-	async () => {
-		const mod = await importer();
-		return { Component: mod.default };
-	};
+const lazyRoute = (importer: () => Promise<{ default: React.ComponentType }>) => async () => {
+	const mod = await importer();
+	return { Component: mod.default };
+};
 
 const routerObjectWithNavbar: ReactRouterWithNavbar[] = [
 	{
@@ -66,7 +65,9 @@ const routerObjectWithNavbar: ReactRouterWithNavbar[] = [
 					},
 					{
 						path: "journal-entries/*",
-						lazy: lazyRoute(() => import("@frontend/modules/journal-entries/journal-entries.router")),
+						lazy: lazyRoute(
+							() => import("@frontend/modules/journal-entries/journal-entries.router"),
+						),
 					},
 					{
 						path: "teams/*",
@@ -87,8 +88,6 @@ const routerObjectWithNavbar: ReactRouterWithNavbar[] = [
 ];
 
 // Call this AFTER Sentry.init()
-const sentryCreateBrowserRouter = Sentry.wrapCreateBrowserRouterV7(
-  createBrowserRouter,
-);
+const sentryCreateBrowserRouter = Sentry.wrapCreateBrowserRouterV7(createBrowserRouter);
 
 export const router = sentryCreateBrowserRouter(routerObjectWithNavbar);

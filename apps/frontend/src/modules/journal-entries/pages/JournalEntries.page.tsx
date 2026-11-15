@@ -40,9 +40,7 @@ export default function JournalEntriesPage() {
 	const { data: allTeamFiles } = useLocalDb(
 		"files",
 		async (proxy) =>
-			teamId
-				? await proxy.filesDb.getAllForTeamAndTable(teamId, "journalEntries")
-				: [],
+			teamId ? await proxy.filesDb.getAllForTeamAndTable(teamId, "journalEntries") : [],
 		[teamId],
 	);
 
@@ -57,7 +55,10 @@ export default function JournalEntriesPage() {
 
 	const totalCount = entries.length;
 
-	const handleViewModeChange = (_event: React.MouseEvent<HTMLElement>, newMode: ViewMode | null) => {
+	const handleViewModeChange = (
+		_event: React.MouseEvent<HTMLElement>,
+		newMode: ViewMode | null,
+	) => {
 		if (newMode !== null) {
 			setViewMode(newMode);
 		}
@@ -79,12 +80,25 @@ export default function JournalEntriesPage() {
 
 	return (
 		<Container maxWidth="xl" sx={{ p: 0 }}>
-			<Box sx={{ mb: 3, display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 3 }}>
+			<Box
+				sx={{
+					mb: 3,
+					display: "flex",
+					justifyContent: "space-between",
+					alignItems: "flex-end",
+					gap: 3,
+				}}
+			>
 				<Box>
 					<Typography
 						variant="h2"
 						component="h1"
-						sx={{ fontSize: { xs: "1.75rem", md: "2.25rem" }, fontWeight: 800, mb: 0.5, letterSpacing: "-0.02em" }}
+						sx={{
+							fontSize: { xs: "1.75rem", md: "2.25rem" },
+							fontWeight: 800,
+							mb: 0.5,
+							letterSpacing: "-0.02em",
+						}}
 					>
 						My Journal
 					</Typography>

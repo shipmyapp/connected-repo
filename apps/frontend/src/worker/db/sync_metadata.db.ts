@@ -19,11 +19,7 @@ export const syncMetadataDb = {
 		return await getClientDb().syncMetadata.get([syncedTable, teamId]);
 	},
 
-	async saveCursor(
-		syncedTable: TablesToSync,
-		teamId: string,
-		meta: SyncMetadata,
-	): Promise<void> {
+	async saveCursor(syncedTable: TablesToSync, teamId: string, meta: SyncMetadata): Promise<void> {
 		const existing = await getClientDb().syncMetadata.get([syncedTable, teamId]);
 		const next: StoredSyncMetadata = {
 			...meta,
@@ -57,8 +53,7 @@ export const syncMetadataDb = {
 	},
 
 	async saveCycleState(patch: Partial<Omit<SyncCycleState, "key">>): Promise<void> {
-		const existing =
-			(await getClientDb().syncState.get("app")) ?? { key: "app" as const };
+		const existing = (await getClientDb().syncState.get("app")) ?? { key: "app" as const };
 		await getClientDb().syncState.put({ ...existing, ...patch, key: "app" });
 		notifySubscribers("syncState", "sync");
 	},

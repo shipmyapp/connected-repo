@@ -27,8 +27,7 @@ export const isIOS = (): boolean => {
 	if (!isBrowser) return false;
 	// iPadOS 13+ masquerades as Mac in UA but exposes touch — the multi-touch
 	// check catches iPads pretending to be MacBooks.
-	const iPadOSMasquerade =
-		navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+	const iPadOSMasquerade = navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
 	return /iPad|iPhone|iPod/.test(navigator.userAgent) || iPadOSMasquerade;
 };
 

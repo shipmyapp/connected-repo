@@ -29,8 +29,7 @@ const checkAndScheduleWebhookAt90Percent = async (
 	team: TeamApiSelectAll,
 	teamId: string | null,
 ) => {
-	const usagePercent =
-		(subscription.requestsConsumed / subscription.maxRequests) * 100;
+	const usagePercent = (subscription.requestsConsumed / subscription.maxRequests) * 100;
 
 	// Only schedule if:
 	// 1. Usage is >= threshold percentage
@@ -178,12 +177,10 @@ export async function incrementSubscriptionUsage(
 
 	// Check if usage threshold reached and schedule webhook task
 	// This is non-blocking - if it fails, the usage was still incremented
-	checkAndScheduleWebhookAt90Percent(updatedSubscription, team, teamId).catch(
-		(error) => {
-			// Log error but don't fail the request - the webhook is a side effect
-			logger.error("Error scheduling webhook task at 90% usage:", error);
-		},
-	);
+	checkAndScheduleWebhookAt90Percent(updatedSubscription, team, teamId).catch((error) => {
+		// Log error but don't fail the request - the webhook is a side effect
+		logger.error("Error scheduling webhook task at 90% usage:", error);
+	});
 
 	return updatedSubscription;
 }

@@ -13,4 +13,4 @@ export const ErrorAlert = ({ message, ...props }: ErrorAlertProps) => {
 			{message}
 		</Alert>
 	);
-}
+};

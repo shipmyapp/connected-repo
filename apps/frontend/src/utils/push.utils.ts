@@ -2,16 +2,8 @@ import { env } from "@frontend/configs/env.config";
 import { firebaseApp } from "@frontend/configs/firebase.config";
 import { getDeviceEnv } from "@frontend/utils/device.utils";
 import { orpcFetch } from "@frontend/utils/orpc.client";
-import {
-	OfflineWriteError,
-	onlineOnlyWrite,
-} from "@frontend/worker/db/online-first.adapter";
-import {
-	deleteToken,
-	getMessaging,
-	getToken,
-	isSupported,
-} from "firebase/messaging";
+import { OfflineWriteError, onlineOnlyWrite } from "@frontend/worker/db/online-first.adapter";
+import { deleteToken, getMessaging, getToken, isSupported } from "firebase/messaging";
 
 const REGISTERED_TOKEN_KEY = "push.fcmToken";
 // Timestamp of the last successful backend registration. Used to re-verify
@@ -128,9 +120,7 @@ export async function promptAndRegisterPush(): Promise<PromptResult> {
  * push for this user AND the backend removes it from the Novu subscriber.
  * Failures are logged, not thrown — logout must not block on push cleanup.
  */
-export async function revokePushForUser(options?: {
-	stickyOptOut?: boolean;
-}): Promise<void> {
+export async function revokePushForUser(options?: { stickyOptOut?: boolean }): Promise<void> {
 	try {
 		if (options?.stickyOptOut) {
 			localStorage.setItem(OPTED_OUT_KEY, "true");
@@ -151,9 +141,7 @@ export async function revokePushForUser(options?: {
 			});
 		} catch (err) {
 			if (!(err instanceof OfflineWriteError)) throw err;
-			console.debug(
-				"[push] revokeDevice deferred — offline; backend reconcile will handle",
-			);
+			console.debug("[push] revokeDevice deferred — offline; backend reconcile will handle");
 		}
 
 		if (firebaseApp && (await isSupported())) {

@@ -122,9 +122,7 @@ export const switchGate: SwitchGate = {
 		return new Promise<void>((resolve, reject) => {
 			const timer = setTimeout(() => {
 				reject(
-					new Error(
-						`switchGate: waitOpen timed out after ${timeoutMs}ms — a team switch is stuck`,
-					),
+					new Error(`switchGate: waitOpen timed out after ${timeoutMs}ms — a team switch is stuck`),
 				);
 			}, timeoutMs);
 			currentGate.then(

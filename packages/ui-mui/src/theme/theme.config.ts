@@ -139,7 +139,7 @@ export const createAppTheme = (mode: PaletteMode = "light") => {
 							secondary: "#666666",
 							disabled: "#9e9e9e",
 						},
-				  }
+					}
 				: {
 						// Dark mode colors
 						primary: {
@@ -189,7 +189,7 @@ export const createAppTheme = (mode: PaletteMode = "light") => {
 							secondary: "#b0b0b0",
 							disabled: "#666666",
 						},
-				  }),
+					}),
 		},
 	});
 };

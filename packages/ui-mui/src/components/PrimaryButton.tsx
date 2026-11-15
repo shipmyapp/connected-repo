@@ -12,12 +12,7 @@ export const PrimaryButton = ({
 	...props
 }: PrimaryButtonProps) => {
 	return (
-		<Button
-			variant="contained"
-			color="primary"
-			disabled={disabled || loading}
-			{...props}
-		>
+		<Button variant="contained" color="primary" disabled={disabled || loading} {...props}>
 			{loading ? "Loading..." : children}
 		</Button>
 	);

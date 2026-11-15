@@ -1,8 +1,5 @@
 import { allowedOrigins } from "@backend/configs/allowed_origins.config";
-import type {
-	NodeHttpRequest,
-	NodeHttpResponse,
-} from "@orpc/standard-server-node";
+import type { NodeHttpRequest, NodeHttpResponse } from "@orpc/standard-server-node";
 
 // Trace-propagation headers that every handler must let through:
 // - `traceparent` / `tracestate` = W3C Trace Context (vendor-neutral standard)
@@ -25,14 +22,9 @@ export const TRACE_HEADERS_EXPOSE = ["x-trace-id", "traceparent"] as const;
  *
  * @returns true if the request was an OPTIONS preflight and the response was sent.
  */
-export function handleBetterAuthCors(
-	req: NodeHttpRequest,
-	res: NodeHttpResponse,
-): boolean {
+export function handleBetterAuthCors(req: NodeHttpRequest, res: NodeHttpResponse): boolean {
 	const originHeader = req.headers.origin || req.headers[":origin"];
-	const currentOrigin = Array.isArray(originHeader)
-		? originHeader[0]
-		: originHeader;
+	const currentOrigin = Array.isArray(originHeader) ? originHeader[0] : originHeader;
 
 	if (!currentOrigin) {
 		return false;
@@ -43,10 +35,7 @@ export function handleBetterAuthCors(
 
 	if (isAllowed) {
 		res.setHeader("Access-Control-Allow-Origin", currentOrigin);
-		res.setHeader(
-			"Access-Control-Allow-Methods",
-			"GET, POST, PUT, DELETE, PATCH, OPTIONS",
-		);
+		res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
 		res.setHeader(
 			"Access-Control-Allow-Headers",
 			[
@@ -57,16 +46,11 @@ export function handleBetterAuthCors(
 				...TRACE_HEADERS_ALLOW,
 			].join(", "),
 		);
-		res.setHeader(
-			"Access-Control-Expose-Headers",
-			TRACE_HEADERS_EXPOSE.join(", "),
-		);
+		res.setHeader("Access-Control-Expose-Headers", TRACE_HEADERS_EXPOSE.join(", "));
 		res.setHeader("Access-Control-Allow-Credentials", "true");
 		res.setHeader("Vary", "Origin");
 	} else {
-		console.warn(
-			`[CORS] BLOCKED: ${currentOrigin} for ${req.method} ${req.url}`,
-		);
+		console.warn(`[CORS] BLOCKED: ${currentOrigin} for ${req.method} ${req.url}`);
 	}
 
 	// 2. Handle Preflight (OPTIONS)

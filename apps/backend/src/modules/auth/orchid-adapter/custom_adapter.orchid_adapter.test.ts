@@ -60,9 +60,7 @@ describe("createCustomAdapterOrchid — update contract", () => {
 		expect((result as { ipAddress: string }).ipAddress).toBe(newIp);
 
 		// And the write actually landed.
-		const persisted = await db.sessions
-			.where({ id: sessionId! })
-			.takeOptional();
+		const persisted = await db.sessions.where({ id: sessionId! }).takeOptional();
 		expect(persisted?.ipAddress).toBe(newIp);
 	});
 
@@ -91,10 +89,7 @@ describe("createCustomAdapterOrchid — update contract", () => {
 
 		// And the row was NOT mutated by the update call (default scope
 		// blocked it upstream — the row's ipAddress must be unchanged).
-		const persisted = await db.sessions
-			.unscope("default")
-			.where({ id: sessionId! })
-			.take();
+		const persisted = await db.sessions.unscope("default").where({ id: sessionId! }).take();
 		expect(persisted.ipAddress).not.toBe("198.51.100.7");
 	});
 });

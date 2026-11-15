@@ -1,10 +1,6 @@
 import { z } from "zod";
 import { fileSelectAllZod } from "../file.zod.js";
-import {
-	makePullBundlesOutput,
-	pushCreateResultZod,
-	syncDeltaInputZod,
-} from "../sync.zod.js";
+import { makePullBundlesOutput, pushCreateResultZod, syncDeltaInputZod } from "../sync.zod.js";
 
 // ─── files.pushCdnUpdates ───────────────────────────────────────────────
 //

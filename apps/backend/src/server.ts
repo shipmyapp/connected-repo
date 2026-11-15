@@ -1,18 +1,9 @@
 import "./otel.sdk";
 
 import { spawn } from "node:child_process";
-import {
-	createServer as createHttpServer,
-	Server as HttpServer,
-} from "node:http";
+import { createServer as createHttpServer, Server as HttpServer } from "node:http";
 import { allowedOrigins } from "@backend/configs/allowed_origins.config";
-import {
-	env,
-	isDev,
-	isProd,
-	isStaging,
-	isTest,
-} from "@backend/configs/env.config";
+import { env, isDev, isProd, isStaging, isTest } from "@backend/configs/env.config";
 import { startReconcileFcmTokensCron } from "@backend/cron_jobs/reconcile_fcm_tokens.cron";
 import { startReminderDispatchCron } from "@backend/cron_jobs/reminder_dispatch.cron";
 import { startSilentSyncDispatchCron } from "@backend/cron_jobs/silent_sync_dispatch.cron";
@@ -20,10 +11,7 @@ import { startEventBus } from "@backend/events/events.utils";
 import { captureBackendException } from "@backend/utils/backend-error-tracking.utils";
 import { handleServerClose } from "@backend/utils/graceful_shutdown.utils";
 import { logger } from "@backend/utils/logger.utils";
-import type {
-	NodeHttpRequest,
-	NodeHttpResponse,
-} from "@orpc/standard-server-node";
+import type { NodeHttpRequest, NodeHttpResponse } from "@orpc/standard-server-node";
 import { mainRequestDispatcher } from "./request_handlers/main.handler";
 
 logger.info({ isDev, isProd, isStaging, isTest }, "Environment:");
@@ -55,15 +43,7 @@ function syncNovuWorkflowsInBackground(): void {
 		// Pass NOVU_SECRET_KEY via env, not argv, so it stays out of `ps` output.
 		const child = spawn(
 			"npx",
-			[
-				"-y",
-				"novu@latest",
-				"sync",
-				"--bridge-url",
-				bridgeUrl,
-				"--api-url",
-				apiUrl,
-			],
+			["-y", "novu@latest", "sync", "--bridge-url", bridgeUrl, "--api-url", apiUrl],
 			{
 				env: { ...process.env, NOVU_SECRET_KEY: env.NOVU_SECRET_KEY },
 				stdio: ["ignore", "pipe", "pipe"],
@@ -117,10 +97,7 @@ try {
 		if (process.send) {
 			process.send("ready"); // Notify PM2/Coolify
 		}
-		logger.info(
-			{ url: env.VITE_API_URL, host, port: env.PORT, secure: false },
-			"Server running",
-		);
+		logger.info({ url: env.VITE_API_URL, host, port: env.PORT, secure: false }, "Server running");
 
 		if (process.argv.includes("--smoke-test")) {
 			logger.info("Smoke test passed, exiting...");

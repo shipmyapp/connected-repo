@@ -19,23 +19,16 @@ export const MobileNavbar = () => {
 	const location = useLocation();
 	const { activeWorkspace } = useWorkspace();
 
-	const teamSettingsPath = activeWorkspace.id
-		? `/teams/${activeWorkspace.id}/settings`
-		: null;
+	const teamSettingsPath = activeWorkspace.id ? `/teams/${activeWorkspace.id}/settings` : null;
 
 	const getBottomNavValue = () => {
-		const navIndex = navItems.findIndex(
-			(item) => item.path === location.pathname,
-		);
+		const navIndex = navItems.findIndex((item) => item.path === location.pathname);
 		if (navIndex !== -1) return navIndex;
 		if (location.pathname === "/profile") return navItems.length;
 		return 0;
 	};
 
-	const handleBottomNavChange = (
-		_event: React.SyntheticEvent,
-		newValue: number,
-	) => {
+	const handleBottomNavChange = (_event: React.SyntheticEvent, newValue: number) => {
 		if (newValue === navItems.length) {
 			navigate("/profile");
 			return;
@@ -94,9 +87,7 @@ export const MobileNavbar = () => {
 							py: 0.5,
 							borderRadius: 2,
 							cursor: teamSettingsPath ? "pointer" : "default",
-							"&:hover": teamSettingsPath
-								? { bgcolor: "action.hover" }
-								: undefined,
+							"&:hover": teamSettingsPath ? { bgcolor: "action.hover" } : undefined,
 						}}
 					>
 						<Stack direction="row" spacing={0.75} alignItems="center">
@@ -104,10 +95,7 @@ export const MobileNavbar = () => {
 								sx={{
 									width: 24,
 									height: 24,
-									bgcolor:
-										activeWorkspace.type === "personal"
-											? "primary.main"
-											: "secondary.main",
+									bgcolor: activeWorkspace.type === "personal" ? "primary.main" : "secondary.main",
 									fontSize: "0.8rem",
 								}}
 							>

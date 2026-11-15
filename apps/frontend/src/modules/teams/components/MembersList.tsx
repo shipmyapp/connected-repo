@@ -8,7 +8,20 @@ import MoreVertIcon from "@mui/icons-material/MoreVert";
 import PersonIcon from "@mui/icons-material/Person";
 import PersonRemoveIcon from "@mui/icons-material/PersonRemove";
 import VerifiedUserIcon from "@mui/icons-material/VerifiedUser";
-import { Chip, Divider, IconButton, ListItemIcon, Menu, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
+import {
+	Chip,
+	Divider,
+	IconButton,
+	ListItemIcon,
+	Menu,
+	MenuItem,
+	Table,
+	TableBody,
+	TableCell,
+	TableContainer,
+	TableHead,
+	TableRow,
+} from "@mui/material";
 import { useMutation } from "@tanstack/react-query";
 import type React from "react";
 import { useState } from "react";
@@ -23,19 +36,23 @@ export function MembersList({ members, onUpdate }: MembersListProps) {
 	const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 	const [selectedMember, setSelectedMember] = useState<TeamAppMemberSelectAll | null>(null);
 
-	const removeMutation = useMutation(orpc.teams.removeTeamMember.mutationOptions({
-		onSuccess: () => {
-			toast.success("Member removed successfully");
-			onUpdate();
-		}
-	}));
+	const removeMutation = useMutation(
+		orpc.teams.removeTeamMember.mutationOptions({
+			onSuccess: () => {
+				toast.success("Member removed successfully");
+				onUpdate();
+			},
+		}),
+	);
 
-	const updateRoleMutation = useMutation(orpc.teams.updateMemberRole.mutationOptions({
-		onSuccess: () => {
-			toast.success("Role updated successfully");
-			onUpdate();
-		}
-	}));
+	const updateRoleMutation = useMutation(
+		orpc.teams.updateMemberRole.mutationOptions({
+			onSuccess: () => {
+				toast.success("Role updated successfully");
+				onUpdate();
+			},
+		}),
+	);
 
 	const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, member: TeamAppMemberSelectAll) => {
 		setAnchorEl(event.currentTarget);
@@ -56,18 +73,21 @@ export function MembersList({ members, onUpdate }: MembersListProps) {
 
 	const handleRoleChange = (role: "Owner" | "Admin" | "Member") => {
 		if (selectedMember) {
-			updateRoleMutation.mutate({ 
+			updateRoleMutation.mutate({
 				id: selectedMember.id,
-				role 
+				role,
 			});
 		}
 		handleMenuClose();
 	};
 
 	return (
-		<TableContainer component={Paper} sx={{ borderRadius: 3, overflow: 'hidden', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}>
+		<TableContainer
+			component={Paper}
+			sx={{ borderRadius: 3, overflow: "hidden", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
+		>
 			<Table>
-				<TableHead sx={{ bgcolor: 'action.hover' }}>
+				<TableHead sx={{ bgcolor: "action.hover" }}>
 					<TableRow>
 						<TableCell sx={{ fontWeight: 700 }}>Member</TableCell>
 						<TableCell sx={{ fontWeight: 700 }}>Role</TableCell>
@@ -79,8 +99,10 @@ export function MembersList({ members, onUpdate }: MembersListProps) {
 					{members.map((member) => (
 						<TableRow key={member.id} hover>
 							<TableCell>
-								<Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-									<Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main', fontSize: '0.875rem' }}>
+								<Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+									<Avatar
+										sx={{ width: 32, height: 32, bgcolor: "primary.main", fontSize: "0.875rem" }}
+									>
 										{member.email?.charAt(0).toUpperCase()}
 									</Avatar>
 									<Box>
@@ -96,10 +118,16 @@ export function MembersList({ members, onUpdate }: MembersListProps) {
 								</Box>
 							</TableCell>
 							<TableCell>
-								<Chip 
-									label={member.role} 
-									size="small" 
-									color={member.role === 'Owner' ? 'primary' : member.role === 'Admin' ? 'secondary' : 'default'}
+								<Chip
+									label={member.role}
+									size="small"
+									color={
+										member.role === "Owner"
+											? "primary"
+											: member.role === "Admin"
+												? "secondary"
+												: "default"
+									}
 									sx={{ fontWeight: 600 }}
 								/>
 							</TableCell>
@@ -120,23 +148,33 @@ export function MembersList({ members, onUpdate }: MembersListProps) {
 				</TableBody>
 			</Table>
 
-			<Menu
-				anchorEl={anchorEl}
-				open={Boolean(anchorEl)}
-				onClose={handleMenuClose}
-			>
-				<Typography variant="overline" sx={{ px: 2, py: 0.5, color: 'text.secondary' }}>Change Role</Typography>
-				<MenuItem onClick={() => handleRoleChange("Admin")} disabled={selectedMember?.role === "Admin"}>
-					<ListItemIcon><VerifiedUserIcon fontSize="small" /></ListItemIcon>
+			<Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
+				<Typography variant="overline" sx={{ px: 2, py: 0.5, color: "text.secondary" }}>
+					Change Role
+				</Typography>
+				<MenuItem
+					onClick={() => handleRoleChange("Admin")}
+					disabled={selectedMember?.role === "Admin"}
+				>
+					<ListItemIcon>
+						<VerifiedUserIcon fontSize="small" />
+					</ListItemIcon>
 					Make Admin
 				</MenuItem>
-				<MenuItem onClick={() => handleRoleChange("Member")} disabled={selectedMember?.role === "Member"}>
-					<ListItemIcon><PersonIcon fontSize="small" /></ListItemIcon>
+				<MenuItem
+					onClick={() => handleRoleChange("Member")}
+					disabled={selectedMember?.role === "Member"}
+				>
+					<ListItemIcon>
+						<PersonIcon fontSize="small" />
+					</ListItemIcon>
 					Make Member
 				</MenuItem>
 				<Divider />
-				<MenuItem onClick={handleRemove} sx={{ color: 'error.main' }}>
-					<ListItemIcon><PersonRemoveIcon fontSize="small" color="error" /></ListItemIcon>
+				<MenuItem onClick={handleRemove} sx={{ color: "error.main" }}>
+					<ListItemIcon>
+						<PersonRemoveIcon fontSize="small" color="error" />
+					</ListItemIcon>
 					Remove from Team
 				</MenuItem>
 			</Menu>

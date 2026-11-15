@@ -60,7 +60,8 @@ export class ClientDatabase extends Dexie {
 			// [teamId+updatedAt] powers the tezi-style two-cursor local ordering.
 			journalEntries: "id, teamId, createdAt, updatedAt, syncError, [teamId+updatedAt]",
 			prompts: "id, updatedAt, [updatedAt+id]",
-			files: "id, tableId, tableName, type, teamId, updatedAt, mainUploadState, thumbnailUploadState, createdAt, syncError",
+			files:
+				"id, tableId, tableName, type, teamId, updatedAt, mainUploadState, thumbnailUploadState, createdAt, syncError",
 			teamsApp: "id, updatedAt",
 			teamMembers: "id, userId, teamId, updatedAt",
 			// Composite PK: cursors are per-(table, team) so switching teams
@@ -111,9 +112,7 @@ const dbUpdatesChannel = new BroadcastChannel("db-updates");
 const subscribers = new Set<(table: AppDbTable, source: NotifySource) => void>();
 
 dbUpdatesChannel.onmessage = (event) => {
-	const data = event.data as
-		| { table?: AppDbTable; source?: NotifySource }
-		| undefined;
+	const data = event.data as { table?: AppDbTable; source?: NotifySource } | undefined;
 	const table = data?.table;
 	if (!table) return;
 	const source: NotifySource = data?.source ?? "external";
@@ -129,10 +128,7 @@ dbUpdatesChannel.onmessage = (event) => {
  * pipeline so the SyncOrchestrator's subscribe callback can skip it
  * without dropping subsequent user-driven writes.
  */
-export const notifySubscribers = (
-	table: AppDbTable,
-	source: NotifySource = "external",
-): void => {
+export const notifySubscribers = (table: AppDbTable, source: NotifySource = "external"): void => {
 	for (const cb of subscribers) cb(table, source);
 	dbUpdatesChannel.postMessage({ table, source });
 };

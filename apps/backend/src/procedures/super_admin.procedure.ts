@@ -44,8 +44,7 @@ export const rpcSuperAdminProcedure = rpcProtectedProcedure
 		const phone = normalizePhone(context.user.phoneNumber ?? "");
 
 		const allowed =
-			(email && superAdminEmails.has(email)) ||
-			(phone !== "" && superAdminPhones.has(phone));
+			(email && superAdminEmails.has(email)) || (phone !== "" && superAdminPhones.has(phone));
 
 		if (!allowed) {
 			throw new ORPCError("FORBIDDEN", {

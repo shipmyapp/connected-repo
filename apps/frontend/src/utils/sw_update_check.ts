@@ -13,10 +13,7 @@
  * one, so we race a 6s timer. If nothing installs by then the app is
  * genuinely up to date.
  */
-export type SwUpdateCheckResult =
-	| "checking-failed"
-	| "already-updating"
-	| "up-to-date";
+export type SwUpdateCheckResult = "checking-failed" | "already-updating" | "up-to-date";
 
 export async function checkForSwUpdate(): Promise<SwUpdateCheckResult> {
 	if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) {

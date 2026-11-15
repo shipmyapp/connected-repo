@@ -48,7 +48,10 @@ function MultipleTableThumbnails({ attachments }: { attachments: FileSelectAll[]
 				<TableThumbnailItem key={img.id} attachment={img} />
 			))}
 			{images.length > 3 && (
-				<Typography variant="caption" sx={{ alignSelf: "center", opacity: 0.6, fontSize: "0.65rem" }}>
+				<Typography
+					variant="caption"
+					sx={{ alignSelf: "center", opacity: 0.6, fontSize: "0.65rem" }}
+				>
 					+{images.length - 3}
 				</Typography>
 			)}
@@ -56,27 +59,25 @@ function MultipleTableThumbnails({ attachments }: { attachments: FileSelectAll[]
 	);
 }
 
-export function JournalEntryTableView({ entries, onEntryClick, attachments = {} }: JournalEntryTableViewProps) {
-	const truncateContent = useCallback(
-		(content: string, maxLength = 100) => {
-			if (content.length <= maxLength) return content;
-			return `${content.substring(0, maxLength)}...`;
-		},
-		[],
-	);
+export function JournalEntryTableView({
+	entries,
+	onEntryClick,
+	attachments = {},
+}: JournalEntryTableViewProps) {
+	const truncateContent = useCallback((content: string, maxLength = 100) => {
+		if (content.length <= maxLength) return content;
+		return `${content.substring(0, maxLength)}...`;
+	}, []);
 
-	const formatDate = useCallback(
-		(date: number | string | Date) => {
-			return new Date(date).toLocaleDateString(undefined, {
-				year: "numeric",
-				month: "short",
-				day: "numeric",
-				hour: "2-digit",
-				minute: "2-digit",
-			});
-		},
-		[],
-	);
+	const formatDate = useCallback((date: number | string | Date) => {
+		return new Date(date).toLocaleDateString(undefined, {
+			year: "numeric",
+			month: "short",
+			day: "numeric",
+			hour: "2-digit",
+			minute: "2-digit",
+		});
+	}, []);
 
 	const columns = useMemo<MRT_ColumnDef<JournalEntrySelectAll>[]>(
 		() => [
@@ -86,7 +87,9 @@ export function JournalEntryTableView({ entries, onEntryClick, attachments = {} 
 				size: 50,
 				enableSorting: false,
 				enableColumnFilter: false,
-				Cell: ({ row }) => <MultipleTableThumbnails attachments={attachments[row.original.id] || []} />,
+				Cell: ({ row }) => (
+					<MultipleTableThumbnails attachments={attachments[row.original.id] || []} />
+				),
 			},
 			{
 				accessorKey: "prompt",
@@ -123,11 +126,20 @@ export function JournalEntryTableView({ entries, onEntryClick, attachments = {} 
 					const attachmentCount = rowAttachments.length;
 
 					return (
-						<Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+						<Box
+							sx={{
+								display: "flex",
+								alignItems: "center",
+								justifyContent: "space-between",
+								width: "100%",
+							}}
+						>
 							<Box component="span">{formatDate(cell.getValue<number>())}</Box>
 							{attachmentCount > 0 && (
 								<Tooltip title={`${attachmentCount} attachments`}>
-									<Box sx={{ display: "flex", alignItems: "center", color: "text.secondary", ml: 1 }}>
+									<Box
+										sx={{ display: "flex", alignItems: "center", color: "text.secondary", ml: 1 }}
+									>
 										<AttachFileIcon sx={{ fontSize: 16, transform: "rotate(45deg)" }} />
 										<Box component="span" sx={{ fontSize: "0.75rem", fontWeight: 600 }}>
 											{attachmentCount}

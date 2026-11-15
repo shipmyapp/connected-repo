@@ -52,15 +52,9 @@ const createJournalEntryRequest = openApiAuthProcedure
 		// tenant-scoped ALS run, the tenant override is respected automatically.
 		const tenantTeamId = getRequestContext()?.tenantTeamId ?? null;
 		db.$transaction(async () => {
-			const entry = await db.journalEntries
-				.create(input.data)
-				.onConflictDoNothing();
+			const entry = await db.journalEntries.create(input.data).onConflictDoNothing();
 			if (entry) {
-				await incrementSubscriptionUsage(
-					subscription.subscriptionId,
-					teamApi,
-					tenantTeamId,
-				);
+				await incrementSubscriptionUsage(subscription.subscriptionId, teamApi, tenantTeamId);
 			}
 			return entry;
 		}).catch((err) =>

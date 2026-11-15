@@ -36,15 +36,11 @@ export const generateS3Key = (options: {
 export const generatePublicUrl = (key: string): string => {
 	if (env.S3_PUBLIC_URL) {
 		// If a custom public URL is provided (e.g., Cloudflare R2 custom domain)
-		const baseUrl = env.S3_PUBLIC_URL.endsWith("/")
-			? env.S3_PUBLIC_URL
-			: `${env.S3_PUBLIC_URL}/`;
+		const baseUrl = env.S3_PUBLIC_URL.endsWith("/") ? env.S3_PUBLIC_URL : `${env.S3_PUBLIC_URL}/`;
 		return `${baseUrl}${key}`;
 	}
 
 	// Fallback to standard S3 endpoint format
-	const baseUrl = env.S3_ENDPOINT.endsWith("/")
-		? env.S3_ENDPOINT
-		: `${env.S3_ENDPOINT}/`;
+	const baseUrl = env.S3_ENDPOINT.endsWith("/") ? env.S3_ENDPOINT : `${env.S3_ENDPOINT}/`;
 	return `${baseUrl}${env.S3_BUCKET_NAME}/${key}`;
 };

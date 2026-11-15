@@ -61,22 +61,21 @@ export async function silentSyncDispatchTick(): Promise<void> {
 					totalFailure += res.failureCount;
 					// Collect tokens FCM reports as unregistered so the reconcile
 					// cron can prune them on the next nightly pass.
-					res.responses.forEach((r: { success: boolean; error?: { code?: string } }, idx: number) => {
-						if (
-							!r.success &&
-							(r.error?.code === "messaging/registration-token-not-registered" ||
-								r.error?.code === "messaging/invalid-registration-token")
-						) {
-							const token = batch[idx];
-							if (token) invalidTokens.push(token);
-						}
-					});
+					res.responses.forEach(
+						(r: { success: boolean; error?: { code?: string } }, idx: number) => {
+							if (
+								!r.success &&
+								(r.error?.code === "messaging/registration-token-not-registered" ||
+									r.error?.code === "messaging/invalid-registration-token")
+							) {
+								const token = batch[idx];
+								if (token) invalidTokens.push(token);
+							}
+						},
+					);
 				} catch (err) {
 					totalFailure += batch.length;
-					logger.warn(
-						{ err, batchSize: batch.length },
-						"[silent-sync] FCM multicast batch failed",
-					);
+					logger.warn({ err, batchSize: batch.length }, "[silent-sync] FCM multicast batch failed");
 				}
 			}
 
@@ -84,12 +83,10 @@ export async function silentSyncDispatchTick(): Promise<void> {
 				// Soft-delete unregistered tokens so we don't burn API calls on
 				// them next tick. Nightly reconcile does the deeper Novu-side
 				// prune; this handles the FCM-side signal we already have.
-				await db.pushDevices
-					.where({ fcmToken: { in: invalidTokens } })
-					.update({
-						uninstalledAt: Date.now(),
-						deactivationReason: "fcm_invalid",
-					});
+				await db.pushDevices.where({ fcmToken: { in: invalidTokens } }).update({
+					uninstalledAt: Date.now(),
+					deactivationReason: "fcm_invalid",
+				});
 			}
 
 			logger.info(

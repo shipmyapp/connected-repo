@@ -13,11 +13,7 @@ import { NodeSDK } from "@opentelemetry/sdk-node";
 import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-node";
 import { ORPCInstrumentation } from "@orpc/otel";
 import * as Sentry from "@sentry/node";
-import {
-	SentryPropagator,
-	SentrySampler,
-	SentrySpanProcessor,
-} from "@sentry/opentelemetry";
+import { SentryPropagator, SentrySampler, SentrySpanProcessor } from "@sentry/opentelemetry";
 import { nodeProfilingIntegration } from "@sentry/profiling-node";
 import { normalizeUrl, normalizeUrlPath } from "@backend/utils/sentry_url_template";
 

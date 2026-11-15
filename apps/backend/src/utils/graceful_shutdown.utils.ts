@@ -44,10 +44,7 @@ const GRACEFUL_SHUTDOWN_TIMEOUT = Number.parseInt(
 	process.env.GRACEFUL_SHUTDOWN_TIMEOUT || "30000",
 	10,
 );
-const AGENT_TASK_TIMEOUT = Number.parseInt(
-	process.env.AGENT_TASK_TIMEOUT || "300000",
-	10,
-);
+const AGENT_TASK_TIMEOUT = Number.parseInt(process.env.AGENT_TASK_TIMEOUT || "300000", 10);
 
 let isShuttingDown = false;
 let activeRequests = 0;
@@ -112,10 +109,7 @@ export const handleServerClose = (server: Server) => {
 			const remainingTime = agentTimeout - (Date.now() - shutdownStartTime);
 
 			if (remainingTime > 0 && activeRequests > 0) {
-				logger.info(
-					{ remainingTime, activeRequests },
-					"Waiting for long-running agent tasks...",
-				);
+				logger.info({ remainingTime, activeRequests }, "Waiting for long-running agent tasks...");
 				await waitForActiveRequests(remainingTime);
 			}
 

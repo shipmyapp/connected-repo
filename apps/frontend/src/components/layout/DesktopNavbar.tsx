@@ -18,9 +18,7 @@ export const DesktopNavbar = () => {
 	const { activeWorkspace } = useWorkspace();
 
 	const isActive = (path: string) => location.pathname === path;
-	const teamSettingsPath = activeWorkspace.id
-		? `/teams/${activeWorkspace.id}/settings`
-		: null;
+	const teamSettingsPath = activeWorkspace.id ? `/teams/${activeWorkspace.id}/settings` : null;
 
 	return (
 		<AppBar
@@ -70,9 +68,7 @@ export const DesktopNavbar = () => {
 						borderRadius: 2,
 						cursor: teamSettingsPath ? "pointer" : "default",
 						mr: 2,
-						"&:hover": teamSettingsPath
-							? { bgcolor: "action.hover" }
-							: undefined,
+						"&:hover": teamSettingsPath ? { bgcolor: "action.hover" } : undefined,
 					}}
 				>
 					<Stack direction="row" spacing={1} alignItems="center">
@@ -80,10 +76,7 @@ export const DesktopNavbar = () => {
 							sx={{
 								width: 28,
 								height: 28,
-								bgcolor:
-									activeWorkspace.type === "personal"
-										? "primary.main"
-										: "secondary.main",
+								bgcolor: activeWorkspace.type === "personal" ? "primary.main" : "secondary.main",
 								fontSize: "0.9rem",
 							}}
 						>
@@ -105,18 +98,12 @@ export const DesktopNavbar = () => {
 								px: 2,
 								py: 1,
 								borderRadius: 2,
-								color: isActive(item.path)
-									? "primary.main"
-									: "text.secondary",
-								bgcolor: isActive(item.path)
-									? "primary.lighter"
-									: "transparent",
+								color: isActive(item.path) ? "primary.main" : "text.secondary",
+								bgcolor: isActive(item.path) ? "primary.lighter" : "transparent",
 								fontWeight: isActive(item.path) ? 600 : 500,
 								transition: "all 0.2s ease-in-out",
 								"&:hover": {
-									bgcolor: isActive(item.path)
-										? "primary.light"
-										: "action.hover",
+									bgcolor: isActive(item.path) ? "primary.light" : "action.hover",
 									transform: "translateY(-2px)",
 								},
 								"&:active": { transform: "translateY(0)" },

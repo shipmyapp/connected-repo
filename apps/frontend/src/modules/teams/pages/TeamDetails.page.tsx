@@ -45,9 +45,7 @@ export default function TeamDetailsPage() {
 		);
 	}
 
-	const visibleEntries = user?.id
-		? entries.filter((e) => e.authorUserId !== user.id)
-		: entries;
+	const visibleEntries = user?.id ? entries.filter((e) => e.authorUserId !== user.id) : entries;
 
 	return (
 		<Container maxWidth="lg" sx={{ py: 4 }}>

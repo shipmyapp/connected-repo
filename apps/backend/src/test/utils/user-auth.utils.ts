@@ -41,9 +41,7 @@ const userLogin = async (loginCredentials: UserLoginCredentials) => {
 		user,
 	};
 };
-export const createUserAndLogin = async (
-	userInput: Partial<UserCreateInput> = {},
-) => {
+export const createUserAndLogin = async (userInput: Partial<UserCreateInput> = {}) => {
 	const password = "password123";
 	const fixture = userCreateFixture(userInput);
 	const email = fixture.email ?? "test@example.com";

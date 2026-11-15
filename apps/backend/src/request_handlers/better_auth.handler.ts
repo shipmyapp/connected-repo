@@ -3,10 +3,7 @@ import { auth } from "@backend/modules/auth/auth.config";
 import { captureBackendException } from "@backend/utils/backend-error-tracking.utils";
 import { handleBetterAuthCors } from "@backend/utils/cors.utils";
 import { logger } from "@backend/utils/logger.utils";
-import type {
-	NodeHttpRequest,
-	NodeHttpResponse,
-} from "@orpc/standard-server-node";
+import type { NodeHttpRequest, NodeHttpResponse } from "@orpc/standard-server-node";
 import { toNodeHandler } from "better-auth/node";
 
 export const betterAuthHandler = {
@@ -26,10 +23,7 @@ export const betterAuthHandler = {
 		try {
 			return await authHandler(req as IncomingMessage, res as ServerResponse);
 		} catch (err) {
-			logger.error(
-				{ err, url: req.url, method: req.method },
-				"better-auth handler threw",
-			);
+			logger.error({ err, url: req.url, method: req.method }, "better-auth handler threw");
 			captureBackendException(err, {
 				captureAll: true,
 				context: { url: req.url, method: req.method },

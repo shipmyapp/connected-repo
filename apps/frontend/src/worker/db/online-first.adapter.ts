@@ -108,10 +108,7 @@ export function isRecoverableError(err: unknown): boolean {
 async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	const timeout = new Promise<never>((_, reject) => {
-		timer = setTimeout(
-			() => reject(new Error(TIMEOUT_SENTINEL_MESSAGE)),
-			ms,
-		);
+		timer = setTimeout(() => reject(new Error(TIMEOUT_SENTINEL_MESSAGE)), ms);
 	});
 	try {
 		return await Promise.race([promise, timeout]);
@@ -126,8 +123,7 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
  * navigator flipped offline, it's expected — log at `debug`.
  */
 function logFallback(label: string, err: unknown): void {
-	const stillOnline =
-		typeof navigator !== "undefined" ? navigator.onLine : true;
+	const stillOnline = typeof navigator !== "undefined" ? navigator.onLine : true;
 	// biome-ignore lint/suspicious/noConsole: surface online-path failures so devs know sync kicked in
 	(stillOnline ? console.warn : console.debug)(
 		`[OnlineFirstAdapter] ${label}: online path failed; deferring to sync queue`,
@@ -265,9 +261,7 @@ export interface OnlineFirstDeleteOptions {
  *     a push-delete queue yet, so silently tombstoning would create a
  *     row the UI can't show but the server still has.
  */
-export async function deleteOnlineFirst(
-	opts: OnlineFirstDeleteOptions,
-): Promise<WriteResult> {
+export async function deleteOnlineFirst(opts: OnlineFirstDeleteOptions): Promise<WriteResult> {
 	if (!opts.isConfirmed) {
 		await opts.hardDeleteLocal();
 		return { status: "savedOnline" };
@@ -303,9 +297,7 @@ export interface OnlineOnlyWriteOptions<T> {
  * (4xx) errors verbatim so the caller can distinguish "server refused"
  * from "network was down."
  */
-export async function onlineOnlyWrite<T>(
-	opts: OnlineOnlyWriteOptions<T>,
-): Promise<T> {
+export async function onlineOnlyWrite<T>(opts: OnlineOnlyWriteOptions<T>): Promise<T> {
 	const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 	try {
 		return await withTimeout(opts.op(), timeoutMs);
@@ -354,10 +346,7 @@ export async function readWithFallback<T>(
 		if (opts.writeOnSuccess) {
 			void opts.writeOnSuccess(data).catch((err) => {
 				// biome-ignore lint/suspicious/noConsole: fire-and-forget cache backfill
-				console.debug(
-					`[OnlineFirstAdapter] ${label}: writeOnSuccess failed`,
-					err,
-				);
+				console.debug(`[OnlineFirstAdapter] ${label}: writeOnSuccess failed`, err);
 			});
 		}
 		return { data, source: "online" };

@@ -15,9 +15,7 @@ const syncNovuFcmCredentials = async (userId: string): Promise<void> => {
 	if (!novu) return;
 
 	const activeTokens = (
-		await db.pushDevices
-			.where({ userId, uninstalledAt: null })
-			.select("fcmToken")
+		await db.pushDevices.where({ userId, uninstalledAt: null }).select("fcmToken")
 	).map((row) => row.fcmToken);
 
 	try {
@@ -141,19 +139,14 @@ export const registerFcmDevice = async (params: {
  * soft-delete rolls back and the user can retry, avoiding a "revoked locally,
  * still-active on Novu" split-brain that would keep push flowing.
  */
-export const revokeFcmDevice = async (params: {
-	userId: string;
-	fcmToken: string;
-}) => {
+export const revokeFcmDevice = async (params: { userId: string; fcmToken: string }) => {
 	const { userId, fcmToken } = params;
 
 	await db.$transaction(async () => {
-		await db.pushDevices
-			.where({ userId, fcmToken, uninstalledAt: null })
-			.update({
-				uninstalledAt: Date.now(),
-				deactivationReason: "user_revoked",
-			});
+		await db.pushDevices.where({ userId, fcmToken, uninstalledAt: null }).update({
+			uninstalledAt: Date.now(),
+			deactivationReason: "user_revoked",
+		});
 
 		await syncNovuFcmCredentials(userId);
 	});

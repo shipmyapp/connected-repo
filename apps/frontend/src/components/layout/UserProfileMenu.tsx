@@ -23,10 +23,7 @@ interface UserProfileMenuProps {
 	showUserInfo?: boolean;
 }
 
-export const UserProfileMenu = ({
-	trigger,
-	showUserInfo = true,
-}: UserProfileMenuProps) => {
+export const UserProfileMenu = ({ trigger, showUserInfo = true }: UserProfileMenuProps) => {
 	const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 	const navigate = useNavigate();
 	const open = Boolean(anchorEl);
@@ -136,20 +133,10 @@ export const UserProfileMenu = ({
 				{/* User Info Header */}
 				{showUserInfo && user && (
 					<Box sx={{ px: 2, py: 1.5 }}>
-						<Typography
-							variant="subtitle2"
-							fontWeight={600}
-							color="text.primary"
-							noWrap
-						>
+						<Typography variant="subtitle2" fontWeight={600} color="text.primary" noWrap>
 							{user.name || "User"}
 						</Typography>
-						<Typography
-							variant="caption"
-							color="text.secondary"
-							noWrap
-							sx={{ display: "block" }}
-						>
+						<Typography variant="caption" color="text.secondary" noWrap sx={{ display: "block" }}>
 							{user.email}
 						</Typography>
 					</Box>
@@ -205,14 +192,8 @@ export const UserProfileMenu = ({
 						},
 					}}
 				>
-					{isDarkMode ? (
-						<LightModeIcon fontSize="small" />
-					) : (
-						<DarkModeIcon fontSize="small" />
-					)}
-					<Typography variant="body2">
-						{isDarkMode ? "Light Mode" : "Dark Mode"}
-					</Typography>
+					{isDarkMode ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
+					<Typography variant="body2">{isDarkMode ? "Light Mode" : "Dark Mode"}</Typography>
 				</MenuItem>
 
 				<Divider />

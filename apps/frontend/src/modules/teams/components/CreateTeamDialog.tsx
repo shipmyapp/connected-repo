@@ -1,6 +1,13 @@
 import { mirrorToLocalDb } from "@frontend/utils/mirror_to_local_db";
 import { orpc } from "@frontend/utils/orpc.tanstack.client";
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField } from "@mui/material";
+import {
+	Button,
+	Dialog,
+	DialogActions,
+	DialogContent,
+	DialogTitle,
+	TextField,
+} from "@mui/material";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type React from "react";
 import { useState } from "react";
@@ -15,21 +22,23 @@ export default function CreateTeamDialog({ open, onClose }: CreateTeamDialogProp
 	const [name, setName] = useState("");
 	const queryClient = useQueryClient();
 
-	const createTeamMutation = useMutation(orpc.teams.createTeam.mutationOptions({
-		onSuccess: async (createdTeam) => {
-			// Mirror the freshly-created team into Dexie so the local
-			// mirror is consistent immediately, without waiting for the
-			// next sync pull cycle.
-			await mirrorToLocalDb({ table: "teamsApp", rows: [createdTeam] });
-			toast.success("Team created successfully!");
-			queryClient.invalidateQueries(orpc.teams.getMyTeams.queryOptions({}));
-			onClose();
-			setName("");
-		},
-		onError: (error) => {
-			toast.error(`Failed to create team: ${error.message}`);
-		}
-	}));
+	const createTeamMutation = useMutation(
+		orpc.teams.createTeam.mutationOptions({
+			onSuccess: async (createdTeam) => {
+				// Mirror the freshly-created team into Dexie so the local
+				// mirror is consistent immediately, without waiting for the
+				// next sync pull cycle.
+				await mirrorToLocalDb({ table: "teamsApp", rows: [createdTeam] });
+				toast.success("Team created successfully!");
+				queryClient.invalidateQueries(orpc.teams.getMyTeams.queryOptions({}));
+				onClose();
+				setName("");
+			},
+			onError: (error) => {
+				toast.error(`Failed to create team: ${error.message}`);
+			},
+		}),
+	);
 
 	const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
@@ -57,10 +66,12 @@ export default function CreateTeamDialog({ open, onClose }: CreateTeamDialogProp
 					/>
 				</DialogContent>
 				<DialogActions sx={{ px: 3, pb: 2 }}>
-					<Button onClick={onClose} color="inherit">Cancel</Button>
-					<Button 
-						type="submit" 
-						variant="contained" 
+					<Button onClick={onClose} color="inherit">
+						Cancel
+					</Button>
+					<Button
+						type="submit"
+						variant="contained"
 						disabled={!name.trim() || createTeamMutation.isPending}
 					>
 						{createTeamMutation.isPending ? "Creating..." : "Create Team"}

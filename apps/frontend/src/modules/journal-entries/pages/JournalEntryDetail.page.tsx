@@ -8,10 +8,7 @@ import { useActiveTeamId } from "@frontend/contexts/WorkspaceContext";
 import { mirrorToLocalDb } from "@frontend/utils/mirror_to_local_db";
 import { orpcFetch } from "@frontend/utils/orpc.client";
 import { orpc } from "@frontend/utils/orpc.tanstack.client";
-import {
-	deleteOnlineFirst,
-	OfflineWriteError,
-} from "@frontend/worker/db/online-first.adapter";
+import { deleteOnlineFirst, OfflineWriteError } from "@frontend/worker/db/online-first.adapter";
 import { getDataProxy } from "@frontend/worker/worker.proxy";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
@@ -68,8 +65,7 @@ export default function JournalEntryDetailPage() {
 			// createdAt is stamped from the server. A pending-only row can
 			// only be reached via the local mirror path — future edit UI
 			// might expose that, and this branching handles it.
-			const isConfirmed =
-				(journalEntry as { createdAt?: number | null }).createdAt != null;
+			const isConfirmed = (journalEntry as { createdAt?: number | null }).createdAt != null;
 			try {
 				await deleteOnlineFirst({
 					entityName: "journalEntry",

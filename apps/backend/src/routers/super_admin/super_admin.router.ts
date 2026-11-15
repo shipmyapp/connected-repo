@@ -10,11 +10,7 @@ import {
 	featureFlagSelectAllZod,
 	featureFlagSetInputZod,
 } from "@connected-repo/zod-schemas/feature_flag.zod";
-import type {
-	InferRouterInputs,
-	InferRouterOutputs,
-	RouterClient,
-} from "@orpc/server";
+import type { InferRouterInputs, InferRouterOutputs, RouterClient } from "@orpc/server";
 import { z } from "zod";
 
 /**
@@ -100,6 +96,4 @@ export const superAdminRouter = {
 
 export type SuperAdminRouter = RouterClient<typeof superAdminRouter>;
 export type SuperAdminRouterInputs = InferRouterInputs<typeof superAdminRouter>;
-export type SuperAdminRouterOutputs = InferRouterOutputs<
-	typeof superAdminRouter
->;
+export type SuperAdminRouterOutputs = InferRouterOutputs<typeof superAdminRouter>;

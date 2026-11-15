@@ -13,4 +13,4 @@ export const SuccessAlert = ({ message, ...props }: SuccessAlertProps) => {
 			{message}
 		</Alert>
 	);
-}
+};

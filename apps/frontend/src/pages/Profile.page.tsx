@@ -84,8 +84,7 @@ export default function ProfilePage() {
 								Active Team
 							</Typography>
 							<Typography variant="body2" color="text.secondary">
-								Every request is scoped to this team. Switching updates
-								the server and reloads data.
+								Every request is scoped to this team. Switching updates the server and reloads data.
 							</Typography>
 						</Box>
 						<Button
@@ -120,9 +119,7 @@ export default function ProfilePage() {
 										cursor: isSwitching ? "wait" : "pointer",
 										opacity: isSwitching && !isActive ? 0.6 : 1,
 										transition: "all 0.15s ease-in-out",
-										"&:hover": !isSwitching && !isActive
-											? { bgcolor: "action.hover" }
-											: undefined,
+										"&:hover": !isSwitching && !isActive ? { bgcolor: "action.hover" } : undefined,
 									}}
 								>
 									{isActive ? (

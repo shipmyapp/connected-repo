@@ -52,16 +52,12 @@ export async function pushJournalEntryCreatesService(
 		for (let i = 0; i < input.creates.length; i += 10) {
 			const batch = input.creates.slice(i, i + 10);
 			const settled = await Promise.allSettled(
-				batch.map((rec) =>
-					db.$transaction(() => insertOne(rec, authorUserId, activeTeamId)),
-				),
+				batch.map((rec) => db.$transaction(() => insertOne(rec, authorUserId, activeTeamId))),
 			);
 			settled.forEach((result, idx) => {
 				const rec = batch[idx];
 				if (!rec) {
-					throw new Error(
-						"[journalEntries.pushCreates] Batch index out of bounds in fallback",
-					);
+					throw new Error("[journalEntries.pushCreates] Batch index out of bounds in fallback");
 				}
 				if (result.status === "fulfilled") {
 					results.push({ ok: true, id: rec.id, row: result.value });
@@ -69,10 +65,7 @@ export async function pushJournalEntryCreatesService(
 					results.push({
 						ok: false,
 						id: rec.id,
-						error:
-							result.reason instanceof Error
-								? result.reason.message
-								: String(result.reason),
+						error: result.reason instanceof Error ? result.reason.message : String(result.reason),
 					});
 				}
 			});
@@ -167,11 +160,9 @@ async function tryBulkInsert(
 	// silently skipped by the conflict handler AND no prior row exists,
 	// which shouldn't happen but is treated as an error for safety.
 	const parentIds = creates.map((c) => c.id);
-	const rows = await db.journalEntries
-		.where({ id: { in: parentIds } })
-		.select("*", {
-			files: (q) => q.files.selectAll(),
-		});
+	const rows = await db.journalEntries.where({ id: { in: parentIds } }).select("*", {
+		files: (q) => q.files.selectAll(),
+	});
 	const rowById = new Map(rows.map((r) => [r.id, r]));
 
 	return creates.map((c): JournalEntryPushCreatesResult => {

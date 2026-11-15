@@ -1,10 +1,7 @@
 import { allowedOrigins } from "@backend/configs/allowed_origins.config";
 import { isDev } from "@backend/configs/env.config";
 import { superAdminRouter } from "@backend/routers/super_admin/super_admin.router";
-import {
-	TRACE_HEADERS_ALLOW,
-	TRACE_HEADERS_EXPOSE,
-} from "@backend/utils/cors.utils";
+import { TRACE_HEADERS_ALLOW, TRACE_HEADERS_EXPOSE } from "@backend/utils/cors.utils";
 import { handleBoundaryError } from "@backend/utils/errorParser";
 import { logger } from "@backend/utils/logger.utils";
 import { trace } from "@opentelemetry/api";
@@ -22,12 +19,7 @@ export const superAdminHandler = new OpenAPIHandler(superAdminRouter, {
 		new CORSPlugin({
 			origin: [...allowedOrigins],
 			allowMethods: ["GET", "POST", "OPTIONS"],
-			allowHeaders: [
-				"content-type",
-				"authorization",
-				"x-csrf-token",
-				...TRACE_HEADERS_ALLOW,
-			],
+			allowHeaders: ["content-type", "authorization", "x-csrf-token", ...TRACE_HEADERS_ALLOW],
 			exposeHeaders: [...TRACE_HEADERS_EXPOSE],
 			credentials: true,
 		}),

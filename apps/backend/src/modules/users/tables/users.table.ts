@@ -1,9 +1,6 @@
 import { BaseTable } from "@backend/db/base_table";
 import { db } from "@backend/db/db";
-import {
-	userCreatedEventDef,
-	userDeletedEventDef,
-} from "@backend/events/events.schema";
+import { userCreatedEventDef, userDeletedEventDef } from "@backend/events/events.schema";
 import { orchidToTbusQueryAdapter } from "@backend/events/events.utils";
 import { tbus } from "@backend/events/tbus";
 import { TeamMemberTable } from "@backend/modules/teams/tables/team_members.table";
@@ -33,9 +30,7 @@ export class UserTable extends BaseTable {
 		// Consumers that emit this column through a zod output validator
 		// (see notifications.router#getReminderTimes) strip seconds at the
 		// boundary. Left in place documenting intent for a future ORM upgrade.
-		journalReminderTimes: t
-			.array(t.time().parse((v) => v.slice(0, 5)))
-			.default([]),
+		journalReminderTimes: t.array(t.time().parse((v) => v.slice(0, 5))).default([]),
 		activeTeamAppId: t
 			.ulid()
 			.foreignKey("teams_app", "id", {
@@ -71,20 +66,16 @@ export class UserTable extends BaseTable {
 						// 1. Claim any orphan memberships the user was invited to
 						//    before they signed up.
 						if (user.email) {
-							await db.teamMembers
-								.where({ email: user.email, userId: null })
-								.update({
-									userId: user.id,
-									joinedAt: Date.now(),
-								});
+							await db.teamMembers.where({ email: user.email, userId: null }).update({
+								userId: user.id,
+								joinedAt: Date.now(),
+							});
 						}
 						if (user.phoneNumber) {
-							await db.teamMembers
-								.where({ phoneNumber: user.phoneNumber, userId: null })
-								.update({
-									userId: user.id,
-									joinedAt: Date.now(),
-								});
+							await db.teamMembers.where({ phoneNumber: user.phoneNumber, userId: null }).update({
+								userId: user.id,
+								joinedAt: Date.now(),
+							});
 						}
 
 						// 2. Create the personal team + Owner membership. The team
@@ -114,9 +105,7 @@ export class UserTable extends BaseTable {
 						// 3. Stamp the personal team as active so the client is
 						//    ready to sync on first login without any extra
 						//    round-trip.
-						await db.users
-							.where({ id: user.id })
-							.update({ activeTeamAppId: personalTeam.id });
+						await db.users.where({ id: user.id }).update({ activeTeamAppId: personalTeam.id });
 
 						// 4. Publish the user.created event once the email is
 						//    verified (marketing / onboarding webhook fan-out).

@@ -20,11 +20,7 @@ interface PwaInstallHostProps {
 	icon?: string;
 }
 
-export const PwaInstallHost = ({
-	children,
-	manifestUrl,
-	icon,
-}: PwaInstallHostProps) => {
+export const PwaInstallHost = ({ children, manifestUrl, icon }: PwaInstallHostProps) => {
 	const state = usePwaInstall();
 
 	return (

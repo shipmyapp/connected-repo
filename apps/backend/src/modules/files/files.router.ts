@@ -1,10 +1,7 @@
 import { db } from "@backend/db/db";
 import { rpcProtectedActiveTeamProcedure } from "@backend/procedures/protected.procedure";
 import { fileTableNameZod } from "@connected-repo/zod-schemas/enums.zod";
-import {
-	fileCreateInputZod,
-	fileSelectAllZod,
-} from "@connected-repo/zod-schemas/file.zod";
+import { fileCreateInputZod, fileSelectAllZod } from "@connected-repo/zod-schemas/file.zod";
 import {
 	filePullBundlesInputZod,
 	filePullBundlesOutputZod,
@@ -12,10 +9,7 @@ import {
 	filePushCdnUpdatesOutputZod,
 } from "@connected-repo/zod-schemas/files/sync";
 import { z } from "zod";
-import {
-	pullFilesService,
-	pushFilesCdnUpdatesService,
-} from "./services/sync.files.service";
+import { pullFilesService, pushFilesCdnUpdatesService } from "./services/sync.files.service";
 
 const create = rpcProtectedActiveTeamProcedure
 	.route({ method: "POST", tags: ["Files"] })

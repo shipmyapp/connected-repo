@@ -123,7 +123,10 @@ export const zGSTIN = zString
 		return gstin[14] === GSTIN_CHARS[checksumCodePoint];
 	}, "Invalid GSTIN checksum");
 
-export const zPAN = zString.toUpperCase().length(10).regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/);
+export const zPAN = zString
+	.toUpperCase()
+	.length(10)
+	.regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/);
 
 export const zUdyogAadhaar = zString
 	.toUpperCase()

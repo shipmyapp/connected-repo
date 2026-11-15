@@ -52,9 +52,7 @@ export const NotificationBanner = () => {
 			toast.success("Notifications enabled");
 			setVisible(false);
 		} else if (result === "denied") {
-			toast.info(
-				"Enable notifications in your browser settings to receive push alerts.",
-			);
+			toast.info("Enable notifications in your browser settings to receive push alerts.");
 		}
 	};
 
@@ -78,12 +76,7 @@ export const NotificationBanner = () => {
 			sx={{ borderRadius: 2, boxShadow: 1 }}
 			action={
 				<Stack direction="row" spacing={1}>
-					<Button
-						onClick={handleDismiss}
-						color="inherit"
-						size="small"
-						disabled={pending}
-					>
+					<Button onClick={handleDismiss} color="inherit" size="small" disabled={pending}>
 						Dismiss
 					</Button>
 					<Button
@@ -92,11 +85,7 @@ export const NotificationBanner = () => {
 						size="small"
 						disabled={pending}
 					>
-						{needsInstallFirst
-							? "Install app"
-							: pending
-								? "Requesting…"
-								: "Enable notifications"}
+						{needsInstallFirst ? "Install app" : pending ? "Requesting…" : "Enable notifications"}
 					</Button>
 				</Stack>
 			}

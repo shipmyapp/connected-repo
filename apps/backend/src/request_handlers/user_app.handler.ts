@@ -1,10 +1,7 @@
 import { allowedOrigins } from "@backend/configs/allowed_origins.config";
 import { isDev, isProd, isStaging } from "@backend/configs/env.config";
 import { userAppRouter } from "@backend/routers/user_app/user_app.router";
-import {
-	TRACE_HEADERS_ALLOW,
-	TRACE_HEADERS_EXPOSE,
-} from "@backend/utils/cors.utils";
+import { TRACE_HEADERS_ALLOW, TRACE_HEADERS_EXPOSE } from "@backend/utils/cors.utils";
 import { handleBoundaryError } from "@backend/utils/errorParser";
 import { logger } from "@backend/utils/logger.utils";
 import { trace } from "@opentelemetry/api";
@@ -47,9 +44,7 @@ export const reactAppHandler = new RPCHandler(userAppRouter, {
 			? [
 					new SimpleCsrfProtectionHandlerPlugin({
 						exclude: async ({ context }) => {
-							const authHeader = context.reqHeaders
-								?.get("authorization")
-								?.trim();
+							const authHeader = context.reqHeaders?.get("authorization")?.trim();
 							if (authHeader && /^bearer\s+/i.test(authHeader)) {
 								return true;
 							}
@@ -79,10 +74,7 @@ export const reactAppHandler = new RPCHandler(userAppRouter, {
 				// CSRF-related errors so we don't spam the log for auth/etc.
 				const errCode = (error as { code?: string })?.code;
 				const errMsg = (error as { message?: string })?.message ?? "";
-				if (
-					errCode === "CSRF_TOKEN_MISMATCH" ||
-					errMsg.toLowerCase().includes("csrf")
-				) {
+				if (errCode === "CSRF_TOKEN_MISMATCH" || errMsg.toLowerCase().includes("csrf")) {
 					// Node HTTP headers: header names are already lowercased,
 					// values can be string | string[] | undefined. Collapse
 					// arrays for readable log lines.

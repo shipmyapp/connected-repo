@@ -38,7 +38,6 @@ export const journalEntryCreatedWorkflow = workflow(
 			additionalProperties: false,
 		} as const,
 		name: "Journal Entry Created",
-		description:
-			"Notifies team members (excluding the author) when a new journal entry lands.",
+		description: "Notifies team members (excluding the author) when a new journal entry lands.",
 	},
 );

@@ -39,9 +39,7 @@ export const orchidAdapter = (
 			supportsArrays: true,
 			transaction: false as
 				| false
-				| (<R>(
-						cb: (trx: DBTransactionAdapter<BetterAuthOptions>) => Promise<R>,
-				  ) => Promise<R>),
+				| (<R>(cb: (trx: DBTransactionAdapter<BetterAuthOptions>) => Promise<R>) => Promise<R>),
 			disableIdGeneration: true,
 		},
 	};

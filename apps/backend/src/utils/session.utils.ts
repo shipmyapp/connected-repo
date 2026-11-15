@@ -23,9 +23,7 @@ import type { UserSelectAll } from "@connected-repo/zod-schemas/user.zod";
  * const session = transformSessionData(sessionData.session);
  * ```
  */
-const transformSessionData = (
-	rawSession: BetterAuthSession["session"],
-): ActiveSessionSelectAll => {
+const transformSessionData = (rawSession: BetterAuthSession["session"]): ActiveSessionSelectAll => {
 	return {
 		...rawSession,
 		userAgent: rawSession.userAgent ?? null,
@@ -55,9 +53,7 @@ const transformSessionData = (
  * const user = transformUserData(sessionData.user);
  * ```
  */
-const transformUserData = (
-	rawUser: BetterAuthSession["user"],
-): UserSelectAll => {
+const transformUserData = (rawUser: BetterAuthSession["user"]): UserSelectAll => {
 	return {
 		...rawUser,
 		image: rawUser.image ?? null,

@@ -68,12 +68,8 @@ export const getDataProxy = (): Promise<Comlink.Remote<DataWorkerAPI>> => {
 			.then(() => {
 				if (!mediaWorker) return;
 				const channel = new MessageChannel();
-				mediaWorker.postMessage({ __connectMediaPort: channel.port2 }, [
-					channel.port2,
-				]);
-				void proxy.connectMediaPort(
-					Comlink.transfer(channel.port1, [channel.port1]),
-				);
+				mediaWorker.postMessage({ __connectMediaPort: channel.port2 }, [channel.port2]);
+				void proxy.connectMediaPort(Comlink.transfer(channel.port1, [channel.port1]));
 			})
 			.catch((err) => {
 				// biome-ignore lint/suspicious/noConsole: surface bridge-wiring failure in devtools

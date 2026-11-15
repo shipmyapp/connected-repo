@@ -1,5 +1,11 @@
 import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
-import { Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from "@connected-repo/ui-mui/feedback/Dialog";
+import {
+	Dialog,
+	DialogActions,
+	DialogContent,
+	DialogContentText,
+	DialogTitle,
+} from "@connected-repo/ui-mui/feedback/Dialog";
 import { Button } from "@connected-repo/ui-mui/form/Button";
 import { TextField } from "@connected-repo/ui-mui/form/TextField";
 import { ArrowBackIcon } from "@connected-repo/ui-mui/icons/ArrowBackIcon";
@@ -61,7 +67,11 @@ export function JournalEntryDetailView({
 			await onDelete();
 			navigate("/journal-entries", { replace: true });
 		} catch (error) {
-			setDeleteError(error instanceof Error ? error.message : "Failed to delete journal entry. Please try again.");
+			setDeleteError(
+				error instanceof Error
+					? error.message
+					: "Failed to delete journal entry. Please try again.",
+			);
 		}
 	};
 
@@ -82,11 +92,30 @@ export function JournalEntryDetailView({
 	};
 
 	const getFileIcon = (fileName: string) => {
-		const ext = fileName.split('.').pop()?.toLowerCase();
-		if (ext === 'pdf') return { icon: <PictureAsPdfIcon sx={{ fontSize: 48, color: 'error.main' }} />, label: 'PDF', bgcolor: '#fff5f5' };
-		if (['mp4', 'webm', 'mov', 'quicktime'].includes(ext || '')) return { icon: <VideoFileIcon sx={{ fontSize: 48, color: 'primary.main' }} />, label: 'Video', bgcolor: '#f0f7ff' };
-		if (['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif'].includes(ext || '')) return { icon: <HideImageIcon sx={{ fontSize: 48, color: 'text.disabled' }} />, label: 'Image', bgcolor: '#f5f5f5' };
-		return { icon: <FilePresentIcon sx={{ fontSize: 48, color: 'text.secondary' }} />, label: 'File', bgcolor: '#fafafa' };
+		const ext = fileName.split(".").pop()?.toLowerCase();
+		if (ext === "pdf")
+			return {
+				icon: <PictureAsPdfIcon sx={{ fontSize: 48, color: "error.main" }} />,
+				label: "PDF",
+				bgcolor: "#fff5f5",
+			};
+		if (["mp4", "webm", "mov", "quicktime"].includes(ext || ""))
+			return {
+				icon: <VideoFileIcon sx={{ fontSize: 48, color: "primary.main" }} />,
+				label: "Video",
+				bgcolor: "#f0f7ff",
+			};
+		if (["jpg", "jpeg", "png", "webp", "avif", "gif"].includes(ext || ""))
+			return {
+				icon: <HideImageIcon sx={{ fontSize: 48, color: "text.disabled" }} />,
+				label: "Image",
+				bgcolor: "#f5f5f5",
+			};
+		return {
+			icon: <FilePresentIcon sx={{ fontSize: 48, color: "text.secondary" }} />,
+			label: "File",
+			bgcolor: "#fafafa",
+		};
 	};
 
 	// Renders the attachment preview with a two-step fallback chain:
@@ -135,11 +164,7 @@ export function JournalEntryDetailView({
 				src={src}
 				alt={file.name}
 				onError={() => {
-					if (
-						!triedMain &&
-						file.thumbnailUrl &&
-						file.thumbnailUrl !== file.url
-					) {
+					if (!triedMain && file.thumbnailUrl && file.thumbnailUrl !== file.url) {
 						setTriedMain(true);
 					} else {
 						setFailed(true);
@@ -298,21 +323,21 @@ export function JournalEntryDetailView({
 						</Typography>
 
 						{attachments.length > 0 && (
-							<Box 
-								sx={{ 
-									display: "grid", 
+							<Box
+								sx={{
+									display: "grid",
 									gridTemplateColumns: {
 										xs: "repeat(1, 1fr)",
 										sm: "repeat(2, 1fr)",
-										md: "repeat(3, 1fr)"
+										md: "repeat(3, 1fr)",
 									},
-									gap: 2 
+									gap: 2,
 								}}
 							>
 								{attachments.map((file) => (
 									<Box
 										key={file.url || file.name}
-										sx={{ 
+										sx={{
 											position: "relative",
 											borderRadius: 2,
 											overflow: "hidden",
@@ -326,7 +351,7 @@ export function JournalEntryDetailView({
 											},
 											"&:hover .overlay": {
 												opacity: 1,
-											}
+											},
 										}}
 										onClick={() => window.open(file.url, "_blank")}
 									>
@@ -345,7 +370,7 @@ export function JournalEntryDetailView({
 												justifyContent: "center",
 												opacity: 0,
 												transition: "opacity 0.3s ease-in-out",
-												p: 2
+												p: 2,
 											}}
 										>
 											<Typography variant="caption" sx={{ color: "white", textAlign: "center" }}>
@@ -376,12 +401,7 @@ export function JournalEntryDetailView({
 			</Card>
 
 			{/* Delete Confirmation Dialog */}
-			<Dialog
-				open={deleteDialogOpen}
-				onClose={handleDeleteCancel}
-				maxWidth="sm"
-				fullWidth
-			>
+			<Dialog open={deleteDialogOpen} onClose={handleDeleteCancel} maxWidth="sm" fullWidth>
 				<DialogTitle>Delete Journal Entry?</DialogTitle>
 				<DialogContent>
 					<DialogContentText sx={{ mb: 3 }}>
@@ -409,10 +429,7 @@ export function JournalEntryDetailView({
 					/>
 				</DialogContent>
 				<DialogActions sx={{ px: 3, pb: 3 }}>
-					<Button
-						onClick={handleDeleteCancel}
-						disabled={isDeleting}
-					>
+					<Button onClick={handleDeleteCancel} disabled={isDeleting}>
 						Cancel
 					</Button>
 					<Button
@@ -435,4 +452,3 @@ export function JournalEntryDetailView({
 		</Box>
 	);
 }
-

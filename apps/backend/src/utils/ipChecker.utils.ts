@@ -15,21 +15,14 @@ function normalizeIPv6(ipv6: string): string {
 
 	if (doubleColonIndex !== -1) {
 		// Expand "::" notation
-		const leftParts = ipv6
-			.slice(0, doubleColonIndex)
-			.split(":")
-			.filter(Boolean);
+		const leftParts = ipv6.slice(0, doubleColonIndex).split(":").filter(Boolean);
 		const rightParts = ipv6
 			.slice(doubleColonIndex + 2)
 			.split(":")
 			.filter(Boolean);
 		const missingParts = 8 - leftParts.length - rightParts.length;
 
-		const expanded = [
-			...leftParts,
-			...Array(missingParts).fill("0"),
-			...rightParts,
-		];
+		const expanded = [...leftParts, ...Array(missingParts).fill("0"), ...rightParts];
 
 		return expanded.map((part) => part.padStart(4, "0")).join(":");
 	}

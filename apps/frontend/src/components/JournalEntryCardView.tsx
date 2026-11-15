@@ -117,8 +117,24 @@ export function JournalEntryCardView({
 							},
 						}}
 					>
-						<CardContent sx={{ flexGrow: 1, display: "flex", flexDirection: "column", p: { xs: 2, sm: 2.5, lg: 3 } }}>
-							<Box sx={{ mb: 2, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 1, width: "100%" }}>
+						<CardContent
+							sx={{
+								flexGrow: 1,
+								display: "flex",
+								flexDirection: "column",
+								p: { xs: 2, sm: 2.5, lg: 3 },
+							}}
+						>
+							<Box
+								sx={{
+									mb: 2,
+									display: "flex",
+									justifyContent: "space-between",
+									alignItems: "center",
+									gap: 1,
+									width: "100%",
+								}}
+							>
 								<Chip
 									label={entry.prompt || "Journal Entry"}
 									color="primary"
@@ -174,7 +190,14 @@ export function JournalEntryCardView({
 									</Typography>
 									<MultipleThumbnailPreview attachments={attachments[entry.id] || []} />
 									{(attachments[entry.id]?.length || 0) > 0 && (
-										<Box sx={{ display: "flex", alignItems: "center", gap: 0.3, color: "text.secondary" }}>
+										<Box
+											sx={{
+												display: "flex",
+												alignItems: "center",
+												gap: 0.3,
+												color: "text.secondary",
+											}}
+										>
 											<AttachFileIcon sx={{ fontSize: 14, transform: "rotate(45deg)" }} />
 											<Typography variant="caption" fontWeight={600}>
 												{attachments[entry.id]?.length || 0}

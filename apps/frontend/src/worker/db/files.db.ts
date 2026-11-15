@@ -57,9 +57,7 @@ export const filesDb = {
 		teamId: string,
 		tableName: FileSelectAll["tableName"],
 	): Promise<StoredFile[]> {
-		return await getClientDb()
-			.files.where({ teamId, tableName })
-			.toArray();
+		return await getClientDb().files.where({ teamId, tableName }).toArray();
 	},
 
 	/**
@@ -106,9 +104,7 @@ export const filesDb = {
 			mainLastAttemptAt: null,
 			mainChecksum,
 			mainOpfsPath,
-			thumbnailUploadState: canGenerateThumbnail(input.mimeType)
-				? "pending"
-				: "not_attempted",
+			thumbnailUploadState: canGenerateThumbnail(input.mimeType) ? "pending" : "not_attempted",
 			thumbnailUploadAttempts: 0,
 			thumbnailLastError: null,
 			thumbnailLastAttemptAt: null,
@@ -189,8 +185,8 @@ export const filesDb = {
 	},
 
 	async getCdnUpdatesNeedingPush(): Promise<StoredFile[]> {
-		return await getClientDb().files
-			.filter(
+		return await getClientDb()
+			.files.filter(
 				(f) =>
 					f.mainUploadState === "uploaded_to_cdn" ||
 					f.thumbnailUploadState === "uploaded_to_cdn" ||
@@ -354,8 +350,7 @@ export const filesDb = {
 			isMainFileLost: true,
 			mainUploadState: "lost",
 			mainOpfsPath: null,
-			thumbnailUploadState:
-				row.thumbnailUploadState === "uploaded" ? "uploaded" : "not_attempted",
+			thumbnailUploadState: row.thumbnailUploadState === "uploaded" ? "uploaded" : "not_attempted",
 			thumbnailOpfsPath: null,
 			syncError: null,
 			mainLastError: "Abandoned by user",
@@ -378,11 +373,9 @@ export const filesDb = {
 			mainLastError: null,
 			mainLastAttemptAt: null,
 			thumbnailUploadState:
-				row.thumbnailUploadState === "uploaded" ||
-				row.thumbnailUploadState === "uploaded_to_cdn"
+				row.thumbnailUploadState === "uploaded" || row.thumbnailUploadState === "uploaded_to_cdn"
 					? row.thumbnailUploadState
-					: row.mimeType.startsWith("image/") ||
-							row.mimeType === "application/pdf"
+					: row.mimeType.startsWith("image/") || row.mimeType === "application/pdf"
 						? "pending"
 						: "not_attempted",
 			thumbnailUploadAttempts: 0,

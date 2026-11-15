@@ -14,4 +14,4 @@ export const LoadingSpinner = ({ text, ...props }: LoadingSpinnerProps) => {
 			{text && <Typography>{text}</Typography>}
 		</Box>
 	);
-}
+};

@@ -329,11 +329,7 @@ export const PwaInstallSheet = () => {
 								boxShadow: `0 8px 20px ${alpha(theme.palette.primary.main, 0.35)}`,
 							}}
 						>
-							{pending
-								? "Opening…"
-								: showIosGuide
-									? "Show me how"
-									: "Install app"}
+							{pending ? "Opening…" : showIosGuide ? "Show me how" : "Install app"}
 						</Button>
 					</Stack>
 				</Stack>

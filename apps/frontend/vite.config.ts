@@ -2,8 +2,8 @@ import { sentryVitePlugin } from "@sentry/vite-plugin";
 import react from "@vitejs/plugin-react-swc";
 import path from "node:path";
 import { defineConfig, loadEnv } from "vite";
-import { analyzer } from 'vite-bundle-analyzer';
-import { VitePWA } from 'vite-plugin-pwa';
+import { analyzer } from "vite-bundle-analyzer";
+import { VitePWA } from "vite-plugin-pwa";
 import pkg from "./package.json";
 import { envValidationVitePlugin } from "./src/utils/env_validation_vite_plugin.utils";
 
@@ -29,8 +29,7 @@ export default defineConfig(({ mode }) => {
 	// VITE_API_URL='' (same-origin, matching prod), this is where /api/* gets
 	// forwarded. Override via VITE_DEV_BACKEND_PROXY_TARGET if the backend
 	// runs somewhere other than :3000 on the host.
-	const devBackendProxyTarget =
-		env.VITE_DEV_BACKEND_PROXY_TARGET || "http://localhost:3000";
+	const devBackendProxyTarget = env.VITE_DEV_BACKEND_PROXY_TARGET || "http://localhost:3000";
 
 	return {
 		base: "/",
@@ -71,19 +70,19 @@ export default defineConfig(({ mode }) => {
 				registerType: "prompt",
 				injectManifest: {
 					swSrc: "src/sw/sw.ts",
-					globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+					globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
 				},
 				workbox: {
-					cleanupOutdatedCaches: true
+					cleanupOutdatedCaches: true,
 				},
 				...(env.VITE_USER_NODE_ENV === "development"
 					? {
-						devOptions: {
-							enabled: true,
-							type: "module",
-							suppressWarnings: true,
+							devOptions: {
+								enabled: true,
+								type: "module",
+								suppressWarnings: true,
+							},
 						}
-					}
 					: {}),
 				manifest: {
 					name: "OneQ",
@@ -94,30 +93,30 @@ export default defineConfig(({ mode }) => {
 					theme_color: "#1976d2",
 					icons: [
 						{
-							src: 'android-chrome-192x192.png',
-							sizes: '192x192',
-							type: 'image/png',
-							purpose: 'any'
+							src: "android-chrome-192x192.png",
+							sizes: "192x192",
+							type: "image/png",
+							purpose: "any",
 						},
 						{
-							src: 'android-chrome-512x512.png',
-							sizes: '512x512',
-							type: 'image/png',
-							purpose: 'any'
+							src: "android-chrome-512x512.png",
+							sizes: "512x512",
+							type: "image/png",
+							purpose: "any",
 						},
 						{
-							src: 'maskable-icon-512x512.png',
-							sizes: '512x512',
-							type: 'image/png',
-							purpose: 'maskable'
+							src: "maskable-icon-512x512.png",
+							sizes: "512x512",
+							type: "image/png",
+							purpose: "maskable",
 						},
 						{
-							src: 'apple-touch-icon.png',
-							sizes: '180x180',
-							type: 'image/png'
-						}
-					]
-				}
+							src: "apple-touch-icon.png",
+							sizes: "180x180",
+							type: "image/png",
+						},
+					],
+				},
 			}),
 			// Sentry Vite plugin — only include it when a real prod upload is
 			// intended. Conditionally spreading (vs. `disable: true`) keeps its
@@ -140,8 +139,8 @@ export default defineConfig(({ mode }) => {
 		],
 		resolve: {
 			alias: {
-				'@frontend': path.resolve(__dirname, './src'),
-				'@backend': path.resolve(__dirname, '../backend/src'),
+				"@frontend": path.resolve(__dirname, "./src"),
+				"@backend": path.resolve(__dirname, "../backend/src"),
 			},
 			// Yarn workspaces link `@connected-repo/ui-mui` in from the
 			// monorepo; when its dist code re-imports MUI/emotion/react, Vite
@@ -187,4 +186,3 @@ export default defineConfig(({ mode }) => {
 		},
 	};
 });
-

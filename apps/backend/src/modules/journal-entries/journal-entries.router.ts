@@ -28,9 +28,7 @@ import { pullJournalEntriesService } from "./services/sync.journal_entries.servi
 // user.journalReminderTimes is `HH:mm`. The users table's inner column
 // `.parse()` doesn't fire across array elements in orchid, so we strip at
 // the boundary here — mirrors notifications.router#getReminderTimes.
-const normalizeAuthorReminderTimes = <T extends { author?: UserSelectAll }>(
-	entry: T,
-): T => {
+const normalizeAuthorReminderTimes = <T extends { author?: UserSelectAll }>(entry: T): T => {
 	if (!entry.author?.journalReminderTimes) return entry;
 	return {
 		...entry,
@@ -45,11 +43,7 @@ const normalizeAuthorReminderTimes = <T extends { author?: UserSelectAll }>(
 
 // Get all journal entries for the caller in the active team.
 const getAll = rpcProtectedActiveTeamProcedure
-	.output(
-		z.array(
-			journalEntrySelectAllZod.extend({ author: userSelectAllZod.optional() }),
-		),
-	)
+	.output(z.array(journalEntrySelectAllZod.extend({ author: userSelectAllZod.optional() })))
 	.handler(async ({ context: { user, activeTeamId } }) => {
 		const rows = await db.journalEntries
 			.select("*", {
@@ -133,10 +127,7 @@ const create = rpcProtectedActiveTeamProcedure
 				),
 			)
 			.catch((err) => {
-				logger.warn(
-					{ err, entryId: input.id },
-					"[journalEntries.create] fanout dispatch failed",
-				);
+				logger.warn({ err, entryId: input.id }, "[journalEntries.create] fanout dispatch failed");
 			});
 
 		// The `files` relation's `on: { tableName: "journalEntries", type: "attachment" }`
@@ -149,11 +140,7 @@ const create = rpcProtectedActiveTeamProcedure
 // Get journal entries by user, scoped to the caller's active team.
 const getByUser = rpcProtectedActiveTeamProcedure
 	.input(journalEntryGetByUserZod)
-	.output(
-		z.array(
-			journalEntrySelectAllZod.extend({ author: userSelectAllZod.optional() }),
-		),
-	)
+	.output(z.array(journalEntrySelectAllZod.extend({ author: userSelectAllZod.optional() })))
 	.handler(async ({ input, context: { activeTeamId } }) => {
 		const rows = await db.journalEntries
 			.select("*", {

@@ -24,16 +24,12 @@ import {
 // Producer-side channel for the "your active team is gone" signal.
 // Guarded because unit-test environments may lack `BroadcastChannel`.
 const activeTeamWipedChannel: BroadcastChannel | null =
-	typeof BroadcastChannel !== "undefined"
-		? new BroadcastChannel(ACTIVE_TEAM_WIPED_CHANNEL)
-		: null;
+	typeof BroadcastChannel !== "undefined" ? new BroadcastChannel(ACTIVE_TEAM_WIPED_CHANNEL) : null;
 
 // Producer-side channel for transient `isRunning` state — see
 // `sync-engine-state.channel.ts` for why this isn't in Dexie.
 const syncEngineStateChannel: BroadcastChannel | null =
-	typeof BroadcastChannel !== "undefined"
-		? new BroadcastChannel(SYNC_ENGINE_STATE_CHANNEL)
-		: null;
+	typeof BroadcastChannel !== "undefined" ? new BroadcastChannel(SYNC_ENGINE_STATE_CHANNEL) : null;
 
 const broadcastRunning = (isRunning: boolean): void => {
 	const msg: SyncEngineStateMessage = { isRunning };
@@ -167,9 +163,7 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 			const repaired = await filesDb.recoverStrandedThumbnails();
 			if (repaired > 0) {
 				// biome-ignore lint/suspicious/noConsole: legitimate one-shot recovery signal
-				console.info(
-					`[SyncOrchestrator] reset ${repaired} stranded thumbnail(s) back to pending`,
-				);
+				console.info(`[SyncOrchestrator] reset ${repaired} stranded thumbnail(s) back to pending`);
 			}
 		} catch (err) {
 			// biome-ignore lint/suspicious/noConsole: recovery failure shouldn't block init
@@ -472,10 +466,7 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 	 * itself has no access to the router revalidator or the React Query
 	 * cache, so it cannot perform the switch here.
 	 */
-	private async processTeamWipes(
-		activeTeamId: string,
-		teamsToWipe: Set<string>,
-	): Promise<void> {
+	private async processTeamWipes(activeTeamId: string, teamsToWipe: Set<string>): Promise<void> {
 		if (teamsToWipe.size === 0) return;
 
 		let activeTeamWiped = false;
@@ -508,10 +499,7 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 
 	// ─── Pull pipeline ─────────────────────────────────────────────────
 
-	private async pullTeamsApp(
-		teamId: string,
-		teamsToWipe: Set<string>,
-	): Promise<number> {
+	private async pullTeamsApp(teamId: string, teamsToWipe: Set<string>): Promise<number> {
 		const cursor = await syncMetadataDb.getCursor("teamsApp", teamId);
 		const res = await orpcFetch.teams.pullBundles({
 			syncMetadata: cursor ?? null,
@@ -557,10 +545,7 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 	 * wipe so the rest of its local footprint (members, journal entries,
 	 * files, OPFS blobs, sync cursors) goes with it.
 	 */
-	private collectTeamTombstones(
-		rows: TeamAppSelectAll[],
-		teamsToWipe: Set<string>,
-	): void {
+	private collectTeamTombstones(rows: TeamAppSelectAll[], teamsToWipe: Set<string>): void {
 		for (const row of rows) {
 			if (row.deletedAt !== null) teamsToWipe.add(row.id);
 		}
@@ -592,10 +577,7 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 		const allPending = await journalEntriesDb.getPending(teamId);
 		// Skip entries the user is actively editing — pushing mid-edit
 		// would race the keystrokes and echo back a stale server row.
-		const pending = pendingEditLockRegistry.filterUnlocked(
-			"journalEntries",
-			allPending,
-		);
+		const pending = pendingEditLockRegistry.filterUnlocked("journalEntries", allPending);
 		if (pending.length === 0) return;
 
 		// Bundle each pending entry with its nested files. Files are the
@@ -650,10 +632,7 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 		// surfaces it in the sync-status UI so the user can retry or delete.
 		for (const id of sentIds) {
 			if (!ackedIds.has(id)) {
-				await journalEntriesDb.setSyncError(
-					id,
-					"Server did not acknowledge this push",
-				);
+				await journalEntriesDb.setSyncError(id, "Server did not acknowledge this push");
 			}
 		}
 	}
@@ -673,9 +652,9 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 		// rather than "silently sends null and marks state advanced".
 		const updates = rows.map((r) => ({
 			id: r.id,
-			cdnUrl: r.mainUploadState === "uploaded_to_cdn" ? r.cdnUrl ?? undefined : undefined,
+			cdnUrl: r.mainUploadState === "uploaded_to_cdn" ? (r.cdnUrl ?? undefined) : undefined,
 			thumbnailCdnUrl:
-				r.thumbnailUploadState === "uploaded_to_cdn" ? r.thumbnailCdnUrl ?? undefined : undefined,
+				r.thumbnailUploadState === "uploaded_to_cdn" ? (r.thumbnailCdnUrl ?? undefined) : undefined,
 			isMainFileLost: r.isMainFileLost === true ? true : undefined,
 		}));
 

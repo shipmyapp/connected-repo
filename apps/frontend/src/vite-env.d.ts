@@ -6,5 +6,5 @@
 /// <reference types="vite-plugin-pwa/client" />
 
 interface Window {
-  chrome?: unknown;
+	chrome?: unknown;
 }

@@ -14,4 +14,4 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
 			{children}
 		</MuiThemeProvider>
 	);
-}
+};

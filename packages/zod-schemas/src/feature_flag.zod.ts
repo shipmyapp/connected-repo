@@ -20,29 +20,30 @@ import { zString, zTimestampsAsNumbers } from "./zod_utils.js";
  * Default-false-when-missing keeps unknown flags SAFE — a typo in the flag
  * name means the guarded code path stays off, not on.
  */
-export const featureFlagSelectAllZod = z.object({
-	id: z.ulid(),
-	key: zString.min(1).max(200),
-	scope: featureFlagScopeZod,
-	scopeId: z.ulid().nullable(),
-	enabled: z.boolean(),
-	notes: zString.max(1000).nullable(),
-}).extend(zTimestampsAsNumbers);
+export const featureFlagSelectAllZod = z
+	.object({
+		id: z.ulid(),
+		key: zString.min(1).max(200),
+		scope: featureFlagScopeZod,
+		scopeId: z.ulid().nullable(),
+		enabled: z.boolean(),
+		notes: zString.max(1000).nullable(),
+	})
+	.extend(zTimestampsAsNumbers);
 export type FeatureFlagSelectAll = z.infer<typeof featureFlagSelectAllZod>;
 
-export const featureFlagSetInputZod = z.object({
-	key: zString.min(1).max(200),
-	scope: featureFlagScopeZod,
-	scopeId: z.ulid().nullable(),
-	enabled: z.boolean(),
-	notes: zString.max(1000).nullable().optional(),
-}).refine(
-	(v) => (v.scope === "global" ? v.scopeId === null : v.scopeId !== null),
-	{
+export const featureFlagSetInputZod = z
+	.object({
+		key: zString.min(1).max(200),
+		scope: featureFlagScopeZod,
+		scopeId: z.ulid().nullable(),
+		enabled: z.boolean(),
+		notes: zString.max(1000).nullable().optional(),
+	})
+	.refine((v) => (v.scope === "global" ? v.scopeId === null : v.scopeId !== null), {
 		message: "scopeId must be null for scope=global and a ulid for scope=team",
 		path: ["scopeId"],
-	},
-);
+	});
 export type FeatureFlagSetInput = z.infer<typeof featureFlagSetInputZod>;
 
 export const featureFlagListInputZod = z.object({

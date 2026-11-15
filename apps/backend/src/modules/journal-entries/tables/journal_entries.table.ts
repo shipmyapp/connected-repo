@@ -81,19 +81,16 @@ export class JournalEntryTable extends BaseTable {
 	};
 
 	init(orm: Db) {
-		this.afterDelete(
-			journalEntrySelectAllZod.keyof().options,
-			async (entries) => {
-				await orm.files
-					.where({
-						tableName: "journalEntries",
-						type: "attachment",
-						tableId: {
-							in: entries.map((e) => e.id),
-						},
-					})
-					.delete();
-			},
-		);
+		this.afterDelete(journalEntrySelectAllZod.keyof().options, async (entries) => {
+			await orm.files
+				.where({
+					tableName: "journalEntries",
+					type: "attachment",
+					tableId: {
+						in: entries.map((e) => e.id),
+					},
+				})
+				.delete();
+		});
 	}
 }

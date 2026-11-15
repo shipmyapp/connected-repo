@@ -16,15 +16,13 @@ import { BaseTable } from "@backend/db/base_table";
 export class RateLimitTable extends BaseTable {
 	readonly table = "rate_limits";
 
-	columns = this.setColumns(
-		(t) => ({
-			id: t.ulidWithDefault().primaryKey(),
-			// Opaque bucket key produced by the caller
-			key: t.string(255).unique(),
-			// Current tokens remaining in the bucket
-			tokens: t.doublePrecision(),
-			// Timestamp (epoch milliseconds) of the last update
-			lastUpdatedAt: t.timestampNumber(),
-		})
-	);
+	columns = this.setColumns((t) => ({
+		id: t.ulidWithDefault().primaryKey(),
+		// Opaque bucket key produced by the caller
+		key: t.string(255).unique(),
+		// Current tokens remaining in the bucket
+		tokens: t.doublePrecision(),
+		// Timestamp (epoch milliseconds) of the last update
+		lastUpdatedAt: t.timestampNumber(),
+	}));
 }

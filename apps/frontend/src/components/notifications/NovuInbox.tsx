@@ -17,7 +17,8 @@ export const NovuInbox = () => {
 		staleTime: Number.POSITIVE_INFINITY,
 	});
 
-	if (!env.VITE_NOVU_APP_IDENTIFIER || !env.VITE_NOVU_API_URL || !env.VITE_NOVU_SOCKET_URL) return null;
+	if (!env.VITE_NOVU_APP_IDENTIFIER || !env.VITE_NOVU_API_URL || !env.VITE_NOVU_SOCKET_URL)
+		return null;
 	if (!creds) return null;
 
 	return (

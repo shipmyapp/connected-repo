@@ -11,9 +11,6 @@ import { change } from "../db_script";
 // is what we want (data corruption caught here beats silent NULLs).
 change(async (db) => {
 	await db.changeTable("users", (t) => ({
-		journalReminderTimes: t.change(
-			t.array(t.string()).default([]),
-			t.array(t.time()).default([]),
-		),
+		journalReminderTimes: t.change(t.array(t.string()).default([]), t.array(t.time()).default([])),
 	}));
 });

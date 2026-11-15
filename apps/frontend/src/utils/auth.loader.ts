@@ -131,15 +131,14 @@ export async function authLoader({ context }: LoaderFunctionArgs) {
 		setSentryUser({
 			email: session.user.email,
 			username: session.user.name,
-			id: session.user.id
-		})
+			id: session.user.id,
+		});
 
 		// Set user context in React Router context
 		context.set(userContext, sessionInfo);
 
 		// Return session data for loader
 		return sessionInfo;
-
 	} catch (error) {
 		if (error instanceof Response) throw error; // Re-throw redirects
 
@@ -149,7 +148,9 @@ export async function authLoader({ context }: LoaderFunctionArgs) {
 		// We trigger this even if navigator.onLine is true because the server is clearly unreachable
 		if (cached) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
-			const isFetchError = errorMessage.toLowerCase().includes("fetch") || errorMessage.toLowerCase().includes("network");
+			const isFetchError =
+				errorMessage.toLowerCase().includes("fetch") ||
+				errorMessage.toLowerCase().includes("network");
 
 			if (isOffline || isFetchError) {
 				const sessionInfo = {

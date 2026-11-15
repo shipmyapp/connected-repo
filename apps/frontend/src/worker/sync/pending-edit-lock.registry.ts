@@ -39,10 +39,7 @@ export const pendingEditLockRegistry = {
 	},
 
 	/** Bulk filter — returns only the ids that are NOT locked. */
-	filterUnlocked<T extends { id: string }>(
-		table: AppDbTable,
-		rows: readonly T[],
-	): T[] {
+	filterUnlocked<T extends { id: string }>(table: AppDbTable, rows: readonly T[]): T[] {
 		return rows.filter((r) => !locked.has(keyOf(table, r.id)));
 	},
 

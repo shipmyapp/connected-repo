@@ -54,9 +54,7 @@ export const SmartMediaUploader: React.FC<SmartMediaUploaderProps> = ({
 
 	// Background thumbnail generation watcher.
 	useEffect(() => {
-		const toProcess = value.filter(
-			(f) => !f.thumbnailUrl && !processingIds.current.has(f.id),
-		);
+		const toProcess = value.filter((f) => !f.thumbnailUrl && !processingIds.current.has(f.id));
 
 		toProcess.forEach((media) => {
 			processingIds.current.add(media.id);
@@ -68,7 +66,10 @@ export const SmartMediaUploader: React.FC<SmartMediaUploaderProps> = ({
 					if (media.file.type.startsWith("video/")) {
 						const { generateVideoThumbnailUI } = await import("../utils/thumbnail-video-ui");
 						thumbnailFile = await generateVideoThumbnailUI(media.file);
-					} else if (media.file.type.startsWith("image/") || media.file.type === "application/pdf") {
+					} else if (
+						media.file.type.startsWith("image/") ||
+						media.file.type === "application/pdf"
+					) {
 						const mediaProxy = await getMediaProxy();
 						const result = await mediaProxy.media.generateThumbnail(media.file);
 						thumbnailFile = result.thumbnailFile;
@@ -78,9 +79,7 @@ export const SmartMediaUploader: React.FC<SmartMediaUploaderProps> = ({
 						const thumbUrl = URL.createObjectURL(thumbnailFile);
 						onChange((prev) =>
 							prev.map((item) =>
-								item.id === media.id
-									? { ...item, thumbnailUrl: thumbUrl, thumbnailFile }
-									: item,
+								item.id === media.id ? { ...item, thumbnailUrl: thumbUrl, thumbnailFile } : item,
 							),
 						);
 					}

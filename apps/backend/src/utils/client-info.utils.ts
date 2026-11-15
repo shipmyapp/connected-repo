@@ -101,14 +101,8 @@ export function generateDeviceFingerprint(headers: Headers): string {
 
 		// Client Hints (Generally Stable for a given browser/OS)
 		(Array.isArray(secChUa) ? secChUa[0] : secChUa || "").toLowerCase(),
-		(Array.isArray(secChUaMobile)
-			? secChUaMobile[0]
-			: secChUaMobile || ""
-		).toLowerCase(),
-		(Array.isArray(secChUaPlatform)
-			? secChUaPlatform[0]
-			: secChUaPlatform || ""
-		).toLowerCase(),
+		(Array.isArray(secChUaMobile) ? secChUaMobile[0] : secChUaMobile || "").toLowerCase(),
+		(Array.isArray(secChUaPlatform) ? secChUaPlatform[0] : secChUaPlatform || "").toLowerCase(),
 
 		// Removed: 'accept-encoding' and 'accept' as they are highly request/context-dependent.
 	];

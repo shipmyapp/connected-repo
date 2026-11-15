@@ -18,12 +18,12 @@ export const FILE_UPLOAD_STATES = [
 	"pending",
 	"uploading",
 	"uploaded_to_cdn", // CDN PUT succeeded; backend not yet told the URL
-	"uploaded",         // CDN PUT succeeded AND backend has the URL
-	"failed",           // last attempt failed; will retry
-	"lost",             // source blob disappeared
-	"abandoned",        // exhausted retries
-	"not_attempted",    // thumbnail never applicable (mime type doesn't support it)
-	"generating",       // thumbnail-only: generating the derived blob
+	"uploaded", // CDN PUT succeeded AND backend has the URL
+	"failed", // last attempt failed; will retry
+	"lost", // source blob disappeared
+	"abandoned", // exhausted retries
+	"not_attempted", // thumbnail never applicable (mime type doesn't support it)
+	"generating", // thumbnail-only: generating the derived blob
 ] as const;
 export type FileUploadState = (typeof FILE_UPLOAD_STATES)[number];
 

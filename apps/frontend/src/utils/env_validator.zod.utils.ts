@@ -1,10 +1,7 @@
 import { NODE_ENV_ZOD } from "@connected-repo/zod-schemas/node_env";
 import { object, preprocess, string, url } from "zod";
 
-const optionalString = preprocess(
-	(val) => (val === "" ? undefined : val),
-	string().optional(),
-);
+const optionalString = preprocess((val) => (val === "" ? undefined : val), string().optional());
 const optionalUrl = preprocess((val) => (val === "" ? undefined : val), url().optional());
 
 // Empty string is a valid production value — signals "same-origin/relative"

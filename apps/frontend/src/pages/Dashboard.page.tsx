@@ -56,12 +56,7 @@ const DashboardPage = () => {
 	// Avoid a one-frame flash of the empty dashboard on the render that
 	// will trigger the first-run redirect. Once the check has run, always
 	// render the dashboard — even when entries are empty.
-	if (
-		!firstRunRedirectChecked &&
-		!entriesLoading &&
-		entries &&
-		entries.length === 0
-	) {
+	if (!firstRunRedirectChecked && !entriesLoading && entries && entries.length === 0) {
 		return null;
 	}
 
@@ -117,22 +112,31 @@ const DashboardPage = () => {
 						</Card>
 
 						{/* Workspace Status */}
-						<Card sx={{ p: 3, borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
+						<Card sx={{ p: 3, borderRadius: 2, border: "1px solid", borderColor: "divider" }}>
 							<Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
 								<Stack direction="row" spacing={2} alignItems="center">
-									<Box 
-										sx={{ 
-											p: 1.5, 
-											borderRadius: 2, 
-											bgcolor: activeWorkspace.type === 'team' ? 'primary.main' : 'secondary.main',
-											color: 'white',
-											display: 'flex'
+									<Box
+										sx={{
+											p: 1.5,
+											borderRadius: 2,
+											bgcolor: activeWorkspace.type === "team" ? "primary.main" : "secondary.main",
+											color: "white",
+											display: "flex",
 										}}
 									>
-										{activeWorkspace.type === 'team' ? <BusinessIcon /> : <PersonIcon />}
+										{activeWorkspace.type === "team" ? <BusinessIcon /> : <PersonIcon />}
 									</Box>
 									<Box>
-										<Typography variant="subtitle2" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '0.7rem', fontWeight: 700 }}>
+										<Typography
+											variant="subtitle2"
+											color="text.secondary"
+											sx={{
+												textTransform: "uppercase",
+												letterSpacing: "0.05em",
+												fontSize: "0.7rem",
+												fontWeight: 700,
+											}}
+										>
 											Active Workspace
 										</Typography>
 										<Typography variant="h6" fontWeight={600}>
@@ -140,7 +144,7 @@ const DashboardPage = () => {
 										</Typography>
 									</Box>
 								</Stack>
-								<Box sx={{ textAlign: 'right' }}>
+								<Box sx={{ textAlign: "right" }}>
 									<Typography variant="h4" fontWeight={700} color="primary.main">
 										{entryCount}
 									</Typography>
@@ -174,10 +178,7 @@ const DashboardPage = () => {
 							<Typography variant="h5" fontWeight={600}>
 								Quick Actions
 							</Typography>
-							<Stack
-								direction={{ xs: "column", md: "row" }}
-								spacing={2}
-							>
+							<Stack direction={{ xs: "column", md: "row" }} spacing={2}>
 								<Card
 									sx={{
 										p: 3,
@@ -198,7 +199,9 @@ const DashboardPage = () => {
 										{teamId ? "Team Settings" : "View Profile"}
 									</Typography>
 									<Typography variant="body2" color="text.secondary" mb={2}>
-										{teamId ? "Manage team members and permissions" : "Manage your account settings and preferences"}
+										{teamId
+											? "Manage team members and permissions"
+											: "Manage your account settings and preferences"}
 									</Typography>
 									<Button variant="outlined" size="small">
 										{teamId ? "Manage Team" : "Go to Profile"}

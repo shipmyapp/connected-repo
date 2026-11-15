@@ -41,10 +41,7 @@ function initFirebaseAdmin(): admin.app.App | null {
 				credential: admin.credential.applicationDefault(),
 			});
 		} catch (err) {
-			logger.error(
-				{ err },
-				"[firebase-admin] applicationDefault() failed — silent push disabled",
-			);
+			logger.error({ err }, "[firebase-admin] applicationDefault() failed — silent push disabled");
 			return null;
 		}
 	}

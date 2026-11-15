@@ -16,8 +16,8 @@ import { mergeServerFileRow } from "../../../worker/db/files.merge";
  */
 export const journalEntriesDb = {
 	async getAll(teamId: string): Promise<StoredJournalEntry[]> {
-		return await getClientDb().journalEntries
-			.where("[teamId+updatedAt]")
+		return await getClientDb()
+			.journalEntries.where("[teamId+updatedAt]")
 			.between([teamId, Dexie.minKey], [teamId, Dexie.maxKey])
 			.reverse()
 			.toArray();
@@ -25,8 +25,8 @@ export const journalEntriesDb = {
 
 	async getPending(teamId: string): Promise<StoredJournalEntry[]> {
 		// Dexie can't index nulls directly; scan the team's rows.
-		return await getClientDb().journalEntries
-			.where({ teamId })
+		return await getClientDb()
+			.journalEntries.where({ teamId })
 			.filter((r) => r.createdAt == null)
 			.toArray();
 	},
@@ -44,9 +44,7 @@ export const journalEntriesDb = {
 	 * approximately the right position until the server echoes back
 	 * with the canonical value via `overwriteFromServer`.
 	 */
-	async upsertPendingLocal(
-		row: Pending<JournalEntrySelectAll>,
-	): Promise<StoredJournalEntry> {
+	async upsertPendingLocal(row: Pending<JournalEntrySelectAll>): Promise<StoredJournalEntry> {
 		const pending: StoredJournalEntry = {
 			...row,
 			createdAt: null,
@@ -151,8 +149,8 @@ export const journalEntriesDb = {
 
 	async wipeByTeamAppId(teamId: string): Promise<void> {
 		await getClientDb().journalEntries.where({ teamId }).delete();
-		await getClientDb().files
-			.where({ teamId, tableName: "journalEntries" as const })
+		await getClientDb()
+			.files.where({ teamId, tableName: "journalEntries" as const })
 			.delete();
 		notifySubscribers("journalEntries", "sync");
 		notifySubscribers("files", "sync");

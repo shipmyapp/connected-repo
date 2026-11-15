@@ -66,13 +66,7 @@ function pgContext(err: PgError): Record<string, unknown> | null {
 	return ctx;
 }
 
-const INTERNAL_COLS = new Set([
-	"id",
-	"team_id",
-	"user_id",
-	"created_at",
-	"updated_at",
-]);
+const INTERNAL_COLS = new Set(["id", "team_id", "user_id", "created_at", "updated_at"]);
 
 function parsePgDetail(detail: string | undefined): {
 	column: string;
@@ -108,9 +102,7 @@ interface OrpcValidationCarrier {
  * (input pipeline) or as `error.cause` (when re-wrapped). Detect both shapes
  * so the parser surfaces a 400 in either case.
  */
-function extractOrpcValidationError(
-	error: unknown,
-): OrpcValidationCarrier | null {
+function extractOrpcValidationError(error: unknown): OrpcValidationCarrier | null {
 	const isCarrier = (e: unknown): e is OrpcValidationCarrier =>
 		!!e &&
 		typeof e === "object" &&
@@ -129,10 +121,7 @@ function extractZodError(error: unknown): ZodError | null {
 	return null;
 }
 
-export function orpcErrorParser(
-	error: Error,
-	ctx: { handler?: string } = {},
-): DomainError {
+export function orpcErrorParser(error: Error, ctx: { handler?: string } = {}): DomainError {
 	const handler = ctx.handler ?? "unknown";
 
 	const zodError = extractZodError(error);
@@ -163,9 +152,7 @@ export function orpcErrorParser(
 	// oRPC framework `ValidationError` — covers BOTH input and output validation.
 	const validation = extractOrpcValidationError(error);
 	if (validation) {
-		const isInput = (validation.message ?? error.message ?? "")
-			.toLowerCase()
-			.includes("input");
+		const isInput = (validation.message ?? error.message ?? "").toLowerCase().includes("input");
 
 		if (isInput) {
 			const fieldErrors: Record<string, string[]> = {};
@@ -194,15 +181,13 @@ export function orpcErrorParser(
 		}
 
 		// Output validation — server-side schema drift.
-		const pathHead =
-			validation.issues[0]?.path?.slice(0, 2).join(".") ?? "unknown";
+		const pathHead = validation.issues[0]?.path?.slice(0, 2).join(".") ?? "unknown";
 		return {
 			code: "OUTPUT_VALIDATION_ERROR",
 			httpStatus: 500,
 			message: error.message || "Output validation failed",
 			userFriendlyMessage: "The server returned data in an unexpected shape.",
-			actionRequired:
-				"Engineering — payload likely has stale enum or schema drift",
+			actionRequired: "Engineering — payload likely has stale enum or schema drift",
 			details: { issues: validation.issues as unknown[] },
 			fingerprint: ["output_invalid", handler, pathHead],
 		};
@@ -243,11 +228,7 @@ export function orpcErrorParser(
 				value,
 				fieldErrors,
 			},
-			fingerprint: [
-				"pg_unique",
-				pg.table ?? "unknown",
-				column || pg.constraint || "unknown",
-			],
+			fingerprint: ["pg_unique", pg.table ?? "unknown", column || pg.constraint || "unknown"],
 		};
 	}
 
@@ -260,11 +241,7 @@ export function orpcErrorParser(
 			message: "Invalid reference to related resource",
 			userFriendlyMessage: "The referenced resource does not exist",
 			details: { constraint: pg.constraint ?? "foreign_key", table: pg.table },
-			fingerprint: [
-				"pg_fk",
-				pg.table ?? "unknown",
-				pg.constraint ?? msgPrefix(error.message, 40),
-			],
+			fingerprint: ["pg_fk", pg.table ?? "unknown", pg.constraint ?? msgPrefix(error.message, 40)],
 		};
 	}
 
@@ -317,8 +294,7 @@ export function orpcErrorParser(
 export function handleBoundaryError(error: unknown, handler: string) {
 	const err = error instanceof Error ? error : new Error(String(error));
 	const causeRaw = err instanceof ORPCError ? (err.cause ?? err) : err;
-	const cause =
-		causeRaw instanceof Error ? causeRaw : new Error(String(causeRaw));
+	const cause = causeRaw instanceof Error ? causeRaw : new Error(String(causeRaw));
 
 	const domain: DomainError = {
 		...orpcErrorParser(cause, { handler }),

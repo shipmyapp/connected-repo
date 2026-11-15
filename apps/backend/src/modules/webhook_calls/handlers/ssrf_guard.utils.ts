@@ -89,8 +89,7 @@ function isBlockedIPv6(ip: string): boolean {
 	// ff00::/8 (Multicast)
 	if ((firstHextet & 0xff00) === 0xff00) return true;
 	// 2001:db8::/32 (Documentation)
-	if (normalized.startsWith("2001:db8:") || normalized.startsWith("2001:0db8:"))
-		return true;
+	if (normalized.startsWith("2001:db8:") || normalized.startsWith("2001:0db8:")) return true;
 	// 64:ff9b::/96 NAT64 to private v4 — treat conservatively as allowed unless mapped v4 is private
 	return false;
 }
@@ -115,9 +114,7 @@ export async function assertSafeWebhookUrl(rawUrl: string): Promise<URL> {
 	}
 
 	if (parsed.protocol !== "https:") {
-		throw new SsrfBlockedError(
-			`Webhook URL must use https (got ${parsed.protocol})`,
-		);
+		throw new SsrfBlockedError(`Webhook URL must use https (got ${parsed.protocol})`);
 	}
 
 	if (parsed.username || parsed.password) {
@@ -131,16 +128,12 @@ export async function assertSafeWebhookUrl(rawUrl: string): Promise<URL> {
 	const literalFamily = net.isIP(hostname);
 	if (literalFamily === 4) {
 		if (isBlockedIPv4(hostname))
-			throw new SsrfBlockedError(
-				`Webhook URL resolves to blocked address ${hostname}`,
-			);
+			throw new SsrfBlockedError(`Webhook URL resolves to blocked address ${hostname}`);
 		return parsed;
 	}
 	if (literalFamily === 6) {
 		if (isBlockedIPv6(hostname))
-			throw new SsrfBlockedError(
-				`Webhook URL resolves to blocked address ${hostname}`,
-			);
+			throw new SsrfBlockedError(`Webhook URL resolves to blocked address ${hostname}`);
 		return parsed;
 	}
 
@@ -160,14 +153,10 @@ export async function assertSafeWebhookUrl(rawUrl: string): Promise<URL> {
 
 	for (const addr of addresses) {
 		if (addr.family === 4 && isBlockedIPv4(addr.address)) {
-			throw new SsrfBlockedError(
-				`Webhook URL resolves to blocked address ${addr.address}`,
-			);
+			throw new SsrfBlockedError(`Webhook URL resolves to blocked address ${addr.address}`);
 		}
 		if (addr.family === 6 && isBlockedIPv6(addr.address)) {
-			throw new SsrfBlockedError(
-				`Webhook URL resolves to blocked address ${addr.address}`,
-			);
+			throw new SsrfBlockedError(`Webhook URL resolves to blocked address ${addr.address}`);
 		}
 	}
 

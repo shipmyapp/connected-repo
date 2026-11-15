@@ -1,7 +1,17 @@
 import { Button } from "@connected-repo/ui-mui/form/Button";
 import type { TeamMemberRole } from "@connected-repo/zod-schemas/enums.zod";
 import { orpc } from "@frontend/utils/orpc.tanstack.client";
-import { Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Select, TextField } from "@mui/material";
+import {
+	Dialog,
+	DialogActions,
+	DialogContent,
+	DialogTitle,
+	FormControl,
+	InputLabel,
+	MenuItem,
+	Select,
+	TextField,
+} from "@mui/material";
 import { useMutation } from "@tanstack/react-query";
 import type React from "react";
 import { useState } from "react";
@@ -19,14 +29,16 @@ export function AddMemberDialog({ open, onClose, onSuccess }: AddMemberDialogPro
 	const [email, setEmail] = useState("");
 	const [role, setRole] = useState<TeamMemberRole>("Member");
 
-	const mutation = useMutation(orpc.teams.addTeamMember.mutationOptions({
-		onSuccess: () => {
-			toast.success("Invitation sent successfully");
-			setEmail("");
-			onSuccess();
-			onClose();
-		}
-	}));
+	const mutation = useMutation(
+		orpc.teams.addTeamMember.mutationOptions({
+			onSuccess: () => {
+				toast.success("Invitation sent successfully");
+				setEmail("");
+				onSuccess();
+				onClose();
+			},
+		}),
+	);
 
 	const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
@@ -38,7 +50,7 @@ export function AddMemberDialog({ open, onClose, onSuccess }: AddMemberDialogPro
 		<Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
 			<DialogTitle sx={{ fontWeight: 700 }}>Invite Team Member</DialogTitle>
 			<form onSubmit={handleSubmit}>
-				<DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
+				<DialogContent sx={{ display: "flex", flexDirection: "column", gap: 3, pt: 1 }}>
 					<TextField
 						label="Email Address"
 						type="email"
@@ -62,12 +74,10 @@ export function AddMemberDialog({ open, onClose, onSuccess }: AddMemberDialogPro
 					</FormControl>
 				</DialogContent>
 				<DialogActions sx={{ p: 3, pt: 0 }}>
-					<Button onClick={onClose} color="inherit">Cancel</Button>
-					<Button 
-						type="submit" 
-						variant="contained" 
-						disabled={!email || mutation.isPending}
-					>
+					<Button onClick={onClose} color="inherit">
+						Cancel
+					</Button>
+					<Button type="submit" variant="contained" disabled={!email || mutation.isPending}>
 						{mutation.isPending ? "Inviting..." : "Send Invitation"}
 					</Button>
 				</DialogActions>

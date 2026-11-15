@@ -8,10 +8,7 @@ import { rpcProtectedProcedure } from "@backend/procedures/protected.procedure";
 import { rpcSuperAdminProcedure } from "@backend/procedures/super_admin.procedure";
 import { triggerNotification } from "@backend/utils/notifications.utils";
 import { devicePlatformZod } from "@connected-repo/zod-schemas/enums.zod";
-import {
-	uniqueTimeArrayZod,
-	zString,
-} from "@connected-repo/zod-schemas/zod_utils";
+import { uniqueTimeArrayZod, zString } from "@connected-repo/zod-schemas/zod_utils";
 import { z } from "zod";
 
 const TEST_PUSH_WORKFLOW_ID = "test-push";
@@ -75,9 +72,7 @@ const stripSeconds = (t: string): string => (t.length > 5 ? t.slice(0, 5) : t);
 const getReminderTimes = rpcProtectedProcedure
 	.output(uniqueTimeArrayZod)
 	.handler(async ({ context: { user } }) => {
-		const row = await db.users
-			.select("journalReminderTimes")
-			.findOptional(user.id);
+		const row = await db.users.select("journalReminderTimes").findOptional(user.id);
 		return (row?.journalReminderTimes ?? []).map(stripSeconds);
 	});
 

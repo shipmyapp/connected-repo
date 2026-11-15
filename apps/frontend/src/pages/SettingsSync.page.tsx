@@ -148,8 +148,7 @@ export default function SettingsSyncPage() {
 		if (snap.status === "offline") return "You're offline";
 		if (snap.status === "syncing") return "Syncing…";
 		if (snap.status === "error") return "Sync errors";
-		if (snap.status === "pending")
-			return `${pendingTotal} pending`;
+		if (snap.status === "pending") return `${pendingTotal} pending`;
 		if (snap.status === "synced") return "Everything's synced";
 		return "Ready to sync";
 	};
@@ -180,9 +179,7 @@ export default function SettingsSyncPage() {
 					<Button
 						variant="contained"
 						onClick={handleSyncNow}
-						disabled={
-							triggering || snap.status === "offline" || snap.status === "syncing"
-						}
+						disabled={triggering || snap.status === "offline" || snap.status === "syncing"}
 					>
 						{snap.status === "syncing" ? "Syncing…" : "Sync now"}
 					</Button>
@@ -200,8 +197,8 @@ export default function SettingsSyncPage() {
 							{downloadingAll ? "Preparing…" : "Download un-synced data"}
 						</Button>
 						<Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
-							Saves every un-synced entry and file to this device so nothing is lost
-							if syncing can't complete.
+							Saves every un-synced entry and file to this device so nothing is lost if syncing
+							can't complete.
 						</Typography>
 					</Box>
 				)}
@@ -280,7 +277,13 @@ function RowHeader({ label, pending, errors, open, onToggle, canExpand }: RowHea
 				<Typography variant="body1" sx={{ fontWeight: 500 }}>
 					{label}
 				</Typography>
-				{canExpand ? (open ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />) : null}
+				{canExpand ? (
+					open ? (
+						<ExpandLessIcon fontSize="small" />
+					) : (
+						<ExpandMoreIcon fontSize="small" />
+					)
+				) : null}
 			</Box>
 			<Typography variant="body2" sx={{ color: statusColor(s), fontWeight: 600 }}>
 				{statusLabel(pending, errors)}
@@ -500,8 +503,7 @@ function FilePendingItem({ row }: { row: StoredFile }) {
 	const stateLabel = () => {
 		if (row.mainUploadState === "pending") return "Waiting to upload…";
 		if (row.mainUploadState === "uploading") return "Uploading…";
-		if (row.mainUploadState === "uploaded_to_cdn")
-			return "Uploaded — waiting to notify server";
+		if (row.mainUploadState === "uploaded_to_cdn") return "Uploaded — waiting to notify server";
 		return `State: ${row.mainUploadState}`;
 	};
 
@@ -636,9 +638,7 @@ function FileErrorItem({ row }: { row: StoredFile }) {
 	// unavailable and clears the stuck row. Not offered once the main file is
 	// already on the CDN (abandoning then would wrongly mark it lost).
 	const canAbandon =
-		!isPending &&
-		row.mainUploadState !== "uploaded" &&
-		row.mainUploadState !== "uploaded_to_cdn";
+		!isPending && row.mainUploadState !== "uploaded" && row.mainUploadState !== "uploaded_to_cdn";
 
 	const handleDownload = async () => {
 		setBusy(true);

@@ -2,10 +2,7 @@ import { env, isDev } from "@backend/configs/env.config";
 import { novuWorkflows } from "@backend/novu/workflows";
 import { logger } from "@backend/utils/logger.utils";
 import { Client, NovuRequestHandler } from "@novu/framework";
-import type {
-	NodeHttpRequest,
-	NodeHttpResponse,
-} from "@orpc/standard-server-node";
+import type { NodeHttpRequest, NodeHttpResponse } from "@orpc/standard-server-node";
 
 // Novu bridge payloads are workflow definitions + previews, small by design.
 // 1 MiB is generous but bounds an adversarial stream that could otherwise
@@ -127,10 +124,7 @@ export const novuHandler = {
 			await nodeHandler(req, res);
 		} catch (err) {
 			if (err instanceof BodyTooLargeError) {
-				logger.warn(
-					{ url: req.url },
-					"Novu bridge rejected oversized body",
-				);
+				logger.warn({ url: req.url }, "Novu bridge rejected oversized body");
 				if (!res.writableEnded) {
 					res.statusCode = 413;
 					res.end(JSON.stringify({ error: "Payload too large" }));

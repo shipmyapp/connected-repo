@@ -10,9 +10,7 @@ import { z } from "zod";
 /**
  * @public
  */
-export interface RpcContext
-	extends RequestHeadersPluginContext,
-		ResponseHeadersPluginContext {
+export interface RpcContext extends RequestHeadersPluginContext, ResponseHeadersPluginContext {
 	session?: ActiveSessionSelectAll;
 	user?: UserSelectAll;
 }

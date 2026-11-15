@@ -23,7 +23,7 @@ export const saveAuthCache = (user: any) => {
 		// Validate and transform the user object using our Zod schema
 		// This handles Date to number conversion for timestamps
 		const validatedUser = userSelectAllZod.parse(user);
-		
+
 		const cache: CachedSession = {
 			user: validatedUser,
 			cachedAt: Date.now(),
@@ -41,7 +41,7 @@ export const getAuthCache = (): CachedSession | null => {
 	try {
 		const cached = localStorage.getItem(AUTH_CACHE_KEY);
 		if (!cached) return null;
-		
+
 		const parsed = JSON.parse(cached);
 		if (!parsed || !parsed.user) return null;
 
@@ -78,11 +78,14 @@ export const clearAuthCache = () => {
  */
 export const saveLastLogin = (user: LastLoginInfo) => {
 	try {
-		localStorage.setItem(LAST_LOGIN_KEY, JSON.stringify({
-			name: user.name,
-			email: user.email,
-			image: user.image,
-		}));
+		localStorage.setItem(
+			LAST_LOGIN_KEY,
+			JSON.stringify({
+				name: user.name,
+				email: user.email,
+				image: user.image,
+			}),
+		);
 	} catch (error) {
 		console.error("Failed to save last login info:", error);
 	}
