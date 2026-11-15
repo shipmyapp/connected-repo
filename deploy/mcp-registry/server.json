@@ -1,0 +1,21 @@
+{
+	"$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+	"name": "io.github.<github-user>/oneq",
+	"title": "OneQ",
+	"description": "Your journal and teams, from your own AI app.",
+	"version": "1.0.0",
+	"websiteUrl": "https://app.example.com",
+	"icons": [
+		{
+			"src": "https://app.example.com/android-chrome-192x192.png",
+			"mimeType": "image/png",
+			"sizes": ["192x192"]
+		},
+		{
+			"src": "https://app.example.com/apple-touch-icon.png",
+			"mimeType": "image/png",
+			"sizes": ["180x180"]
+		}
+	],
+	"remotes": [{ "type": "streamable-http", "url": "https://mcp.example.com/mcp" }]
+}

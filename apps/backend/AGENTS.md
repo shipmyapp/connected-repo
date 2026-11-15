@@ -90,6 +90,12 @@ export const create = rpcProtectedProcedure
 - **Logs**: fields named in `LOG_REDACT_PATHS` (`utils/logger.utils.ts`) are censored; add a key there (and a case to `logger.utils.test.ts`) before logging a new kind of secret.
 - **Operations**: after deploying encrypted provider tokens, run `yarn workspace @connected-repo/backend auth:encrypt-tokens` once per environment.
 
+### Application MCP (`modules/user_mcp`, ADR-045)
+- A tool never writes with `db` directly; it calls a procedure through `ctx.app(teamId)` (add the procedure to `connectedAppRouter` in `services/app_client.user_mcp.service.ts` first). Writes use the preview + confirmation pattern of `create_journal_entry`. `RpcContext.connectedApp` is set only by `appClientFor`; never derive it from a request.
+- A team-scoped tool resolves its team with `teamForCall(ctx.principal, args.teamId)` (membership checked; `users.activeTeamAppId` is never written). Direct reads of tenant-scoped tables from a tool use `.unscope("default")` with an explicit team or user condition.
+- Every path that creates an OAuth client checks redirect URIs with `isAcceptableRedirectUri` (`@connected-repo/zod-schemas/redirect_uri.utils`); never route `/api/auth/oauth2/register` to Better Auth. Budgets for anything an unauthenticated caller can trigger are per IP (`getClientIpAddress`) and in total, never per `client_id` only.
+- `userMcpAudiences()` is both the provider's `validAudiences` and what `principalFromBearer` accepts: a second resource server goes into that list or is refused.
+
 ### Team hosts (`<slug>.<root>`)
 - `request_handlers/tenant.handler.ts`: `GET /api/tenant/manifest.webmanifest` (slug from `Host`/`X-Forwarded-Host`, else `?slug=`; `Cache-Control: no-cache`). `modules/teams/services/branding.teams.service.ts`: the public projection, the manifest, the slug lookups and the origin checks.
 - The active-team gate (`rpcProtectedActiveTeamProcedure`) has two extra branches: it re-reads the users row when the cookie's copy disagrees with `x-team-id`, and it accepts the team whose own host sent the request (`Origin`, else `X-Forwarded-Host`/`Host`). Membership is checked after both.

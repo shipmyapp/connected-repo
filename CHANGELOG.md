@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Application MCP at `/mcp`: people connect Claude, ChatGPT and other AI apps to their account through OAuth 2.1 (Better Auth OAuth provider, dynamic registration, Client ID Metadata Documents, PKCE, opaque hashed tokens) and use them on their teams and journal (`whoami`, `list_teams`, `list_team_members`, `list_journal_entries`, `get_journal_entry`, `list_prompts`, `create_journal_entry` with preview and confirmation).
+- Consent screen at `/oauth/consent` and "Connected apps" on the profile (narrow to read-only, disconnect, latest changes).
+- `MCP_PUBLIC_URL` to serve the MCP on its own host; runbook `docs/runbooks/connected-apps.md`; MCP Registry skeleton in `deploy/mcp-registry/`.
 - Team invitation emails and a test push through Novu; workflows kept in code and in the Novu dashboard, the newer winning at boot (see `apps/backend/CHANGELOG.md`).
 - Skill `novu-pull` and the AGENTS rule "Novu workflows and templates".
 
@@ -28,6 +31,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `packages/zod-schemas` runs its own tests (`test:run`): the device, install-try and ask rules.
 
 ### Changed
+- `better-auth` and `@better-auth/core` pinned to `1.5.0` (the OAuth provider plugin's exact peers).
+- Signing in from an AI app's authorize request returns to that request instead of the dashboard.
+- OAuth access tokens are refused on the oRPC routes.
+
 - Biome no longer formats `apps/backend/src/novu/{workflows,layouts}` (files written by `novu:pull`).
 
 - CI runs on `ubuntu-24.04` (Playwright 1.58 has no chromium for `ubuntu-latest` = 26.04); lint now fails the build.
@@ -51,6 +58,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - A top-level crash rendered a fallback that itself threw (`useRouteError()` outside the router).
 
 ### Security
+- Connected apps may register only `https:` or loopback `http:` (with a port) redirect URIs, without fragment or userinfo, by registration and by metadata document; the consent page navigates only to its own request's redirect URI.
+- Metadata-document fetches are limited per IP and in total, registrations in total per day, and the number of registered apps is capped; apps nobody connected are removed after a week.
+- Each `/mcp` call checks that the resource served is one the tokens were issued for.
+
 - CI runs with a read-only token and SHA-pinned actions (Dependabot keeps them current).
 - The OpenAPI super-admin surface (`/super-admin/`) requires `x-csrf-token: orpc` in production and staging.
 

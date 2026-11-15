@@ -7,6 +7,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- The application MCP at `/mcp` (`request_handlers/user_mcp.handler.ts`, `modules/user_mcp`): Better Auth's OAuth provider (`@better-auth/oauth-provider` 1.5.0), tables `oauth_clients`, `oauth_access_tokens`, `oauth_refresh_tokens`, `oauth_consents` and `connected_app_actions` (migration `0015_connected_apps`); seven tools over a curated client of the user app's procedures; discovery at `/.well-known/oauth-protected-resource/mcp` and `/.well-known/oauth-authorization-server/api/auth`.
+- Open client registration in front of Better Auth's (`oauth_registration.handler.ts`): app-chosen metadata only, PKCE forced, redirect URIs `https:` or loopback `http:` with a port; 10 a minute per IP, 500 a day in total, at most 5000 apps. Client ID Metadata Documents fetched through the SSRF guard (per document, per IP and in total). The daily `oauth_clients_cleanup` cron removes apps nobody connected after a week.
+- `connectedApps.address`, `list`, `describe`, `setScopes`, `disconnect` on the user-app router.
+- `MCP_PUBLIC_URL`: serve `/mcp` on its own host (the API host answers 404 for it).
+- Log redaction for OAuth wire names (`access_token`, `refresh_token`, `client_secret`, `code_verifier`).
+
 - Novu workflows and the email layout as code objects with `updatedAt` (`src/novu/workflows`, `src/novu/layouts`); `ensureNovuWorkflows` at boot creates missing ones and updates Novu only when the code is newer, so dashboard edits are kept.
 - `yarn novu:status`, `yarn novu:pull`, `yarn novu:check` (first step of `yarn build`); skill `novu-pull`.
 - `test-push` workflow (triggered by `notifications.testSendPush`, which until now had no workflow).
