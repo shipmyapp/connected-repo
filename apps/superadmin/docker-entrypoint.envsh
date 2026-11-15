@@ -1,0 +1,9 @@
+#!/bin/sh
+# Copied into /docker-entrypoint.d/ as 05-render-nginx-conf.envsh — the 05
+# prefix runs before nginx's envsubst (20-) and the .envsh extension makes the
+# base entrypoint SOURCE it so the export survives. See apps/frontend for the
+# longer explanation.
+set -e
+: "${BACKEND_UPSTREAM:=backend:3000}"
+export BACKEND_UPSTREAM
+echo "[entrypoint] BACKEND_UPSTREAM=${BACKEND_UPSTREAM}"

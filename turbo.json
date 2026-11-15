@@ -4,7 +4,8 @@
 		"build": {
 			"dependsOn": ["^build"],
 			"inputs": ["$TURBO_DEFAULT$", ".env*"],
-			"outputs": ["dist/**", "!.next/cache/**"]
+			"outputs": ["dist/**", "!.next/cache/**"],
+			"passThroughEnv": ["SENTRY_UPLOAD_SOURCEMAPS"]
 		},
 		"check-types": {
 			"dependsOn": ["^check-types"]

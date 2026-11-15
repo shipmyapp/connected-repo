@@ -1,12 +1,12 @@
 #!/bin/sh
-# Copied into /docker-entrypoint.d/ as 05-render-nginx-conf.envsh — TWO
+# Copied into /docker-entrypoint.d/ as 05-render-nginx-conf.envsh. Two
 # load-bearing details:
-#   1. The 05 prefix — nginx:alpine runs envsubst on templates in script 20-,
-#      so any variable we want expanded MUST be exported before that.
-#   2. The .envsh extension — the base entrypoint SOURCES .envsh files (env
-#      exports persist to sibling scripts), but LAUNCHES .sh files as
-#      subprocesses (exports die on exit). We need the exports to survive.
-# See apps/frontend/Dockerfile for the COPY.
+#   1. The 05 prefix: nginx:alpine runs envsubst on the templates in script
+#      20-, so every variable the templates use MUST be exported before that.
+#   2. The .envsh extension: the base entrypoint SOURCES .envsh files (the
+#      exports persist to later scripts) but RUNS .sh files in subprocesses
+#      (their exports die with them).
+# See apps/frontend/Dockerfile for the COPY. A blank value means "not set".
 set -e
 
 : "${BACKEND_UPSTREAM:=backend:3000}"
@@ -14,18 +14,23 @@ export BACKEND_UPSTREAM
 
 echo "[entrypoint] BACKEND_UPSTREAM=${BACKEND_UPSTREAM}"
 
-# ── Sentry envelope tunnel ────────────────────────────────────────────────
+# Extra origins for the CSP's connect-src (space-separated): the S3 endpoint
+# or bucket host for presigned uploads, a CDN, a self-hosted Novu. Blank is fine.
+: "${CSP_CONNECT_EXTRA:=}"
+export CSP_CONNECT_EXTRA
+
+# ── Sentry envelope tunnel and CSP reports ────────────────────────────────
 # Derive the ingest upstream from SENTRY_DSN so nginx can proxy
-# /api/sentry-tunnel directly to Sentry (bypasses ad-blockers).
+# /api/sentry-tunnel directly to Sentry (bypasses ad-blockers), and point the
+# CSP's report-uri at the project's security endpoint.
 #
 # DSN format: https://<publicKey>@<host>/<projectId>
 # Ingest URL: https://<host>/api/<projectId>/envelope/
 #
-# When SENTRY_DSN is unset, we set discard sentinels so envsubst produces a
-# syntactically-valid nginx conf. Requests to the tunnel path get 502'd on
-# connection refused (127.0.0.1:9 = discard protocol) rather than crashing
-# nginx at boot. The frontend probe won't route to the tunnel unless Sentry
-# ingest is blocked, so this is only hit in edge cases.
+# When SENTRY_DSN is unset, discard sentinels keep the rendered conf valid:
+# the tunnel path answers 502 (127.0.0.1:9 is the discard port) instead of
+# nginx failing to boot, and the CSP has no report-uri. The frontend sends to
+# the tunnel only when its probe finds direct ingest blocked.
 if [ -n "${SENTRY_DSN:-}" ]; then
     dsn_no_scheme="${SENTRY_DSN#https://}"
     dsn_no_scheme="${dsn_no_scheme#http://}"
@@ -33,10 +38,38 @@ if [ -n "${SENTRY_DSN:-}" ]; then
     SENTRY_INGEST_HOST="${dsn_after_at%%/*}"
     SENTRY_PROJECT_ID="${dsn_after_at##*/}"
     SENTRY_INGEST_URL="https://${SENTRY_INGEST_HOST}/api/${SENTRY_PROJECT_ID}/envelope/"
+    SENTRY_PUBLIC_KEY="${dsn_no_scheme%%@*}"
+    SENTRY_PUBLIC_KEY="${SENTRY_PUBLIC_KEY%%:*}"
+    # Sentry's CSP report endpoint for this project.
+    CSP_REPORT_DIRECTIVE="report-uri https://${SENTRY_INGEST_HOST}/api/${SENTRY_PROJECT_ID}/security/?sentry_key=${SENTRY_PUBLIC_KEY};"
 else
     SENTRY_INGEST_HOST="127.0.0.1"
     SENTRY_INGEST_URL="http://127.0.0.1:9/"
+    CSP_REPORT_DIRECTIVE=""
 fi
-export SENTRY_INGEST_HOST SENTRY_INGEST_URL
+export SENTRY_INGEST_HOST SENTRY_INGEST_URL CSP_REPORT_DIRECTIVE
+
+# CSP_ENFORCE=true sends the full policy as Content-Security-Policy (enforced);
+# anything else keeps it report-only. Read at container start.
+if [ "${CSP_ENFORCE:-}" = "true" ]; then
+    CSP_HEADER_NAME="Content-Security-Policy"
+else
+    CSP_HEADER_NAME="Content-Security-Policy-Report-Only"
+fi
+export CSP_HEADER_NAME
+
+# ── The application MCP's own host ───────────────────────────────────────
+# With MCP_PUBLIC_URL set (the backend's variable, e.g. https://mcp.example.com),
+# requests for that host are passed whole to the backend, which serves the MCP
+# there and nothing else. Unset: a name no request carries.
+if [ -n "${MCP_PUBLIC_URL:-}" ]; then
+    mcp_no_scheme="${MCP_PUBLIC_URL#*://}"
+    mcp_host_port="${mcp_no_scheme%%/*}"
+    MCP_HOST="${mcp_host_port%%:*}"
+else
+    MCP_HOST="mcp-host-not-set.invalid"
+fi
+export MCP_HOST
 
 echo "[entrypoint] SENTRY_INGEST_URL=${SENTRY_INGEST_URL}"
+echo "[entrypoint] CSP_CONNECT_EXTRA=${CSP_CONNECT_EXTRA} CSP_HEADER_NAME=${CSP_HEADER_NAME} MCP_HOST=${MCP_HOST}"

@@ -1,0 +1,126 @@
+# Rendered at container start by the nginx image's envsubst step, which
+# expands ${BACKEND_UPSTREAM} only (exported by
+# /docker-entrypoint.d/05-render-nginx-conf.envsh). Every other $var is nginx's own.
+
+upstream backend_upstream {
+    server ${BACKEND_UPSTREAM};
+    keepalive 16;
+}
+
+# Client address. Exactly one proxy is in front of this nginx: Dokploy's
+# Traefik, which connects from a private Docker or Swarm network address and
+# puts the client's address in X-Forwarded-For. Only those private ranges are
+# trusted, so an address a client writes into its own X-Forwarded-For is never
+# taken as the client. $remote_addr is then the real client, and every proxied
+# location below sends exactly that one address on (X-Forwarded-For and
+# X-Real-IP are overwritten, never appended to). Behind a CDN, add its
+# published ranges here too and to Traefik's forwardedHeaders.trustedIPs
+# (deploy/README.md).
+set_real_ip_from 10.0.0.0/8;
+set_real_ip_from 172.16.0.0/12;
+set_real_ip_from 192.168.0.0/16;
+real_ip_header X-Forwarded-For;
+real_ip_recursive on;
+
+server {
+    listen 80 default_server;
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css application/javascript application/json image/svg+xml font/woff2;
+
+    client_max_body_size 5m;
+
+    # An operator console: never framed, never indexed, no referrer leaves it.
+    # Repeated in every location that sets its own header, because nginx drops
+    # the server's add_header lines in such a location.
+    add_header X-Frame-Options "DENY" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer" always;
+    add_header X-Robots-Tag "noindex, nofollow" always;
+    add_header Strict-Transport-Security "max-age=31536000" always;
+    add_header Content-Security-Policy "frame-ancestors 'none'" always;
+    add_header Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'" always;
+
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    # Better Auth (/api/auth/*) and the super-admin router (/api/super-admin/*).
+    # Same origin from the browser, so the session cookie stays first-party.
+    # The console calls nothing else: the rest of /api/ answers 404 below.
+    location /api/auth/ {
+        proxy_pass http://backend_upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        # One address, the client's (set_real_ip_from above): a client's own
+        # X-Forwarded-For never reaches the backend.
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header Connection "";
+        # This server's security headers win over the backend's own.
+        proxy_hide_header X-Frame-Options;
+        proxy_hide_header X-Content-Type-Options;
+        proxy_hide_header Referrer-Policy;
+        proxy_read_timeout 60s;
+        proxy_send_timeout 60s;
+    }
+
+    location /api/super-admin/ {
+        proxy_pass http://backend_upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header Connection "";
+        proxy_hide_header X-Frame-Options;
+        proxy_hide_header X-Content-Type-Options;
+        proxy_hide_header Referrer-Policy;
+        proxy_read_timeout 120s;
+        proxy_send_timeout 120s;
+        proxy_buffering off;
+    }
+
+    location /api/ {
+        return 404;
+    }
+
+    # Vite hashes the file names under /assets: safe to cache for good.
+    location /assets/ {
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        add_header X-Frame-Options "DENY" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "no-referrer" always;
+        add_header X-Robots-Tag "noindex, nofollow" always;
+        try_files $uri =404;
+    }
+
+    location = /robots.txt {
+        default_type text/plain;
+        return 200 "User-agent: *\nDisallow: /\n";
+    }
+
+    # SPA fallback: unknown paths serve index.html for React Router.
+    location / {
+        add_header Cache-Control "no-cache";
+        add_header X-Frame-Options "DENY" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "no-referrer" always;
+        add_header X-Robots-Tag "noindex, nofollow" always;
+        add_header Strict-Transport-Security "max-age=31536000" always;
+        add_header Content-Security-Policy "frame-ancestors 'none'" always;
+        add_header Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'" always;
+        try_files $uri $uri/ /index.html;
+    }
+}

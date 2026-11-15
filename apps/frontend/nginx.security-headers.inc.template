@@ -1,0 +1,23 @@
+# Response headers of the app's server block. Included at the server level and
+# again in every location that sets its own add_header, because nginx drops
+# the inherited add_header lines in such a location. Rendered at start by the
+# base image's envsubst (CSP_HEADER_NAME, CSP_CONNECT_EXTRA and
+# CSP_REPORT_DIRECTIVE come from docker-entrypoint.envsh); every other $ is
+# nginx's own.
+add_header X-Content-Type-Options "nosniff" always;
+add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+add_header X-Frame-Options "DENY" always;
+add_header Strict-Transport-Security "max-age=31536000" always;
+add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()" always;
+# Enforced: the app is never framed.
+add_header Content-Security-Policy "frame-ancestors 'none'" always;
+# The full policy. Report-only by default: violations go to Sentry (when
+# SENTRY_DSN is set) and the browser console, nothing is blocked.
+# CSP_ENFORCE=true (runtime env, restart the container) sends it as
+# Content-Security-Policy instead: enforce it once a week of production reports
+# is clean. Both CSP headers then apply (a browser enforces every policy it gets).
+# 'unsafe-inline' styles: MUI/emotion and the Novu Inbox inject <style>. blob:
+# workers and media: the Data and Media workers, the pdf.js worker, Sentry
+# replay and OPFS media. *.googleapis.com: Firebase Messaging and Installations.
+# Google and Apple sign-in are top-level redirects through /api/auth/*.
+add_header ${CSP_HEADER_NAME} "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https://*.sentry.io https://*.googleapis.com https://api.novu.co https://ws.novu.co wss://ws.novu.co ${CSP_CONNECT_EXTRA}; worker-src 'self' blob:; frame-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; ${CSP_REPORT_DIRECTIVE}" always;

@@ -1,26 +1,38 @@
-# Rendered at container start by /docker-entrypoint.d/40-render-nginx-conf.sh.
-# envsubst expands: ${BACKEND_UPSTREAM}, ${SENTRY_INGEST_URL}, ${SENTRY_INGEST_HOST}.
-# Every other $var is Nginx's own.
+# Rendered at container start by the nginx image's envsubst step (20-), which
+# expands ${BACKEND_UPSTREAM}, ${SENTRY_INGEST_URL}, ${SENTRY_INGEST_HOST} and
+# ${MCP_HOST} (exported by /docker-entrypoint.d/05-render-nginx-conf.envsh).
+# Every other $var is nginx's own.
 
 upstream backend_upstream {
     server ${BACKEND_UPSTREAM};
     keepalive 32;
 }
 
+# Client address. Exactly one proxy is in front of this nginx: Dokploy's
+# Traefik, which connects from a private Docker or Swarm network address and
+# puts the client's address in X-Forwarded-For. Only those private ranges are
+# trusted, so an address a client writes into its own X-Forwarded-For is never
+# taken as the client. $remote_addr is then the real client, and every proxied
+# location below sends exactly that one address on (X-Forwarded-For and
+# X-Real-IP are overwritten, never appended to). Behind a CDN, add its
+# published ranges here too and to Traefik's forwardedHeaders.trustedIPs
+# (deploy/README.md).
+set_real_ip_from 10.0.0.0/8;
+set_real_ip_from 172.16.0.0/12;
+set_real_ip_from 192.168.0.0/16;
+real_ip_header X-Forwarded-For;
+real_ip_recursive on;
+
 server {
     listen 80 default_server;
+    # Every host: the shared app and every team's own host (<slug>.<root>).
     server_name _;
 
     root /usr/share/nginx/html;
     index index.html;
 
-    # Trust Dokploy's Traefik in front of us — needed so the backend sees the
-    # original scheme/host via X-Forwarded-* (better-auth cookies + redirects).
-    set_real_ip_from 0.0.0.0/0;
-    real_ip_header X-Forwarded-For;
-    real_ip_recursive on;
+    include /etc/nginx/conf.d/security-headers.inc;
 
-    # gzip static assets (Vite output is already highly compressible).
     gzip on;
     gzip_vary on;
     gzip_min_length 1024;
@@ -29,60 +41,61 @@ server {
         application/javascript application/json application/xml application/manifest+json
         image/svg+xml font/woff2;
 
+    # Uploads go straight to object storage through presigned PUTs; this only
+    # bounds what the proxy itself accepts.
     client_max_body_size 25m;
 
-    # Nginx-side healthcheck endpoint (Dockerfile HEALTHCHECK hits this).
+    # nginx's own health check (the Dockerfile HEALTHCHECK).
     location = /healthz {
         access_log off;
+        default_type text/plain;
         return 200 "ok\n";
-        add_header Content-Type text/plain;
     }
 
-    # Sentry envelope tunnel — proxied directly to Sentry's ingest, bypassing
-    # the backend. Same-origin from the browser's POV → ad-blockers and
-    # privacy extensions that block *.ingest.sentry.io don't intercept us.
-    # `= /api/sentry-tunnel` is an exact match, so it wins over the /api/ block
-    # below regardless of order. Frontend only sends here when its runtime probe
-    # detects that direct ingest is blocked (see src/instrumentation.ts).
-    #
-    # Upstream URL is derived from SENTRY_DSN at container start by
-    # docker-entrypoint.sh. When SENTRY_DSN is unset, it points at a discard
-    # sentinel so the tunnel returns 502 instead of nginx failing to boot.
+    # Sentry envelope tunnel, proxied straight to Sentry's ingest, not the
+    # backend. Same origin from the browser, so ad-blockers that block
+    # *.ingest.sentry.io don't intercept it. An exact match, so it wins over the
+    # /api/ block below whatever the order. The frontend sends here only when
+    # its probe finds direct ingest blocked (src/instrumentation.ts). Without
+    # SENTRY_DSN the upstream is a discard sentinel and the tunnel answers 502.
     location = /api/sentry-tunnel {
         limit_except POST { deny all; }
         client_max_body_size 5m;
 
         proxy_pass ${SENTRY_INGEST_URL};
         proxy_http_version 1.1;
-        # Send the Sentry host in the Host header, not the visible origin —
-        # Sentry's ingest routes on Host and would 404 otherwise.
+        # Sentry's ingest routes on Host and would 404 on the visible origin.
         proxy_set_header Host ${SENTRY_INGEST_HOST};
         proxy_ssl_server_name on;
         proxy_ssl_name ${SENTRY_INGEST_HOST};
-        # Strip any client cookies before forwarding — Sentry doesn't want them
-        # and this avoids leaking session cookies to a third-party host.
+        # Never forward the app's cookies to a third-party host.
         proxy_set_header Cookie "";
         proxy_set_header Connection "";
         proxy_read_timeout 30s;
         proxy_send_timeout 30s;
     }
 
-    # Reverse proxy: everything under /api/* goes to the backend service on the
-    # internal Docker network. That includes /api/auth/* (better-auth),
-    # /api/user-app/* (oRPC), and every OpenAPI route.
-    # Same origin from the browser's POV → cookies stay first-party and CORS
-    # is bypassed entirely.
+    # Everything under /api/* goes to the backend: /api/auth/* (Better Auth and
+    # the OAuth provider), /api/user-app/* (oRPC), /api/tenant/* (a team's web
+    # manifest on its own host) and every OpenAPI route. Same origin from the
+    # browser, so cookies stay first-party and CORS is not involved.
     location /api/ {
         proxy_pass http://backend_upstream;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
+        # One address, the client's (set_real_ip_from above): a client's own
+        # X-Forwarded-For never reaches the backend.
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-Host $host;
         proxy_set_header Connection "";
+        # This server's security headers win over the backend's own.
+        proxy_hide_header X-Frame-Options;
+        proxy_hide_header X-Content-Type-Options;
+        proxy_hide_header Referrer-Policy;
 
-        # oRPC uses long-lived POST responses; give them room.
+        # oRPC uses long-lived POST responses; give them room, unbuffered.
         proxy_read_timeout 300s;
         proxy_send_timeout 300s;
         proxy_buffering off;
@@ -93,19 +106,24 @@ server {
     # /.well-known/oauth-authorization-server/api/auth here. /mcp and
     # /.well-known/oauth-protected-resource/mcp are served here while
     # MCP_PUBLIC_URL is unset; when it is set the backend answers 404 for them
-    # on this host and the MCP host is routed straight to the backend.
+    # on this host and the MCP host's own server block below serves them.
+    # Responses are streamed as they come (no buffering).
     location = /mcp {
         proxy_pass http://backend_upstream;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-Host $host;
         proxy_set_header Connection "";
+        proxy_hide_header X-Frame-Options;
+        proxy_hide_header X-Content-Type-Options;
+        proxy_hide_header Referrer-Policy;
         proxy_read_timeout 120s;
         proxy_send_timeout 120s;
         proxy_buffering off;
+        proxy_cache off;
     }
 
     location ^~ /.well-known/oauth- {
@@ -113,35 +131,68 @@ server {
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-Host $host;
         proxy_set_header Connection "";
+        proxy_hide_header X-Frame-Options;
+        proxy_hide_header X-Content-Type-Options;
+        proxy_hide_header Referrer-Policy;
     }
 
-    # PWA service worker: must not be cached, so an updated shell can register.
+    # PWA service worker: never cached, so an updated shell can register.
     location = /sw.js {
+        include /etc/nginx/conf.d/security-headers.inc;
         add_header Cache-Control "no-cache, no-store, must-revalidate";
         add_header Pragma "no-cache";
         expires 0;
         try_files $uri =404;
     }
 
-    # Web manifest — short cache; updates should propagate reasonably fast.
+    # Web manifest: short cache, so updates propagate reasonably fast.
     location = /manifest.webmanifest {
+        include /etc/nginx/conf.d/security-headers.inc;
         add_header Cache-Control "public, max-age=3600";
         try_files $uri =404;
     }
 
-    # Vite hashes filenames under /assets — safe to cache immutably forever.
+    # Vite hashes the file names under /assets: safe to cache for good.
     location /assets/ {
+        include /etc/nginx/conf.d/security-headers.inc;
         add_header Cache-Control "public, max-age=31536000, immutable";
         try_files $uri =404;
     }
 
-    # SPA fallback: any unknown path serves index.html so React Router handles it.
+    # SPA fallback: any unknown path serves index.html so React Router handles
+    # it. /robots.txt is a file of the bundle (apps/frontend/public).
     location / {
-        try_files $uri $uri/ /index.html;
+        include /etc/nginx/conf.d/security-headers.inc;
         add_header Cache-Control "no-cache";
+        try_files $uri $uri/ /index.html;
+    }
+}
+
+# The application MCP's own host (MCP_PUBLIC_URL set): everything goes to the
+# backend, which serves the MCP and its discovery documents there and answers
+# 404 for anything else. The backend sends its own security headers.
+server {
+    listen 80;
+    server_name ${MCP_HOST};
+
+    client_max_body_size 5m;
+
+    location / {
+        proxy_pass http://backend_upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header Connection "";
+        proxy_read_timeout 120s;
+        proxy_send_timeout 120s;
+        proxy_buffering off;
+        proxy_cache off;
     }
 }
