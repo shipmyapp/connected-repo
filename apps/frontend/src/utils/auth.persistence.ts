@@ -63,6 +63,19 @@ export const getAuthCache = (): CachedSession | null => {
 };
 
 /**
+ * Rewrites fields of the cached user without a round-trip. A team switch
+ * and a theme choice write the user row outside the cached copy; without
+ * this, every offline fallback of `authLoader` would hand back the old
+ * value (the old team, the old theme) after a restart. No cache, nothing
+ * to patch.
+ */
+export const patchAuthCacheUser = (patch: Partial<UserSelectAll>): void => {
+	const cached = getAuthCache();
+	if (!cached) return;
+	saveAuthCache({ ...cached.user, ...patch });
+};
+
+/**
  * Clears the cached auth session.
  */
 export const clearAuthCache = () => {

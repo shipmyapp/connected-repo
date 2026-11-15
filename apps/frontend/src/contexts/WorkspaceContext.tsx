@@ -2,10 +2,11 @@ import {
 	ACTIVE_TEAM_WIPED_CHANNEL,
 	type ActiveTeamWipedMessage,
 } from "@frontend/utils/active_team_wiped.channel";
-import { authClient } from "@frontend/utils/auth.client";
+import { patchAuthCacheUser } from "@frontend/utils/auth.persistence";
 import type { UserAppBackendOutputs } from "@frontend/utils/orpc.client";
 import { orpc } from "@frontend/utils/orpc.tanstack.client";
 import { syncPushIfGranted } from "@frontend/utils/push.utils";
+import { requestFreshSession } from "@frontend/utils/session_refresh.client";
 import { signout } from "@frontend/utils/signout.utils";
 import { switchGate } from "@frontend/utils/switch_gate";
 import { initSyncForUser, setActiveTeam as syncSetActiveTeam } from "@frontend/utils/sync-triggers";
@@ -113,31 +114,31 @@ export function WorkspaceProvider({ children, sessionInfo }: WorkspaceProviderPr
 					//    what the closed gate is protecting: no other RPC can
 					//    dispatch until both caches are flipped.
 					await syncSetActiveTeam(newId);
-					// 1b. `setActiveTeam` wrote the user row behind Better Auth's back,
-					//     and the signed session cookie (`session.cookieCache`, five
-					//     minutes) still holds the old team: the loader below would read
-					//     it and put the OLD id back into the header cache while the
-					//     DataWorker keeps the new one. One uncached read makes Better
-					//     Auth re-sign the cookie from the row. Not an oRPC call, so the
-					//     closed switch gate does not block it; offline it fails and is
-					//     ignored (the backend gate re-reads the row on a mismatch).
-					await authClient
-						.getSession({ query: { disableCookieCache: true } })
-						.catch(() => undefined);
-					// 2. Re-run the router's authLoader so `sessionInfo.user.activeTeamAppId`
+					// 2. The offline copy of the user names the new team too, so
+					//    a loader fallback (offline, or the fresh read failing on
+					//    the network) cannot hand back the old one.
+					patchAuthCacheUser({ activeTeamAppId: newId });
+					// 3. Re-run the router's authLoader so `sessionInfo.user.activeTeamAppId`
 					//    (fed via useLoaderData) reflects the new value. Without this,
 					//    the loader-derived prop stays at the old team and downstream
 					//    consumers (activeWorkspace, useActiveTeamId, page enabled-gates,
-					//    the initSyncForUser effect) remain out of sync with the header,
-					//    causing team-B data to render under a team-A UI.
-					revalidator.revalidate();
+					//    the initSyncForUser effect) remain out of sync with the header.
+					//    `setActiveTeam` writes `users.activeTeamAppId` behind
+					//    better-auth's back, and its 5-minute cookie cache would hand
+					//    the loader the OLD team, which it would write back into the
+					//    header cache: the switch silently reverted ("clicking a team
+					//    on the profile page does nothing"). Ask for one uncached read.
+					//    Awaited inside the closed gate: the loader's online path makes
+					//    no gated RPC once a team is set.
+					requestFreshSession();
+					await revalidator.revalidate();
 				} finally {
 					// Reopen before invalidateQueries so the refetches it
 					// triggers carry the new header instead of stalling on
 					// the gate.
 					switchGate.open();
 				}
-				// 3. Drop team-scoped React Query caches so refetches hit the
+				// 4. Drop team-scoped React Query caches so refetches hit the
 				//    backend under the new team id. Narrowed from a blanket
 				//    invalidateQueries() to avoid nuking unrelated data.
 				await queryClient.invalidateQueries({

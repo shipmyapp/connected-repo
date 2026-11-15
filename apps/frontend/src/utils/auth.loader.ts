@@ -5,6 +5,7 @@ import { authClient } from "@frontend/utils/auth.client";
 import { getAuthCache, saveAuthCache, saveLastLogin } from "@frontend/utils/auth.persistence";
 import { mirrorToLocalDb } from "@frontend/utils/mirror_to_local_db";
 import { orpcFetch } from "@frontend/utils/orpc.client";
+import { consumeFreshSessionRequest } from "@frontend/utils/session_refresh.client";
 import { detectUserTimezone } from "@frontend/utils/timezone.utils";
 import type { LoaderFunctionArgs } from "react-router";
 import { redirect } from "react-router";
@@ -33,8 +34,16 @@ export async function authLoader({ context }: LoaderFunctionArgs) {
 	}
 
 	try {
-		// Fetch session from better-auth client
-		const { data: session, error } = await authClient.getSession();
+		// A team switch (or anything else that writes the `users` row outside
+		// better-auth) asks for one uncached read here. Without it the 5-minute
+		// `session.cookieCache` keeps serving the pre-switch `activeTeamAppId`
+		// and the revalidation that follows the switch silently undoes it.
+		// Consumed only on this online path: the offline branch above never
+		// reaches the network, so the request waits for the next online run.
+		const disableCookieCache = consumeFreshSessionRequest();
+		const { data: session, error } = await authClient.getSession(
+			disableCookieCache ? { query: { disableCookieCache: true } } : undefined,
+		);
 
 		if (error || !session) {
 			// If we have a cached session and it seems like a network error or we are known to be offline
