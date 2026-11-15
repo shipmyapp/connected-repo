@@ -1,5 +1,6 @@
 import { isDev, isProd, isStaging } from "@backend/configs/env.config";
 import { userAppRouter } from "@backend/routers/user_app/user_app.router";
+import { isBearerOnlyRequest } from "@backend/utils/bearer.utils";
 import { APP_BODY_LIMIT_BYTES } from "@backend/utils/body_limit.utils";
 import { TRACE_HEADERS_ALLOW, TRACE_HEADERS_EXPOSE } from "@backend/utils/cors.utils";
 import { handleBoundaryError } from "@backend/utils/errorParser";
@@ -70,13 +71,7 @@ export const mobileAppHandler = new OpenAPIHandler(userAppRouter, {
 		...(isProd || isStaging
 			? [
 					new SimpleCsrfProtectionHandlerPlugin({
-						exclude: async ({ context }) => {
-							const authHeader = context.reqHeaders?.get("authorization")?.trim();
-							if (authHeader && /^bearer\s+/i.test(authHeader)) {
-								return true;
-							}
-							return false;
-						},
+						exclude: async ({ context }) => isBearerOnlyRequest(context.reqHeaders),
 					}),
 				]
 			: []),

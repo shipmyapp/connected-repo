@@ -1,6 +1,7 @@
 import { allowedOrigins } from "@backend/configs/allowed_origins.config";
 import { isDev, isProd, isStaging } from "@backend/configs/env.config";
 import { userAppRouter } from "@backend/routers/user_app/user_app.router";
+import { isBearerOnlyRequest } from "@backend/utils/bearer.utils";
 import { APP_BODY_LIMIT_BYTES } from "@backend/utils/body_limit.utils";
 import { TRACE_HEADERS_ALLOW, TRACE_HEADERS_EXPOSE } from "@backend/utils/cors.utils";
 import { handleBoundaryError } from "@backend/utils/errorParser";
@@ -40,18 +41,12 @@ export const reactAppHandler = new RPCHandler(userAppRouter, {
 			logRequestAbort: false,
 		}),
 		// CSRF protection — disabled in dev for easier testing. Bearer-token
-		// callers (mobile, server-to-server) are excluded because the token
-		// already proves origin.
+		// callers without cookies (mobile, server-to-server) are excluded: a
+		// browser cannot send that request on its own.
 		...(isProd || isStaging
 			? [
 					new SimpleCsrfProtectionHandlerPlugin({
-						exclude: async ({ context }) => {
-							const authHeader = context.reqHeaders?.get("authorization")?.trim();
-							if (authHeader && /^bearer\s+/i.test(authHeader)) {
-								return true;
-							}
-							return false;
-						},
+						exclude: async ({ context }) => isBearerOnlyRequest(context.reqHeaders),
 					}),
 				]
 			: []),

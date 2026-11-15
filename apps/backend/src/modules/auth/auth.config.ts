@@ -87,6 +87,13 @@ const googleWebOptions = {
 export const auth = betterAuth({
 	account: {
 		modelName: "accounts",
+		// Google's and Apple's access and refresh tokens rest encrypted with
+		// BETTER_AUTH_SECRET: a database copy must not hand out working tokens.
+		// Rotating the secret makes stored tokens unreadable (they are
+		// rewritten at the next sign-in; the template never reads them).
+		encryptOAuthTokens: true,
+		// Fresh provider tokens on every sign-in (Better Auth's default, stated).
+		updateAccountOnSignIn: true,
 	},
 	advanced: {
 		crossSubDomainCookies: {
@@ -145,7 +152,9 @@ export const auth = betterAuth({
 	emailAndPassword: {
 		enabled: isTest,
 	},
-	plugins: [bearer()],
+	// Mobile clients send the signed token from the `set-auth-token` response
+	// header. A raw sessions.token (stored in plain text) is not accepted.
+	plugins: [bearer({ requireSignature: true })],
 	hooks: {
 		before: createAuthMiddleware(async (ctx) => {
 			const appleClientSecret = await getAppleClientSecret();
@@ -289,10 +298,9 @@ export const auth = betterAuth({
 		google: googleWebOptions,
 	},
 	telemetry: {
-		enabled: true,
+		enabled: false,
 	},
 	trustedOrigins: allowedOrigins,
-	updateAccountOnSignin: true,
 	user: {
 		changeEmail: {
 			enabled: false, // Disable email changes for simplicity
