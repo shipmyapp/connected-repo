@@ -75,11 +75,16 @@ export type TeamAppMemberRole = z.infer<typeof teamAppMemberRoleZod>;
 
 // `teamId` is derived from the `x-team-id` header on the RPC procedure, not
 // from the request body — callers implicitly add members to their active team.
+// An invitation makes an Admin or a Member. Owners are made by an Owner from
+// the member list (`teams.updateMemberRole`), never by adding someone.
+export const teamInviteRoleZod = z.enum(["Admin", "Member"]);
+export type TeamInviteRole = z.infer<typeof teamInviteRoleZod>;
+
 export const teamAppMemberAddInputZod = z
 	.object({
 		email: z.email().max(320).optional().nullable(),
 		phoneNumber: zPhoneNumber.optional().nullable(),
-		role: teamMemberRoleZod,
+		role: teamInviteRoleZod.default("Member"),
 	})
 	.refine((data) => data.email || data.phoneNumber, {
 		message: "Either email or phone number must be provided",

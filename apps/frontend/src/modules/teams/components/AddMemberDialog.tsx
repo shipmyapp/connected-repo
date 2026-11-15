@@ -1,5 +1,5 @@
 import { Button } from "@connected-repo/ui-mui/form/Button";
-import type { TeamMemberRole } from "@connected-repo/zod-schemas/enums.zod";
+import type { TeamInviteRole } from "@connected-repo/zod-schemas/team_app.zod";
 import { orpc } from "@frontend/utils/orpc.tanstack.client";
 import {
 	Dialog,
@@ -27,7 +27,7 @@ interface AddMemberDialogProps {
 // in the body — see teamAppMemberAddInputZod.
 export function AddMemberDialog({ open, onClose, onSuccess }: AddMemberDialogProps) {
 	const [email, setEmail] = useState("");
-	const [role, setRole] = useState<TeamMemberRole>("Member");
+	const [role, setRole] = useState<TeamInviteRole>("Member");
 
 	const mutation = useMutation(
 		orpc.teams.addTeamMember.mutationOptions({
@@ -66,7 +66,7 @@ export function AddMemberDialog({ open, onClose, onSuccess }: AddMemberDialogPro
 						<Select
 							value={role}
 							label="Role"
-							onChange={(e) => setRole(e.target.value as TeamMemberRole)}
+							onChange={(e) => setRole(e.target.value as TeamInviteRole)}
 						>
 							<MenuItem value="Admin">Admin</MenuItem>
 							<MenuItem value="Member">Member</MenuItem>

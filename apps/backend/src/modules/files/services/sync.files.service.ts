@@ -1,6 +1,6 @@
-import { env } from "@backend/configs/env.config";
 import { db } from "@backend/db/db";
 import { syncDeltaService } from "@backend/modules/sync/services/sync_delta.sync.service";
+import { isAllowedCdnUrl } from "@backend/utils/cdn_url.utils";
 import type { FileSelectAll } from "@connected-repo/zod-schemas/file.zod";
 import type {
 	FilePullBundlesInput,
@@ -8,33 +8,6 @@ import type {
 	FilePushCdnUpdatesInput,
 	FilePushCdnUpdatesOutput,
 } from "@connected-repo/zod-schemas/files/sync";
-
-/**
- * Origins accepted for `cdnUrl` / `thumbnailCdnUrl` patch values. Anything
- * else is rejected as a URL-defacement attempt (phishing/tracker hosts).
- * Derived once at module load from the same env vars the upload worker uses
- * to construct these URLs, so the allowlist can never drift from reality.
- */
-const CDN_ORIGIN_ALLOWLIST: ReadonlySet<string> = (() => {
-	const origins = new Set<string>();
-	for (const raw of [env.S3_PUBLIC_URL, env.S3_ENDPOINT]) {
-		if (!raw) continue;
-		try {
-			origins.add(new URL(raw).origin);
-		} catch {
-			// env-parsed URL should always be valid; ignore defensively.
-		}
-	}
-	return origins;
-})();
-
-const isAllowedCdnUrl = (url: string): boolean => {
-	try {
-		return CDN_ORIGIN_ALLOWLIST.has(new URL(url).origin);
-	} catch {
-		return false;
-	}
-};
 
 /**
  * Patch `cdnUrl` / `thumbnailCdnUrl` / `isMainFileLost` on file rows the

@@ -1,9 +1,12 @@
 import { db } from "@backend/db/db";
+import { createRateLimitMiddleware } from "@backend/middlewares/rate_limit.middleware";
 import {
+	type RpcActiveTeamContext,
 	rpcProtectedActiveTeamProcedure,
 	rpcProtectedProcedure,
 	rpcTeamOwnerAdminProcedure,
 } from "@backend/procedures/protected.procedure";
+import { assertOwnCdnUrl } from "@backend/utils/cdn_url.utils";
 import {
 	teamAppCreateApiInputZod,
 	teamAppMemberAddInputZod,
@@ -22,41 +25,40 @@ import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 import { createTeamService } from "./services/create_team.teams.service";
 import { pullTeamMembersService, pullTeamsAppService } from "./services/sync.teams.service";
+import { assertNotLastOwner, personalOwnerOf } from "./services/team_roles.teams.service";
 
 const getMyTeams = rpcProtectedProcedure
 	.route({ method: "GET", tags: ["Teams"] })
 	.output(z.array(teamWithRoleZod))
 	.handler(async ({ context: { user } }) => {
 		const userId = user.id;
-		const userEmail = user.email;
 
-		// 1. Claim any memberships added by email but without userId
-		if (userEmail) {
-			await db.teamMembers.where({ email: userEmail, userId: null }).update({
-				userId,
-				joinedAt: Date.now(),
-			});
+		// 1. Claim invitations sent to an identifier this account has proved.
+		//    Not a team request: the tenant scope is lifted on purpose.
+		if (user.email && user.emailVerified) {
+			await db.teamMembers
+				.unscope("default")
+				.where({ email: user.email, userId: null })
+				.update({ userId, joinedAt: Date.now() });
+		}
+		if (user.phoneNumber && user.phoneNumberVerified) {
+			await db.teamMembers
+				.unscope("default")
+				.where({ phoneNumber: user.phoneNumber, userId: null })
+				.update({ userId, joinedAt: Date.now() });
 		}
 
-		// 2. Claim any memberships added by phoneNumber but without userId
-		if (user.phoneNumber) {
-			await db.teamMembers.where({ phoneNumber: user.phoneNumber, userId: null }).update({
-				userId,
-				joinedAt: Date.now(),
-			});
-		}
+		// 2. Every live team the caller belongs to, with their role. The
+		//    `team` relation keeps the soft-delete filter, so a deleted team
+		//    drops out.
+		const memberships = await db.teamMembers
+			.unscope("default")
+			.where({ userId })
+			.select("joinedAt", "role", { team: (q) => q.team.selectAll() });
 
-		// 3. Join teams with team_members to get user role
-		const teamsWithRoles = await db.teamsApp
-			.join("members")
-			.where({ "members.userId": userId })
-			.select("*", "members.joinedAt", "members.role");
-
-		return teamsWithRoles.map((t) => ({
-			...t,
-			joinedAt: t.joinedAt,
-			userRole: t.role,
-		}));
+		return memberships.flatMap((m) =>
+			m.team ? [{ ...m.team, joinedAt: m.joinedAt, userRole: m.role }] : [],
+		);
 	});
 
 const createTeam = rpcProtectedProcedure
@@ -64,6 +66,7 @@ const createTeam = rpcProtectedProcedure
 	.input(teamAppCreateApiInputZod)
 	.output(teamAppSelectAllZod)
 	.handler(async ({ input, context: { user } }) => {
+		assertOwnCdnUrl(input.logoUrl, "logoUrl");
 		const userId = user.id;
 
 		// `createTeamService` forces `createdByUserId = userId` and
@@ -87,24 +90,31 @@ const getTeamMembers = rpcProtectedActiveTeamProcedure
 
 const addTeamMember = rpcTeamOwnerAdminProcedure
 	.route({ method: "POST", tags: ["Teams"] })
+	// Caps a runaway or abusive inviter (and, from the invitation e-mail on,
+	// what the app's sender can be made to send). Fails open with Redis down,
+	// like every limit that does not guard a guessable secret.
+	.use(
+		createRateLimitMiddleware<RpcActiveTeamContext>({
+			bucketFn: (ctx) => ({
+				key: `invite:user:${ctx.user.id}`,
+				limit: 30,
+				windowSeconds: 3600,
+			}),
+			label: "invite",
+		}),
+	)
 	.input(teamAppMemberAddInputZod)
 	.output(teamAppMemberSelectAllZod)
 	.handler(async ({ input, context: { activeTeamId } }) => {
-		const { email, phoneNumber } = input;
-
-		// Try to find if user already exists on platform
-		let targetUser = null;
-		if (email) {
-			targetUser = await db.users.where({ email }).takeOptional();
-		} else if (phoneNumber) {
-			targetUser = await db.users.where({ phoneNumber }).takeOptional();
-		}
-
+		// Always a pending invitation. Looking the address up and joining an
+		// existing account at once told every caller whether that address has
+		// an account here. The invitee joins on their next `getMyTeams`
+		// (verified identifiers only).
 		return await db.teamMembers.create({
 			...input,
 			teamId: activeTeamId,
-			userId: targetUser?.id || null,
-			joinedAt: targetUser ? Date.now() : null,
+			userId: null,
+			joinedAt: null,
 		});
 	});
 
@@ -112,20 +122,41 @@ const removeTeamMember = rpcTeamOwnerAdminProcedure
 	.route({ method: "DELETE", tags: ["Teams"] })
 	.input(z.object({ id: z.ulid() }))
 	.output(z.object({ success: z.boolean() }))
-	.handler(async ({ input: { id }, context: { activeTeamMemberRole } }) => {
-		// Default scope on team_members restricts to the active team, so
-		// looking up by id will 404 for members of other teams.
-		const target = await db.teamMembers.where({ id }).takeOptional();
-		if (!target) throw new Error("Member not found");
-
-		// Owners cannot be removed by Admins
-		if (target.role === "Owner" && activeTeamMemberRole === "Admin") {
-			throw new Error("Unauthorized: Admins cannot remove the Owner");
-		}
-
-		await db.teamMembers.where({ id }).delete();
-		return { success: true };
-	});
+	.handler(
+		async ({
+			input: { id },
+			context: { activeTeamId, activeTeamMemberId, activeTeamMemberRole },
+		}) => {
+			// The tenant scope keeps the lookup inside the active team. Refusals
+			// are typed: a plain Error reached the client as a 500.
+			const target = await db.teamMembers.where({ id }).takeOptional();
+			if (!target) {
+				throw new ORPCError("NOT_FOUND", { status: 404, message: "Member not found." });
+			}
+			if (target.id === activeTeamMemberId) {
+				throw new ORPCError("BAD_REQUEST", {
+					status: 400,
+					message: "To leave this team, use Leave team.",
+				});
+			}
+			if (activeTeamMemberRole === "Admin" && target.role !== "Member") {
+				throw new ORPCError("FORBIDDEN", {
+					status: 403,
+					message: "Only an Owner can remove an Owner or an Admin.",
+				});
+			}
+			const personalOwner = await personalOwnerOf(activeTeamId);
+			if (personalOwner !== null && target.userId === personalOwner) {
+				throw new ORPCError("FORBIDDEN", {
+					status: 403,
+					message: "The account a personal team belongs to cannot be removed from it.",
+				});
+			}
+			await assertNotLastOwner(activeTeamId, target.id);
+			await db.teamMembers.where({ id }).delete();
+			return { success: true };
+		},
+	);
 
 const updateMemberRole = rpcProtectedActiveTeamProcedure
 	.route({ method: "PUT", tags: ["Teams"] })
@@ -136,7 +167,7 @@ const updateMemberRole = rpcProtectedActiveTeamProcedure
 		}),
 	)
 	.output(teamAppMemberSelectAllZod)
-	.handler(async ({ input, context: { activeTeamMemberRole } }) => {
+	.handler(async ({ input, context: { activeTeamId, activeTeamMemberRole } }) => {
 		if (activeTeamMemberRole !== "Owner") {
 			throw new ORPCError("FORBIDDEN", {
 				status: 403,
@@ -145,7 +176,17 @@ const updateMemberRole = rpcProtectedActiveTeamProcedure
 		}
 		const { id, role } = input;
 		const target = await db.teamMembers.where({ id }).takeOptional();
-		if (!target) throw new Error("Member not found");
+		if (!target) {
+			throw new ORPCError("NOT_FOUND", { status: 404, message: "Member not found." });
+		}
+		const personalOwner = await personalOwnerOf(activeTeamId);
+		if (personalOwner !== null && target.userId === personalOwner) {
+			throw new ORPCError("FORBIDDEN", {
+				status: 403,
+				message: "The account a personal team belongs to stays its Owner.",
+			});
+		}
+		if (role !== "Owner") await assertNotLastOwner(activeTeamId, target.id);
 
 		return await db.teamMembers.where({ id }).selectAll().take().update({ role });
 	});
@@ -158,9 +199,10 @@ const updateMemberRole = rpcProtectedActiveTeamProcedure
 // a user removed from their active team would get 403 here too — the exact
 // dead-end this fixes (see the sync orchestrator's reconcileMemberships).
 //
-// `team_members`'s tenant default scope is a no-op without request context, so
-// this returns memberships across ALL teams; the soft-delete filter still
-// applies, so only active (non-revoked) memberships come back.
+// The tenant default scope is lifted (it refuses a query without a team
+// request context), so this returns memberships across ALL teams; the
+// soft-delete filter still applies, so only active (non-revoked) memberships
+// come back.
 const listMyActiveTeamIds = rpcProtectedProcedure
 	.route({ method: "GET", tags: ["Teams"] })
 	.output(z.object({ teamIds: z.array(z.ulid()) }))
@@ -210,7 +252,7 @@ const deleteTeam = rpcTeamOwnerAdminProcedure
 			});
 		}
 		const team = await db.teamsApp.where({ id: activeTeamId }).takeOptional();
-		if (!team) throw new Error("Team not found");
+		if (!team) throw new ORPCError("NOT_FOUND", { status: 404, message: "Team not found." });
 		if (team.personalTeamForUserId !== null) {
 			throw new ORPCError("FORBIDDEN", {
 				status: 403,
