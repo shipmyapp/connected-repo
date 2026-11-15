@@ -5,9 +5,7 @@ import type { AppPlatform } from "@connected-repo/zod-schemas/device.zod";
 import type { DevicePlatform } from "@connected-repo/zod-schemas/enums.zod";
 
 /** The native/old platform names onto the three kinds of device. */
-export const appPlatformOf = (
-	platform: DevicePlatform | null | undefined,
-): AppPlatform | undefined =>
+const appPlatformOf = (platform: DevicePlatform | null | undefined): AppPlatform | undefined =>
 	platform === "ios" || platform === "android" ? platform : platform ? "desktop" : undefined;
 
 /**

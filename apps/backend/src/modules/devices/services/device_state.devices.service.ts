@@ -58,11 +58,11 @@ interface DeviceRow {
 }
 
 /** Every device of one account, or of several (a future admin summary). */
-export const devicesOf = async (userIds: string[]): Promise<DeviceRow[]> =>
+const devicesOf = async (userIds: string[]): Promise<DeviceRow[]> =>
 	db.devices.where({ userId: { in: userIds } }).select("userId", ...DEVICE_COLUMNS);
 
 /** A row as the rules read it. */
-export const factsOf = (row: DeviceRow): DeviceFacts => ({
+const factsOf = (row: DeviceRow): DeviceFacts => ({
 	...row,
 	hasLivePush: row.fcmToken !== null && row.pushOffAt === null,
 });
