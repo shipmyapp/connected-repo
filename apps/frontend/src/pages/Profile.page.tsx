@@ -1,14 +1,19 @@
 import { Avatar } from "@connected-repo/ui-mui/data-display/Avatar";
 import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
 import { Button } from "@connected-repo/ui-mui/form/Button";
+import { ToggleButton } from "@connected-repo/ui-mui/form/ToggleButton";
+import { ToggleButtonGroup } from "@connected-repo/ui-mui/form/ToggleButtonGroup";
 import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { Card } from "@connected-repo/ui-mui/layout/Card";
 import { Container } from "@connected-repo/ui-mui/layout/Container";
 import { Stack } from "@connected-repo/ui-mui/layout/Stack";
+import { useThemeMode } from "@connected-repo/ui-mui/theme/ThemeContext";
+import type { ThemeSetting } from "@connected-repo/zod-schemas/enums.zod";
 import { AppVersionLabel } from "@frontend/components/AppVersionLabel";
 import { NotificationSettings } from "@frontend/components/notifications/NotificationSettings";
 import { useSessionInfo } from "@frontend/contexts/UserContext";
 import { useWorkspace } from "@frontend/contexts/WorkspaceContext";
+import { useSaveThemeSetting } from "@frontend/hooks/useSaveThemeSetting";
 import CreateTeamDialog from "@frontend/modules/teams/components/CreateTeamDialog";
 import AddIcon from "@mui/icons-material/Add";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
@@ -22,6 +27,8 @@ export default function ProfilePage() {
 	const { user } = useSessionInfo();
 	const { activeWorkspace, teams, setActiveTeam, isSwitching } = useWorkspace();
 	const [createOpen, setCreateOpen] = useState(false);
+	const { mode } = useThemeMode();
+	const saveThemeSetting = useSaveThemeSetting();
 
 	if (!user) return null;
 
@@ -152,6 +159,37 @@ export default function ProfilePage() {
 								</Box>
 							);
 						})}
+					</Stack>
+				</Card>
+
+				<Card sx={{ p: 3, borderRadius: 2, border: "1px solid", borderColor: "divider" }}>
+					<Stack
+						direction={{ xs: "column", sm: "row" }}
+						justifyContent="space-between"
+						alignItems={{ xs: "flex-start", sm: "center" }}
+						spacing={2}
+					>
+						<Box>
+							<Typography variant="h6" sx={{ fontWeight: 700 }}>
+								Appearance
+							</Typography>
+							<Typography variant="body2" color="text.secondary">
+								Saved to your account. System follows your device's setting.
+							</Typography>
+						</Box>
+						<ToggleButtonGroup
+							exclusive
+							size="small"
+							value={mode}
+							onChange={(_, next: ThemeSetting | null) => {
+								if (next) void saveThemeSetting(next);
+							}}
+							aria-label="Theme"
+						>
+							<ToggleButton value="light">Light</ToggleButton>
+							<ToggleButton value="dark">Dark</ToggleButton>
+							<ToggleButton value="system">System</ToggleButton>
+						</ToggleButtonGroup>
 					</Stack>
 				</Card>
 
