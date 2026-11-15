@@ -4,6 +4,11 @@ import { Button } from "@connected-repo/ui-mui/form/Button";
 import { TextField } from "@connected-repo/ui-mui/form/TextField";
 import { PageHeader } from "@connected-repo/ui-mui/layout/PageHeader";
 import { DataTable } from "@connected-repo/ui-mui/mrt/DataTable";
+import { purgeAfterOf } from "@connected-repo/zod-schemas/account.zod";
+import {
+	type AccountDeletionAction,
+	AccountDeletionDialog,
+} from "@superadmin/components/AccountDeletionDialog";
 import { SignOutEverywhereDialog } from "@superadmin/components/SignOutEverywhereDialog";
 import { orpc, type SuperAdminOutputs } from "@superadmin/utils/orpc.client";
 import { useQuery } from "@tanstack/react-query";
@@ -17,6 +22,9 @@ export default function UsersPage() {
 	const [search, setSearch] = useState("");
 	const [debounced, setDebounced] = useState("");
 	const [signingOut, setSigningOut] = useState<UserRow | null>(null);
+	const [deletion, setDeletion] = useState<{ user: UserRow; action: AccountDeletionAction } | null>(
+		null,
+	);
 	useEffect(() => {
 		const t = setTimeout(() => setDebounced(search.trim()), 250);
 		return () => clearTimeout(t);
@@ -28,7 +36,7 @@ export default function UsersPage() {
 		}),
 	);
 
-	// `setSigningOut` is a stable state setter: the columns never change.
+	// `setSigningOut` and `setDeletion` are stable state setters: the columns never change.
 	const columns = useMemo<MRT_ColumnDef<UserRow>[]>(
 		() => [
 			{ accessorKey: "name", header: "Name" },
@@ -38,6 +46,33 @@ export default function UsersPage() {
 				accessorKey: "createdAt",
 				header: "Signed up",
 				Cell: ({ row }) => <When at={row.original.createdAt} />,
+			},
+			{
+				id: "deletion",
+				header: "Deletion",
+				accessorFn: (u) => u.deletionRequestedAt ?? 0,
+				Cell: ({ row }) => {
+					const requestedAt = row.original.deletionRequestedAt;
+					if (requestedAt === null) return "—";
+					return (
+						<>
+							Scheduled · <When at={purgeAfterOf(requestedAt)} />{" "}
+							<Button
+								size="small"
+								onClick={() => setDeletion({ user: row.original, action: "cancel" })}
+							>
+								Keep
+							</Button>
+							<Button
+								size="small"
+								color="error"
+								onClick={() => setDeletion({ user: row.original, action: "purge" })}
+							>
+								Delete now
+							</Button>
+						</>
+					);
+				},
 			},
 			{
 				accessorKey: "id",
@@ -87,6 +122,11 @@ export default function UsersPage() {
 				)}
 			</QueryState>
 			<SignOutEverywhereDialog user={signingOut} onClose={() => setSigningOut(null)} />
+			<AccountDeletionDialog
+				user={deletion?.user ?? null}
+				action={deletion?.action ?? "cancel"}
+				onClose={() => setDeletion(null)}
+			/>
 		</>
 	);
 }
