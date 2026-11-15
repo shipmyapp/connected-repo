@@ -1,5 +1,5 @@
 import { allowedOrigins } from "@backend/configs/allowed_origins.config";
-import { isDev, isProd } from "@backend/configs/env.config";
+import { isDev, isProd, isStaging } from "@backend/configs/env.config";
 import { superAdminRouter } from "@backend/routers/super_admin/super_admin.router";
 import { DEFAULT_BODY_LIMIT_BYTES } from "@backend/utils/body_limit.utils";
 import { TRACE_HEADERS_ALLOW, TRACE_HEADERS_EXPOSE } from "@backend/utils/cors.utils";
@@ -10,7 +10,11 @@ import { LoggingHandlerPlugin } from "@orpc/experimental-pino";
 import { OpenAPIHandler } from "@orpc/openapi/node";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
 import { BodyLimitPlugin } from "@orpc/server/node";
-import { CORSPlugin, RequestHeadersPlugin } from "@orpc/server/plugins";
+import {
+	CORSPlugin,
+	RequestHeadersPlugin,
+	SimpleCsrfProtectionHandlerPlugin,
+} from "@orpc/server/plugins";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 
 // Separate handler for super-admin endpoints so the admin surface is
@@ -46,7 +50,7 @@ export const superAdminHandler = new OpenAPIHandler(superAdminRouter, {
 								title: "Super Admin API",
 								version: "1.0.0",
 								description:
-									"Admin-only endpoints gated by SUPER_ADMIN_EMAILS / SUPER_ADMIN_PHONE_NUMBERS.",
+									"Admin-only endpoints gated by SUPER_ADMIN_EMAILS / SUPER_ADMIN_PHONE_NUMBERS. In production and staging every call needs the header x-csrf-token: orpc.",
 							},
 							servers: [{ url: "/super-admin" }],
 							components: {
@@ -64,6 +68,13 @@ export const superAdminHandler = new OpenAPIHandler(superAdminRouter, {
 					}),
 				]),
 		new RequestHeadersPlugin(),
+		// Every call needs `x-csrf-token: orpc` in production and staging. The
+		// node handler also decodes form bodies, and a session cookie rides on a
+		// same-site form post: from any subdomain of the app, a form could
+		// otherwise drive an operator's browser. A form cannot set a header; a
+		// cross-origin fetch that sets one needs a preflight ALLOWED_ORIGINS
+		// must pass. The console uses the RPC transport, which sends it.
+		...(isProd || isStaging ? [new SimpleCsrfProtectionHandlerPlugin()] : []),
 	],
 	interceptors: [
 		async ({ request, next }) => {
