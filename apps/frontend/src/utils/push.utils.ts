@@ -1,23 +1,68 @@
 import { env } from "@frontend/configs/env.config";
-import { firebaseApp } from "@frontend/configs/firebase.config";
-import { getDeviceEnv } from "@frontend/utils/device.utils";
+import { useAsksStore } from "@frontend/lib/asks/asks.store";
+import { knownDeviceHere, refreshDeviceHere } from "@frontend/lib/device/use-device-here";
+import { reportDevice } from "@frontend/lib/device/use-device-report";
 import { orpcFetch } from "@frontend/utils/orpc.client";
-import { OfflineWriteError, onlineOnlyWrite } from "@frontend/worker/db/online-first.adapter";
-import { deleteToken, getMessaging, getToken, isSupported } from "firebase/messaging";
 
-const REGISTERED_TOKEN_KEY = "push.fcmToken";
-// Timestamp of the last successful backend registration. Used to re-verify
-// once every 24h so an upstream purge (Novu subscriber deletion or nightly
-// reconcile soft-deleting the row) self-heals on the next app boot instead
-// of the client believing forever that it's still registered.
-const REGISTERED_AT_KEY = "push.fcmTokenRegisteredAt";
-const REGISTER_TTL_MS = 24 * 60 * 60 * 1000;
-// Sticky user-intent flag. Browser permission is separate from user intent —
-// the user might have "notifications allowed" at the browser level for the
-// origin but have explicitly toggled push OFF in our Profile UI. Without this
-// flag, syncPushIfGranted() would re-register on next login and fight the
-// user's decision.
-const OPTED_OUT_KEY = "push.optedOut";
+/**
+ * Push on this device, end to end:
+ *   permission (a tap) → Firebase `getToken` (VAPID, THIS service worker) →
+ *   `devices.report({ fcmToken })` → server: devices row + Novu subscriber `fcm`
+ *   credentials (full list) → Novu workflows' push steps reach the device.
+ * Off: `devices.pushOff` (the row keeps its address for the record; Novu is
+ * told). A dead address is pruned by Novu and mirrored nightly
+ * (reconcile_fcm_tokens cron). Nothing about the address is cached here; the
+ * server takes a repeated report in its stride.
+ *
+ * Firebase is loaded only when push is touched: it is not in the first bundle.
+ */
+const loadFirebase = async () => {
+	const [{ firebaseApp }, messaging] = await Promise.all([
+		import("@frontend/configs/firebase.config"),
+		import("firebase/messaging"),
+	]);
+	return { firebaseApp, ...messaging };
+};
+
+// Push off in Profile, per account on this device (a
+// person's choice never passes to the next account on a shared phone). Browser
+// permission is separate from intent: notifications can be allowed for the
+// origin while this person switched push off here, and syncPushIfGranted()
+// must not fight that. The only device-related localStorage key kept: it is
+// read before `devices.here` is known (an offline start).
+const optedOutKey = (userId: string) => `push.optedOut.${userId}`;
+// Before the device record it was the device's, whoever was signed in.
+const LEGACY_OPTED_OUT_KEY = "push.optedOut";
+
+/** The account push is working for on this device; bound by the signed-in layout, cleared at sign-out. */
+let account: { userId: string } | null = null;
+/** Push turned on here in this visit, before `devices.here` says so. */
+let isOnThisVisit = false;
+
+const readFlag = (key: string) => {
+	try {
+		return localStorage.getItem(key) === "true";
+	} catch {
+		return false;
+	}
+};
+const writeFlag = (key: string, isOn: boolean) => {
+	try {
+		if (isOn) localStorage.setItem(key, "true");
+		else localStorage.removeItem(key);
+	} catch {
+		// Storage can be blocked: the choice holds for this visit's calls only.
+	}
+};
+
+export function bindPushAccount(userId: string): void {
+	account = { userId };
+	// The old device-wide opt-out was almost surely this person's: it becomes theirs, once.
+	if (readFlag(LEGACY_OPTED_OUT_KEY)) writeFlag(optedOutKey(userId), true);
+	writeFlag(LEGACY_OPTED_OUT_KEY, false);
+}
+
+const isOptedOut = () => (account ? readFlag(optedOutKey(account.userId)) : false);
 
 /**
  * Every FCM/permission flow gates on the same set of preconditions. Bail
@@ -25,15 +70,18 @@ const OPTED_OUT_KEY = "push.optedOut";
  * Notification API is missing (Chrome incognito on some platforms).
  */
 async function pushSupported(): Promise<boolean> {
-	if (!firebaseApp) return false;
 	if (!env.VITE_FIREBASE_VAPID_KEY) return false;
 	if (typeof Notification === "undefined") return false;
-	if (!(await isSupported())) return false;
-	return true;
+	const { firebaseApp, isSupported } = await loadFirebase();
+	if (!firebaseApp) return false;
+	return isSupported();
 }
 
+/** The device's push address, handed to the device report. */
 async function fetchTokenAndRegister(): Promise<string | null> {
-	if (!firebaseApp || !env.VITE_FIREBASE_VAPID_KEY) return null;
+	if (!env.VITE_FIREBASE_VAPID_KEY) return null;
+	const { firebaseApp, getMessaging, getToken } = await loadFirebase();
+	if (!firebaseApp) return null;
 	const registration = await navigator.serviceWorker.ready;
 	const messaging = getMessaging(firebaseApp);
 	const token = await getToken(messaging, {
@@ -41,49 +89,25 @@ async function fetchTokenAndRegister(): Promise<string | null> {
 		serviceWorkerRegistration: registration,
 	});
 	if (!token) return null;
-
-	// Skip the round-trip only if BOTH the token matches AND we re-verified
-	// with the backend recently. The TTL self-heals from upstream purges
-	// (Novu subscriber deletion, reconcile soft-delete) even when the FCM
-	// token itself hasn't rotated.
-	const cachedToken = localStorage.getItem(REGISTERED_TOKEN_KEY);
-	const registeredAtRaw = localStorage.getItem(REGISTERED_AT_KEY);
-	const registeredAt = registeredAtRaw ? Number(registeredAtRaw) : 0;
-	const stale = Date.now() - registeredAt > REGISTER_TTL_MS;
-	if (cachedToken === token && !stale) return token;
-
-	const device = getDeviceEnv();
-	// Device registration cannot queue offline meaningfully — an FCM token
-	// only becomes valid once the server has it, so a stale local flag
-	// would let syncPushIfGranted skip the round-trip forever.
-	await onlineOnlyWrite({
-		entityName: "notifications.registerDevice",
-		op: () =>
-			orpcFetch.notifications.registerDevice({
-				fcmToken: token,
-				userAgent: navigator.userAgent,
-				platform: device.platform,
-				pwaInstalled: device.isStandalone,
-				pwaStandaloneLaunch: device.isStandalone,
-			}),
-	});
-	localStorage.setItem(REGISTERED_TOKEN_KEY, token);
-	localStorage.setItem(REGISTERED_AT_KEY, String(Date.now()));
+	await reportDevice({ fcmToken: token, pushPermission: "granted" });
+	isOnThisVisit = true;
 	return token;
 }
 
 /**
- * Silent path — only registers if the user has ALREADY granted permission
- * in a previous session. Never prompts. Safe to call on login effect from
- * any React component without triggering the browser's native permission
- * modal (which the browser permanently disables for the origin if the user
- * dismisses it once).
+ * Silent path: registers only if the browser ALREADY allows notifications,
+ * this person did not switch push off here, and this ACCOUNT has said yes in
+ * the app (`asks.push.grantedAt`: a person signing in on a phone
+ * someone else allowed is asked in the app first). Never prompts. Called on
+ * sign-in and on reconnect (WorkspaceContext). Offline it fails quietly.
  */
 export async function syncPushIfGranted(): Promise<void> {
 	try {
 		if (!(await pushSupported())) return;
 		if (Notification.permission !== "granted") return;
-		if (localStorage.getItem(OPTED_OUT_KEY) === "true") return;
+		if (!account || isOptedOut()) return;
+		const asks = await useAsksStore.getState().ensureLoaded();
+		if (!asks.push?.grantedAt) return;
 		await fetchTokenAndRegister();
 	} catch (error) {
 		console.warn("[push] syncPushIfGranted failed", error);
@@ -93,20 +117,28 @@ export async function syncPushIfGranted(): Promise<void> {
 type PromptResult = "granted" | "denied" | "unsupported";
 
 /**
- * User-gesture path — safe to call the browser's native permission modal.
- * MUST be called from a click/tap handler; browsers will silently deny
- * `Notification.requestPermission()` if it's not driven by user activation.
+ * User-gesture path: safe to call the browser's native permission modal. MUST
+ * be called from a click/tap handler. Records the answer on the ask ladder
+ * (granted ends the push ask on the account; a browser refusal quiets it for a
+ * month), so callers need not.
  */
 export async function promptAndRegisterPush(): Promise<PromptResult> {
 	try {
 		if (!(await pushSupported())) return "unsupported";
-		if (Notification.permission === "denied") return "denied";
+		if (Notification.permission === "denied") {
+			void useAsksStore.getState().record("push", "denied");
+			return "denied";
+		}
 		if (Notification.permission === "default") {
 			const result = await Notification.requestPermission();
-			if (result !== "granted") return "denied";
+			if (result !== "granted") {
+				void useAsksStore.getState().record("push", "denied");
+				return "denied";
+			}
 		}
-		// Explicit opt-in clears any prior opt-out.
-		localStorage.removeItem(OPTED_OUT_KEY);
+		// Explicit opt-in clears this person's prior opt-out.
+		if (account) writeFlag(optedOutKey(account.userId), false);
+		void useAsksStore.getState().record("push", "granted");
 		await fetchTokenAndRegister();
 		return "granted";
 	} catch (error) {
@@ -116,51 +148,46 @@ export async function promptAndRegisterPush(): Promise<PromptResult> {
 }
 
 /**
- * Revoke the current FCM token on logout so the browser stops receiving
- * push for this user AND the backend removes it from the Novu subscriber.
- * Failures are logged, not thrown — logout must not block on push cleanup.
+ * Unlinks this device from the signed-in account: the server stops sending
+ * this person's notifications here at once. The phone keeps its push address
+ * and its permission, so the next account to sign in is linked again without
+ * a prompt (deleting the address would gain nothing and could, on an iPhone,
+ * leave the next account without push). With `stickyOptOut` (the Profile
+ * switch) the person's choice is kept for them on this device. Failures are
+ * logged, not thrown: sign-out never waits on push, and the next account's
+ * registration takes the address off this one on the server anyway.
  */
 export async function revokePushForUser(options?: { stickyOptOut?: boolean }): Promise<void> {
 	try {
-		if (options?.stickyOptOut) {
-			localStorage.setItem(OPTED_OUT_KEY, "true");
-		}
-		const cachedToken = localStorage.getItem(REGISTERED_TOKEN_KEY);
-		if (!cachedToken) return;
-		localStorage.removeItem(REGISTERED_TOKEN_KEY);
-		localStorage.removeItem(REGISTERED_AT_KEY);
-
-		// If the revoke can't reach the server (offline logout, sleep),
-		// swallow the OfflineWriteError — the backend's nightly reconcile
-		// job (reconcile_fcm_tokens.cron) will soft-delete the stale row
-		// once the token stops receiving pushes.
-		try {
-			await onlineOnlyWrite({
-				entityName: "notifications.revokeDevice",
-				op: () => orpcFetch.notifications.revokeDevice({ fcmToken: cachedToken }),
-			});
-		} catch (err) {
-			if (!(err instanceof OfflineWriteError)) throw err;
-			console.debug("[push] revokeDevice deferred — offline; backend reconcile will handle");
-		}
-
-		if (firebaseApp && (await isSupported())) {
-			const messaging = getMessaging(firebaseApp);
-			await deleteToken(messaging);
-		}
+		if (options?.stickyOptOut && account) writeFlag(optedOutKey(account.userId), true);
+		isOnThisVisit = false;
+		await orpcFetch.devices.pushOff({
+			reason: options?.stickyOptOut ? "switched_off" : "signed_out",
+		});
+		void refreshDeviceHere();
 	} catch (error) {
 		console.warn("[push] revokePushForUser failed", error);
 	}
 }
 
+/** Sign-out: the device is no longer this person's to notify. */
+export async function unbindPushAccount(): Promise<void> {
+	await revokePushForUser();
+	account = null;
+	isOnThisVisit = false;
+}
+
 /**
- * Sync check for UI toggle state / banner visibility. Returns true iff
- * this device currently has an FCM token registered AND the browser
- * permission is still granted (user can revoke via site-settings without
- * telling us).
+ * For the toggle and the nudges: the browser still allows notifications (it
+ * can be revoked in site settings without telling us) and push is on here for
+ * this account, as turned on in this visit or as the server last said
+ * (`devices.here`). While the server's answer is unknown (an offline start),
+ * "allowed and not switched off" stands in.
  */
 export function isPushEnabledOnThisDevice(): boolean {
 	if (typeof Notification === "undefined") return false;
 	if (Notification.permission !== "granted") return false;
-	return localStorage.getItem(REGISTERED_TOKEN_KEY) !== null;
+	if (isOnThisVisit) return true;
+	const here = knownDeviceHere();
+	return here ? here.pushHere : !isOptedOut();
 }

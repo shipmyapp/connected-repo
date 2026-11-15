@@ -1,3 +1,4 @@
+import { useDeviceReport } from "@frontend/lib/device/use-device-report";
 import { getTenantSlug } from "@frontend/tenant/tenant.resolver";
 import {
 	ACTIVE_TEAM_WIPED_CHANNEL,
@@ -6,7 +7,7 @@ import {
 import { patchAuthCacheUser } from "@frontend/utils/auth.persistence";
 import type { UserAppBackendOutputs } from "@frontend/utils/orpc.client";
 import { orpc } from "@frontend/utils/orpc.tanstack.client";
-import { syncPushIfGranted } from "@frontend/utils/push.utils";
+import { bindPushAccount, syncPushIfGranted } from "@frontend/utils/push.utils";
 import { requestFreshSession } from "@frontend/utils/session_refresh.client";
 import { signout } from "@frontend/utils/signout.utils";
 import { switchGate } from "@frontend/utils/switch_gate";
@@ -90,9 +91,17 @@ export function WorkspaceProvider({ children, sessionInfo }: WorkspaceProviderPr
 	// the origin if the user dismisses a bad prompt once. The user-gesture
 	// version (promptAndRegisterPush) lives behind explicit UI: the
 	// post-first-entry modal, the profile toggle, or the dashboard banner.
+	// The device record: what this device is and can do, reported on start,
+	// on return to the front, on a permission change and on reconnect.
+	useDeviceReport(userId ?? null);
 	useEffect(() => {
 		if (!userId) return;
+		bindPushAccount(userId);
 		void syncPushIfGranted();
+		// Started offline: register once the connection is back (the token needs the network).
+		const onOnline = () => void syncPushIfGranted();
+		window.addEventListener("online", onOnline);
+		return () => window.removeEventListener("online", onOnline);
 	}, [userId]);
 
 	const setActiveTeamMutation = useMutation(

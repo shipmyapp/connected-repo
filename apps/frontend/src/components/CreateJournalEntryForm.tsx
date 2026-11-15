@@ -17,6 +17,7 @@ import {
 } from "@connected-repo/zod-schemas/journal_entry.zod";
 import { useSessionInfo } from "@frontend/contexts/UserContext";
 import { useActiveTeamId } from "@frontend/contexts/WorkspaceContext";
+import { mayAskNow, useAsksStore } from "@frontend/lib/asks/asks.store";
 import { orpcFetch } from "@frontend/utils/orpc.client";
 import { orpc } from "@frontend/utils/orpc.tanstack.client";
 import { createOnlineFirst } from "@frontend/worker/db/online-first.adapter";
@@ -33,9 +34,6 @@ import { NotificationPermissionDialog } from "./notifications/NotificationPermis
 import { SmartMediaUploader } from "./SmartMediaUploader";
 
 type WritingMode = "prompted" | "free";
-
-const INITIAL_PROMPT_SHOWN_KEY = "push.initialPromptShown";
-const OPTED_OUT_KEY = "push.optedOut";
 
 export function CreateJournalEntryForm() {
 	const teamId = useActiveTeamId();
@@ -185,20 +183,15 @@ export function CreateJournalEntryForm() {
 				setSuccess("Journal entry created successfully!");
 				setTimeout(() => setSuccess(""), 5000);
 
-				// Post-first-entry notification prompt. Only fires when we've
-				// never asked before AND the browser permission is still in
-				// the "default" state (never touched). If the user has opted
-				// out from a previous session, don't re-nag.
-				const alreadyShown = localStorage.getItem(INITIAL_PROMPT_SHOWN_KEY) === "true";
-				const optedOut = localStorage.getItem(OPTED_OUT_KEY) === "true";
-				if (
-					!alreadyShown &&
-					!optedOut &&
-					typeof Notification !== "undefined" &&
-					Notification.permission === "default"
-				) {
-					localStorage.setItem(INITIAL_PROMPT_SHOWN_KEY, "true");
-					setShowNotifDialog(true);
+				// Post-entry notification prompt, while the browser permission is
+				// still untouched ("default"). On the ask ladder: Not now holds 3,
+				// 7, 14, then 30 days (on the account), never twice a visit.
+				if (typeof Notification !== "undefined" && Notification.permission === "default") {
+					void mayAskNow("push").then((isDue) => {
+						if (!isDue) return;
+						useAsksStore.getState().markShown("push");
+						setShowNotifDialog(true);
+					});
 				}
 			} catch (error) {
 				console.error("[CreateJournalEntryForm] Create failed:", error);

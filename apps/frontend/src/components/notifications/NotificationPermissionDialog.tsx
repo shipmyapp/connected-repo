@@ -4,7 +4,9 @@ import { Button } from "@connected-repo/ui-mui/form/Button";
 import { Stack } from "@connected-repo/ui-mui/layout/Stack";
 import { useBackCloses } from "@connected-repo/ui-mui/utils/use_back_closes";
 import { usePwaInstallCtx } from "@frontend/components/notifications/PwaInstallHost";
-import { getDeviceEnv } from "@frontend/utils/device.utils";
+import { useAsksStore } from "@frontend/lib/asks/asks.store";
+import { getDeviceEnv } from "@frontend/lib/device/device-env";
+import { useTenant } from "@frontend/tenant/TenantContext";
 import { orpcFetch } from "@frontend/utils/orpc.client";
 import { promptAndRegisterPush } from "@frontend/utils/push.utils";
 import { OfflineWriteError, onlineOnlyWrite } from "@frontend/worker/db/online-first.adapter";
@@ -32,13 +34,14 @@ export const NotificationPermissionDialog = ({
 	const [time, setTime] = useState<Dayjs>(() => dayjs().hour(21).minute(0));
 	const [submitting, setSubmitting] = useState(false);
 	const pwa = usePwaInstallCtx();
+	const { brand } = useTenant();
 	const device = getDeviceEnv();
 
 	// iOS Safari cannot receive Web Push until the PWA is installed to the
 	// home screen. Route these users through install FIRST — asking for
 	// Notification.requestPermission() here is a no-op that just uses up
 	// the one permission attempt the browser gives us.
-	const needsInstallFirst = device.isIOS && !device.isStandalone;
+	const needsInstallFirst = device.needsInstallForPush;
 
 	const handleSetReminder = async () => {
 		setSubmitting(true);
@@ -75,6 +78,7 @@ export const NotificationPermissionDialog = ({
 	};
 
 	const handleInstall = async () => {
+		void useAsksStore.getState().record("push", "pending_install");
 		try {
 			await pwa.install();
 			// The browser's dialog, or the install steps for this browser, now
@@ -89,6 +93,8 @@ export const NotificationPermissionDialog = ({
 	};
 
 	const handleDismiss = () => {
+		// Not now: the push ask comes back on the ladder (3, 7, 14, then 30 days).
+		void useAsksStore.getState().record("push", "snoozed");
 		onClose("dismissed");
 	};
 	useBackCloses(open, handleDismiss);
@@ -99,7 +105,7 @@ export const NotificationPermissionDialog = ({
 				<DialogContent>
 					<Stack spacing={2} sx={{ pt: 1 }}>
 						<Typography variant="h6" fontWeight={600}>
-							Add OneQ to your home screen
+							Add {brand.appName} to your home screen
 						</Typography>
 						<Typography variant="body2" color="text.secondary">
 							Daily journal reminders need iOS to install the app first — Safari can't deliver push

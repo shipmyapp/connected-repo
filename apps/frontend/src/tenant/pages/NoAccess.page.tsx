@@ -6,11 +6,12 @@ import { Container } from "@connected-repo/ui-mui/layout/Container";
 import { Paper } from "@connected-repo/ui-mui/layout/Paper";
 import { Stack } from "@connected-repo/ui-mui/layout/Stack";
 import { DEFAULT_APP_BRAND } from "@connected-repo/zod-schemas/tenant.utils";
+import { useAsksStore } from "@frontend/lib/asks/asks.store";
 import { useTenant } from "@frontend/tenant/TenantContext";
 import { sharedAppUrl } from "@frontend/tenant/tenant.resolver";
 import { authClient } from "@frontend/utils/auth.client";
 import { clearAuthCache, getLastLogin } from "@frontend/utils/auth.persistence";
-import { revokePushForUser } from "@frontend/utils/push.utils";
+import { unbindPushAccount } from "@frontend/utils/push.utils";
 import { signout } from "@frontend/utils/signout.utils";
 import { onLogout } from "@frontend/utils/sync-triggers";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
@@ -33,9 +34,10 @@ export default function NoAccessPage() {
 		// (tenant.lock.ts), and its header cache + sync triggers stop now.
 		clearAuthCache();
 		onLogout();
-		void Promise.race([revokePushForUser(), new Promise((resolve) => setTimeout(resolve, 2000))])
+		void Promise.race([unbindPushAccount(), new Promise((resolve) => setTimeout(resolve, 2000))])
 			.catch(() => undefined)
 			.finally(() => {
+				useAsksStore.getState().reset();
 				void authClient.signOut().catch(() => undefined);
 			});
 	}, []);
