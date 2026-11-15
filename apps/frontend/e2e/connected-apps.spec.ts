@@ -98,8 +98,10 @@ test("a person who is signed out signs in first and comes back to the consent sc
 	// The test build's "Continue with Google" signs up and in by email, then goes
 	// to callbackURL: the authorize URL, so the person comes back to the consent
 	// screen, not the dashboard.
+	// (Two navigations to that URL race: the auth client's own redirect and the
+	// page's. One is aborted, so poll the address rather than wait for a load.)
 	await page.getByText("Continue with Google").click();
-	await page.waitForURL("**/oauth/consent?**");
+	await expect(page).toHaveURL(/\/oauth\/consent\?/, { timeout: 15_000 });
 	const consent = page.getByTestId("oauth-consent");
 	await expect(consent.getByRole("heading", { name: HEADING })).toBeVisible();
 	await consent.getByRole("button", { name: "Connect", exact: true }).click();
