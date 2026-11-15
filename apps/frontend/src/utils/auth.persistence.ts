@@ -3,7 +3,7 @@ import { type UserSelectAll, userSelectAllZod } from "@connected-repo/zod-schema
 const AUTH_CACHE_KEY = "auth_session_cache";
 const LAST_LOGIN_KEY = "last_login_info";
 
-interface CachedSession {
+export interface CachedSession {
 	user: UserSelectAll;
 	cachedAt: number;
 }

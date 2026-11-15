@@ -8,6 +8,7 @@ import { PageHeader } from "@connected-repo/ui-mui/layout/PageHeader";
 import { Stack } from "@connected-repo/ui-mui/layout/Stack";
 import { DataTable } from "@connected-repo/ui-mui/mrt/DataTable";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import { SubdomainCard } from "@superadmin/components/SubdomainCard";
 import { orpc, type SuperAdminOutputs } from "@superadmin/utils/orpc.client";
 import { useQuery } from "@tanstack/react-query";
 import type { MRT_ColumnDef } from "material-react-table";
@@ -81,6 +82,7 @@ export default function TeamDetailPage() {
 								</Typography>
 							}
 						/>
+						<SubdomainCard key={team.slug ?? ""} teamId={team.id} slug={team.slug} />
 						<Box>
 							<Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
 								Members ({members.length})

@@ -1,7 +1,7 @@
 import CssBaseline from "@mui/material/CssBaseline";
 import { ThemeProvider as MuiThemeProvider } from "@mui/material/styles";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { createAppTheme } from "./theme.config";
+import { createAppTheme, type PaletteOverrides } from "./theme.config";
 
 export type ThemeMode = "light" | "dark" | "system";
 type ActualThemeMode = "light" | "dark";
@@ -25,9 +25,11 @@ export const useThemeMode = () => {
 
 interface ThemeContextProviderProps {
 	children: React.ReactNode;
+	/** A team's colours on its own host (white-label); unset = stock palette. */
+	paletteOverrides?: PaletteOverrides;
 }
 
-export const ThemeContextProvider = ({ children }: ThemeContextProviderProps) => {
+export const ThemeContextProvider = ({ children, paletteOverrides }: ThemeContextProviderProps) => {
 	// Initialize from localStorage or follow the system preference. The
 	// signed-in user's own setting replaces this once the session loads.
 	const [mode, setMode] = useState<ThemeMode>(() => {
@@ -81,7 +83,13 @@ export const ThemeContextProvider = ({ children }: ThemeContextProviderProps) =>
 
 	// Create theme based on mode using the centralized createAppTheme function
 	// This preserves all component overrides, typography, and other customizations
-	const theme = useMemo(() => createAppTheme(actualMode), [actualMode]);
+	const primary = paletteOverrides?.primary ?? null;
+	const secondary = paletteOverrides?.secondary ?? null;
+	const background = paletteOverrides?.background ?? null;
+	const theme = useMemo(
+		() => createAppTheme(actualMode, { primary, secondary, background }),
+		[actualMode, primary, secondary, background],
+	);
 
 	const value = useMemo(
 		() => ({ actualMode, mode, setThemeMode, toggleTheme }),

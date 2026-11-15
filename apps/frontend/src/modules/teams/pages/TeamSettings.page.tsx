@@ -19,6 +19,7 @@ import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { AddMemberDialog } from "../components/AddMemberDialog";
 import { MembersList } from "../components/MembersList";
+import { TeamBrandingForm } from "../components/TeamBrandingForm";
 
 // This is the "team profile" page. It shows the active team's identity
 // (name, logo, personal-team badge) alongside member management. The
@@ -132,6 +133,12 @@ export default function TeamSettingsPage() {
 					</Box>
 				</Stack>
 			</Card>
+
+			{team && (
+				<Box sx={{ mt: 3 }}>
+					<TeamBrandingForm key={team.updatedAt} team={team} canManage={canManage} />
+				</Box>
+			)}
 
 			<Divider sx={{ my: 3 }} />
 

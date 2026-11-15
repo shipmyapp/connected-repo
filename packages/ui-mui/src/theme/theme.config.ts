@@ -1,5 +1,5 @@
 import type { PaletteMode } from "@mui/material";
-import { createTheme, type ThemeOptions } from "@mui/material/styles";
+import { alpha, createTheme, type ThemeOptions } from "@mui/material/styles";
 import { DrawerTransition } from "../feedback/DrawerTransition";
 import "./theme.types"; // Import type augmentations
 
@@ -167,8 +167,20 @@ const baseThemeConfig = {
  * Creates a theme with the specified mode (light or dark)
  * Preserves all component overrides and customizations
  */
-export const createAppTheme = (mode: PaletteMode = "light") => {
-	return createTheme({
+/**
+ * Per-team palette (white-label). Hex colours; MUI derives light/dark/
+ * contrastText from `main`. Undefined/null = stock palette. Background
+ * applies to light mode only (a team's light background on a dark theme
+ * would break contrast).
+ */
+export interface PaletteOverrides {
+	primary?: string | null;
+	secondary?: string | null;
+	background?: string | null;
+}
+
+export const createAppTheme = (mode: PaletteMode = "light", overrides?: PaletteOverrides) => {
+	const base = createTheme({
 		...baseThemeConfig,
 		components: { ...baseThemeConfig.components, ...sharedComponentOverrides },
 		palette: {
@@ -274,6 +286,26 @@ export const createAppTheme = (mode: PaletteMode = "light") => {
 							disabled: "#666666",
 						},
 					}),
+		},
+	});
+	if (!overrides?.primary && !overrides?.secondary && !overrides?.background) return base;
+	const tint = mode === "light" ? 0.08 : 0.12;
+	return createTheme(base, {
+		palette: {
+			...(overrides.primary
+				? {
+						primary: {
+							...base.palette.augmentColor({ color: { main: overrides.primary } }),
+							lighter: alpha(overrides.primary, tint),
+						},
+					}
+				: {}),
+			...(overrides.secondary
+				? { secondary: base.palette.augmentColor({ color: { main: overrides.secondary } }) }
+				: {}),
+			...(overrides.background && mode === "light"
+				? { background: { default: overrides.background, paper: base.palette.background.paper } }
+				: {}),
 		},
 	});
 };

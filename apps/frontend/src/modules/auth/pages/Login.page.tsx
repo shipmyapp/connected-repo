@@ -10,6 +10,7 @@ import { Paper } from "@connected-repo/ui-mui/layout/Paper";
 import { Stack } from "@connected-repo/ui-mui/layout/Stack";
 import { AppVersionLabel } from "@frontend/components/AppVersionLabel";
 import { env, isTest } from "@frontend/configs/env.config";
+import { useTenant } from "@frontend/tenant/TenantContext";
 import { authClient } from "@frontend/utils/auth.client";
 import { getLastLogin } from "@frontend/utils/auth.persistence";
 import * as Sentry from "@sentry/react";
@@ -24,6 +25,7 @@ export const LoginPage = () => {
 	const [searchParams] = useSearchParams();
 	const error = searchParams.get("error");
 	const lastLogin = getLastLogin();
+	const { brand, isTenant } = useTenant();
 
 	// Track OAuth errors in Sentry when they occur
 	useEffect(() => {
@@ -53,7 +55,13 @@ export const LoginPage = () => {
 		let data: { url?: string } | undefined;
 		// Same-origin deploys leave VITE_USER_APP_URL empty; fall back to the
 		// visible origin so OAuth callbacks land on the frontend domain.
-		const appOrigin = env.VITE_USER_APP_URL || window.location.origin;
+		// A team host signs in to ITSELF: the OAuth callback lands on the shared
+		// app host (backend VITE_API_URL), and better-auth then redirects here
+		// (trustedOrigins admits the host of a live team). The `.<root>` cookie is
+		// readable on both.
+		const appOrigin = isTenant
+			? window.location.origin
+			: env.VITE_USER_APP_URL || window.location.origin;
 		const callbackURL = `${appOrigin}/dashboard`;
 
 		try {
@@ -136,7 +144,9 @@ export const LoginPage = () => {
 				display: "flex",
 				alignItems: "center",
 				justifyContent: "center",
-				background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+				background: isTenant
+					? brand.themeColor
+					: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
 				px: { xs: 2, sm: 3 },
 				py: { xs: 3, sm: 4 },
 			}}
@@ -161,6 +171,27 @@ export const LoginPage = () => {
 						<Stack spacing={4} alignItems="center">
 							{/* Header Section */}
 							<Box sx={{ textAlign: "center" }}>
+								{isTenant && (
+									<Stack
+										direction="row"
+										spacing={1.5}
+										alignItems="center"
+										justifyContent="center"
+										sx={{ mb: 2 }}
+									>
+										{brand.logoUrl && (
+											<Avatar
+												src={brand.logoUrl}
+												alt=""
+												variant="rounded"
+												sx={{ width: 40, height: 40 }}
+											/>
+										)}
+										<Typography variant="h5" sx={{ fontWeight: 700 }}>
+											{brand.appName}
+										</Typography>
+									</Stack>
+								)}
 								<Typography
 									variant="h6"
 									sx={{
@@ -171,7 +202,7 @@ export const LoginPage = () => {
 										fontSize: { xs: "1.1rem", sm: "1.25rem" },
 									}}
 								>
-									Scheduled Prompt & Journal
+									{isTenant ? brand.tagline : "Scheduled Prompt & Journal"}
 								</Typography>
 								<Typography
 									variant="body1"
@@ -183,8 +214,9 @@ export const LoginPage = () => {
 										mx: "auto",
 									}}
 								>
-									A simple way to journal and reflect on your day with timely, thought-provoking
-									prompts
+									{isTenant
+										? "Sign in with the account your team added."
+										: "A simple way to journal and reflect on your day with timely, thought-provoking prompts"}
 								</Typography>
 							</Box>
 

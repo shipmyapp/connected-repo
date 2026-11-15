@@ -1,3 +1,4 @@
+import { getTenantSlug } from "@frontend/tenant/tenant.resolver";
 import {
 	ACTIVE_TEAM_WIPED_CHANNEL,
 	type ActiveTeamWipedMessage,
@@ -180,6 +181,13 @@ export function WorkspaceProvider({ children, sessionInfo }: WorkspaceProviderPr
 		channel.onmessage = async (event: MessageEvent<ActiveTeamWipedMessage>) => {
 			const msg = event.data;
 			if (!msg || msg.type !== "active-team-wiped") return;
+			// A team host is locked to its team: never switch to another one.
+			// The worker has already wiped the team's rows and OPFS blobs; the
+			// no-access page ends the session.
+			if (getTenantSlug()) {
+				window.location.assign("/auth/no-access");
+				return;
+			}
 
 			// Refetch teams so we know what the user still belongs to.
 			// The wiped team is already gone from the server (the tombstone
@@ -232,6 +240,9 @@ export function WorkspaceProvider({ children, sessionInfo }: WorkspaceProviderPr
 				isLoading: isLoading && teams.length === 0,
 				user: sessionInfo?.user || null,
 				setActiveTeam: async (teamAppId) => {
+					// No UI offers it on a team host; this keeps any future caller
+					// from moving the user's server-side active team from there.
+					if (getTenantSlug()) return;
 					await setActiveTeamMutation.mutateAsync({ teamAppId });
 				},
 				isSwitching: setActiveTeamMutation.isPending,

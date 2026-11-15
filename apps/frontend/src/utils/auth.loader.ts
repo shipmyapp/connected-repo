@@ -1,7 +1,14 @@
 import { userContext } from "@frontend/contexts/UserContext";
 import { setSentryUser } from "@frontend/instrumentation";
+import { offlineTenantDecision } from "@frontend/tenant/tenant.lock";
+import {
+	getTenantSlug,
+	loadTenantBranding,
+	readCachedBranding,
+} from "@frontend/tenant/tenant.resolver";
 import { setActiveTeamIdForRequests } from "@frontend/utils/active_team_header.client";
 import { authClient } from "@frontend/utils/auth.client";
+import type { CachedSession } from "@frontend/utils/auth.persistence";
 import { getAuthCache, saveAuthCache, saveLastLogin } from "@frontend/utils/auth.persistence";
 import { mirrorToLocalDb } from "@frontend/utils/mirror_to_local_db";
 import { orpcFetch } from "@frontend/utils/orpc.client";
@@ -12,26 +19,66 @@ import { redirect } from "react-router";
 import { toast } from "react-toastify";
 
 /**
- * Auth loader for protected routes
- * Fetches session, sets React Router context, and redirects based on auth state
+ * Offline / server-unreachable: boot the cached session. On a team host the
+ * cached session must be locked to the host's team (tenant.lock.ts),
+ * otherwise refuse. Sign-out cannot reach the server offline; the login
+ * page asks again once online.
+ */
+function sessionFromCache(cached: CachedSession, context: LoaderFunctionArgs["context"]) {
+	const slug = getTenantSlug();
+	const decision = offlineTenantDecision({
+		slug,
+		cachedBranding: slug ? readCachedBranding(slug) : null,
+		cachedActiveTeamId: cached.user.activeTeamAppId,
+	});
+	if (!decision.ok) throw redirect("/auth/login");
+	const sessionInfo = {
+		hasSession: true,
+		user: cached.user,
+		isRegistered: true,
+	};
+	// Seed the header cache before any component mounts. Otherwise
+	// team-scoped queries can fire before WorkspaceContext's effect runs.
+	setActiveTeamIdForRequests(cached.user.activeTeamAppId ?? null);
+	context.set(userContext, sessionInfo);
+	return sessionInfo;
+}
+
+/**
+ * Team host (`<slug>.<root>`): the app is locked to one team.
+ *   1. The signed-in user must be a member, otherwise `/auth/no-access`.
+ *   2. Returns the team id; the caller makes it the session's active team
+ *      CLIENT-SIDE ONLY. Nothing calls `teams.setActiveTeam`: the backend
+ *      authorises this host's requests by the host's team
+ *      (protected.procedure.ts `tenantTeamIdForRequest`), so the user's other
+ *      clients on the shared app keep their team (ADR-039).
+ * Shared app: returns null.
+ * Every call here is `noTeam`: the header cache is not seeded yet.
+ */
+async function enforceTenantTeam(): Promise<string | null> {
+	if (!getTenantSlug()) return null;
+	const branding = await loadTenantBranding();
+	// Unknown or withdrawn subdomain: never continue unlocked. TenantGate
+	// shows "Workspace not found" once TenantProvider's own load settles.
+	if (!branding) throw new Response("Unknown workspace", { status: 404 });
+	const { teamIds } = await orpcFetch.teams.listMyActiveTeamIds(undefined, {
+		context: { noTeam: true },
+	});
+	if (!teamIds.includes(branding.teamId)) throw redirect("/auth/no-access");
+	return branding.teamId;
+}
+
+/**
+ * Auth loader for protected routes.
+ * Fetches the session, locks a team host to its team, seeds the `x-team-id`
+ * header cache once, and falls back to the cached session offline.
  */
 export async function authLoader({ context }: LoaderFunctionArgs) {
 	const cached = getAuthCache();
 	const isOffline = !navigator.onLine;
 
 	// 0. If offline and we have a cache, skip the network call entirely
-	if (isOffline && cached) {
-		const sessionInfo = {
-			hasSession: true,
-			user: cached.user,
-			isRegistered: true,
-		};
-		// Seed the header cache before any component mounts — otherwise
-		// team-scoped queries can fire before WorkspaceContext's effect runs.
-		setActiveTeamIdForRequests(cached.user.activeTeamAppId ?? null);
-		context.set(userContext, sessionInfo);
-		return sessionInfo;
-	}
+	if (isOffline && cached) return sessionFromCache(cached, context);
 
 	try {
 		// A team switch (or anything else that writes the `users` row outside
@@ -49,24 +96,10 @@ export async function authLoader({ context }: LoaderFunctionArgs) {
 			// If we have a cached session and it seems like a network error or we are known to be offline
 			// Note: error.status might be undefined for network errors in better-auth
 			const isNetworkError = error && (!error.status || error.status >= 500);
-
-			if (cached && (isOffline || isNetworkError)) {
-				const sessionInfo = {
-					hasSession: true,
-					user: cached.user,
-					isRegistered: true,
-				};
-
-				setActiveTeamIdForRequests(cached.user.activeTeamAppId ?? null);
-				context.set(userContext, sessionInfo);
-				return sessionInfo;
-			}
-
+			if (cached && (isOffline || isNetworkError)) return sessionFromCache(cached, context);
 			throw redirect("/auth");
 		}
 
-		// Save successful session to cache for offline use
-		saveAuthCache(session.user);
 		// Save basic info for login page remembered state
 		saveLastLogin({
 			name: session.user.name,
@@ -93,35 +126,26 @@ export async function authLoader({ context }: LoaderFunctionArgs) {
 					position: "top-center",
 					autoClose: 3000,
 				});
-
-				// Re-cache with updated timezone
-				saveAuthCache(session.user);
 			}
 		} catch (timezoneError) {
 			console.error(timezoneError);
 			toast.error("Timezone detection/update failed.");
 		}
 
-		// Seed the `x-team-id` header cache BEFORE any component mounts.
-		// The RPC link's headers callback is synchronous — if this isn't
-		// set by the time the first team-scoped query fires, the backend
-		// rejects with 403 "Active team id mismatch".
-		setActiveTeamIdForRequests(session.user.activeTeamAppId ?? null);
-
 		// Self-heal for stale better-auth cookieCache (`auth.config.ts`
 		// `session.cookieCache.maxAge = 5min`). When the cookie was signed
 		// before `users.activeTeamAppId` was set on the row, `getSession()`
 		// keeps returning `null` for up to 5 minutes. `getDefaultTeam` is
 		// the server's canonical fallback: returns the existing personal
-		// team, or creates one, and stamps it back onto the user row.
-		// Uses `rpcProtectedProcedure` (no `x-team-id` required), so calling
-		// it with the header cache seeded to `null` is safe.
+		// team, or creates one, and stamps it back onto the user row. It is
+		// session-only, so it goes out before the header cache is seeded
+		// (`noTeam`).
 		if (!session.user.activeTeamAppId) {
 			try {
-				const defaultTeam = await orpcFetch.teams.getDefaultTeam();
+				const defaultTeam = await orpcFetch.teams.getDefaultTeam(undefined, {
+					context: { noTeam: true },
+				});
 				session.user.activeTeamAppId = defaultTeam.id;
-				setActiveTeamIdForRequests(defaultTeam.id);
-				saveAuthCache(session.user);
 				// Fire-and-forget: `initSyncForUser` hasn't opened Dexie
 				// yet; `mirrorToLocalDb` awaits `sync.waitForReady()`
 				// internally, so this queues until the DB is open.
@@ -130,6 +154,19 @@ export async function authLoader({ context }: LoaderFunctionArgs) {
 				console.warn("[authLoader] getDefaultTeam fallback failed", err);
 			}
 		}
+
+		// Team host: lock to the host's team BEFORE the header cache is seeded,
+		// so no request can go out with the server's active team first.
+		const tenantTeamId = await enforceTenantTeam();
+		if (tenantTeamId) session.user.activeTeamAppId = tenantTeamId;
+
+		// Offline fallback copy, already locked (tenant.lock.ts relies on it).
+		saveAuthCache(session.user);
+
+		// Seed the `x-team-id` header cache BEFORE any component mounts. The
+		// WorkspaceProvider effect then runs initSyncForUser(userId, this id),
+		// which seeds the worker cache and kicks local sync with the same id.
+		setActiveTeamIdForRequests(session.user.activeTeamAppId ?? null);
 
 		const sessionInfo = {
 			hasSession: true,
@@ -144,10 +181,9 @@ export async function authLoader({ context }: LoaderFunctionArgs) {
 		// Set user context in React Router context
 		context.set(userContext, sessionInfo);
 
-		// Return session data for loader
 		return sessionInfo;
 	} catch (error) {
-		if (error instanceof Response) throw error; // Re-throw redirects
+		if (error instanceof Response) throw error; // Re-throw redirects and the 404
 
 		console.error("Auth loader error:", error);
 
@@ -158,17 +194,7 @@ export async function authLoader({ context }: LoaderFunctionArgs) {
 			const isFetchError =
 				errorMessage.toLowerCase().includes("fetch") ||
 				errorMessage.toLowerCase().includes("network");
-
-			if (isOffline || isFetchError) {
-				const sessionInfo = {
-					hasSession: true,
-					user: cached.user,
-					isRegistered: true,
-				};
-				setActiveTeamIdForRequests(cached.user.activeTeamAppId ?? null);
-				context.set(userContext, sessionInfo);
-				return sessionInfo;
-			}
+			if (isOffline || isFetchError) return sessionFromCache(cached, context);
 		}
 
 		throw redirect("/auth");

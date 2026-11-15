@@ -7,6 +7,7 @@ import { navItems } from "@frontend/configs/nav.config";
 import { useWorkspace } from "@frontend/contexts/WorkspaceContext";
 import { useLocation, useNavigate } from "react-router";
 import { NovuInbox } from "../notifications/NovuInbox";
+import { BrandMark } from "./BrandMark";
 import { ProfileAvatarLink } from "./ProfileAvatarLink";
 import { SyncBubble } from "./SyncBubble";
 
@@ -28,29 +29,8 @@ export const DesktopNavbar = () => {
 			}}
 		>
 			<Toolbar sx={{ gap: 2 }}>
-				<Box
-					onClick={() => navigate("/dashboard")}
-					sx={{
-						display: "flex",
-						alignItems: "center",
-						cursor: "pointer",
-						gap: 1,
-						mr: 4,
-						transition: "transform 0.2s ease-in-out",
-						"&:hover": { transform: "scale(1.02)" },
-					}}
-				>
-					<Typography
-						variant="h6"
-						component="div"
-						sx={{
-							fontWeight: 700,
-							color: "primary.main",
-							letterSpacing: -0.5,
-						}}
-					>
-						OneQ
-					</Typography>
+				<Box sx={{ mr: 4 }}>
+					<BrandMark />
 				</Box>
 
 				{/* The active team's name, as text: teams are switched, created

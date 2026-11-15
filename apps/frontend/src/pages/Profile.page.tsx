@@ -13,16 +13,21 @@ import type { ThemeSetting } from "@connected-repo/zod-schemas/enums.zod";
 import { AppVersionLabel } from "@frontend/components/AppVersionLabel";
 import { NotificationSettings } from "@frontend/components/notifications/NotificationSettings";
 import { useSessionInfo } from "@frontend/contexts/UserContext";
+import { useWorkspace } from "@frontend/contexts/WorkspaceContext";
 import { useSaveThemeSetting } from "@frontend/hooks/useSaveThemeSetting";
 import { TeamsCard } from "@frontend/modules/teams/components/TeamsCard";
+import { useTenant } from "@frontend/tenant/TenantContext";
 import { signout } from "@frontend/utils/signout.utils";
+import SettingsIcon from "@mui/icons-material/Settings";
 import { useState } from "react";
+import { Link as RouterLink } from "react-router";
 
 export default function ProfilePage() {
 	const { user } = useSessionInfo();
 	const [signingOut, setSigningOut] = useState(false);
 	const { mode } = useThemeMode();
 	const saveThemeSetting = useSaveThemeSetting();
+	const { isTenant, brand } = useTenant();
 
 	if (!user) return null;
 
@@ -34,7 +39,9 @@ export default function ProfilePage() {
 						Profile & Settings
 					</Typography>
 					<Typography variant="body1" color="text.secondary">
-						Your account, your teams and this device's settings.
+						{isTenant
+							? `Your ${brand.appName} account and this device's settings.`
+							: "Your account, your teams and this device's settings."}
 					</Typography>
 				</Box>
 
@@ -66,7 +73,13 @@ export default function ProfilePage() {
 					</Stack>
 				</Card>
 
-				<TeamsCard userId={user.id} />
+				{isTenant ? (
+					// A team host is locked to its team (authLoader): no switching, no
+					// "New team". One read-only line names the team.
+					<TeamSettingsCard />
+				) : (
+					<TeamsCard userId={user.id} />
+				)}
 
 				<Card sx={{ p: 3, borderRadius: 2, border: "1px solid", borderColor: "divider" }}>
 					<Stack
@@ -131,8 +144,42 @@ export default function ProfilePage() {
 					</Stack>
 				</Card>
 
-				<AppVersionLabel prefix="OneQ · " />
+				<AppVersionLabel prefix={`${brand.appName} · `} />
 			</Stack>
 		</Container>
+	);
+}
+
+/** Team host only: the team this host is locked to, and where its members and branding are. */
+function TeamSettingsCard() {
+	const { activeWorkspace } = useWorkspace();
+	if (!activeWorkspace.id) return null;
+	return (
+		<Card sx={{ p: 3, borderRadius: 2, border: "1px solid", borderColor: "divider" }}>
+			<Stack
+				direction={{ xs: "column", sm: "row" }}
+				justifyContent="space-between"
+				alignItems={{ xs: "flex-start", sm: "center" }}
+				spacing={2}
+			>
+				<Box sx={{ minWidth: 0 }}>
+					<Typography variant="h6" sx={{ fontWeight: 700 }} data-testid="tenant-team-name">
+						{activeWorkspace.name}
+					</Typography>
+					<Typography variant="body2" color="text.secondary">
+						You are {activeWorkspace.role}. Members and branding live on the team page.
+					</Typography>
+				</Box>
+				<Button
+					component={RouterLink}
+					to={`/teams/${activeWorkspace.id}/settings`}
+					variant="outlined"
+					startIcon={<SettingsIcon />}
+					sx={{ flexShrink: 0, whiteSpace: "nowrap" }}
+				>
+					Team settings
+				</Button>
+			</Stack>
+		</Card>
 	);
 }
