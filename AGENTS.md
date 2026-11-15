@@ -18,9 +18,9 @@
 ---
 
 ## Layer 2: Active Task
-- **Objective**: Production deploy: one compose file or one Dokploy Application per Dockerfile, one shared build cache, every env var read and declared once per file.
+- **Objective**: Run on Node 26 everywhere: engines, `.nvmrc`, the Dockerfiles, CI and `@types/node`; images install Yarn without Corepack.
 - **Status**: Completed.
-- **Context**: `docker-compose.prod.yml`, `deploy/` (env examples, `deploy/dokploy/`, runbook `deploy/README.md`), the three Dockerfiles' shared `manifests`/`deps` stages, the nginx templates (forwarded headers, security headers, report-only CSP), `docker-compose.dev.yml`, `yarn check:deploy` (`scripts/check-deploy-config.mjs`) and CI's images job (`scripts/check-images.sh`) (ADR-050 to ADR-053). Runbooks: `docs/runbooks/sentry.md`, `docs/runbooks/launch-checklist.md`.
+- **Context**: root `package.json`, `.nvmrc`, `apps/*/Dockerfile`, `apps/{backend,frontend}/Dockerfile.dev`, `.github/workflows/ci.yml`, `scripts/check-images.sh` (checks the backend image's Node major); Sentry 10.78 and `tsx` 4.23 moved with the runtime (ADR-054).
 
 ## Layer 3: Decision Records
 
@@ -79,6 +79,7 @@
 | [ADR-051] | One install for every image | Accepted | The three Dockerfiles share identical `manifests` and `deps` stages: a `turbo prune` of all apps and one `yarn install` into the BuildKit cache `yarn-monorepo` (`--network-timeout 600000`), so the build server keeps one copy of the dependencies; `yarn check:deploy` fails when the stages differ. The Node version is one `ARG NODE_VERSION` per Dockerfile. The backend smoke-tests its runtime image against the committed `.env.example`, which must therefore satisfy the schema. |
 | [ADR-052] | Every env var is read | Accepted | Variables the code never reads are removed from schemas, examples, Dockerfiles and compose files; a variable the code reads is a schema key (no `process.env` reads outside the env config), listed in its app's `.env.example`, and, when a deploy needs it, in the build args, the compose file, `deploy/dokploy/*` and both `deploy/*.env.example`. `yarn check:deploy` (`scripts/check-deploy-config.mjs`, run in CI) enforces it. A blank value means unset at every level. |
 | [ADR-053] | The client address is set by our proxies only | Accepted | Dokploy's Traefik is the edge; both nginx images (and the dev sidecar) trust `X-Forwarded-For` only from private ranges (`set_real_ip_from` 10/8, 172.16/12, 192.168/16) and overwrite `X-Forwarded-For`/`X-Real-IP` with that one address in every proxied location; the backend counts `TRUSTED_PROXY_COUNT` proxies (`1` deployed and in the dev compose stack, `0` in host-mode dev). Behind a CDN, its ranges go into Traefik's `trustedIPs` and the nginx `set_real_ip_from`. The backend sends its own security headers (ADR-024's chain is unchanged) and `/robots.txt` disallows the API host. |
+| [ADR-054] | Node 26 | Accepted | Runtime is Node 26 (Active LTS to Oct 2027, EOL Apr 2029): `engines >=26`, `.nvmrc`, `ARG NODE_VERSION=26` in the three Dockerfiles, `node:26-slim` in both `Dockerfile.dev`, CI. Images install Yarn 1 with npm (Node 26 ships no Corepack). `@types/node` follows the runtime's major. |
 
 ## Rule: Novu workflows and templates
 People edit notification wording in the Novu dashboard, and code that is newer than the dashboard overwrites it at the next boot (ADR-044). So before any change to `apps/backend/src/novu/workflows/` or `apps/backend/src/novu/layouts/` (a template, a layout, a step, a payload variable, a new or removed workflow, or a trigger's `workflowId`/`payload`):

@@ -10,7 +10,7 @@ Production-ready Turborepo monorepo for building full-stack TypeScript applicati
 ## Tech Stack
 
 ### Backend
-- **Runtime**: Node.js 22+
+- **Runtime**: Node.js 26+
 - **API Layer**: [oRPC](https://orpc.dev/) (internal APIs) + REST/OpenAPI (external APIs)
 - **Database**: PostgreSQL with [Orchid ORM](https://orchid-orm.netlify.app/)
 - **Task Queue**: [pg-tbus](https://github.com/hextech-dev/pg-tbus) (PostgreSQL-based event bus)
@@ -97,7 +97,7 @@ Open http://localhost:8080 — same-origin routing exactly like prod. See
 
 ### Option B — Host-mode dev
 
-**Prerequisites:** Node.js 22+, Yarn 1.22.22, PostgreSQL and Redis running locally (or `docker compose -f docker-compose.dev.yml up postgres redis`).
+**Prerequisites:** Node.js 26+, Yarn 1.22.22, PostgreSQL and Redis running locally (or `docker compose -f docker-compose.dev.yml up postgres redis`).
 
 ```bash
 git clone git@github.com:shipmyapp/connected-repo.git

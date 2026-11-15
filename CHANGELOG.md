@@ -44,6 +44,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `packages/zod-schemas` runs its own tests (`test:run`): the device, install-try and ask rules.
 
 ### Changed
+- Runtime moved to Node 26 (engines, .nvmrc, Dockerfiles, CI). Docker images install Yarn 1.22.22 with npm. Sentry moved to 10.78 with it (its profiler ships Node 26 binaries for glibc and musl), and `tsx` to 4.23.
+- The build scripts call `turbo`, `tsc-alias` and `vite` directly instead of through `npx`.
 - The backend image smoke-tests its runtime stage against `apps/backend/.env.example`, which therefore passes the schema as committed.
 - Docker builds upload source maps again (`turbo.json` passes `SENTRY_UPLOAD_SOURCEMAPS` through).
 - The application MCP's own host (`MCP_PUBLIC_URL`) is `mcp.<root>`, routed by the team-host wildcard to the frontend nginx, which passes it to the backend; `mcp` is a reserved team slug.
