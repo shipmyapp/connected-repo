@@ -1,7 +1,6 @@
 import { env, isDev } from "@backend/configs/env.config";
 import { applyDeviceCookie } from "@backend/modules/devices/device_cookie.devices.middleware";
 import { betterAuthHandler } from "@backend/request_handlers/better_auth.handler";
-import { novuHandler } from "@backend/request_handlers/novu.handler";
 import { openApiHandler } from "@backend/request_handlers/open_api.handler";
 import { superAdminHandler } from "@backend/request_handlers/super_admin.handler";
 import {
@@ -89,12 +88,6 @@ export async function mainRequestDispatcher(req: NodeHttpRequest, res: NodeHttpR
 		// dispatcher.
 		if (requestUrl?.startsWith("/api/auth")) {
 			return await betterAuthHandler.handle(req, res);
-		}
-
-		// 3b. Novu Framework bridge (/api/novu/*) — used by `npx novu sync`
-		// to discover code-defined workflows in apps/backend/src/novu/.
-		if (requestUrl?.startsWith("/api/novu")) {
-			return await novuHandler.handle(req, res);
 		}
 
 		// 3c0. The super-admin console's RPC (/api/super-admin/*). Before the

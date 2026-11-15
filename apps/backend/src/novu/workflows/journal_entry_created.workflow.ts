@@ -1,43 +1,58 @@
-import { workflow } from "@novu/framework";
+// Kept in step with the Novu dashboard (newer updatedAt wins at boot). Before editing this workflow, run `yarn novu:status` (skill novu-pull); a hand edit sets updatedAt to now.
+import type { CodeWorkflow } from "@backend/novu/code_workflow";
 
-/**
- * Journal-entry-created fan-out — triggered per entry from the create
- * handler AND the pushCreates service tail (for offline-created entries
- * that finally landed). Routed to the team topic `team:{teamId}` so
- * Novu handles the per-subscriber fan-out; the author is excluded via
- * `actor` on the trigger call (Novu skips subscribers matching the
- * actor when the topic is targeted).
- *
- * Push step fires an OS notification on team members' registered
- * devices; in-app step lands in the Inbox bell so team members see
- * it even without push permission. Redirect deep-links to the entry.
- */
-export const journalEntryCreatedWorkflow = workflow(
-	"journal-entry-created",
-	async ({ step, payload }) => {
-		await step.push("send-push", async () => ({
-			subject: `${payload.authorName} added a journal entry`,
-			body: payload.contentPreview || "Tap to read.",
-		}));
-
-		await step.inApp("send-in-app", async () => ({
-			subject: `${payload.authorName} added a journal entry`,
-			body: payload.contentPreview || "Tap to read.",
-			redirect: { url: `/journal-entries/${payload.entryId}` },
-		}));
-	},
-	{
+export const journalEntryCreatedWorkflow: CodeWorkflow = {
+	updatedAt: "2026-11-15T21:45:36.000Z",
+	definition: () => ({
+		workflowId: "journal-entry-created",
+		name: "Journal Entry Created",
+		description: "Notifies team members (excluding the author) when a new journal entry lands.",
+		active: true,
 		payloadSchema: {
 			type: "object",
 			properties: {
-				entryId: { type: "string" },
-				authorName: { type: "string", default: "A teammate" },
-				contentPreview: { type: "string", default: "" },
+				entryId: {
+					type: "string",
+				},
+				authorName: {
+					type: "string",
+				},
+				contentPreview: {
+					type: "string",
+				},
 			},
-			required: ["entryId", "authorName"],
-			additionalProperties: false,
-		} as const,
-		name: "Journal Entry Created",
-		description: "Notifies team members (excluding the author) when a new journal entry lands.",
-	},
-);
+			required: [
+				"entryId",
+				"authorName",
+			],
+		},
+		isTranslationEnabled: false,
+		severity: "none",
+		source: "dashboard",
+		steps: [
+			{
+				stepId: "send-push",
+				name: "Push",
+				type: "push",
+				controlValues: {
+					subject: "{{payload.authorName | default: 'A teammate'}} added a journal entry",
+					body: "{{payload.contentPreview | default: 'Tap to read.'}}",
+				},
+			},
+			{
+				stepId: "send-in-app",
+				name: "In-app",
+				type: "in_app",
+				controlValues: {
+					body: "{{payload.contentPreview | default: 'Tap to read.'}}",
+					subject: "{{payload.authorName | default: 'A teammate'}} added a journal entry",
+					redirect: {
+						url: "/journal-entries/{{payload.entryId}}",
+						target: "_self",
+					},
+					disableOutputSanitization: false,
+				},
+			},
+		],
+	}),
+};

@@ -1,43 +1,54 @@
-import { workflow } from "@novu/framework";
+// Kept in step with the Novu dashboard (newer updatedAt wins at boot). Before editing this workflow, run `yarn novu:status` (skill novu-pull); a hand edit sets updatedAt to now.
+import type { CodeWorkflow } from "@backend/novu/code_workflow";
 
-/**
- * Daily journal reminder — triggered by the reminder-dispatch cron
- * (apps/backend/src/cron_jobs/reminder_dispatch.cron.ts) when a user's
- * `journalReminderTimes` matches the current minute in their timezone.
- *
- * Push step fires an OS notification (if the user has push enabled);
- * In-app step is always visible in the Inbox bell regardless of push.
- * Both steps use the same payload shape (`title`, `body`) so the trigger
- * caller doesn't need to know channel-specific fields.
- */
-export const userReminderWorkflow = workflow(
-	"user-reminder",
-	async ({ step, payload }) => {
-		await step.push("send-push", async () => ({
-			subject: payload.title,
-			body: payload.body,
-		}));
-
-		await step.inApp("send-in-app", async () => ({
-			subject: payload.title,
-			body: payload.body,
-			redirect: { url: "/journal-entries/new" },
-		}));
-	},
-	{
+export const userReminderWorkflow: CodeWorkflow = {
+	updatedAt: "2026-11-15T21:45:36.000Z",
+	definition: () => ({
+		workflowId: "user-reminder",
+		name: "Journal Reminder",
+		description: "Daily nudge to write a journal entry at the user's chosen time.",
+		active: true,
 		payloadSchema: {
 			type: "object",
 			properties: {
-				title: { type: "string", default: "Time to journal ✍️" },
+				title: {
+					type: "string",
+				},
 				body: {
 					type: "string",
-					default: "Take a moment to log today's entry.",
+				},
+				reminderTime: {
+					type: "string",
 				},
 			},
-			required: ["title", "body"],
-			additionalProperties: false,
-		} as const,
-		name: "Journal Reminder",
-		description: "Daily nudge to write a journal entry at the user's chosen time.",
-	},
-);
+		},
+		isTranslationEnabled: false,
+		severity: "none",
+		source: "dashboard",
+		steps: [
+			{
+				stepId: "send-push",
+				name: "Push",
+				type: "push",
+				controlValues: {
+					subject: "{{payload.title | default: 'Time to journal ✍️'}}",
+					body: "{{payload.body | default: 'Take a moment to log today’s entry.'}}",
+				},
+			},
+			{
+				stepId: "send-in-app",
+				name: "In-app",
+				type: "in_app",
+				controlValues: {
+					body: "{{payload.body | default: 'Take a moment to log today’s entry.'}}",
+					subject: "{{payload.title | default: 'Time to journal ✍️'}}",
+					redirect: {
+						url: "/journal-entries/new",
+						target: "_self",
+					},
+					disableOutputSanitization: false,
+				},
+			},
+		],
+	}),
+};

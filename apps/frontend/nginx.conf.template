@@ -69,7 +69,7 @@ server {
 
     # Reverse proxy: everything under /api/* goes to the backend service on the
     # internal Docker network. That includes /api/auth/* (better-auth),
-    # /api/novu/* (Novu bridge), /api/user-app/* (oRPC), and every OpenAPI route.
+    # /api/user-app/* (oRPC), and every OpenAPI route.
     # Same origin from the browser's POV → cookies stay first-party and CORS
     # is bypassed entirely.
     location /api/ {

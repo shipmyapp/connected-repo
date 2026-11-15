@@ -27,7 +27,9 @@
 			"!**/dist",
 			"!**/.turbo",
 			"!**/coverage",
-			"!apps/backend/openapi_pretty.json"
+			"!apps/backend/openapi_pretty.json",
+			"!apps/backend/src/novu/workflows/**",
+			"!apps/backend/src/novu/layouts/**"
 		],
 		"indentStyle": "tab",
 		"lineWidth": 100
