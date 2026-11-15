@@ -37,6 +37,7 @@ test("the avatar opens the profile page, which holds teams, theme and sign out",
 	await expect(page.getByRole("heading", { name: "Teams" })).toBeVisible();
 	await expect(page.getByRole("button", { name: "New team" })).toBeVisible();
 	await expect(page.getByRole("group", { name: "Theme" })).toBeVisible();
-	await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+	// Exact: the sessions card has "Sign out on …" and "Sign out everywhere else".
+	await expect(page.getByRole("button", { name: "Sign out", exact: true })).toBeVisible();
 	await expect(page.getByRole("menu")).toHaveCount(0);
 });

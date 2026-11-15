@@ -91,7 +91,12 @@ export function SessionsCard() {
 								</Typography>
 							</Box>
 							{!s.current && (
-								<Button size="small" color="error" onClick={() => setConfirming(s)}>
+								<Button
+									size="small"
+									color="error"
+									aria-label={`Sign out on ${describeSession(s)}`}
+									onClick={() => setConfirming(s)}
+								>
 									Sign out
 								</Button>
 							)}
