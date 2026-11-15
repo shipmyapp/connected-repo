@@ -9,6 +9,8 @@ node_modules
 .env
 .env.*
 !.env.example
+# Committed placeholder env for tests and CI (apps/*/.env.test); never secrets.
+!.env.test
 
 # Testing
 coverage
@@ -40,3 +42,6 @@ code-review.md
 .opencode_context.tmp
 diff.patch
 .git-diff-staged.patch
+
+# Local Redis snapshots (redis-server writes dump.rdb in its working directory)
+dump.rdb

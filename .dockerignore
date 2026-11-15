@@ -11,10 +11,8 @@ build
 
 # Development files
 # NOTE: .git is intentionally NOT ignored — the frontend Dockerfile reads the
-# short commit SHA from it to tag Sentry releases (see apps/frontend/Dockerfile).
-# It only lives in the build stages; the final nginx image doesn't contain it.
-# Once Dokploy PR #4007 (DOKPLOY_COMMIT_SHORT build arg) lands upstream, we can
-# re-ignore .git and pass VITE_SENTRY_RELEASE=$DOKPLOY_COMMIT_SHORT instead.
+# short commit SHA from it to name each deploy's Sentry release. It only lives
+# in the build stages; no final image contains it.
 .gitignore
 *.md
 !README.md
@@ -39,10 +37,12 @@ coverage
 e2e
 playwright-report
 
-# Environment files
-.env
-.env.*
-!.env.example
+# Environment files, at any depth. Dokploy writes an application's
+# Environment Settings to a .env beside its Dockerfile (apps/backend/.env);
+# that file holds every production secret and must never reach an image.
+**/.env
+**/.env.*
+!**/.env.example
 
 # Logs
 logs
