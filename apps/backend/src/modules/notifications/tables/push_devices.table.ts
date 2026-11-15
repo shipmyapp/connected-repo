@@ -1,18 +1,6 @@
 import { BaseTable } from "@backend/db/base_table";
 
-/**
- * One row per (user, browser installation) — the FCM registration token
- * uniquely identifies a browser+installation pair. When the browser rotates
- * its token (pushsubscriptionchange, uninstall/reinstall of the PWA), a new
- * row is inserted and stale ones are pruned when the frontend re-registers
- * or when Novu reports the token as unregistered.
- *
- * The same FCM token is also registered on the Novu subscriber's `fcm`
- * credentials so Novu can deliver push through Firebase — see
- * services/register_device.notifications.service.ts. The DB row exists so
- * we can prune server-side (revoke on logout, sweep stale tokens) without
- * round-tripping Novu.
- */
+/** Superseded by `devices` (migration 0014_devices). Read and written by nothing; dropped in the next release. */
 export class PushDeviceTable extends BaseTable {
 	readonly table = "push_devices";
 

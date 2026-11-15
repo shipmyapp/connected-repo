@@ -20,6 +20,8 @@ export class SessionTable extends BaseTable {
 			os: t.string().nullable(),
 			device: t.string().nullable(),
 			deviceFingerprint: t.string().nullable(),
+			// The device (`app_device` cookie or `x-device-id`) the session was opened on: signing it out turns its push off.
+			deviceKey: t.string(64).nullable(),
 			markedInvalidAt: t.timestampNumber().nullable(),
 			expiresAt: t.timestampNumber(),
 			...t.timestampsAsNumbers(),

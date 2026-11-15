@@ -5,6 +5,7 @@ import { orchidToTbusQueryAdapter } from "@backend/events/events.utils";
 import { tbus } from "@backend/events/tbus";
 import { TeamMemberTable } from "@backend/modules/teams/tables/team_members.table";
 import { TeamAppTable } from "@backend/modules/teams/tables/teams_app.table";
+import type { Asks } from "@connected-repo/zod-schemas/device.zod";
 
 export class UserTable extends BaseTable {
 	readonly table = "users";
@@ -31,6 +32,9 @@ export class UserTable extends BaseTable {
 		// (see notifications.router#getReminderTimes) strip seconds at the
 		// boundary. Left in place documenting intent for a future ORM upgrade.
 		journalReminderTimes: t.array(t.time().parse((v) => v.slice(0, 5))).default([]),
+		// The person's answers to the device asks (push, install): the snooze ladder, kept on the
+		// account so every device agrees. Rules: @connected-repo/zod-schemas/devices/asks.rules.
+		asks: t.json<Asks>().default(t.sql`'{}'::jsonb`),
 		activeTeamAppId: t
 			.ulid()
 			.foreignKey("teams_app", "id", {
@@ -134,7 +138,7 @@ export class UserTable extends BaseTable {
 		);
 
 		// Better-auth account deletion (or admin delete) removes the row here.
-		// CASCADE handles push_devices, journal_entries, memberships, etc. on
+		// CASCADE handles devices, push_devices, journal_entries, memberships, etc. on
 		// our side; the event exists so the Novu subscriber gets deleted too
 		// (see user_deleted.notifications.user.ts). Fires inside the same
 		// transaction as the delete so a failed publish rolls the delete back.
