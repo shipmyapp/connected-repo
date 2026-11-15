@@ -1,6 +1,8 @@
-import type { LookupAddress } from "node:dns";
+import { createHmac } from "node:crypto";
+import dnsCallback, { type LookupAddress } from "node:dns";
 import dns from "node:dns/promises";
-import net from "node:net";
+import https from "node:https";
+import net, { type LookupFunction } from "node:net";
 
 /**
  * SSRF guard for outbound webhook URLs.
@@ -10,10 +12,9 @@ import net from "node:net";
  *  - credentials in URL
  *  - hosts that resolve to loopback / private / link-local / CGNAT / IPv6 ULA / metadata IPs
  *
- * Note: this is a TOCTOU-vulnerable check (DNS can change between validation and connect).
- * Callers MUST also pass `maxRedirects: 0` (or re-validate each hop) to prevent
- * DNS-rebinding / redirect-based bypass. Ideally, outbound webhook posting should be
- * gated behind an egress proxy allowlist.
+ * `assertSafeWebhookUrl` rejects early with a clear message; `webhookHttpsAgent`
+ * (guardedLookup) enforces the same list on the addresses the socket connects to.
+ * Callers also pass `maxRedirects: 0` and `proxy: false`.
  */
 
 const IPV4_METADATA_HOSTS = new Set([
@@ -94,6 +95,10 @@ function isBlockedIPv6(ip: string): boolean {
 	return false;
 }
 
+/** True for an address an outbound webhook must never reach. */
+export const isBlockedAddress = (address: string, family: number): boolean =>
+	family === 6 ? isBlockedIPv6(address) : isBlockedIPv4(address);
+
 export class SsrfBlockedError extends Error {
 	constructor(message: string) {
 		super(message);
@@ -162,3 +167,45 @@ export async function assertSafeWebhookUrl(rawUrl: string): Promise<URL> {
 
 	return parsed;
 }
+
+/**
+ * DNS lookup for the webhook socket itself: the same block list, checked
+ * on the addresses the connection will actually use (no window between
+ * the check and the connect for DNS rebinding). Literal IPs never reach a
+ * lookup; assertSafeWebhookUrl covers them.
+ */
+export const guardedLookup: LookupFunction = (hostname, options, callback) => {
+	dnsCallback.lookup(hostname, { ...options, all: true }, (err, addresses) => {
+		if (err) {
+			callback(err, "");
+			return;
+		}
+		const blocked = addresses.find((a) => isBlockedAddress(a.address, a.family));
+		const first = addresses[0];
+		if (blocked || !first) {
+			callback(
+				new SsrfBlockedError(
+					`Webhook host resolves to blocked address ${blocked?.address ?? "(none)"}`,
+				),
+				"",
+			);
+			return;
+		}
+		if (options.all) {
+			callback(null, addresses);
+			return;
+		}
+		callback(null, first.address, first.family);
+	});
+};
+
+/** HTTPS agent for webhook calls: every connection goes through guardedLookup. */
+export const webhookHttpsAgent = new https.Agent({ lookup: guardedLookup });
+
+/**
+ * `X-Webhook-Signature` value: `t=<unix seconds>,v1=<hex HMAC-SHA256 of
+ * "<t>.<body>">`. The receiver recomputes it with its secret and rejects
+ * an old `t` (replay).
+ */
+export const signWebhookBody = (secret: string, body: string, unixSeconds: number): string =>
+	`t=${unixSeconds},v1=${createHmac("sha256", secret).update(`${unixSeconds}.${body}`).digest("hex")}`;

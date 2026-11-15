@@ -4,7 +4,12 @@ import { API_QUEUE } from "@backend/events/queue_names";
 import { logger } from "@backend/utils/logger.utils";
 import axios from "axios";
 import { ulid } from "ulid";
-import { assertSafeWebhookUrl, SsrfBlockedError } from "./ssrf_guard.utils";
+import {
+	assertSafeWebhookUrl,
+	SsrfBlockedError,
+	signWebhookBody,
+	webhookHttpsAgent,
+} from "./ssrf_guard.utils";
 
 // Cap response body at 1 MiB — webhooks should return small ack payloads.
 const MAX_WEBHOOK_RESPONSE_BYTES = 1024 * 1024;
@@ -271,30 +276,29 @@ export const subscriptionAlertWebhookHandler = async ({
 		const webhookUrl = team.subscriptionAlertWebhookUrl;
 		const bearerToken = team.subscriptionAlertWebhookBearerToken;
 
-		// SSRF guard: enforce https, reject private/loopback/link-local/metadata targets.
-		// NOTE: This is TOCTOU-vulnerable on its own (DNS may change between check and
-		// connect), so we also pass maxRedirects: 0 below to prevent DNS-rebinding
-		// and redirect-based bypasses. Long-term, prefer an egress proxy allowlist.
+		// SSRF guard: https only, no private/loopback/metadata targets. The
+		// agent repeats the check on the connecting socket (DNS rebinding).
 		await assertSafeWebhookUrl(webhookUrl);
 
-		// Send webhook
-		const response = await axios.post(webhookUrl, input.payload, {
-			timeout: 30000, // 30 second timeout
-			maxRedirects: 0, // prevent redirect-based SSRF bypass
+		// The exact bytes we sign are the bytes we send.
+		const body = JSON.stringify(input.payload);
+		const headers: Record<string, string> = { "Content-Type": "application/json" };
+		if (bearerToken) {
+			headers.Authorization = `Bearer ${bearerToken}`;
+			headers["X-Webhook-Signature"] = signWebhookBody(
+				bearerToken,
+				body,
+				Math.floor(Date.now() / 1000),
+			);
+		}
+		const response = await axios.post(webhookUrl, body, {
+			timeout: 30000,
+			maxRedirects: 0, // a redirect would leave the guarded connection
 			maxContentLength: MAX_WEBHOOK_RESPONSE_BYTES,
 			maxBodyLength: MAX_WEBHOOK_RESPONSE_BYTES,
-			...(bearerToken
-				? {
-						headers: {
-							Authorization: `Bearer ${bearerToken}`,
-							"Content-Type": "application/json",
-						},
-					}
-				: {
-						headers: {
-							"Content-Type": "application/json",
-						},
-					}),
+			httpsAgent: webhookHttpsAgent,
+			proxy: false, // HTTPS_PROXY in the environment would bypass the guard
+			headers,
 		});
 
 		const duration = Date.now() - startTime;
