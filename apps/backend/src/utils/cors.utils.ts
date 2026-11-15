@@ -1,4 +1,4 @@
-import { allowedOrigins } from "@backend/configs/allowed_origins.config";
+import { isAllowedCredentialedOrigin } from "@backend/modules/teams/services/branding.teams.service";
 import type { NodeHttpRequest, NodeHttpResponse } from "@orpc/standard-server-node";
 
 // Trace-propagation headers that every handler must let through:
@@ -18,11 +18,15 @@ export const TRACE_HEADERS_ALLOW = [
 export const TRACE_HEADERS_EXPOSE = ["x-trace-id", "traceparent"] as const;
 
 /**
- * Handles CORS headers for all better-auth incoming requests.
+ * Handles CORS headers for all better-auth incoming requests. Credentialed
+ * CORS goes to ALLOWED_ORIGINS and to the host of a live team only.
  *
  * @returns true if the request was an OPTIONS preflight and the response was sent.
  */
-export function handleBetterAuthCors(req: NodeHttpRequest, res: NodeHttpResponse): boolean {
+export async function handleBetterAuthCors(
+	req: NodeHttpRequest,
+	res: NodeHttpResponse,
+): Promise<boolean> {
 	const originHeader = req.headers.origin || req.headers[":origin"];
 	const currentOrigin = Array.isArray(originHeader) ? originHeader[0] : originHeader;
 
@@ -31,7 +35,7 @@ export function handleBetterAuthCors(req: NodeHttpRequest, res: NodeHttpResponse
 	}
 
 	// 1. Determine if the origin is allowed
-	const isAllowed = allowedOrigins.includes(currentOrigin);
+	const isAllowed = await isAllowedCredentialedOrigin(currentOrigin);
 
 	if (isAllowed) {
 		res.setHeader("Access-Control-Allow-Origin", currentOrigin);

@@ -9,7 +9,7 @@ import { toNodeHandler } from "better-auth/node";
 
 export const betterAuthHandler = {
 	handle: async (req: NodeHttpRequest, res: NodeHttpResponse) => {
-		const handled = handleBetterAuthCors(req, res);
+		const handled = await handleBetterAuthCors(req, res);
 		if (handled) return;
 
 		const authHandler = toNodeHandler(auth);

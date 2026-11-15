@@ -1,5 +1,5 @@
-import { allowedOrigins } from "@backend/configs/allowed_origins.config";
 import { isDev, isProd, isStaging } from "@backend/configs/env.config";
+import { isAllowedCredentialedOrigin } from "@backend/modules/teams/services/branding.teams.service";
 import { userAppRouter } from "@backend/routers/user_app/user_app.router";
 import { isBearerOnlyRequest } from "@backend/utils/bearer.utils";
 import { APP_BODY_LIMIT_BYTES } from "@backend/utils/body_limit.utils";
@@ -23,7 +23,9 @@ export const reactAppHandler = new RPCHandler(userAppRouter, {
 		new RequestHeadersPlugin(),
 		new ResponseHeadersPlugin(),
 		new CORSPlugin({
-			origin: [...allowedOrigins],
+			// ALLOWED_ORIGINS, plus the host of a live team (never a `*.<root>`
+			// wildcard). The super-admin handlers keep the exact list.
+			origin: async (origin) => ((await isAllowedCredentialedOrigin(origin)) ? origin : null),
 			allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
 			allowHeaders: [
 				"content-type",

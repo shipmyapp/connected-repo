@@ -1,6 +1,7 @@
 import { allowedOrigins } from "@backend/configs/allowed_origins.config";
 import { env, isDev, isProd, isStaging, isTest } from "@backend/configs/env.config";
 import { db } from "@backend/db/db";
+import { teamOriginsForAuthRequest } from "@backend/modules/teams/services/branding.teams.service";
 import { CLIENT_IP_HEADER } from "@backend/utils/client-info.utils";
 import { logger } from "@backend/utils/logger.utils";
 import { themeSettingZod } from "@connected-repo/zod-schemas/enums.zod";
@@ -101,8 +102,14 @@ export const auth = betterAuth({
 		updateAccountOnSignIn: true,
 	},
 	advanced: {
+		// A stack that shares its parent domain with another (staging next to
+		// production) names its cookies apart. Never change on a live stack:
+		// everyone is signed out.
+		...(env.AUTH_COOKIE_PREFIX ? { cookiePrefix: env.AUTH_COOKIE_PREFIX } : {}),
+		// `.<root>`: the OAuth callback lands on the shared app host and team
+		// hosts (`<slug>.<root>`) must read the same session cookie.
 		crossSubDomainCookies: {
-			enabled: Boolean(isProd && env.PROD_COOKIE_DOMAIN),
+			enabled: Boolean((isProd || isStaging) && env.PROD_COOKIE_DOMAIN),
 			domain: env.PROD_COOKIE_DOMAIN,
 		},
 		defaultCookieAttributes: {
@@ -320,7 +327,14 @@ export const auth = betterAuth({
 	telemetry: {
 		enabled: false,
 	},
-	trustedOrigins: allowedOrigins,
+	// The explicit origins, plus this request's own team host when it is the
+	// host of a live team (never a `*.<root>` wildcard: a subdomain that is not
+	// a team must not pass the POST origin check or be a `callbackURL`).
+	// better-auth calls this per request and merges plugin origins into it.
+	trustedOrigins: async (request) => [
+		...allowedOrigins,
+		...(await teamOriginsForAuthRequest(request)),
+	],
 	user: {
 		changeEmail: {
 			enabled: false, // Disable email changes for simplicity

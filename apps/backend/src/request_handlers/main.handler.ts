@@ -7,6 +7,7 @@ import {
 	SUPER_ADMIN_RPC_PREFIX,
 	superAdminRpcHandler,
 } from "@backend/request_handlers/super_admin_rpc.handler";
+import { tenantHandler } from "@backend/request_handlers/tenant.handler";
 import { reactAppHandler } from "@backend/request_handlers/user_app.handler";
 import { captureBackendException } from "@backend/utils/backend-error-tracking.utils";
 import { declaresTooLargeBody } from "@backend/utils/body_limit.utils";
@@ -99,6 +100,12 @@ export async function mainRequestDispatcher(req: NodeHttpRequest, res: NodeHttpR
 				prefix: SUPER_ADMIN_RPC_PREFIX,
 			});
 			if (superAdminRpcResult.matched) return;
+		}
+
+		// 3b2. Per-team PWA manifest (/api/tenant/manifest.webmanifest).
+		// Plain HTTP (not oRPC): the browser fetches a manifest by URL.
+		if (tenantHandler.matches(req)) {
+			return await tenantHandler.handle(req, res);
 		}
 
 		// 3c. oRPC User App Routes (/api/user-app/*)

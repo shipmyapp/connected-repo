@@ -1,13 +1,16 @@
+import { env } from "@backend/configs/env.config";
 import { db } from "@backend/db/db";
 import { requestContext } from "@backend/lib/request-context";
 import { createRateLimitMiddleware } from "@backend/middlewares/rate_limit.middleware";
 import { rpcAuthMiddleware } from "@backend/modules/auth/auth.middleware";
 import type { ActiveSessionSelectAll } from "@backend/modules/auth/tables/session.auth.table";
+import { getTeamIdBySlugService } from "@backend/modules/teams/services/branding.teams.service";
 import {
 	type RpcContextWithHeaders,
 	rpcPublicProcedure,
 } from "@backend/procedures/public.procedure";
 import type { TeamMemberRole } from "@connected-repo/zod-schemas/enums.zod";
+import { resolveTenantSlug } from "@connected-repo/zod-schemas/tenant.utils";
 import type { UserSelectAll } from "@connected-repo/zod-schemas/user.zod";
 import { ORPCError } from "@orpc/server";
 
@@ -54,6 +57,30 @@ export const rpcProtectedProcedure = rpcPublicProcedure.use(rpcAuthMiddleware).u
  *
  * The app:user rate limit is charged by rpcProtectedProcedure, before this gate.
  */
+/**
+ * The team whose own host sent this request, or null. `Origin` first (a
+ * browser sends it on every cross-origin request and on every same-origin
+ * POST, which is how oRPC's RPCLink calls); else `X-Forwarded-Host` / `Host`
+ * (nginx forwards both, `apps/frontend/nginx.conf.template`). Null when
+ * tenant mode is off, on the shared app host, and for mobile/bearer clients.
+ */
+async function tenantTeamIdForRequest(reqHeaders: Headers): Promise<string | null> {
+	if (!env.TENANT_ROOT_DOMAIN) return null;
+	let hostname: string | null = null;
+	const origin = reqHeaders.get("origin");
+	if (origin) {
+		try {
+			hostname = new URL(origin).hostname;
+		} catch {
+			hostname = null;
+		}
+	}
+	hostname ??= reqHeaders.get("x-forwarded-host") ?? reqHeaders.get("host");
+	if (!hostname) return null;
+	const slug = resolveTenantSlug(hostname, env.TENANT_ROOT_DOMAIN);
+	return slug ? await getTeamIdBySlugService(slug) : null;
+}
+
 export const rpcProtectedActiveTeamProcedure = rpcProtectedProcedure.use(
 	async ({ context, next }) => {
 		const headerTeamId = context.reqHeaders.get("x-team-id");
@@ -79,6 +106,16 @@ export const rpcProtectedActiveTeamProcedure = rpcProtectedProcedure.use(
 				.select("activeTeamAppId")
 				.takeOptional();
 			activeTeamAppId = row?.activeTeamAppId ?? null;
+		}
+
+		// A team's own host (`<slug>.<root>`) is locked to that team and never
+		// writes `users.activeTeamAppId` (ADR-039): its requests carry the
+		// host's team in `x-team-id`. Accept it when the request comes from
+		// that team's host; the membership check below is the authorisation,
+		// so a forged Origin/Host grants nothing.
+		if (activeTeamAppId !== headerTeamId) {
+			const hostTeamId = await tenantTeamIdForRequest(context.reqHeaders);
+			if (hostTeamId === headerTeamId) activeTeamAppId = headerTeamId;
 		}
 
 		if (!activeTeamAppId) {

@@ -44,6 +44,13 @@ const optionalString = z.preprocess((val) => (val === "" ? undefined : val), z.s
 
 const envSchema = z.object({
 	ALLOWED_ORIGINS: zString.optional(),
+	// better-auth's cookie name prefix (default `better-auth`). Set only when
+	// two stacks share a parent cookie domain (e.g. staging and production
+	// on `.example.com`). Never change it on a live environment.
+	AUTH_COOKIE_PREFIX: z
+		.string()
+		.regex(/^[a-z0-9-]+$/, "AUTH_COOKIE_PREFIX: lowercase letters, digits and hyphens")
+		.optional(),
 	BETTER_AUTH_SECRET: zString.min(32, "Better Auth secret must be at least 32 characters"),
 	DB_HOST: zString.min(1),
 	DB_PORT: zString.min(1),
@@ -80,6 +87,10 @@ const envSchema = z.object({
 	// e.g. redis://localhost:6379, redis://:password@redis:6379/0, rediss://… for TLS.
 	REDIS_URL: z.url(),
 	PROD_COOKIE_DOMAIN: optionalString,
+	// Root domain of team hosts (`<slug>.<root>`), e.g. `example.com`; `localhost`
+	// in dev. Unset = tenant mode off, every host is the shared app. In
+	// production pair it with PROD_COOKIE_DOMAIN=.<root> (or a parent of it).
+	TENANT_ROOT_DOMAIN: optionalString,
 	SESSION_SECRET: zString.min(32, "Session secret must be at least 32 characters"),
 	NOVU_SECRET_KEY: optionalString,
 	NOVU_API_URL: optionalUrl,
@@ -123,6 +134,32 @@ const envSchema = z.object({
 // ----------------------------------------
 
 /**
+ * Rules across variables. Every subdomain of TENANT_ROOT_DOMAIN shares the
+ * session cookie (`PROD_COOKIE_DOMAIN=.<root>`) and is same-site with the
+ * app, so the bucket's public host (user content) must live on another
+ * domain.
+ */
+const checkedEnvSchema = envSchema.superRefine((values, ctx) => {
+	if (values.TENANT_ROOT_DOMAIN && values.S3_PUBLIC_URL) {
+		const root = values.TENANT_ROOT_DOMAIN.toLowerCase().replace(/^\.+/, "");
+		let host = "";
+		try {
+			host = new URL(values.S3_PUBLIC_URL).hostname.toLowerCase();
+		} catch {
+			return; // the field's own check reports a malformed URL
+		}
+		if (host === root || host.endsWith(`.${root}`)) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["S3_PUBLIC_URL"],
+				message:
+					"S3_PUBLIC_URL must not be TENANT_ROOT_DOMAIN or a subdomain of it: uploaded files would share the session cookie. Serve the bucket from another domain.",
+			});
+		}
+	}
+});
+
+/**
  * Parses an environment. A blank value means "not set": Dokploy's
  * environment editor and a `KEY=` line in a .env both hand us "", which
  * `z.url().optional()` reads as a malformed URL, `z.enum().optional()`
@@ -132,7 +169,9 @@ const envSchema = z.object({
  * one left blank is still refused, and a set-but-wrong value still fails.
  */
 export const parseEnv = (source: NodeJS.ProcessEnv) =>
-	envSchema.parse(Object.fromEntries(Object.entries(source).filter(([, value]) => value !== "")));
+	checkedEnvSchema.parse(
+		Object.fromEntries(Object.entries(source).filter(([, value]) => value !== "")),
+	);
 
 export const env = parseEnv(process.env);
 
