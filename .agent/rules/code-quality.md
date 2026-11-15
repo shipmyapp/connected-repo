@@ -31,3 +31,4 @@ This rule enforces a "CTO-level" standard: Production-ready code that is excepti
 - **Readability**: If a function takes more than 10 seconds to "get", it's too complex. Request refactor.
 - **Standards**: Check for manual `any` casts or hardcoded styling.
 - **Architecture**: Ensure new features follow the established module structure.
+- **Dead code, as we go**: `yarn lint` (Biome) and `yarn knip` stay clean. A change removes what it left unused (files, exports, types, dependencies, variables) in the same pull request. `biome-ignore` and new `knip.jsonc` ignores need a comment that says why.

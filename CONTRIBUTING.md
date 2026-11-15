@@ -1,11 +1,11 @@
-# Contributing to Connected Repo Starter - Journal App
+# Contributing to Connected Repo
 
 ## Development Setup
 
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd connected-repo-starter-oRPC
+   cd connected-repo
    ```
 
 2. **Install dependencies**
@@ -15,14 +15,15 @@
 
 3. **Set up environment variables**
    ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
+   cp apps/backend/.env.example apps/backend/.env
+   cp apps/frontend/.env.example apps/frontend/.env
+   # Edit both files with your configuration
    ```
 
 4. **Initialize database**
    ```bash
    cd apps/backend
-   yarn db up
+   yarn db create && yarn db up
    ```
 
 5. **Start development servers**
@@ -47,12 +48,13 @@
 ### Branches
 - `main`: Production branch
 - `develop`: Staging branch (if used)
-- Feature branches: `feat/description`, `fix/description`, `chore/description`
+- Feature branches: one per atomic plan in `.agent/plans/`, `feat/description`, `fix/description`, `chore/description`
 
 ### Commits
 Use descriptive commit messages that clearly explain the changes made.
 
 ### Pull Requests
+- One plan, one pull request, at most one new migration file
 - Require CI passing
 - At least 1 approval required
 - No merge conflicts
@@ -60,34 +62,35 @@ Use descriptive commit messages that clearly explain the changes made.
 
 ## Testing Requirements
 
-- **Backend**: >80% coverage on routers and critical logic
-- **Frontend**: >70% coverage on components and pages
+- **Backend**: every router has a Vitest test on the transaction harness (`apps/backend/src/test/setup.ts`)
+- **Frontend**: every user-facing flow has a Playwright spec (desktop and mobile projects in `apps/frontend/playwright.config.ts`)
 - All PRs must include tests for new features
 
 ## Pre-commit Hooks
 
-The project uses Git hooks to enforce code quality:
+`yarn install` sets `git config core.hooksPath .githooks`:
 
-- **Pre-commit**: Runs Biome linting on staged files and type checking
+- **pre-commit**: Biome on the staged files (format and lint; unused imports and variables are errors)
+- **pre-push**: `yarn knip` (unused files, exports, types, dependencies) and `yarn check-types`
 
-Hooks are located in `.git/hooks/` and run automatically.
+CI runs knip and lint again. Do not skip a hook with `--no-verify`.
 
 ## Database
 
 - Use Orchid ORM for database operations
 - Run migrations: `cd apps/backend && yarn db g <name> && yarn db up`
-- Follow snake_case naming for tables/columns
+- Additive, backward-compatible migrations only; follow snake_case naming for tables/columns
 
 ## Architecture
 
-- **Backend**: oRPC with TypeScript, Orchid ORM, PostgreSQL
-- **Frontend**: React 19, Material UI, TanStack Query
-- **Auth**: Better Auth with Google OAuth
+- **Backend**: oRPC with TypeScript, Orchid ORM, PostgreSQL, pg-tbus, Novu
+- **Frontend**: React 19, Material UI, TanStack Query, Dexie (offline-first), Vite PWA
+- **Auth**: Better Auth with Google and Apple sign-in, bearer tokens for the mobile app
 - **Validation**: Zod schemas
 
 ## Code Hygiene
 
-- No unused variables, functions, or imports
+- No unused variables, functions, or imports (`yarn lint` and `yarn knip` are clean)
 - All code must pass Biome linting
 - TypeScript strict mode enabled
 - No `any` types allowed

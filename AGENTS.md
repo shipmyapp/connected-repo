@@ -7,7 +7,7 @@
 - **Backend**: oRPC + Orchid ORM + PostgreSQL + pg-tbus + Better Auth
 - **Frontend**: React 19 + Vite + TanStack Query + Dexie.js (IndexedDB) + pull-delta sync (no SSE)
 - **Packages**: Shared Zod schemas, UI components (MUI)
-- **Tooling**: Biome (Tabs, 100 chars, double quotes)
+- **Tooling**: Biome (Tabs, 100 chars, double quotes), knip
 
 **Architecture Patterns**:
 - **Bimodal Docs**: `README.md` (Human) vs `AGENTS.md` (Agent)
@@ -18,9 +18,9 @@
 ---
 
 ## Layer 2: Active Task
-- **Objective**: Improve PWA Installation and Update UX.
+- **Objective**: Repository tooling: dead-code gates, git hooks and CI.
 - **Status**: Completed.
-- **Context**: Implemented `PwaInstallSheet` for native-like bottom sheet installation, `AppVersionLabel` for manual version checking, and enforced a persistent `PwaUpdatePrompt` when updates are deferred. Fixed dev-mode module duplication in Vite. Ready for commit.
+- **Context**: Biome applies the root config to every package (the backend had been checked at 80 columns) and the repository is formatted with it; `yarn lint` and `yarn knip` are clean and blocking in CI; `.githooks/` runs Biome before a commit and knip plus the typecheck before a push; CI can be started by hand, runs on `ubuntu-24.04` and has a Redis service.
 
 ## Layer 3: Decision Records
 
@@ -40,11 +40,13 @@
 | [ADR-012] | Backend Security Hardening | Accepted | Implementing strict SSRF guards, dummy hashes for timing attacks, and strict teamId scoping for multitenant safety. |
 | [ADR-013] | Novu Push Notifications | Accepted | Implemented FCM token synchronization and notification dispatch using Novu with optimistic DB-first tracking. |
 | [ADR-014] | Silent Sync Trigger | Accepted | Implemented FCM silent pushes to wake up the app for background sync, bypassing OS notifications. |
+| [ADR-015] | No dead code, as we go | Accepted | Biome (unused imports and variables are errors; the backend's nested config extends the root) runs on staged files in a pre-commit hook; knip (unused files, exports, types, dependencies) and the typecheck run pre-push; CI runs knip and a blocking lint. Hooks live in `.githooks/`, installed by the root `prepare` script. `knip.jsonc` lists the offline-first entries (service worker, data and media workers). Kept features that knip cannot see are taught to it, never deleted. |
 
 ## Quick Reference
 - **Dev**: `yarn dev`
 - **Build**: `yarn build`
-- **Check**: `yarn lint`, `yarn format`, `yarn check-types`
+- **Check**: `yarn lint`, `yarn format`, `yarn check-types`, `yarn knip`
+- **Hooks** (no dead code, as we go): `yarn install` points git at `.githooks/`. **pre-commit** runs Biome on the staged files (unused imports and variables are errors); **pre-push** runs `yarn knip` (unused files, exports, types, dependencies) and `yarn check-types`; CI runs both and lint. They are clean on `main`, so a red one is yours: remove what the change left unused (an old path a new one replaced, a helper nobody calls, a dependency) rather than exporting it again or skipping the hook. Code of a kept feature that knip cannot see is taught to `knip.jsonc` with a comment, never deleted.
 - **DB**: `yarn db g <name>`, `yarn db up`, `yarn db seed`
 
 ## Module Deep Dives
