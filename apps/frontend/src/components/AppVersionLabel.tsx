@@ -1,6 +1,6 @@
 import { Typography } from "@connected-repo/ui-mui/data-display/Typography";
 import { Box } from "@connected-repo/ui-mui/layout/Box";
-import { APP_VERSION } from "@frontend/utils/app_version";
+import { APP_COMMIT, APP_VERSION } from "@frontend/utils/app_version";
 import { checkForSwUpdate } from "@frontend/utils/sw_update_check";
 import { useState } from "react";
 import { toast } from "react-toastify";
@@ -51,7 +51,7 @@ export const AppVersionLabel = ({ prefix, align = "center" }: AppVersionLabelPro
 						void handleClick();
 					}
 				}}
-				title="Check for updates"
+				title={APP_COMMIT ? `Check for updates (build ${APP_COMMIT})` : "Check for updates"}
 				sx={{
 					color: "text.disabled",
 					letterSpacing: "0.03em",
