@@ -37,10 +37,12 @@ export class FileTable extends BaseTable {
 		}),
 		(t) => [
 			// Cursor-pagination driver for files pullBundles.
-			t.index(["teamId", "updatedAt", "id"]),
+			t.index(["teamId", { column: "updatedAt", order: "DESC" }, { column: "id", order: "DESC" }], {
+				name: "files_sync_delta_idx",
+			}),
 			// Look-up index for the parent-scoped fetch pattern
 			// (files.getByTableId).
-			t.index(["tableName", "tableId"]),
+			t.index(["tableName", "tableId"], { name: "files_table_name_table_id_idx" }),
 		],
 	);
 

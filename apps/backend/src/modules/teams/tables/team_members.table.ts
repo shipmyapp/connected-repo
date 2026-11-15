@@ -52,6 +52,10 @@ export class TeamMemberTable extends BaseTable {
 				name: "team_members_team_id_user_id_idx",
 				where: "deleted_at IS NULL",
 			}),
+			// Cursor for pullMembersDelta (migration 0001).
+			t.index(["teamId", { column: "updatedAt", order: "DESC" }, { column: "id", order: "DESC" }], {
+				name: "team_members_sync_delta_idx",
+			}),
 		],
 	);
 

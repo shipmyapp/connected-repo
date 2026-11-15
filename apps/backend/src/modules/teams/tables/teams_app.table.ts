@@ -44,6 +44,10 @@ export class TeamAppTable extends BaseTable {
 				name: "teams_app_personal_team_for_user_id_idx",
 				where: "deleted_at IS NULL AND personal_team_for_user_id IS NOT NULL",
 			}),
+			// Pull delta (migration 0001). Declared so `yarn db g` sees it.
+			t.index(["id", { column: "updatedAt", order: "DESC" }], {
+				name: "teams_app_sync_delta_idx",
+			}),
 		],
 	);
 

@@ -14,7 +14,19 @@ export class PromptsTable extends BaseTable {
 
 			...t.timestamps(),
 		}),
-		(t) => [t.index([{ column: "updatedAt", order: "DESC" }])],
+		(t) => [
+			t.index([{ column: "updatedAt", order: "DESC" }]),
+			// Cursor for the prompts pull (migration 0001).
+			t.index(
+				[
+					{ column: "updatedAt", order: "DESC" },
+					{ column: "id", order: "DESC" },
+				],
+				{
+					name: "prompts_sync_delta_idx",
+				},
+			),
+		],
 	);
 
 	// Disable soft delete during non-E2E tests to avoid SQL syntax errors when using onConflictDoNothing()

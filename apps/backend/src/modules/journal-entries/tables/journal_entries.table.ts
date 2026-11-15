@@ -43,10 +43,14 @@ export class JournalEntryTable extends BaseTable {
 			...t.timestamps(),
 		}),
 		(t) => [
-			t.index(["authorUserId", { column: "updatedAt", order: "DESC" }]),
+			t.index(["authorUserId", { column: "updatedAt", order: "DESC" }], {
+				name: "journal_entries_author_user_id_updated_at_idx",
+			}),
 			// Cursor-pagination driver for sync pullBundles — covers
 			// `WHERE team_id = $N AND updated_at < $X ORDER BY updated_at DESC, id DESC`.
-			t.index(["teamId", "updatedAt", "id"]),
+			t.index(["teamId", { column: "updatedAt", order: "DESC" }, { column: "id", order: "DESC" }], {
+				name: "journal_entries_sync_delta_idx",
+			}),
 		],
 	);
 
