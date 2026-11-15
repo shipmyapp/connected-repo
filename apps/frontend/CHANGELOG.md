@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Team hosts: branded document, manifest, theme and navbar; the no-access page; the branding form with logo and icon upload.
 - The Dockerfile takes `VITE_TENANT_ROOT_DOMAIN` as a build arg.
 - RPC calls that are not team-scoped can pass `context: { noTeam: true }` and go out without waiting for the team header.
+- Install dialog from `@khmyznikov/pwa-install` 0.7.0: Chrome's own install, Apple's Add to Home Screen steps, iPhone in-app browsers sent to Safari, Add to Dock on a Mac; the app's sheet for Android browsers other than Chrome and the menus. The sheets show the team's own name and icon on its host.
+- Install card on the profile, install pictures in the manifest (`screenshots`), manifest `id`, `description`, `launch_handler`, `handle_links`.
+- `scripts/generate-icons.mjs` and `scripts/install-shots.mjs`; the maskable icon and a monochrome notification badge.
+- A notification tap opens its screen in the window already open, without a reload.
 
 ### Changed
 
@@ -21,6 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Blank `VITE_TEST_PASSWORD` / `VITE_OTEL_SERVICE_NAME` count as unset.
 - E2E auth setup waits for the session cookie instead of network idle.
 - Every dialog opens as a drawer.
+- The version label shows the package version, with the build commit in its tooltip.
 
 ### Removed
 
@@ -28,6 +33,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Install did nothing on Chromium (the library was mounted with `disable-chrome`).
+- Every push notification showed twice; the worker's icon path pointed at a missing file; a tap on a push without a link opened nothing.
+- `maskable-icon-512x512.png` was listed in the manifest but missing.
 - Switching team reads the session once past the cookie cache (`getSession` with `disableCookieCache`, in the loader) so the loader and the DataWorker agree on the new team instead of the cached one.
 - Back after signing out could show a signed-in page from the back/forward cache; sign-in and sign-out now replace the history entry.
 - Route errors and 404s render a page instead of a bare message.

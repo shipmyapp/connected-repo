@@ -23,7 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Startup line `Sentry: on (…)` / `Sentry: off (…)` on every boot.
 - Branding columns on `teams_app` (migration `0013_team_branding`).
 - `teams.updateTeam`, public `teams.getBrandingBySlug`, super-admin `assignTeamSlug`.
-- `GET /api/tenant/manifest.webmanifest`.
+- `GET /api/tenant/manifest.webmanifest`: a team's own manifest, with the shared app's install pictures (`screenshots`) and, without an uploaded icon, the maskable icon.
 - `TENANT_ROOT_DOMAIN`, `AUTH_COOKIE_PREFIX`.
 - Team-host origins are accepted by CORS and better-auth.
 - The active-team gate accepts the team whose own host sent the request, without moving the user's active team.
