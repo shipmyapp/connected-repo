@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `packages/ui-mui`: `QueryState`, `PageHeader`, `DataTable`, `utils/rpc_errors`, `utils/api_origin`.
 - Operator audit trail: `operator_audit_log` and `withOperatorAudit` (every super-admin change with who, before, after, reason, IP); `auditList`; the console's Audit page.
 - "Sign out everywhere" for an account from the console's Users page (`revokeUserSessions`, with a reason, audited).
+- Team white-labelling on the team's own host: `<slug>.<root>` is the team's private, installable PWA with its own name, logo, colours, tab icon and manifest. Only members get in. The operator assigns the subdomain in the super-admin console; Owners and Admins edit the rest under Team Settings → Branding & private app.
 
 ### Changed
 - CI runs on `ubuntu-24.04` (Playwright 1.58 has no chromium for `ubuntu-latest` = 26.04); lint now fails the build.

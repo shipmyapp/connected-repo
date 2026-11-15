@@ -10,6 +10,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Component tests in jsdom (`// @vitest-environment jsdom`, `src/test/render.tsx`); `@testing-library/react`, `@testing-library/dom`, `jsdom`.
 - `VITE_SENTRY_TRACES_SAMPLE_RATE`, `VITE_SENTRY_REPLAYS_SESSION_SAMPLE_RATE`, `VITE_SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE`.
 - Removing a team member asks for confirmation.
+- Team hosts: branded document, manifest, theme and navbar; the no-access page; the branding form with logo and icon upload.
+- The Dockerfile takes `VITE_TENANT_ROOT_DOMAIN` as a build arg.
+- RPC calls that are not team-scoped can pass `context: { noTeam: true }` and go out without waiting for the team header.
 
 ### Changed
 

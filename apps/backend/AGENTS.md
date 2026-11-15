@@ -83,6 +83,13 @@ export const create = rpcProtectedProcedure
 - **Logs**: fields named in `LOG_REDACT_PATHS` (`utils/logger.utils.ts`) are censored; add a key there (and a case to `logger.utils.test.ts`) before logging a new kind of secret.
 - **Operations**: after deploying encrypted provider tokens, run `yarn workspace @connected-repo/backend auth:encrypt-tokens` once per environment.
 
+### Team hosts (`<slug>.<root>`)
+- `request_handlers/tenant.handler.ts`: `GET /api/tenant/manifest.webmanifest` (slug from `Host`/`X-Forwarded-Host`, else `?slug=`; `Cache-Control: no-cache`). `modules/teams/services/branding.teams.service.ts`: the public projection, the manifest, the slug lookups and the origin checks.
+- The active-team gate (`rpcProtectedActiveTeamProcedure`) has two extra branches: it re-reads the users row when the cookie's copy disagrees with `x-team-id`, and it accepts the team whose own host sent the request (`Origin`, else `X-Forwarded-Host`/`Host`). Membership is checked after both.
+- `TENANT_ROOT_DOMAIN` turns team hosts on; `AUTH_COOKIE_PREFIX` only for two stacks under one cookie domain.
+- Origins: `teamHostSlugFromOrigin` (shape) + `isAllowedCredentialedOrigin` (live team) decide credentialed CORS; `teamOriginsForAuthRequest` feeds better-auth's `trustedOrigins`. Never add a `*.<root>` pattern. The super-admin handlers keep the exact `ALLOWED_ORIGINS` list, and both check `x-csrf-token` in production and staging (Scalar's "try it" needs `x-csrf-token: orpc` for writes there).
+- Nothing but the app under `TENANT_ROOT_DOMAIN`: `S3_PUBLIC_URL` under it fails the env check; `updateTeam` accepts pictures only from the app's own storage; `assignTeamSlug` is the only writer of `teams_app.slug` and writes an operator audit row.
+
 ### Testing
 - **Vitest**: Test all CRUD operations. Use `createTestUserAndSession` for auth context.
 - `createUserAndLogin()` returns a verified account (as Google/Apple sign-ins are); pass `{ verified: false }` for an unproved address. `src/test/utils/team.utils.ts` builds shared teams and members (`createSharedTeam`, `addMember`, `onTeam`).

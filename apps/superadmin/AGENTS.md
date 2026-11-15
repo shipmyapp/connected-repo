@@ -1,7 +1,7 @@
 # Superadmin Console (AGENTS.md)
 
 ## 1. Blueprint
-**Intent**: The operator console, its own deployable on a sibling subdomain of the app (e.g. `admin.<root>`). Teams (with members), users, feature flags and the audit trail.
+**Intent**: The operator console, its own deployable on a sibling subdomain of the app (e.g. `admin.<root>`; its label must be one of `RESERVED_TENANT_SLUGS`, or it would be read as a team host). Teams (with members), users, feature flags and the audit trail.
 **Core Stack**: React 19, Vite 7, React Router 7 (data router), TanStack Query + `@orpc/tanstack-query`, MUI via `@connected-repo/ui-mui`, Better Auth client. No PWA, no service worker, no Sentry, no offline data.
 
 **Key Architectures**:
@@ -17,7 +17,7 @@
 | `/login` | Google sign-in |
 | `/denied` | Signed in but not on the allowlist |
 | `/teams` | All teams, newest first, server search by name; owner, members, created |
-| `/teams/:teamId` | The team and its members (invited-but-not-signed-up shown as "Invited") |
+| `/teams/:teamId` | The team and its members (invited-but-not-signed-up shown as "Invited"); the private app subdomain (`SubdomainCard` → `assignTeamSlug`, audited; moving or withdrawing one asks first) |
 | `/users` | All accounts, newest first, server search by name or email; "Sign out everywhere" per account (confirmed, with a reason) |
 | `/flags` | Feature flags: global and per-team rows, toggle, delete (confirmed) |
 | `/audit` | Every console change, newest first: who, action, target, before → after, reason, IP |

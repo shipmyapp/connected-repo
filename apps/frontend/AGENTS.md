@@ -83,6 +83,14 @@ Each trigger calls `sync.processQueue()` on the DataWorker, which is idempotent
 3. `mediaProxy.setActiveTeamId(...)` if the media worker is already warm.
 4. The cached user is patched (`patchAuthCacheUser`) and `requestFreshSession()` makes the awaited revalidation read the session past better-auth's cookie cache; the gate reopens after it.
 
+### Team hosts (`src/tenant/`)
+- `tenant.resolver.ts`: the slug from the hostname (`VITE_TENANT_ROOT_DOMAIN`); branding through `teams.getBrandingBySlug` with `context: { noTeam: true }`; localStorage cache `tenant_branding_cache:<slug>`; `sharedAppUrl()` for links back to the shared app.
+- `TenantContext.tsx`: `applyDocumentBranding` is the only code touching the manifest link, `theme-color` and the icons. Install UI reads its name and icon from `useTenant().brand`, never from literals.
+- `TenantGate` holds the router until branding is known (a cached copy counts: offline boot).
+- `authLoader`'s `enforceTenantTeam` locks the session copy to the host's team (never `teams.setActiveTeam`) and sends a non-member to `/auth/no-access`; `tenant.lock.ts` decides whether a cached session may boot offline.
+- RPC context `noTeam`: skips the seed wait and the switch gate and sends no `x-team-id`, in both realms. Use it only for public or session-only procedures.
+- Dev: `VITE_TENANT_ROOT_DOMAIN=localhost` and `TENANT_ROOT_DOMAIN=localhost`, a team with a slug, then `http://<slug>.localhost:5173` in Chrome. Google sign-in cannot finish on a team host in dev (host-only cookies on localhost).
+
 ### UI Standards
 - **Design**: Tasteful, smooth (200-300ms transitions), responsive.
 - **Imports**: Direct imports only (NO barrel exports).

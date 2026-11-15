@@ -21,6 +21,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `DB_SSL` (`disable` | `require` | `verify-full`) and `DB_SSL_CA` for a managed Postgres, used by the app pool, migrations and pg-tbus.
 - `parseEnv` (exported from `configs/env.config.ts`) with tests.
 - Startup line `Sentry: on (…)` / `Sentry: off (…)` on every boot.
+- Branding columns on `teams_app` (migration `0013_team_branding`).
+- `teams.updateTeam`, public `teams.getBrandingBySlug`, super-admin `assignTeamSlug`.
+- `GET /api/tenant/manifest.webmanifest`.
+- `TENANT_ROOT_DOMAIN`, `AUTH_COOKIE_PREFIX`.
+- Team-host origins are accepted by CORS and better-auth.
+- The active-team gate accepts the team whose own host sent the request, without moving the user's active team.
 
 ### Changed
 
@@ -48,6 +54,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Sentry receives the user id only (no email, phone, name); URLs lose their query and fragment; health checks and the Sentry tunnel are never traced; profiling uses `profileSessionSampleRate` / `profileLifecycle`.
 - Better Auth's burst limiter is off when `NODE_ENV=test`.
 - Header-less requests read as `127.0.0.1` outside production and staging.
+- Cross-subdomain cookies also apply when `NODE_ENV=staging`.
 
 ### Deprecated
 
@@ -85,6 +92,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The super-admin allowlist requires a verified email or phone.
 - An Admin can no longer add an Owner or remove an Admin; a team always keeps an Owner; the account a personal team belongs to cannot be removed or demoted.
 - `files.create` can no longer rewrite or read another member's file; no create path accepts a file URL; stored non-http(s) URLs are cleared by a migration; a team logo must be on the app's storage.
+- Only the host of a live team is trusted besides `ALLOWED_ORIGINS` (https, default port in production); other subdomains of the root, nested and reserved labels are refused. The super-admin API never accepts a team host.
+- The backend refuses to start when `S3_PUBLIC_URL` is under `TENANT_ROOT_DOMAIN`.
+- A team's logo and app icon must be pictures on the app's own storage.
+- Assigning a team's subdomain is recorded in the operator audit trail.
 
 ## [1.1.0] - 2026-07-03
 
