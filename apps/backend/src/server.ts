@@ -11,6 +11,7 @@ import { startEventBus } from "@backend/events/events.utils";
 import { captureBackendException } from "@backend/utils/backend-error-tracking.utils";
 import { handleServerClose } from "@backend/utils/graceful_shutdown.utils";
 import { logger } from "@backend/utils/logger.utils";
+import { redisReady } from "@backend/utils/redis.utils";
 import type { NodeHttpRequest, NodeHttpResponse } from "@orpc/standard-server-node";
 import { mainRequestDispatcher } from "./request_handlers/main.handler";
 
@@ -106,6 +107,10 @@ try {
 	});
 
 	startEventBus();
+	// Open the Redis connection now so the first request finds it ready.
+	// Never awaited: a missing Redis must not stop the server from starting
+	// (the limiter fails open and /health reports `redis: "down"`).
+	void redisReady();
 	// Both crons feed Novu — the reminder cron ends in a triggerNotification()
 	// no-op when NOVU_SECRET_KEY is unset, and the reconcile cron hits Novu's
 	// API on every user. Without the key, both would just burn CPU on their

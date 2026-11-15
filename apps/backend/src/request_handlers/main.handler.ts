@@ -11,6 +11,7 @@ import {
 	incrementActiveRequests,
 } from "@backend/utils/graceful_shutdown.utils";
 import { logger } from "@backend/utils/logger.utils";
+import { getRedisStatus } from "@backend/utils/redis.utils";
 import { trace } from "@opentelemetry/api";
 import type { NodeHttpRequest, NodeHttpResponse } from "@orpc/standard-server-node";
 import { mobileAppHandler } from "./mobile_app.handler";
@@ -87,6 +88,7 @@ export async function mainRequestDispatcher(req: NodeHttpRequest, res: NodeHttpR
 					status: health.status,
 					service: env.OTEL_SERVICE_NAME,
 					environment: env.NODE_ENV,
+					redis: await getRedisStatus(),
 					timestamp: health.timestamp,
 					activeRequests: health.activeRequests,
 					message: "Server is running",

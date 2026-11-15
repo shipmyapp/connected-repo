@@ -1,5 +1,6 @@
 // Test setup file for Vitest
 // This file runs before each test suite
+import { closeRedis } from "@backend/configs/redis.config";
 import { db } from "@backend/db/db";
 import type { ActiveSessionSelectAll } from "@backend/modules/auth/tables/session.auth.table";
 import { createUserAndLogin } from "@backend/test/utils/user-auth.utils";
@@ -43,4 +44,7 @@ afterEach(async () => {
 
 afterAll(async () => {
 	await testTransaction.close(db);
+	// Each test file has its own module graph; close its Redis connection (if
+	// a test opened one) so ioredis's reconnect timer does not outlive it.
+	await closeRedis();
 });

@@ -1,4 +1,5 @@
 import type { Server } from "node:http";
+import { closeRedis } from "@backend/configs/redis.config";
 import { stopReconcileFcmTokensCron } from "@backend/cron_jobs/reconcile_fcm_tokens.cron";
 import { stopReminderDispatchCron } from "@backend/cron_jobs/reminder_dispatch.cron";
 import { db } from "@backend/db/db";
@@ -123,6 +124,9 @@ export const handleServerClose = (server: Server) => {
 
 			await db.$close().catch((error) => {
 				logger.error({ err: error }, "Error closing database connection");
+			});
+			await closeRedis().catch((error) => {
+				logger.error({ err: error }, "Error closing Redis connection");
 			});
 
 			// Drain Sentry's buffer before OTel shuts down — otherwise the

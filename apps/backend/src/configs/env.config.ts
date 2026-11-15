@@ -69,6 +69,10 @@ const envSchema = z.object({
 	OTEL_TRACE_EXPORTER_URL: z.url().optional(),
 	PG_TBUS_CONCURRENCY: z.coerce.number().int().min(1).default(3),
 	PORT: z.coerce.number().default(3000),
+	// Redis 7 (required, next to Postgres). Holds the rate-limit buckets only;
+	// never the source of truth, so it can be flushed without losing data.
+	// e.g. redis://localhost:6379, redis://:password@redis:6379/0, rediss://… for TLS.
+	REDIS_URL: z.url(),
 	PROD_COOKIE_DOMAIN: optionalString,
 	SESSION_SECRET: zString.min(32, "Session secret must be at least 32 characters"),
 	NOVU_SECRET_KEY: optionalString,
