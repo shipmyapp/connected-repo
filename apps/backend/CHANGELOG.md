@@ -7,6 +7,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `devices` table, `sessions.device_key` and `users.asks` (migration `0014_devices`; live `push_devices` rows copied as `legacy-<id>`).
+- The `app_device` cookie and the `x-device-id` header name the device; `devices.report`, `devices.recordInstallTry`, `devices.pushOff`, `devices.here`; `me.asks`, `me.recordAsk`.
+
 - Super-admin router over oRPC at `/api/super-admin` (`super_admin_rpc.handler.ts`) for the console; `listTeams`, `getTeam`, `listUsers`, `revokeUserSessions`, `auditList`; `ping` returns the operator's name.
 - `operator_audit_log` (migration `0012`) and `withOperatorAudit`: every super-admin change is recorded with the operator, before and after, reason and client IP, in the same transaction as the change.
 - `TRUSTED_PROXY_COUNT`: trusted proxy hops counted from the right of X-Forwarded-For (0 = socket address).
@@ -29,6 +32,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The active-team gate accepts the team whose own host sent the request, without moving the user's active team.
 
 ### Changed
+
+- `notifications.registerDevice` / `revokeDevice`, the nightly FCM reconcile and the silent-sync cron work on `devices`.
 
 - The client address is decided once per request from the counted proxy chain and stamped into `x-client-ip`.
 - Every authenticated call is charged to the `app:user` limit once; `createTeam` is limited to 10 per hour; public and pre-auth OpenAPI calls are limited per address.
@@ -58,6 +63,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Deprecated
 
+- `push_devices` is no longer read or written; it is dropped in the next release.
+
 - The `rate_limits` table and `RateLimitTable` are no longer used; a later release drops them.
 
 ### Removed
@@ -65,6 +72,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The Better Auth phone-number plugin (phone-code sign-in and its routes).
 
 ### Fixed
+
+- A new session records the browser, OS and device its user agent describes (the columns existed and were never filled).
 
 - `me.profile` lists the caller's teams through an explicit membership query and returns reminder times as `HH:mm` (it failed its output validation).
 - "Active team id mismatch" right after a team switch: the active-team gate re-reads the user row when Better Auth's cached cookie disagrees with `x-team-id`.

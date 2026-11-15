@@ -21,6 +21,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - "Sign out everywhere" for an account from the console's Users page (`revokeUserSessions`, with a reason, audited).
 - Team white-labelling on the team's own host: `<slug>.<root>` is the team's private, installable PWA with its own name, logo, colours, tab icon and manifest. Only members get in. The operator assigns the subdomain in the super-admin console; Owners and Admins edit the rest under Team Settings → Branding & private app.
 - Installing the app works on Chromium (the library's dialog with Chrome's own prompt, Apple's steps on iPhone and Mac), with an Install card on the profile and install pictures in the manifest; a notification tap opens its screen in the window already open (see `apps/frontend/CHANGELOG.md`).
+- One device record per account and device (installs, push address, permissions), named by the `app_device` cookie or a native app's `x-device-id`; "Not now" on the device asks comes back after 3, 7, 14, then 30 days (see `apps/backend/CHANGELOG.md`, `apps/frontend/CHANGELOG.md`).
+- `packages/zod-schemas` runs its own tests (`test:run`): the device, install-try and ask rules.
 
 ### Changed
 - CI runs on `ubuntu-24.04` (Playwright 1.58 has no chromium for `ubuntu-latest` = 26.04); lint now fails the build.

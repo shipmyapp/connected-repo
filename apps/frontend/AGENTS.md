@@ -17,6 +17,8 @@
 - **Active team = header + worker cache**: the ORPC client stamps `x-team-id` from
   a main-thread cache; the DataWorker and MediaWorker each keep their own copy
   seeded by the main thread on spawn / team switch.
+- **The device** (`lib/device/`): `device-env.ts` is the one detector; `use-device-report.ts` (`useDeviceReport` in `WorkspaceProvider`: on start, back at the front after an hour, on a permission change, on reconnect, when the browser learns of the install; the push address rides the same report) deduplicates in memory and keeps nothing on the device; `use-device-here.ts` reads `devices.here` (own query key) for the Install card, the install offer (`components/pwa/install-record.ts`), the asks and `isPushEnabledOnThisDevice`. The server sets the device cookie; the client never sees it. Asks: `lib/asks/asks.store.ts` (`mayAskNow`, `record`). The only device-related localStorage key is `push.optedOut.<userId>`.
+- **One manifest link**: the PWA plugin writes the page's `<link rel="manifest">`; `index.html` has none of its own. A team's host points it at the team's manifest with `linkManifest` (`tenant/tenant.manifest.ts`).
 
 ---
 

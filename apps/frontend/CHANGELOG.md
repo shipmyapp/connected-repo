@@ -7,6 +7,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Each device reports what it is and can do; the install offer and the profile's Install card follow this very device (an iPhone's Safari knows its Home Screen app).
+- "Not now" on the notification asks comes back after 3, 7, 14, then 30 days, the same on every device.
+
 - Component tests in jsdom (`// @vitest-environment jsdom`, `src/test/render.tsx`); `@testing-library/react`, `@testing-library/dom`, `jsdom`.
 - `VITE_SENTRY_TRACES_SAMPLE_RATE`, `VITE_SENTRY_REPLAYS_SESSION_SAMPLE_RATE`, `VITE_SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE`.
 - Removing a team member asks for confirmation.
@@ -20,6 +23,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Push registration rides the device report; no push token is cached in the browser; switching push off is per account on a shared device.
+
 - Offline journal entries are pushed 20 per request.
 - Sentry: no reachability probe at boot (direct first, the same-origin tunnel after a failed send); no PII; masked replays; URLs lose their query and hash; spans and breadcrumbs normalised; one release-name helper for runtime and source maps.
 - Blank `VITE_TEST_PASSWORD` / `VITE_OTEL_SERVICE_NAME` count as unset.
@@ -29,9 +34,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Removed
 
+- `utils/device.utils.ts` (replaced by `lib/device/device-env.ts`); the `push.fcmToken`, `push.fcmTokenRegisteredAt`, `push.bannerDismissed`, `push.initialPromptShown` and `pwa.installOfferAt` keys (cleared on start).
+
 - The avatar's dropdown menu: the avatar opens `/profile`, which now holds Teams (switch, new team, team settings), Appearance and Sign out. The navbars show the active team's name as text.
 
 ### Fixed
+
+- The built page carried two manifest links (its own and the PWA plugin's), so a team's host still linked the shared app's manifest; it now carries one.
 
 - Install did nothing on Chromium (the library was mounted with `disable-chrome`).
 - Every push notification showed twice; the worker's icon path pointed at a missing file; a tap on a push without a link opened nothing.
