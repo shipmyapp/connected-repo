@@ -10,7 +10,10 @@ import { ClientDatabase, DEXIE_DB_NAME_PREFIX, dbNameFor } from "./db.manager";
  *   - A user's DB is NOT deleted on logout — they see their data if
  *     they log back in on the same device.
  *   - When a DIFFERENT user signs in, every prior user's DB is dropped
- *     first. This is the only sanctioned wipe.
+ *     first.
+ *   - An account's deletion drops every per-user DB on the device and the
+ *     OPFS files/ tree (wipeAllUserDatabases). These two are the only
+ *     sanctioned full wipes.
  *
  * The DataWorker calls `initDb(userId)` on boot / user-change before
  * running any DB operation. All module adapters read the DB handle
@@ -96,4 +99,19 @@ export function closeDb(): void {
 		currentDb = null;
 	}
 	currentUserId = null;
+}
+
+/**
+ * The account was deleted (or is being deleted from this device): close the
+ * open DB, drop EVERY per-user DB on this device and the OPFS `files/` tree.
+ * The only wipe besides the user switch in `initDb`.
+ */
+export async function wipeAllUserDatabases(): Promise<void> {
+	if (initPromise) await initPromise.catch(() => undefined);
+	closeDb();
+	const names = await Dexie.getDatabaseNames();
+	await Promise.all(
+		names.filter((n) => n.startsWith(DEXIE_DB_NAME_PREFIX)).map((n) => Dexie.delete(n)),
+	);
+	await OPFSManager.wipeDirectory("files");
 }

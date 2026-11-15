@@ -167,3 +167,16 @@ function uninstallTriggers(): void {
 		intervalHandle = null;
 	}
 }
+
+/**
+ * One full sync cycle now, past the throttle (after leaving or deleting a
+ * team, so membership reconciliation wipes it from this device).
+ */
+export async function requestSyncNow(): Promise<void> {
+	try {
+		const proxy = await getDataProxy();
+		await proxy.sync.processQueue(true);
+	} catch (err) {
+		console.warn("[sync-triggers] failed to start a sync cycle", err);
+	}
+}

@@ -6,7 +6,7 @@ import {
 } from "../../utils/active_team_wiped.channel";
 import { orpcFetch } from "../../utils/orpc.client";
 import { chunk } from "../../utils/promise.utils";
-import { initDb } from "../db/db.lifecycle";
+import { initDb, wipeAllUserDatabases } from "../db/db.lifecycle";
 import { subscribe } from "../db/db.manager";
 import { filesDb } from "../db/files.db";
 import { syncMetadataDb } from "../db/sync_metadata.db";
@@ -51,6 +51,8 @@ const broadcastRunning = (isRunning: boolean): void => {
 export interface SyncOrchestratorApi {
 	initForUser(userId: string): Promise<void>;
 	stop(): void;
+	/** Stops sync and deletes every local database and OPFS file on this device (account deleted). */
+	wipeAllLocalData(): Promise<void>;
 	setActiveTeamId(id: string | null): void;
 	/**
 	 * Full sync cycle — pull server changes + push local. Defaults to
@@ -222,6 +224,12 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 			clearInterval(this.intervalHandle);
 			this.intervalHandle = null;
 		}
+	}
+
+	async wipeAllLocalData(): Promise<void> {
+		this.stop();
+		await wipeAllUserDatabases();
+		this.initialisedForUserId = null;
 	}
 
 	waitForReady(): Promise<void> {

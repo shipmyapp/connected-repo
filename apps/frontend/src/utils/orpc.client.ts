@@ -161,7 +161,10 @@ const link = new RPCLink<ClientContext>({
 				// For auth errors, redirect to login ONLY if we're on a protected route
 				if (isAuthError) {
 					toast.error("Your session has expired. Please log in again.", { autoClose: 3000 });
-					await signout();
+					// The server ended this session (expired, revoked from another
+					// device, account deletion): the offline copy of the user must not
+					// keep opening the app. The Dexie DB stays for a same-account sign-in.
+					await signout("clear-cache");
 				}
 			} else {
 				// In a worker, we just log and potentially notify the main thread if needed

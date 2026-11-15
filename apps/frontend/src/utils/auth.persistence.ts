@@ -117,3 +117,12 @@ export const getLastLogin = (): LastLoginInfo | null => {
 		return null;
 	}
 };
+
+/** Forgets the remembered account shown on the sign-in page. */
+export const clearLastLogin = () => {
+	try {
+		localStorage.removeItem(LAST_LOGIN_KEY);
+	} catch (error) {
+		console.error("Failed to clear last login info:", error);
+	}
+};
