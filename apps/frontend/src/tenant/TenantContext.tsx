@@ -10,6 +10,7 @@ import {
 	useState,
 } from "react";
 import { type ResolvedBrand, resolveBrand } from "./tenant.branding";
+import { linkManifest } from "./tenant.manifest";
 import {
 	getTenantSlug,
 	invalidateTenantBranding,
@@ -49,10 +50,9 @@ function applyDocumentBranding(brand: ResolvedBrand, slug: string | null): void 
 
 	if (!slug) return;
 
-	const manifest = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
 	// `?slug=`: the Vite dev proxy rewrites Host (changeOrigin), so the
 	// backend cannot read the team from it in dev. Production reads Host first.
-	if (manifest) manifest.href = `${TENANT_MANIFEST_PATH}?slug=${encodeURIComponent(slug)}`;
+	linkManifest(`${TENANT_MANIFEST_PATH}?slug=${encodeURIComponent(slug)}`);
 
 	const apple = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]');
 	if (apple) apple.href = brand.iconUrl;

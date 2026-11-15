@@ -19,6 +19,15 @@ test("homepage loads and redirects appropriately", async ({ page }) => {
 	}
 });
 
+test("the built page links exactly one web app manifest", async ({ page }) => {
+	await page.goto("/");
+	await expect(page.locator('link[rel~="manifest"]')).toHaveCount(1);
+	await expect(page.locator('link[rel~="manifest"]')).toHaveAttribute(
+		"href",
+		"/manifest.webmanifest",
+	);
+});
+
 test("the avatar opens the profile page, which holds teams, theme and sign out", async ({
 	page,
 }) => {
