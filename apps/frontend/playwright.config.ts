@@ -13,6 +13,7 @@ const envTestLocal = path.resolve(__dirname, ".env.test.local");
 const envTest = path.resolve(__dirname, ".env.test");
 dotenv.config({
 	path: fs.existsSync(envTestLocal) ? envTestLocal : envTest,
+	quiet: true,
 });
 
 const isCI = process.env.CI === "true";

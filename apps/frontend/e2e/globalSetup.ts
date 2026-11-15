@@ -1,4 +1,18 @@
-import { chromium, devices, webkit } from "@playwright/test";
+import { type BrowserContext, chromium, devices, webkit } from "@playwright/test";
+
+const SESSION_COOKIE_SUFFIX = "session_token";
+const COOKIE_POLL_MS = 100;
+const COOKIE_TIMEOUT_MS = 10_000;
+
+async function waitForSessionCookie(context: BrowserContext) {
+	const deadline = Date.now() + COOKIE_TIMEOUT_MS;
+	while (Date.now() < deadline) {
+		const cookies = await context.cookies();
+		if (cookies.some((cookie) => cookie.name.endsWith(SESSION_COOKIE_SUFFIX))) return;
+		await new Promise((r) => setTimeout(r, COOKIE_POLL_MS));
+	}
+	throw new Error("The session cookie was never stored after sign-in.");
+}
 
 async function createAuthState<T extends typeof devices>(
 	deviceConfig: T[keyof T],
@@ -21,9 +35,10 @@ async function createAuthState<T extends typeof devices>(
 		// Wait for redirect to dashboard or journal-entries/new (first-run redirect)
 		await page.waitForURL(/\/(dashboard|journal-entries\/new)/);
 
-		// Webkit/Safari fix: wait for network to settle and a small grace period for cookies
-		await page.waitForLoadState("networkidle");
-		await new Promise((r) => setTimeout(r, 1000));
+		// Webkit can report the page ready before it has stored the session
+		// cookie, so wait for the cookie itself. Not 'networkidle': the sync
+		// engine's pull cycles and uploads keep the network busy.
+		await waitForSessionCookie(context);
 
 		// Save the authenticated state
 		await context.storageState({ path: authFilePath });
