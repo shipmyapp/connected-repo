@@ -18,9 +18,9 @@
 ---
 
 ## Layer 2: Active Task
-- **Objective**: Redis as a required service; rate limits in Redis.
+- **Objective**: Backend generic fixes.
 - **Status**: Completed.
-- **Context**: Redis 7 runs next to Postgres in both compose files and in CI; the backend requires `REDIS_URL`, opens one ioredis connection on first use and reports it in `/health`. Every rate limit is a Redis token bucket that fails open when Redis is down (ADR-016); the Postgres `rate_limits` table is no longer used and is dropped in a later release.
+- **Context**: A blank env value is unset (ADR-017); `DB_SSL`/`DB_SSL_CA` and a warm pool; the pg-tbus queue is named in code (ADR-018); a stale session cookie no longer refuses the active team (ADR-019); errors name the failing field and keep their 4xx; presigned PUTs carry no checksum; Sentry gets the user id only; native Google sign-in checks the token against its own client id; the API product stores its team id as a ULID; crons report failures; table classes match the migrations (`yarn db g check_no_drift` writes nothing) and CI checks `openapi_pretty.json`.
 
 ## Layer 3: Decision Records
 
@@ -42,6 +42,9 @@
 | [ADR-014] | Silent Sync Trigger | Accepted | Implemented FCM silent pushes to wake up the app for background sync, bypassing OS notifications. |
 | [ADR-015] | No dead code, as we go | Accepted | Biome (unused imports and variables are errors; the backend's nested config extends the root) runs on staged files in a pre-commit hook; knip (unused files, exports, types, dependencies) and the typecheck run pre-push; CI runs knip and a blocking lint. Hooks live in `.githooks/`, installed by the root `prepare` script. `knip.jsonc` lists the offline-first entries (service worker, data and media workers). Kept features that knip cannot see are taught to it, never deleted. |
 | [ADR-016] | Redis required; rate limits in Redis | Accepted | Redis 7 is a required service next to Postgres (`REDIS_URL`), never the source of truth and with no worker, pub/sub or realtime on it. Every rate limit is a token bucket run by one Lua script (`rl:<scope>:<subject>:<id>`, refills at limit/window, expires when full). When Redis fails, limits fail open; `failClosed` is only for a limit that is the sole guard on a guessable secret (none today). `/health` reports `redis: ok/down` with HTTP 200. The `rate_limits` table is unused and dropped in a later release (expand/contract). |
+| [ADR-017] | A blank env value is unset | Accepted | `parseEnv` (apps/backend/src/configs/env.config.ts) drops "" before the zod schema, so `KEY=` in a .env or an empty Dokploy field takes the variable's default instead of failing `z.url()`/`z.enum()` or coercing to 0; a required variable left blank is still refused. |
+| [ADR-018] | pg-tbus queue named in code | Accepted | `events/queue_names.ts` `API_QUEUE` names the pg-tbus service; `OTEL_SERVICE_NAME` only names traces and logs. Renaming the queue strands queued tasks: change it only with a drained queue. |
+| [ADR-019] | Stale session cookie never refuses the active team | Accepted | Better Auth's 5-minute cookie cache holds a copy of the user row, and `teams.setActiveTeam` writes the row outside Better Auth. `rpcProtectedActiveTeamProcedure` re-reads `users.activeTeamAppId` once when `x-team-id` and the copy disagree; the frontend re-signs the cookie (`getSession({ query: { disableCookieCache: true } })`) after a switch. Not `disableCookieCache` on every request (one read per RPC). |
 
 ## Quick Reference
 - **Dev**: `yarn dev`

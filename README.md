@@ -95,7 +95,7 @@ Open http://localhost:8080 — same-origin routing exactly like prod. See
 
 ### Option B — Host-mode dev
 
-**Prerequisites:** Node.js 22+, Yarn 1.22.22, PostgreSQL running locally.
+**Prerequisites:** Node.js 22+, Yarn 1.22.22, PostgreSQL and Redis running locally.
 
 ```bash
 git clone git@github.com:shipmyapp/connected-repo.git
