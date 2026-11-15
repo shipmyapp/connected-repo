@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { isProd, isStaging } from "@backend/configs/env.config";
 import { UAParser } from "ua-parser-js";
 
 /**
@@ -62,8 +63,11 @@ export function getClientIpAddress(headers: Headers) {
 		return realIp;
 	}
 
-	// Fall back to unknown
-	return "unknown";
+	// No proxy header. Better Auth records the loopback address for a session
+	// opened without one outside production; mirror it so the strict session
+	// check (same IP, same device) holds in development and tests. Production
+	// and staging keep "unknown", which the IP allowlist refuses.
+	return isProd || isStaging ? "unknown" : "127.0.0.1";
 }
 
 /**
