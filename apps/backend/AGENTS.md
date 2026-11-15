@@ -36,6 +36,8 @@
 | [ADR-B10] | Auth providers are swapped per request, never edited | Accepted | better-auth builds each social provider around its options and never reads properties set on the provider object later; the provider list is shared by every request. `hooks.before` may replace an entry in `ctx.context.socialProviders` (this request's copy) with a freshly built provider (`apple_ios`, native Google via `native_google.lib.ts`); it never mutates one. |
 | [ADR-B11] | No schema drift | Accepted | Every index the migrations create is declared on its table class with the same name, columns, order and `where`, so `yarn db g check_no_drift` writes nothing; run it before `yarn db g <name>`. `openapi_pretty.json` is regenerated with every user-app router change (`check:openapi` in CI). |
 | [ADR-B12] | Crons report their failures | Accepted | Every cron's outer `catch` logs and calls `captureBackendException(error, { captureAll: true, tags: { handler: "cron.<name>" } })`. |
+| [ADR-B13] | API keys write as a team member | Accepted | `teams_api.writes_as_team_member_id` names the membership the journal create-request writes as; the write runs inside that team's request context. Null refuses the write (403). Set it when issuing a key: `UPDATE teams_api SET writes_as_team_member_id = '<team_members.id>' WHERE team_api_id = '<key id>';`. |
+| [ADR-B14] | Teammates see public user fields only | Accepted | A relation that shows one member to another selects `userPublicZod` (`id`, `name`, `image`), never `userSelectAllZod`. |
 
 ## Technical Guidelines
 
@@ -75,6 +77,7 @@ export const create = rpcProtectedProcedure
 
 ### Testing
 - **Vitest**: Test all CRUD operations. Use `createTestUserAndSession` for auth context.
+- `createUserAndLogin()` returns a verified account (as Google/Apple sign-ins are); pass `{ verified: false }` for an unproved address. `src/test/utils/team.utils.ts` builds shared teams and members (`createSharedTeam`, `addMember`, `onTeam`).
 
 ## Quick Reference
 - **DB**: `yarn db g <name>`, `yarn db up`, `yarn db seed`

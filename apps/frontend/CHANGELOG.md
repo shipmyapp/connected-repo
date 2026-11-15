@@ -9,6 +9,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Switching team re-signs the session cookie (`getSession` with `disableCookieCache`) so the loader and the DataWorker agree on the new team instead of the cached one.
 
+### Security
+
+- Attachments open only http(s) URLs, in a new tab without opener.
+
 ## [0.1.0] - 2026-07-03
 
 ### Added

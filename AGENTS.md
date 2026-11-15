@@ -18,9 +18,9 @@
 ---
 
 ## Layer 2: Active Task
-- **Objective**: Backend generic fixes.
+- **Objective**: Security hardening: sign-in, authorisation, tenancy.
 - **Status**: Completed.
-- **Context**: A blank env value is unset (ADR-017); `DB_SSL`/`DB_SSL_CA` and a warm pool; the pg-tbus queue is named in code (ADR-018); a stale session cookie no longer refuses the active team (ADR-019); errors name the failing field and keep their 4xx; presigned PUTs carry no checksum; Sentry gets the user id only; native Google sign-in checks the token against its own client id; the API product stores its team id as a ULID; crons report failures; table classes match the migrations (`yarn db g check_no_drift` writes nothing) and CI checks `openapi_pretty.json`.
+- **Context**: Email + password only under `NODE_ENV=test`, no phone-code plugin, invitations and the super-admin allowlist need a verified email or phone, a Google/Apple link evicts an unproved password (ADR-020); team roles enforced on the server with `assertNotLastOwner` and pending-only, rate-limited invitations (ADR-021); `team_members`, `journal_entries` and `files` refuse a query without a team request context (ADR-022); file URLs only through `files.pushCdnUpdates`, `files.create` never upserts, team logos on the app's storage (ADR-023); journal responses embed a public author; the OpenAPI journal create writes as the API key's configured team member.
 
 ## Layer 3: Decision Records
 
@@ -45,6 +45,10 @@
 | [ADR-017] | A blank env value is unset | Accepted | `parseEnv` (apps/backend/src/configs/env.config.ts) drops "" before the zod schema, so `KEY=` in a .env or an empty Dokploy field takes the variable's default instead of failing `z.url()`/`z.enum()` or coercing to 0; a required variable left blank is still refused. |
 | [ADR-018] | pg-tbus queue named in code | Accepted | `events/queue_names.ts` `API_QUEUE` names the pg-tbus service; `OTEL_SERVICE_NAME` only names traces and logs. Renaming the queue strands queued tasks: change it only with a drained queue. |
 | [ADR-019] | Stale session cookie never refuses the active team | Accepted | Better Auth's 5-minute cookie cache holds a copy of the user row, and `teams.setActiveTeam` writes the row outside Better Auth. `rpcProtectedActiveTeamProcedure` re-reads `users.activeTeamAppId` once when `x-team-id` and the copy disagree; the frontend re-signs the cookie (`getSession({ query: { disableCookieCache: true } })`) after a switch. Not `disableCookieCache` on every request (one read per RPC). |
+| [ADR-020] | Sign-in doors match the providers | Accepted | Sign-in is Google, Apple and the bearer plugin. Better Auth's email + password is enabled only under NODE_ENV=test (backend tests, e2e). No phone-code plugin; users.phone_number stays as data. Invitations are claimed, and the super-admin allowlist matches, only through a verified email or phone. A Google/Apple link to an unverified user first deletes that user's password account and sessions. |
+| [ADR-021] | Team roles enforced on the server | Accepted | An invitation makes an Admin or a Member; only an Owner makes, unmakes or removes an Owner or an Admin; a team keeps at least one Owner with an account; the account a personal team belongs to stays its Owner and is never removed; refusals are typed 4xx. The rule lives in `assertNotLastOwner(teamId, memberId)` (modules/teams/services/team_roles.teams.service.ts); every path that ends or demotes an Owner membership calls it. addTeamMember always writes a pending invitation (30 per inviter per hour). |
+| [ADR-022] | Tenant scopes fail closed | Accepted | team_members, journal_entries and files throw when queried without a team request context; a cross-team query says `.unscope("default")` and names its team or user in the where. Inserts are not scoped. |
+| [ADR-023] | File URLs only through pushCdnUpdates | Accepted | No create path accepts cdnUrl/thumbnailCdnUrl (the input schema allows only null); files.create inserts or refuses (409), never upserts; utils/cdn_url.utils.ts holds the storage-URL rule for file and picture URLs; the client opens stored URLs only when http(s), with noopener. |
 
 ## Quick Reference
 - **Dev**: `yarn dev`
