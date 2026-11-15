@@ -146,7 +146,8 @@ export default function TeamSettingsPage() {
 				<Typography variant="h5" sx={{ fontWeight: 700 }}>
 					Members
 				</Typography>
-				{canManage && (
+				{/* A personal team has no other members. */}
+				{canManage && !isPersonal && (
 					<Button
 						variant="contained"
 						startIcon={<AddIcon />}

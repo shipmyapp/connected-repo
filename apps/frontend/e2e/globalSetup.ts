@@ -33,7 +33,12 @@ async function createAuthState<T extends typeof devices>(
 		await page.locator("text=Continue with Google").click();
 
 		// Wait for redirect to dashboard or journal-entries/new (first-run redirect)
-		await page.waitForURL(/\/(dashboard|journal-entries\/new)/);
+		await page.waitForURL(/\/(dashboard|journal-entries\/new|legal\/accept)/);
+		// Builds that publish Terms and Privacy ask once per account.
+		if (page.url().includes("/legal/accept")) {
+			await page.getByRole("button", { name: "Agree and continue" }).click();
+			await page.waitForURL(/\/(dashboard|journal-entries\/new)/);
+		}
 
 		// Webkit can report the page ready before it has stored the session
 		// cookie, so wait for the cookie itself. Not 'networkidle': the sync

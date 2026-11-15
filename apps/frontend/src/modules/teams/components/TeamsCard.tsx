@@ -4,6 +4,7 @@ import { Button } from "@connected-repo/ui-mui/form/Button";
 import { Box } from "@connected-repo/ui-mui/layout/Box";
 import { Card } from "@connected-repo/ui-mui/layout/Card";
 import { Stack } from "@connected-repo/ui-mui/layout/Stack";
+import { TeamRowActions } from "@frontend/components/account/TeamRowActions";
 import { useWorkspace } from "@frontend/contexts/WorkspaceContext";
 import CreateTeamDialog from "@frontend/modules/teams/components/CreateTeamDialog";
 import AddIcon from "@mui/icons-material/Add";
@@ -16,8 +17,8 @@ import { useState } from "react";
 import { Link as RouterLink } from "react-router";
 
 /**
- * The only place a person switches or creates a team. The list is
- * `getMyTeams` (WorkspaceContext); a switch goes through
+ * The only place a person switches, creates, leaves or deletes a team. The
+ * list is `getMyTeams` (WorkspaceContext); a switch goes through
  * `setActiveTeam`'s gated flow.
  */
 export function TeamsCard({ userId }: { userId: string }) {
@@ -29,6 +30,7 @@ export function TeamsCard({ userId }: { userId: string }) {
 		await setActiveTeam(teamId);
 	};
 
+	const personalTeam = teams.find((t) => t.personalTeamForUserId === userId);
 	// Personal team first, then others sorted by joinedAt desc.
 	const orderedTeams = [...teams].sort((a, b) => {
 		if (a.personalTeamForUserId === userId) return -1;
@@ -119,6 +121,11 @@ export function TeamsCard({ userId }: { userId: string }) {
 									Team settings
 								</Button>
 							)}
+							<TeamRowActions
+								team={team}
+								isActive={isActive}
+								personalTeamId={personalTeam?.id ?? null}
+							/>
 						</Box>
 					);
 				})}

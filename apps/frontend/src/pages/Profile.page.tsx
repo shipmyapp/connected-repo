@@ -11,6 +11,9 @@ import { Stack } from "@connected-repo/ui-mui/layout/Stack";
 import { useThemeMode } from "@connected-repo/ui-mui/theme/ThemeContext";
 import type { ThemeSetting } from "@connected-repo/zod-schemas/enums.zod";
 import { AppVersionLabel } from "@frontend/components/AppVersionLabel";
+import { AccountDataCard } from "@frontend/components/account/AccountDataCard";
+import { SessionsCard } from "@frontend/components/account/SessionsCard";
+import { LegalLinks } from "@frontend/components/LegalLinks";
 import { NotificationSettings } from "@frontend/components/notifications/NotificationSettings";
 import { InstallCard } from "@frontend/components/pwa/InstallCard";
 import { useSessionInfo } from "@frontend/contexts/UserContext";
@@ -120,6 +123,10 @@ export default function ProfilePage() {
 
 				<ConnectedAppsCard />
 
+				<SessionsCard />
+
+				<AccountDataCard />
+
 				<Card sx={{ p: 3, borderRadius: 2, border: "1px solid", borderColor: "divider" }}>
 					<Stack
 						direction={{ xs: "column", sm: "row" }}
@@ -149,6 +156,8 @@ export default function ProfilePage() {
 						</Button>
 					</Stack>
 				</Card>
+
+				<LegalLinks />
 
 				<AppVersionLabel prefix={`${brand.appName} · `} />
 			</Stack>
