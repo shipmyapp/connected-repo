@@ -41,6 +41,7 @@ export const db = orchidORM(
 		verifications: VerificationTable,
 		pgTbusTaskLogs: PgTbusTaskLogTable,
 		featureFlags: FeatureFlagTable,
+		// Unused since rate limits moved to Redis; dropped in a later release.
 		rateLimits: RateLimitTable,
 		pushDevices: PushDeviceTable,
 	},

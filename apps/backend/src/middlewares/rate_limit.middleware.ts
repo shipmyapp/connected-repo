@@ -28,12 +28,19 @@ interface RateLimitOptions<Ctx> {
 	 * per-tenant config field (`teamApi.rateLimitPerMinute`) without
 	 * needing one middleware instance per limit value.
 	 */
-	bucketFn: (context: Ctx) => RateLimitBucket | null;
+	bucketFn: (context: Ctx) => RateLimitBucket | null | Promise<RateLimitBucket | null>;
 	/**
 	 * Optional label shown in the 429 message and log line. Only used for
 	 * diagnostics — the enforcement key is `bucketFn`'s output.
 	 */
 	label?: string;
+	/**
+	 * What happens when Redis cannot answer. Default (false): the request is
+	 * let through. True: the request is refused with a 429 — only for a limit
+	 * that is the sole guard on a guessable secret (a one-time code, a
+	 * password). No template caller sets it.
+	 */
+	failClosed?: boolean;
 }
 
 /**
@@ -72,19 +79,21 @@ interface RateLimitOptions<Ctx> {
  * (so we know the identity we're bucketing) but BEFORE expensive input
  * validation or DB reads (so rejected requests spend near-zero CPU).
  *
- * Storage impl is swappable — `checkAndRecordRateLimit` is a Postgres
- * token-bucket today; switching to Redis is a service-file change with
- * zero call-site churn.
+ * Storage is a Redis token bucket (`checkAndRecordRateLimit`, key
+ * `rl:<bucket key>`). When Redis is down these limits let requests through
+ * unless the middleware was created with `failClosed: true`.
  */
 // biome-ignore lint/suspicious/noExplicitAny: matches oRPC's Context = Record<PropertyKey, any> constraint. Narrower types like `unknown` reject interface types without index signatures (e.g. OpenApiAuthContext).
 export const createRateLimitMiddleware = <Ctx extends Record<PropertyKey, any>>(
 	opts: RateLimitOptions<Ctx>,
 ) => {
 	return async ({ context, next }: { context: Ctx; next: MiddlewareNextFn<unknown> }) => {
-		const bucket = opts.bucketFn(context);
+		const bucket = await opts.bucketFn(context);
 		if (!bucket) return next({ context });
 
-		const result = await checkAndRecordRateLimit(bucket.key, bucket.limit, bucket.windowSeconds);
+		const result = await checkAndRecordRateLimit(bucket.key, bucket.limit, bucket.windowSeconds, {
+			failClosed: opts.failClosed,
+		});
 
 		if (!result.allowed) {
 			logger.warn(

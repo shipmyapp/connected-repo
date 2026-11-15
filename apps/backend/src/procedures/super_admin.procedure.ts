@@ -57,7 +57,7 @@ export const rpcSuperAdminProcedure = rpcProtectedProcedure
 	})
 	// Bound admin actions so a compromised admin session or runaway script
 	// cannot torch the DB. Placed AFTER the allowlist gate — non-admins get a
-	// 403 without touching the rate_limits table, and legitimate admins get
+	// 403 without spending a rate-limit token, and legitimate admins get
 	// a generous 30 req/min budget.
 	.use(
 		createRateLimitMiddleware<RpcAuthenticatedContext>({

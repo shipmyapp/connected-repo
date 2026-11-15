@@ -43,9 +43,8 @@ export const rpcProtectedProcedure = rpcPublicProcedure.use(rpcAuthMiddleware);
  * to cap runaway clients (infinite-loop bugs, malicious scripts), not to
  * throttle real traffic.
  *
- * Cost per accepted request: one SELECT + one UPDATE against `rate_limits`.
- * Rows are keyed by userId so there's exactly one row per active user, kept
- * hot in the Postgres buffer cache — an extra ~1ms per RPC under normal load.
+ * Cost per accepted request: one Redis script call (the token bucket, key
+ * `rl:app:user:<userId>`); when Redis is down the limit fails open.
  * The rate-limit gate runs BEFORE the handler's own DB reads and BEFORE input
  * validation, so a throttled request never touches the domain tables.
  *
