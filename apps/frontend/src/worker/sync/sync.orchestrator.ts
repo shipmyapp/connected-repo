@@ -5,6 +5,7 @@ import {
 	type ActiveTeamWipedMessage,
 } from "../../utils/active_team_wiped.channel";
 import { orpcFetch } from "../../utils/orpc.client";
+import { chunk } from "../../utils/promise.utils";
 import { initDb } from "../db/db.lifecycle";
 import { subscribe } from "../db/db.manager";
 import { filesDb } from "../db/files.db";
@@ -113,6 +114,8 @@ export interface SyncOrchestratorApi {
 // back to back; visibility/focus events pile on) into a single cycle
 // per window. See processQueue for the throttle contract.
 const THROTTLE_WINDOW_MS = 120_000; // 2 minutes
+// Offline creates sent per pushCreates request (see pushJournalEntryCreates).
+const PUSH_CREATES_BATCH = 20;
 
 class SyncOrchestrator implements SyncOrchestratorApi {
 	private isProcessing = false;
@@ -580,6 +583,17 @@ class SyncOrchestrator implements SyncOrchestratorApi {
 		const pending = pendingEditLockRegistry.filterUnlocked("journalEntries", allPending);
 		if (pending.length === 0) return;
 
+		// At most PUSH_CREATES_BATCH entries per request: a long offline spell
+		// must never build a body the API refuses (APP_BODY_LIMIT_BYTES on the
+		// server; an entry is up to 50 000 characters).
+		for (const batch of chunk(pending, PUSH_CREATES_BATCH)) {
+			await this.pushJournalEntryCreateBatch(batch);
+		}
+	}
+
+	private async pushJournalEntryCreateBatch(
+		pending: Awaited<ReturnType<typeof journalEntriesDb.getPending>>,
+	): Promise<void> {
 		// Bundle each pending entry with its nested files. Files are the
 		// LOCAL rows attached to this journal entry.
 		// `teamId` on the parent is NOT sent — the server derives it from

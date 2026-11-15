@@ -44,3 +44,12 @@ export function pLimit(concurrency: number) {
 
 	return enqueue;
 }
+
+/** Splits a list into consecutive slices of at most `size` items. */
+export const chunk = <T>(items: readonly T[], size: number): T[][] => {
+	const slices: T[][] = [];
+	for (let start = 0; start < items.length; start += size) {
+		slices.push(items.slice(start, start + size));
+	}
+	return slices;
+};
