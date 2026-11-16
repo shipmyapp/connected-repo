@@ -18,9 +18,9 @@
 ---
 
 ## Layer 2: Active Task
-- **Objective**: Major upgrades, one at a time, each behind the full gate: Better Auth 1.7, concurrently 10, dotenv 18, @hookform/resolvers 7, @mui/x-date-pickers 9, pdfjs-dist 6, @novu/api 3, firebase 13 / firebase-admin 14, knip 6 done; the build and test toolchain, the router, Redis client, jsdom, TypeScript, images and CI actions next.
-- **Status**: In progress.
-- **Context**: every `package.json`, `yarn.lock`, `knip.jsonc`, the Better Auth adapter and OAuth provider tables (migration `0017`), `configs/firebase_admin.config.ts`. Held back inside the major: `@opentelemetry/api` (below 1.10 while Sentry is 10). Better Auth, `@better-auth/core` and `@better-auth/oauth-provider` share one exact version (1.7.25). `pqb` equals the version `orchid-orm` depends on.
+- **Objective**: Dependency refresh on Node 26: every direct dependency on its latest release in its major, then the majors one at a time behind the full gate (Better Auth 1.7, concurrently 10, dotenv 18, @hookform/resolvers 7, @mui/x-date-pickers 9, pdfjs-dist 6, @novu/api 3, firebase 13 / firebase-admin 14, knip 6, Vite 8 / Vitest 5 / vite-plugin-pwa 2, react-router 8, ioredis 6, jsdom 31, TypeScript 7, sharp 0.35, nginx 1.30, Redis 8, GitHub Actions v7).
+- **Status**: Done. What stays behind and why: Quick Reference, "Dependencies".
+- **Context**: every `package.json`, `yarn.lock`, `knip.jsonc`, the tsconfigs (no `baseUrl`; TypeScript 6+ reads no `@types` package implicitly), the Vite and Vitest configs (`oxc`, not `esbuild`), `configs/redis.config.ts` (`protocol: 2`), `utils/auth.loader.ts` (no router-context writes), the Dockerfiles' nginx stage, the compose files, `.github/workflows/ci.yml`. Better Auth, `@better-auth/core` and `@better-auth/oauth-provider` share one exact version (1.7.25). `pqb` equals the version `orchid-orm` depends on. `@opentelemetry/api` stays below 1.10 while Sentry is 10.
 
 ## Layer 3: Decision Records
 
@@ -101,6 +101,15 @@ A change that collects new personal data, adds a processor or a cookie updates `
 - **Hooks** (no dead code, as we go): `yarn install` points git at `.githooks/`. **pre-commit** runs Biome on the staged files (unused imports and variables are errors); **pre-push** runs `yarn knip` (unused files, exports, types, dependencies) and `yarn check-types`; CI runs both and lint. They are clean on `main`, so a red one is yours: remove what the change left unused (an old path a new one replaced, a helper nobody calls, a dependency) rather than exporting it again or skipping the hook. Code of a kept feature that knip cannot see is taught to `knip.jsonc` with a comment, never deleted.
 - **DB**: `yarn db g <name>`, `yarn db up`, `yarn db seed`
 - **Console**: http://localhost:5175 (superadmin; needs ALLOWED_ORIGINS + SUPER_ADMIN_EMAILS)
+- **Runtime**: Node 26 (`.nvmrc`, `engines >=26`, `NODE_VERSION=26` in the Dockerfiles, CI). Yarn 1.22.22 is installed with npm in the images (Node 26 ships no Corepack). TypeScript 7 (native compiler; editor setup in `CONTRIBUTING.md`), Vite 8, Vitest 5, React Router 8, nginx 1.30, Redis 8, Postgres 18.
+- **Dependencies**: refreshed on 2026-11-16; every direct dependency is on its latest release except these, deferred:
+  - MUI 9 (`@mui/material`, `@mui/icons-material` 9.5.0): `material-react-table` 3.2.1, its last release, passes props MUI 9 removed (`MenuListProps`, `TextField` `InputProps`/`SelectProps`/`inputProps`, pagination `SelectProps`). Unblocks with an MRT release for MUI 9, or replacing MRT.
+  - Sentry 11 (`@sentry/*` 11.12.0, and `@sentry/vite-plugin`, which jumped from 5.4 to the SDK's 11.x line): Sentry 11 removed the OpenTelemetry bridge `otel.sdk.ts` builds on (`SentrySampler`, `SentrySpanProcessor`, `SentryContextManager`, `skipOpenTelemetrySetup`) and `beforeSendSpan` now gets streamed spans. Needs the backend's tracing redesigned (OTLP to Sentry, or Sentry-only).
+  - OpenTelemetry 3 (`@opentelemetry/*` 3.1.1 / 0.301.2, `instrumentation-pg` 0.78.0, `api` 1.10.0): `@sentry/opentelemetry` 10.78.0 accepts `@opentelemetry/api <1.10.0` and core 1.x/2.x. Moves with Sentry 11.
+  - Yarn 4 (or pnpm): new lockfile, `.yarnrc.yml`, every Dockerfile stage and the CI cache; an owner decision.
+  - MCP SDK v2 (the `@modelcontextprotocol/server` split packages, 2.x) and `@modelcontextprotocol/ext-apps` 2: not needed; `@modelcontextprotocol/sdk` stays on 1.x.
+  - Advisories left (`yarn audit`) are upstream-blocked: `@grpc/grpc-js` through Firebase's Firestore (never bundled; the app imports only `firebase/app` and `firebase/messaging`), and `glob`/`minimatch`/`deepmerge` through `workbox-build` (build time only).
+  - Upgrade one major per pull request (see `.agent/rules/dependency-upgrades.md`).
 
 ## Module Deep Dives
 - [apps/backend/AGENTS.md](apps/backend/AGENTS.md)
