@@ -4,6 +4,7 @@
 /// <reference types="vite-plugin-pwa/info" />
 /// <reference lib="webworker" />
 /// <reference types="vite-plugin-pwa/client" />
+/// <reference types="dom-chromium-installation-events" />
 
 interface Window {
 	chrome?: unknown;

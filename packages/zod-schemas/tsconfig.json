@@ -1,6 +1,9 @@
 {
 	"extends": "@connected-repo/typescript-config/library.json",
 	"compilerOptions": {
+		// The schemas run in the browser and in Node; both have the WHATWG URL global, which
+		// TypeScript declares in its DOM library (@types/node is no longer read implicitly).
+		"lib": ["ES2022", "DOM"],
 		"outDir": "./dist",
 		"rootDir": "./src"
 	},
