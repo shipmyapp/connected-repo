@@ -12,7 +12,8 @@
 //     and no client IP;
 //   - ULID path segments arrive as `:id`;
 //   - `/health` and `/` are never traced; an idle server sends no span;
-//   - a request carrying `sentry-trace` and `baggage` continues that trace;
+//   - a request carrying `sentry-trace` and `baggage`, or only a W3C
+//     `traceparent`, continues that trace;
 //   - an outbound request carries W3C `traceparent` as well as `sentry-trace`;
 //   - an error thrown in a procedure arrives as an error event of the request's trace;
 //   - profiling starts without a warning when SENTRY_PROFILES_SAMPLE_RATE is set,
@@ -313,6 +314,17 @@ const main = async () => {
 		body: json(null),
 	});
 
+	// A request continuing a W3C trace (traceparent only, no Sentry headers).
+	const w3cTraceId = randomBytes(16).toString("hex");
+	await fetch(`${backend.base}/api/user-app/journalEntries/getAll`, {
+		method: "POST",
+		headers: {
+			...markerHeaders,
+			traceparent: `00-${w3cTraceId}-${randomBytes(8).toString("hex")}-01`,
+		},
+		body: json(null),
+	});
+
 	// An error thrown in a procedure: Postgres refuses a NUL byte in text.
 	const failed = await fetch(
 		`${backend.base}/api/user-app/journalEntries/create?probe=${MARKERS.query}`,
@@ -354,10 +366,13 @@ const main = async () => {
 		const orpcSpan = inTrace.find(
 			(s) => /journalEntries/.test(s.name) && attr(s, "sentry.origin") !== "auto.http.server" && s !== createServerSpan && !/^pg|^db|SELECT|INSERT/.test(s.name),
 		);
+		// oRPC makes this span through @opentelemetry/api (trace.getTracer), the
+		// way application code makes its own spans: it proves such a span lands
+		// in the request's trace, under the server span.
 		check(Boolean(orpcSpan), `an oRPC procedure span is in the trace (${orpcSpan?.name ?? "none"})`);
 		check(
 			Boolean(orpcSpan) && descendsFrom(orpcSpan, createServerSpan),
-			"the oRPC span sits under the http.server span",
+			"the oRPC span (made through @opentelemetry/api) sits under the http.server span",
 		);
 		const dbSpans = inTrace.filter((s) => op(s) === "db" || /^db/.test(String(op(s))));
 		check(dbSpans.length > 0, `Postgres spans are in the trace (${dbSpans.length})`);
@@ -371,6 +386,10 @@ const main = async () => {
 	check(
 		spans.some((s) => s.trace_id === parentTraceId && op(s) === "http.server"),
 		"a request with sentry-trace and baggage continues that trace",
+	);
+	check(
+		spans.some((s) => s.trace_id === w3cTraceId && op(s) === "http.server"),
+		"a request with only a W3C traceparent continues that trace",
 	);
 
 	// URL shapes.
@@ -475,10 +494,11 @@ const checkOutboundPropagation = async (dsn, capture) => {
 	const script = `
 		require("./dist/otel.sdk");
 		const Sentry = require("@sentry/node");
+		const { trace } = require("@opentelemetry/api");
 		const http = require("node:http");
-		Sentry.startSpan({ name: "outbound check", op: "function" }, () => new Promise((resolve) => {
+		trace.getTracer("capture-check").startActiveSpan("outbound check", (span) => new Promise((resolve) => {
 			http.get(process.env.OUTBOUND_URL, (res) => { res.resume(); res.on("end", resolve); });
-		})).then(() => Sentry.close(2000)).then(() => process.exit(0));
+		}).then(() => span.end())).then(() => Sentry.close(2000)).then(() => process.exit(0));
 	`;
 	const child = spawn(process.execPath, ["-e", script], {
 		cwd: backendDir,
@@ -502,6 +522,11 @@ const checkOutboundPropagation = async (dsn, capture) => {
 	check(code === 0, `the outbound check ran (exit ${code})${code === 0 ? "" : `\n${output}`}`);
 	const request = capture.outbound.find((entry) => entry.url === "/outbound");
 	check(Boolean(request?.headers["sentry-trace"]), "the outbound request carries sentry-trace");
+	check(
+		String(request?.headers.traceparent ?? "").split("-")[1] ===
+			String(request?.headers["sentry-trace"] ?? "").split("-")[0],
+		"traceparent and sentry-trace name the same trace (the @opentelemetry/api span's)",
+	);
 	check(
 		/^00-[0-9a-f]{32}-[0-9a-f]{16}-0[01]$/.test(String(request?.headers.traceparent ?? "")),
 		`the outbound request carries W3C traceparent (${request?.headers.traceparent ?? "none"})`,

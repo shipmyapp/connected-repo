@@ -1,6 +1,8 @@
 // Initialize Sentry before the HTTP server (or any instrumented module) loads:
 // its runtime hooks instrument `pg` and the other libraries as they are required.
+import { subscribe } from "node:diagnostics_channel";
 import { readFileSync } from "node:fs";
+import { IncomingMessage } from "node:http";
 import path from "node:path";
 import { env, isProd } from "@backend/configs/env.config";
 import { normalizeUrl, normalizeUrlPath } from "@backend/utils/sentry_url_template";
@@ -117,6 +119,30 @@ const scrubSpan = (span: StreamedSpan): StreamedSpan => {
 	return span;
 };
 
+const W3C_TRACEPARENT = /^00-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})$/;
+
+/**
+ * W3C trace context in as well as out: Sentry continues an incoming trace
+ * from `sentry-trace` only, so a request that carries just `traceparent`
+ * (a service instrumented with OpenTelemetry) gets the equivalent
+ * `sentry-trace` before Sentry reads the headers, and keeps the caller's
+ * trace and sampling decision.
+ */
+const acceptW3cTraceparent = (message: unknown): void => {
+	if (!(message instanceof Object) || !("request" in message)) return;
+	const request = message.request;
+	if (!(request instanceof IncomingMessage) || request.headers["sentry-trace"]) return;
+	const traceparent = request.headers.traceparent;
+	const match = typeof traceparent === "string" ? W3C_TRACEPARENT.exec(traceparent.trim()) : null;
+	if (!match) return;
+	const sampled = (Number.parseInt(match[3] ?? "0", 16) & 1) === 1 ? "1" : "0";
+	request.headers["sentry-trace"] = `${match[1]}-${match[2]}-${sampled}`;
+};
+
+// Runs before Sentry's own handling of the request (it reads the headers
+// when the server emits the request, after this channel's subscribers).
+subscribe("http.server.request.start", acceptW3cTraceparent);
+
 const readTrimmed = (file: string): string | undefined => {
 	try {
 		return readFileSync(file, "utf8").trim() || undefined;
@@ -161,6 +187,9 @@ Sentry.init({
 	// Sentry owns the spans. This also turns spans made through
 	// `@opentelemetry/api` (oRPC's procedure spans, `recordErrorOtel`) into
 	// Sentry spans in the same trace; there is no other trace destination.
+	// Kept on for portability: the app makes its own spans through
+	// `@opentelemetry/api`, never `Sentry.startSpan`, so another tracing
+	// backend replaces this file and nothing else.
 	enableOpenTelemetrySetup: true,
 	dataCollection: BACKEND_DATA_COLLECTION,
 	integrations: [
