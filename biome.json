@@ -1,5 +1,5 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.3.11/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.6.8/schema.json",
 	"assist": {
 		"actions": {
 			"source": {
@@ -17,7 +17,6 @@
 		"includes": [
 			"**/*.tsx",
 			"**/*.ts",
-			"**/*.md",
 			"**/*.json",
 			"**/*.js",
 			"**/*.jsx",
@@ -46,7 +45,7 @@
 				"noUnusedImports": "error",
 				"noUnusedVariables": "error"
 			},
-			"recommended": true,
+			"preset": "recommended",
 			"suspicious": {
 				"noTsIgnore": "off"
 			}
