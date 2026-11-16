@@ -54,6 +54,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Better Auth 1.7.25 with its OAuth provider. Migration `0017_oauth_provider_resources` adds the provider's client columns (`application_type`, keys, back-channel logout, machine scopes), the token columns (resources, authorization code, rotation, `revoked`) and the tables `oauth_resources`, `oauth_client_resources`, `oauth_client_assertions`; existing clients get `application_type` and, when public, `token_endpoint_auth_method = 'none'`. `oauth_clients.public` and `type` are no longer read and go in a later release.
 - Tokens are issued for the MCP resource through the provider's `resources` (it seeds `oauth_resources` at boot); `principalFromBearer` also refuses a revoked token and one naming another server. Registration goes through the provider's `registerOAuthClient`; over HTTP its own endpoint takes public clients only, and a loopback `http` redirect URI registers a native client.
+- `@novu/api` 3 and dotenv 18.
 - The Orchid adapter returns affected-row counts from `updateMany`, implements `consumeOne` and `incrementOne`, and hands Better Auth `Date`s for date fields.
 
 - `LOG_PRETTY`, `GOOGLE_APPLICATION_CREDENTIALS`, `GRACEFUL_SHUTDOWN_TIMEOUT` and `AGENT_TASK_TIMEOUT` are read through the env schema, not `process.env`.
