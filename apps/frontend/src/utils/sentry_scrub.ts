@@ -43,6 +43,16 @@ export const scrubSpan = (span: StreamedSpan): StreamedSpan => {
 	span.name = urlShape(span.name);
 	const attributes = span.attributes;
 	if (!attributes) return span;
+	// A page load or navigation whose route the SDK did not resolve is named
+	// "Pageload" / "Navigation": name it after the page's shape instead.
+	const path = attributes["url.path"];
+	if (
+		span.is_segment &&
+		(span.name === "Pageload" || span.name === "Navigation") &&
+		typeof path === "string"
+	) {
+		span.name = pathShape(path);
+	}
 	for (const key of Object.keys(attributes)) {
 		if (QUERY_ATTRIBUTES.has(key)) {
 			delete attributes[key];

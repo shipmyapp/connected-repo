@@ -38,6 +38,12 @@ describe("scrubSpan", () => {
 		);
 	});
 
+	it("names an unresolved page load after the page's shape", () => {
+		expect(scrubSpan(span("Pageload", { "url.path": `/journal-entries/${ID}` })).name).toBe(
+			"/journal-entries/:id",
+		);
+	});
+
 	it("normalises URL and path attributes and drops query attributes", () => {
 		const { attributes } = scrubSpan(
 			span("GET api.example.com", {
