@@ -60,6 +60,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The dashboard's first-run redirect reads the router's live navigation state and location instead of `useNavigation()` from the render, so a click that has just started a navigation (Profile) is no longer replaced by the redirect.
+
 - The built page carried two manifest links (its own and the PWA plugin's), so a team's host still linked the shared app's manifest; it now carries one.
 
 - Install did nothing on Chromium (the library was mounted with `disable-chrome`).

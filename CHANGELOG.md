@@ -86,6 +86,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Unused helpers reported by knip: the pg-tbus task query module, the dayjs time-zone helper, `isSystemContext`.
 
 ### Fixed
+- The dashboard's first-run redirect could still replace a navigation the person had just started (Profile from the dashboard landing on the new-entry page): it checked the navigation state of the render, which the router publishes in a transition and so can lag a click. It now checks the router's live state and location.
 - The dashboard's first-run redirect to a new entry no longer replaces a navigation the person started while their entries were loading (opening the profile from the dashboard could land on the new-entry page).
 - The journal entry's attachment preview no longer remounts on every render of the entry (it was a component declared inside a component), so its fall-back from the thumbnail to the main image sticks.
 - The backend image now ships the dependencies Yarn could not hoist (`apps/backend/node_modules`, e.g. `@better-auth/oauth-provider`); the server failed to start without them.

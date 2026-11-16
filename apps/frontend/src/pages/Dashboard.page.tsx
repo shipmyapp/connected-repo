@@ -10,12 +10,13 @@ import { Stack } from "@connected-repo/ui-mui/layout/Stack";
 import { NotificationBanner } from "@frontend/components/notifications/NotificationBanner";
 import { useSessionInfo } from "@frontend/contexts/UserContext";
 import { useActiveTeamId, useWorkspace } from "@frontend/contexts/WorkspaceContext";
+import { router } from "@frontend/router";
 import { orpc } from "@frontend/utils/orpc.tanstack.client";
 import BusinessIcon from "@mui/icons-material/Business";
 import PersonIcon from "@mui/icons-material/Person";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { useNavigate, useNavigation } from "react-router";
+import { useNavigate } from "react-router";
 
 // Fires on the FIRST Dashboard mount within a single JS runtime. A full
 // page load (login callback via `window.location.href`, cold tab open,
@@ -26,7 +27,6 @@ let firstRunRedirectChecked = false;
 
 const DashboardPage = () => {
 	const navigate = useNavigate();
-	const navigation = useNavigation();
 	// Get user data from session context (provided by AppLayout)
 	const { user } = useSessionInfo();
 	const { activeWorkspace } = useWorkspace();
@@ -50,12 +50,18 @@ const DashboardPage = () => {
 
 		firstRunRedirectChecked = true;
 		// The person already chose to go somewhere else while the entries
-		// loaded: a redirect now would replace that navigation.
-		if (navigation.state !== "idle") return;
+		// loaded: a redirect now would replace that navigation. Read the
+		// router's live state, not `useNavigation()`: the router publishes its
+		// state in a transition, so the render that delivers the entries can
+		// still show "idle" (or this page) after a click has started a
+		// navigation.
+		const live = router.state;
+		if (live.navigation.state !== "idle") return;
+		if (live.location.pathname !== "/dashboard") return;
 		if (entries.length === 0) {
 			navigate("/journal-entries/new", { replace: true });
 		}
-	}, [teamId, entriesLoading, entries, navigate, navigation.state]);
+	}, [teamId, entriesLoading, entries, navigate]);
 
 	// Avoid a one-frame flash of the empty dashboard on the render that
 	// will trigger the first-run redirect. Once the check has run, always
