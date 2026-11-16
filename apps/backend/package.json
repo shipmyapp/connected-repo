@@ -27,7 +27,7 @@
 		"@sentry/profiling-node": "^10.78.0",
 		"axios": "^1.21.1",
 		"better-auth": "1.7.25",
-		"dotenv": "^17.4.2",
+		"dotenv": "^18.0.10",
 		"firebase-admin": "^13.10.0",
 		"ioredis": "^5.11.1",
 		"jose": "^6.2.17",

@@ -48,7 +48,7 @@
 		"@types/web-app-manifest": "^1.0.9",
 		"@vitejs/plugin-react-swc": "^4.3.3",
 		"cross-env": "^10.1.0",
-		"dotenv": "^17.4.2",
+		"dotenv": "^18.0.10",
 		"jsdom": "^27.4.0",
 		"sharp": "^0.34.5",
 		"vite": "^7.3.8",
