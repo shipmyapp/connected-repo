@@ -208,22 +208,6 @@ export default defineConfig(({ mode }) => {
 			],
 		},
 		build: {
-			rollupOptions: {
-				output: {
-					manualChunks: {
-						// react: ['react', 'react-dom'],
-						// Add other big libs as needed
-						// mui: ['@mui/material'],
-						// zod: ['zod'], // '@connected-repo/zod-schemas'],
-					},
-					// manualChunks(id) {
-					//   if (id.includes('zod')) {
-					//     console.log('Creating separate chunk for zod-schemas:', id);
-					//     return 'zod-schemas';
-					//   }
-					// }
-				},
-			},
 			sourcemap: true,
 		},
 	};

@@ -2,7 +2,7 @@
 
 ## 1. Blueprint
 **Intent**: Offline-capable PWA with worker-isolated storage and pull-based delta sync.
-**Core Stack**: React 19, Vite 7, React Router 7, TanStack Query + oRPC, Dexie.js
+**Core Stack**: React 19, Vite 8, React Router 7, TanStack Query + oRPC, Dexie.js
 (per-user), Comlink workers, MUI, Better Auth, Sentry.
 
 **Key Architectures**:

@@ -16,7 +16,7 @@ export default defineConfig({
 			"@frontend": path.resolve(__dirname, "./src"),
 		},
 	},
-	esbuild: { jsx: "automatic" },
+	oxc: { jsx: { runtime: "automatic" } },
 	test: {
 		environment: "node",
 		setupFiles: ["./src/test/setup.ts"],

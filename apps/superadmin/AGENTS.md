@@ -2,7 +2,7 @@
 
 ## 1. Blueprint
 **Intent**: The operator console, its own deployable on a sibling subdomain of the app (e.g. `admin.<root>`; its label must be one of `RESERVED_TENANT_SLUGS`, or it would be read as a team host). Teams (with members), users, feature flags and the audit trail.
-**Core Stack**: React 19, Vite 7, React Router 7 (data router), TanStack Query + `@orpc/tanstack-query`, MUI via `@connected-repo/ui-mui`, Better Auth client. No PWA, no service worker, no Sentry, no offline data.
+**Core Stack**: React 19, Vite 8, React Router 7 (data router), TanStack Query + `@orpc/tanstack-query`, MUI via `@connected-repo/ui-mui`, Better Auth client. No PWA, no service worker, no Sentry, no offline data.
 
 **Key Architectures**:
 - **One router, typed from the backend**: `utils/orpc.client.ts` → `${origin}/api/super-admin` (`credentials: "include"`, CSRF link plugin), typed by `@backend/routers/super_admin/super_admin.router`. Never the user app's router.
