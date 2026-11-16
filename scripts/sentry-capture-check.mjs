@@ -138,6 +138,12 @@ const freePort = async () => {
 };
 
 // ── The built backend ────────────────────────────────────────────────────
+/** Every server this check started, so none outlives it, whatever happens. */
+const children = new Set();
+process.on("exit", () => {
+	for (const child of children) if (child.exitCode === null) child.kill("SIGKILL");
+});
+
 const startBackend = async (extraEnv) => {
 	const port = await freePort();
 	const child = spawn(process.execPath, ["dist/server.js"], {
@@ -158,6 +164,7 @@ const startBackend = async (extraEnv) => {
 		},
 		stdio: ["ignore", "pipe", "pipe"],
 	});
+	children.add(child);
 	let output = "";
 	child.stdout.on("data", (chunk) => {
 		output += chunk;
