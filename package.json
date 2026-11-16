@@ -8,7 +8,7 @@
 	"description": "Starter Monorepo using Turbo of Nodejs + OrchidORM + oRPC + Reactjs with opentelemetry setup",
 	"devDependencies": {
 		"@biomejs/biome": "^2.6.8",
-		"concurrently": "^9.2.5",
+		"concurrently": "^10.0.7",
 		"knip": "^5.88.1",
 		"tsc-alias": "^1.9.10",
 		"turbo": "^2.11.11",
