@@ -80,7 +80,7 @@
 	"peerDependencies": {
 		"@emotion/react": "^11.14.0",
 		"@emotion/styled": "^11.14.1",
-		"@hookform/resolvers": "^5.2.2",
+		"@hookform/resolvers": "^7.0.6",
 		"@mui/icons-material": "^7.3.4",
 		"@mui/material": "^7.3.4",
 		"dayjs": "^1.11.19",
