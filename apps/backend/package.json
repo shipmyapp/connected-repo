@@ -77,5 +77,5 @@
 		"test:server:start": "cross-env NODE_ENV=test IS_E2E_TEST=true yarn run start",
 		"test:ui": "cross-env NODE_ENV=test vitest --ui"
 	},
-	"version": "1.1.0"
+	"version": "2.0.0"
 }

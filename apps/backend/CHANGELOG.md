@@ -5,8 +5,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-### Added
+## [2.0.0] - 2026-11-16
 
+### Added
 - Sentry release per deploy: `<OTEL_SERVICE_NAME>@<short commit>` from the image's `.build-sha` (`SENTRY_RELEASE` still overrides).
 - `GET /robots.txt` answers disallow-all.
 
@@ -51,7 +52,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The active-team gate accepts the team whose own host sent the request, without moving the user's active team.
 
 ### Changed
-
 - Sentry 11 (`@sentry/node`, `@sentry/profiling-node` 11.12.0) owns the spans: `otel.sdk.ts` is one `Sentry.init` with `enableOpenTelemetrySetup: true` (oRPC's spans arrive through `ORPCInstrumentation`), an explicit `dataCollection` (header values only for `accept`, `content-type`, `content-length`, `user-agent`; no cookies, bodies, query strings, user info, database query data or local variables) and a `beforeSendSpan` for streamed spans (route-shaped names and URLs, no bound SQL values, client addresses or Redis command arguments). Health checks are ignored before a span starts (`ignoreIncomingRequests`); database and Redis work outside a request is not sampled. Shutdown calls `Sentry.close` (`closeBackendErrorTracking`). The boot line says `Sentry: on` only when a DSN is set. A request carrying only W3C `traceparent` continues that trace (Sentry 11 reads `sentry-trace` alone); outbound requests keep sending `traceparent`. The application's own spans are made through `@opentelemetry/api`, never `Sentry.startSpan` (see `AGENTS.md`, ADR-B17).
 - Better Auth 1.7.25 with its OAuth provider. Migration `0017_oauth_provider_resources` adds the provider's client columns (`application_type`, keys, back-channel logout, machine scopes), the token columns (resources, authorization code, rotation, `revoked`) and the tables `oauth_resources`, `oauth_client_resources`, `oauth_client_assertions`; existing clients get `application_type` and, when public, `token_endpoint_auth_method = 'none'`. `oauth_clients.public` and `type` are no longer read and go in a later release.
 - Tokens are issued for the MCP resource through the provider's `resources` (it seeds `oauth_resources` at boot); `principalFromBearer` also refuses a revoked token and one naming another server. Registration goes through the provider's `registerOAuthClient`; over HTTP its own endpoint takes public clients only, and a loopback `http` redirect URI registers a native client.
@@ -99,22 +99,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Cross-subdomain cookies also apply when `NODE_ENV=staging`.
 
 ### Deprecated
-
 - `push_devices` is no longer read or written; it is dropped in the next release.
 
 - The `rate_limits` table and `RateLimitTable` are no longer used; a later release drops them.
 
-### Removed
-
-- `OTEL_TRACE_EXPORTER_URL` and the OpenTelemetry SDK behind it (`NodeSDK`, the OTLP exporter, the HTTP and Postgres instrumentations, the composite propagator, `@sentry/opentelemetry`); `flushBackendErrorTracking` (replaced by `closeBackendErrorTracking`).
-- `SESSION_SECRET`, `INTERNAL_API_SECRET` and `DB_SCHEMA` from the env schema (never read).
-
-- `@novu/framework` (and `zod-to-json-schema`, which only it used), the `/api/novu` bridge (`novu.handler.ts`), `yarn novu:sync`, `scripts/deploy_novu_sync.sh` and the `npx novu@latest sync` spawned at every boot.
-
-- The Better Auth phone-number plugin (phone-code sign-in and its routes).
-
 ### Fixed
-
 - The runtime image copies the backend's unhoisted dependencies (`apps/backend/node_modules`).
 
 - A journal entry deleted outside a team request took the tenant scope with it and threw; its attachments are now found by the entry ids alone.
@@ -131,8 +120,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Native Google sign-in: an id token from the iOS or Android app is verified against that app's client id (the old swap edited a property better-auth never reads). The dead web-Apple secret branch is removed.
 - API product: `subscriptions.team_api_id`, `api_product_request_logs.team_api_id` and `pg_tbus_task_log.team_api_id` are `varchar(26)` like the `teams_api` ULID they name (as `uuid`, every write failed); `subscriptions.active` applies its `apiProductSku` filter; a SKU the key may not buy is a 403.
 
-### Security
+### Removed
+- `OTEL_TRACE_EXPORTER_URL` and the OpenTelemetry SDK behind it (`NodeSDK`, the OTLP exporter, the HTTP and Postgres instrumentations, the composite propagator, `@sentry/opentelemetry`); `flushBackendErrorTracking` (replaced by `closeBackendErrorTracking`).
+- `SESSION_SECRET`, `INTERNAL_API_SECRET` and `DB_SCHEMA` from the env schema (never read).
 
+- `@novu/framework` (and `zod-to-json-schema`, which only it used), the `/api/novu` bridge (`novu.handler.ts`), `yarn novu:sync`, `scripts/deploy_novu_sync.sh` and the `npx novu@latest sync` spawned at every boot.
+
+- The Better Auth phone-number plugin (phone-code sign-in and its routes).
+
+### Security
 - `teams.addTeamMember`'s invitation email is the same whether or not the address has an account and goes to the address's own subscriber, so neither the response, the member list nor the email reveals an account.
 - Invitation emails are rate-limited per inviter and per address.
 

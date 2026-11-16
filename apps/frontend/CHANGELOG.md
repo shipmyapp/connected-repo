@@ -5,8 +5,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-### Added
+## [2.0.0] - 2026-11-16
 
+### Added
 - `public/robots.txt`.
 - `nginx.security-headers.inc.template`: security headers and a report-only CSP (`CSP_ENFORCE`, `CSP_CONNECT_EXTRA`, reports to Sentry); the nginx image also passes the application MCP's own host to the backend.
 
@@ -33,7 +34,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - A notification tap opens its screen in the window already open, without a reload.
 
 ### Changed
-
 - Sentry 11 (`@sentry/react`, `@sentry/vite-plugin` 11.12.0): `dataCollection` replaces `sendDefaultPii` (`utils/sentry_scrub.ts`: no user info beyond the id, no IP, cookies, headers, bodies or query strings); `beforeSendSpan` works on streamed spans and names an unresolved page load after the page's shape; Logs come from `consoleLoggingIntegration` alone (`enableLogs` is gone).
 - @hookform/resolvers 7, @mui/x-date-pickers 9, pdfjs-dist 6 (thumbnails of PDFs need Chrome 125+ or Safari 18+), firebase 13, dotenv 18, Vite 8, Vitest 5, vite-plugin-pwa 2, react-router 8, jsdom 31, sharp 0.35 (`yarn generate:icons`; same pixels). The auth loader no longer writes the session into the router context, which nothing read. An e2e test covers the built service worker taking control and the app starting offline. Tests cover the journal entry form's validation, the reminder time picker and a PDF's thumbnail (e2e, through the MediaWorker the test build exposes on `window.__testHooks`).
 
@@ -52,14 +52,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Every dialog opens as a drawer.
 - The version label shows the package version, with the build commit in its tooltip.
 
-### Removed
-
-- `utils/device.utils.ts` (replaced by `lib/device/device-env.ts`); the `push.fcmToken`, `push.fcmTokenRegisteredAt`, `push.bannerDismissed`, `push.initialPromptShown` and `pwa.installOfferAt` keys (cleared on start).
-
-- The avatar's dropdown menu: the avatar opens `/profile`, which now holds Teams (switch, new team, team settings), Appearance and Sign out. The navbars show the active team's name as text.
-
 ### Fixed
-
 - The dashboard's first-run redirect reads the router's live navigation state and location instead of `useNavigation()` from the render, so a click that has just started a navigation (Profile) is no longer replaced by the redirect.
 - The test-mode sign-in no longer passes `callbackURL` to the email sign-in: Better Auth's client navigated there itself and the page's own replace aborted that load.
 
@@ -76,8 +69,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The time zone comes from the browser only; the plain-http IP lookup (blocked on https pages) is gone.
 - A stray `@ts-ignore` in the PDF thumbnailer.
 
-### Security
+### Removed
+- `utils/device.utils.ts` (replaced by `lib/device/device-env.ts`); the `push.fcmToken`, `push.fcmTokenRegisteredAt`, `push.bannerDismissed`, `push.initialPromptShown` and `pwa.installOfferAt` keys (cleared on start).
 
+- The avatar's dropdown menu: the avatar opens `/profile`, which now holds Teams (switch, new team, team settings), Appearance and Sign out. The navbars show the active team's name as text.
+
+### Security
 - nginx (production and the dev sidecar) trusts `X-Forwarded-For` only from private ranges and sends the backend one address.
 
 - Attachments open only http(s) URLs, in a new tab without opener.

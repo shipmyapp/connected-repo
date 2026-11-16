@@ -5,6 +5,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-16
+
+### Upgrading from 1.x
+This release breaks deployments of 1.x. In order:
+- **Node 26** is required (`engines.node` `>=26`, `.nvmrc`, `ARG NODE_VERSION=26` in the three Dockerfiles): upgrade local Node and CI runners. The images install Yarn 1.22.22 with npm. Editors need the TypeScript 7 setup in `CONTRIBUTING.md`.
+- **Redis 8** is required next to Postgres: set `REDIS_URL`. Redis holds only rate limits and short-lived state, so an old Redis volume can simply be dropped.
+- **Migrations** `0008` to `0017` (`yarn db up`; the backend image runs them on start). Before deploying, count the rows of `subscriptions`, `api_product_request_logs` and `pg_tbus_task_log`: `0008` turns their `team_api_id` from `uuid` into `varchar(26)` in place, and a uuid already stored there needs a look first. New tables: `operator_audit_log`, `devices`, `connected_app_actions`, `storage_object_deletions`, `erased_device_keys` and the OAuth provider's `oauth_clients`, `oauth_access_tokens`, `oauth_refresh_tokens`, `oauth_consents`, `oauth_resources`, `oauth_client_resources`, `oauth_client_assertions` (`0017_oauth_provider_resources`, for Better Auth 1.7.25). New columns: the team branding columns of `teams_app` (`slug`, `app_name`, `app_short_name`, `tagline`, `primary_color`, `secondary_color`, `background_color`, `pwa_icon_url`), `teams_api.writes_as_team_member_id`, `sessions.device_key`, `users.asks`, `users.deletion_requested_at`, `users.legal_accepted_version`, `users.legal_accepted_at`.
+- `devices` replaces `push_devices`, which is no longer read or written; it stays until the next release drops it, as does `rate_limits`.
+- **API keys**: the OpenAPI journal create-request writes as the key's team member. Set `teams_api.writes_as_team_member_id` for every key that creates entries (`apps/backend/AGENTS.md`, ADR-B13); until then those calls are refused (403).
+- **The Novu bridge is gone**: remove any `/api/novu` routing and the post-deploy `novu sync` hook. The backend creates or updates its workflows at boot.
+- **Env vars**: compare your deployment with `deploy/prod.env.example` / `deploy/staging.env.example`, the three `.env.example` files and `deploy/README.md`; `yarn check:deploy` checks the repository's own files. Removed: `OTEL_TRACE_EXPORTER_URL`, `SESSION_SECRET`, `INTERNAL_API_SECRET`, `DB_SCHEMA`, `CRON_JOB_*`, `SUPRSEND_*`, `DOCKER_STOP_TIMEOUT`, the backend's `VITE_SENTRY_DSN`; `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` were never read (the code reads `GOOGLE_WEB_CLIENT_ID` / `GOOGLE_WEB_CLIENT_SECRET`).
+- **Deploy files changed**: `docker-compose.yml` is gone; `docker-compose.prod.yml`, the three Dockerfiles (the console is a third image) and `deploy/` are new or rewritten. Set the backend's `TRUSTED_PROXY_COUNT`: `1` behind the shipped nginx and Traefik, `0` when clients reach the backend directly; otherwise per-address limits key on the proxy. After the first 2.0.0 deploy, run `yarn workspace @connected-repo/backend auth:encrypt-tokens` once per environment.
+- **Sentry 11**: self-hosted Sentry must be 26.4.2 or later. Transactions become spans: move dashboards, alerts and saved searches built on transactions to spans. `OTEL_TRACE_EXPORTER_URL` is removed; there is no second trace destination.
+- **Sign-in doors**: email + password works only under `NODE_ENV=test`, and the phone-code plugin is gone. An account that signed in only with an email password must use Google or Apple with the same email address; an account made by phone code has no real email address and can no longer sign in.
+- **Account deletion**: a person must first leave or delete their teams (the request is refused while they belong to a shared team). The account is then removed after the 30-day grace period by a daily purge; operators can keep it or delete it now from the console's Users page.
+- **Team invitations**: adding a member by email or phone always creates a pending invitation, claimed when that person signs in with a verified address; an add no longer joins or reveals an existing account.
+- **Browsers**: PDF thumbnails need Chrome 125+ or Safari 18+ (pdf.js 6); an older browser attaches the PDF without one.
+
 ### Added
 - `docker-compose.prod.yml` for a Dokploy Compose deploy (production and staging from `deploy/prod.env.example` / `deploy/staging.env.example`, Traefik labels, a DNS-challenge wildcard certificate for team hosts, bundled Postgres and Redis behind profiles), and `deploy/dokploy/` for one Dokploy Application per Dockerfile (Swarm start-first); runbook `deploy/README.md`.
 - One shared dependency install for all three images (`manifests`/`deps` stages, BuildKit cache `yarn-monorepo`); the superadmin console has its own nginx image.
@@ -77,14 +95,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `zTimezone` accepts IANA zones only on input; the stored zone is read leniently by Better Auth.
 - `turbo run test:run` builds dependencies first.
 
-### Removed
-- The backend's own OpenTelemetry SDK and the optional second trace destination `OTEL_TRACE_EXPORTER_URL` (remove it from deployments); the packages only it used: `@sentry/opentelemetry`, `@opentelemetry/core`, `exporter-trace-otlp-http`, `instrumentation-http`, `instrumentation-pg`, `resources`, `sdk-node`, `sdk-trace-node`.
-- `docker-compose.yml` (Postgres and Redis only): `docker compose -f docker-compose.dev.yml up postgres redis` does the same.
-- Unread env vars: `SESSION_SECRET`, `INTERNAL_API_SECRET`, `DB_SCHEMA`, `CRON_JOB_*`, `SUPRSEND_*`, `DOCKER_STOP_TIMEOUT`, the backend's `VITE_SENTRY_DSN`, the misnamed `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` and the frontend image's `VITE_SENTRY_RELEASE` build arg (the build sets it from the commit).
-
-- Unused dependencies: `dayjs` and `@types/node-cron` (backend), `axios`, `mp4box` and `zustand` (frontend), `@types/react-dom` (ui-mui).
-- Unused helpers reported by knip: the pg-tbus task query module, the dayjs time-zone helper, `isSystemContext`.
-
 ### Fixed
 - The dashboard's first-run redirect could still replace a navigation the person had just started (Profile from the dashboard landing on the new-entry page): it checked the navigation state of the render, which the router publishes in a transition and so can lag a click. It now checks the router's live state and location.
 - The test-mode sign-in started two page loads to the dashboard (Better Auth's client follows a `callbackURL` given to the email sign-in, then the page replaced the location), so the first was aborted; it now makes the one replace.
@@ -101,6 +111,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Switching teams on the profile page silently reverted: better-auth's 5-minute session cookie cache handed the loader the old team. The loader now reads the session uncached once after a switch (a one-shot flag, `session_refresh.client.ts`), and the offline auth cache is re-saved with the new team.
 - The theme snapped back after every toggle (the theme context handed out a new setter on each render); toasts drew white on white under the "system" theme.
 - A top-level crash rendered a fallback that itself threw (`useRouteError()` outside the router).
+
+Defects of 1.x fixed in this release (details in `apps/backend/CHANGELOG.md` and `apps/frontend/CHANGELOG.md`):
+- The API product's `subscriptions.team_api_id`, `api_product_request_logs.team_api_id` and `pg_tbus_task_log.team_api_id` were `uuid` while the ids are ULIDs, so every write failed; they are `varchar(26)`.
+- `subscriptions.active` ignored its `apiProductSku` filter.
+- Native Google sign-in: the hook that should check an iOS or Android id token against that app's client id edited a property Better Auth never reads.
+- Table classes and the database disagreed on indexes; every index is declared on its table class and `yarn db g check_no_drift` writes nothing.
+- The committed `openapi_pretty.json` was stale; CI checks it now (`check:openapi`).
+- `packages/zod-schemas` imported itself through its own alias.
+- A Google sign-in that could not start did nothing; it now says so and is reported.
+- The time zone fell back to a plain-http third-party lookup (blocked on https pages); it comes from the browser only.
+- `notifications.testSendPush` triggered a `test-push` workflow that did not exist; the journal fan-out compared the ULID team id as a `uuid` and failed on every run.
+- Install did nothing on Chromium (the library was mounted with `disable-chrome`).
+- The client address came from `X-Forwarded-For` / `X-Real-IP`, headers a client can set; it is now counted from the trusted proxies only (`TRUSTED_PROXY_COUNT`).
+- Email + password sign-up and phone-code sign-in were open in production; email + password now works only in tests and the phone plugin is gone.
+
+### Removed
+- The backend's own OpenTelemetry SDK and the optional second trace destination `OTEL_TRACE_EXPORTER_URL` (remove it from deployments); the packages only it used: `@sentry/opentelemetry`, `@opentelemetry/core`, `exporter-trace-otlp-http`, `instrumentation-http`, `instrumentation-pg`, `resources`, `sdk-node`, `sdk-trace-node`.
+- `docker-compose.yml` (Postgres and Redis only): `docker compose -f docker-compose.dev.yml up postgres redis` does the same.
+- Unread env vars: `SESSION_SECRET`, `INTERNAL_API_SECRET`, `DB_SCHEMA`, `CRON_JOB_*`, `SUPRSEND_*`, `DOCKER_STOP_TIMEOUT`, the backend's `VITE_SENTRY_DSN`, the misnamed `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` and the frontend image's `VITE_SENTRY_RELEASE` build arg (the build sets it from the commit).
+
+- Unused dependencies: `dayjs` and `@types/node-cron` (backend), `axios`, `mp4box` and `zustand` (frontend), `@types/react-dom` (ui-mui).
+- Unused helpers reported by knip: the pg-tbus task query module, the dayjs time-zone helper, `isSystemContext`.
 
 ### Security
 - nginx no longer trusts a client's `X-Forwarded-For`: only the proxy in front (private ranges) is trusted, and the backend receives exactly one address, in every proxied location and in the dev sidecar. Per-address limits and the API key address allowlist can no longer be dodged with a forged header. `TRUSTED_PROXY_COUNT=1` in both deploy modes and the dev compose stack.
