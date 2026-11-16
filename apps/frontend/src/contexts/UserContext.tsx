@@ -8,11 +8,7 @@ export interface SessionInfo {
 	isRegistered: boolean;
 }
 
-/**
- * React Router context for user session data
- * Set by authLoader before components render
- * Used for loader-to-loader context sharing
- */
+/** React context for user session data, provided by AppLayout from the authLoader's data. */
 export const userContext = createContext<SessionInfo | null>(null);
 
 /**

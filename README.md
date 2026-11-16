@@ -21,7 +21,7 @@ Production-ready Turborepo monorepo for building full-stack TypeScript applicati
 
 ### Frontend
 - **Framework**: [React 19](https://react.dev/) + [Vite](https://vitejs.dev/) with SWC
-- **Routing**: React Router 7
+- **Routing**: React Router 8
 - **State**: TanStack Query (server), Zustand (global), React Hook Form (forms)
 - **UI**: Material-UI (via `@connected-repo/ui-mui`)
 - **PWA**: Vite PWA plugin with offline support

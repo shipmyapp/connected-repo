@@ -1,5 +1,4 @@
 import { isLegalConfigured } from "@frontend/components/LegalLinks";
-import { userContext } from "@frontend/contexts/UserContext";
 import { setSentryUser } from "@frontend/instrumentation";
 import {
 	authorizeUrl,
@@ -37,7 +36,7 @@ import { toast } from "react-toastify";
  * otherwise refuse. Sign-out cannot reach the server offline; the login
  * page asks again once online.
  */
-function sessionFromCache(cached: CachedSession, context: LoaderFunctionArgs["context"], url: URL) {
+function sessionFromCache(cached: CachedSession, url: URL) {
 	// A pending deletion shows its page offline too; the legal question waits
 	// for the network (never block offline use on paperwork).
 	const gate = accountGateRedirect(cached.user, url, {
@@ -60,7 +59,6 @@ function sessionFromCache(cached: CachedSession, context: LoaderFunctionArgs["co
 	// Seed the header cache before any component mounts. Otherwise
 	// team-scoped queries can fire before WorkspaceContext's effect runs.
 	setActiveTeamIdForRequests(cached.user.activeTeamAppId ?? null);
-	context.set(userContext, sessionInfo);
 	return sessionInfo;
 }
 
@@ -93,13 +91,13 @@ async function enforceTenantTeam(): Promise<string | null> {
  * Fetches the session, locks a team host to its team, seeds the `x-team-id`
  * header cache once, and falls back to the cached session offline.
  */
-export async function authLoader({ context, request }: LoaderFunctionArgs) {
+export async function authLoader({ request }: LoaderFunctionArgs) {
 	const url = new URL(request.url);
 	const cached = getAuthCache();
 	const isOffline = !navigator.onLine;
 
 	// 0. If offline and we have a cache, skip the network call entirely
-	if (isOffline && cached) return sessionFromCache(cached, context, url);
+	if (isOffline && cached) return sessionFromCache(cached, url);
 
 	try {
 		// A team switch (or anything else that writes the `users` row outside
@@ -117,7 +115,7 @@ export async function authLoader({ context, request }: LoaderFunctionArgs) {
 			// If we have a cached session and it seems like a network error or we are known to be offline
 			// Note: error.status might be undefined for network errors in better-auth
 			const isNetworkError = error && (!error.status || error.status >= 500);
-			if (cached && (isOffline || isNetworkError)) return sessionFromCache(cached, context, url);
+			if (cached && (isOffline || isNetworkError)) return sessionFromCache(cached, url);
 			// Signed out and online: was an account that used this device deleted?
 			await runLocalErasureCheck();
 			throw redirect("/auth");
@@ -225,9 +223,6 @@ export async function authLoader({ context, request }: LoaderFunctionArgs) {
 		// travels with every event.
 		void setSentryUser({ id: session.user.id });
 
-		// Set user context in React Router context
-		context.set(userContext, sessionInfo);
-
 		return sessionInfo;
 	} catch (error) {
 		if (error instanceof Response) throw error; // Re-throw redirects and the 404
@@ -241,7 +236,7 @@ export async function authLoader({ context, request }: LoaderFunctionArgs) {
 			const isFetchError =
 				errorMessage.toLowerCase().includes("fetch") ||
 				errorMessage.toLowerCase().includes("network");
-			if (isOffline || isFetchError) return sessionFromCache(cached, context, url);
+			if (isOffline || isFetchError) return sessionFromCache(cached, url);
 		}
 
 		throw redirect("/auth");
