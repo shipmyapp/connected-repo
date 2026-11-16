@@ -18,9 +18,9 @@
 ---
 
 ## Layer 2: Active Task
-- **Objective**: Major upgrades, one at a time, each behind the full gate (Better Auth 1.7 first).
+- **Objective**: Major upgrades, one at a time, each behind the full gate: Better Auth 1.7, concurrently 10, dotenv 18, @hookform/resolvers 7, @mui/x-date-pickers 9, pdfjs-dist 6, @novu/api 3, firebase 13 / firebase-admin 14, knip 6 done; the build and test toolchain, the router, Redis client, jsdom, TypeScript, images and CI actions next.
 - **Status**: In progress.
-- **Context**: every `package.json`, `yarn.lock`, the Better Auth adapter and OAuth provider tables (migration `0017`). Held back inside the major: `@opentelemetry/api` (below 1.10 while Sentry is 10). Better Auth, `@better-auth/core` and `@better-auth/oauth-provider` share one exact version (1.7.25). `pqb` equals the version `orchid-orm` depends on.
+- **Context**: every `package.json`, `yarn.lock`, `knip.jsonc`, the Better Auth adapter and OAuth provider tables (migration `0017`), `configs/firebase_admin.config.ts`. Held back inside the major: `@opentelemetry/api` (below 1.10 while Sentry is 10). Better Auth, `@better-auth/core` and `@better-auth/oauth-provider` share one exact version (1.7.25). `pqb` equals the version `orchid-orm` depends on.
 
 ## Layer 3: Decision Records
 
