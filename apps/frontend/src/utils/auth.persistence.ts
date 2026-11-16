@@ -43,7 +43,7 @@ export const getAuthCache = (): CachedSession | null => {
 		if (!cached) return null;
 
 		const parsed = JSON.parse(cached);
-		if (!parsed || !parsed.user) return null;
+		if (!parsed?.user) return null;
 
 		// Re-validate the cached user data
 		const result = userSelectAllZod.safeParse(parsed.user);

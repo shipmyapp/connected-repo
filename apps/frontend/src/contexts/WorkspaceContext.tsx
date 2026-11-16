@@ -189,7 +189,7 @@ export function WorkspaceProvider({ children, sessionInfo }: WorkspaceProviderPr
 		const channel = new BroadcastChannel(ACTIVE_TEAM_WIPED_CHANNEL);
 		channel.onmessage = async (event: MessageEvent<ActiveTeamWipedMessage>) => {
 			const msg = event.data;
-			if (!msg || msg.type !== "active-team-wiped") return;
+			if (msg?.type !== "active-team-wiped") return;
 			// A team host is locked to its team: never switch to another one.
 			// The worker has already wiped the team's rows and OPFS blobs; the
 			// no-access page ends the session.

@@ -5,6 +5,7 @@
  * phone and a computer agree, granted per device (`devices.here`).
  */
 import type { AskKind } from "../device.zod.js";
+
 export type { AskKind };
 
 /** How long "Not now" holds, by how many times it was said: 3, 7, 14, then 30 days. */

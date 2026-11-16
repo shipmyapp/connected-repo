@@ -39,6 +39,95 @@ interface JournalEntryDetailViewProps {
 	attachments?: { url: string; thumbnailUrl?: string; name: string }[];
 }
 
+const getFileIcon = (fileName: string) => {
+	const ext = fileName.split(".").pop()?.toLowerCase();
+	if (ext === "pdf")
+		return {
+			icon: <PictureAsPdfIcon sx={{ fontSize: 48, color: "error.main" }} />,
+			label: "PDF",
+			bgcolor: "#fff5f5",
+		};
+	if (["mp4", "webm", "mov", "quicktime"].includes(ext || ""))
+		return {
+			icon: <VideoFileIcon sx={{ fontSize: 48, color: "primary.main" }} />,
+			label: "Video",
+			bgcolor: "#f0f7ff",
+		};
+	if (["jpg", "jpeg", "png", "webp", "avif", "gif"].includes(ext || ""))
+		return {
+			icon: <HideImageIcon sx={{ fontSize: 48, color: "text.disabled" }} />,
+			label: "Image",
+			bgcolor: "#f5f5f5",
+		};
+	return {
+		icon: <FilePresentIcon sx={{ fontSize: 48, color: "text.secondary" }} />,
+		label: "File",
+		bgcolor: "#fafafa",
+	};
+};
+
+// Renders the attachment preview with a two-step fallback chain:
+//   thumbnail → main → icon-fallback
+// Pre-fix legacy rows have a valid `url` but null `thumbnailUrl`
+// (thumb PUT failed silently). Newer rows may still lose the thumb
+// object to a bucket policy edit. Either way, showing the main image
+// beats showing a "no image" glyph.
+const AttachmentPreview = ({
+	file,
+}: {
+	file: { url: string; thumbnailUrl?: string; name: string };
+}) => {
+	const isImage = /\.(jpe?g|png|webp|gif|avif|svg|bmp|tiff?)$/i.test(file.name);
+	const [triedMain, setTriedMain] = useState(false);
+	const [failed, setFailed] = useState(false);
+
+	if (!isImage || failed || !file.url) {
+		const { icon, label, bgcolor } = getFileIcon(file.name);
+		return (
+			<Box
+				sx={{
+					width: "100%",
+					height: "100%",
+					display: "flex",
+					flexDirection: "column",
+					alignItems: "center",
+					justifyContent: "center",
+					bgcolor,
+					gap: 1,
+				}}
+			>
+				{icon}
+				<Typography variant="caption" color="text.secondary" fontWeight={600}>
+					{label}
+				</Typography>
+			</Box>
+		);
+	}
+
+	const src = triedMain ? file.url : file.thumbnailUrl || file.url;
+
+	return (
+		<Box
+			component="img"
+			src={src}
+			alt={file.name}
+			onError={() => {
+				if (!triedMain && file.thumbnailUrl && file.thumbnailUrl !== file.url) {
+					setTriedMain(true);
+				} else {
+					setFailed(true);
+				}
+			}}
+			sx={{
+				width: "100%",
+				height: "100%",
+				objectFit: "contain",
+				transition: "transform 0.3s ease-in-out",
+			}}
+		/>
+	);
+};
+
 export function JournalEntryDetailView({
 	entry,
 	onDelete,
@@ -92,95 +181,6 @@ export function JournalEntryDetailView({
 			hour: "2-digit",
 			minute: "2-digit",
 		});
-	};
-
-	const getFileIcon = (fileName: string) => {
-		const ext = fileName.split(".").pop()?.toLowerCase();
-		if (ext === "pdf")
-			return {
-				icon: <PictureAsPdfIcon sx={{ fontSize: 48, color: "error.main" }} />,
-				label: "PDF",
-				bgcolor: "#fff5f5",
-			};
-		if (["mp4", "webm", "mov", "quicktime"].includes(ext || ""))
-			return {
-				icon: <VideoFileIcon sx={{ fontSize: 48, color: "primary.main" }} />,
-				label: "Video",
-				bgcolor: "#f0f7ff",
-			};
-		if (["jpg", "jpeg", "png", "webp", "avif", "gif"].includes(ext || ""))
-			return {
-				icon: <HideImageIcon sx={{ fontSize: 48, color: "text.disabled" }} />,
-				label: "Image",
-				bgcolor: "#f5f5f5",
-			};
-		return {
-			icon: <FilePresentIcon sx={{ fontSize: 48, color: "text.secondary" }} />,
-			label: "File",
-			bgcolor: "#fafafa",
-		};
-	};
-
-	// Renders the attachment preview with a two-step fallback chain:
-	//   thumbnail → main → icon-fallback
-	// Pre-fix legacy rows have a valid `url` but null `thumbnailUrl`
-	// (thumb PUT failed silently). Newer rows may still lose the thumb
-	// object to a bucket policy edit. Either way, showing the main image
-	// beats showing a "no image" glyph.
-	const AttachmentPreview = ({
-		file,
-	}: {
-		file: { url: string; thumbnailUrl?: string; name: string };
-	}) => {
-		const isImage = /\.(jpe?g|png|webp|gif|avif|svg|bmp|tiff?)$/i.test(file.name);
-		const [triedMain, setTriedMain] = useState(false);
-		const [failed, setFailed] = useState(false);
-
-		if (!isImage || failed || !file.url) {
-			const { icon, label, bgcolor } = getFileIcon(file.name);
-			return (
-				<Box
-					sx={{
-						width: "100%",
-						height: "100%",
-						display: "flex",
-						flexDirection: "column",
-						alignItems: "center",
-						justifyContent: "center",
-						bgcolor,
-						gap: 1,
-					}}
-				>
-					{icon}
-					<Typography variant="caption" color="text.secondary" fontWeight={600}>
-						{label}
-					</Typography>
-				</Box>
-			);
-		}
-
-		const src = triedMain ? file.url : file.thumbnailUrl || file.url;
-
-		return (
-			<Box
-				component="img"
-				src={src}
-				alt={file.name}
-				onError={() => {
-					if (!triedMain && file.thumbnailUrl && file.thumbnailUrl !== file.url) {
-						setTriedMain(true);
-					} else {
-						setFailed(true);
-					}
-				}}
-				sx={{
-					width: "100%",
-					height: "100%",
-					objectFit: "contain",
-					transition: "transform 0.3s ease-in-out",
-				}}
-			/>
-		);
 	};
 
 	return (

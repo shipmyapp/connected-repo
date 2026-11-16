@@ -8,6 +8,7 @@
  * a page or a device id.
  */
 import type { InstallBlocker, InstallStep, InstallTry } from "../device.zod.js";
+
 export type { InstallTry };
 
 /** One step, or the answer to the question, as the app reports it. */

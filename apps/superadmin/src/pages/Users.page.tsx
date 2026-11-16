@@ -12,10 +12,74 @@ import {
 import { SignOutEverywhereDialog } from "@superadmin/components/SignOutEverywhereDialog";
 import { orpc, type SuperAdminOutputs } from "@superadmin/utils/orpc.client";
 import { useQuery } from "@tanstack/react-query";
-import type { MRT_ColumnDef } from "material-react-table";
-import { useEffect, useMemo, useState } from "react";
+import type { MRT_ColumnDef, MRT_Row } from "material-react-table";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
 type UserRow = SuperAdminOutputs["listUsers"]["rows"][number];
+
+type RowCellProps = { row: MRT_Row<UserRow> };
+
+/** What the row buttons open; the page provides it around the table. */
+type UserActions = {
+	signOut: (user: UserRow) => void;
+	deletion: (user: UserRow, action: AccountDeletionAction) => void;
+};
+const UserActionsContext = createContext<UserActions>({ signOut: () => {}, deletion: () => {} });
+
+function DeletionCell({ row }: RowCellProps) {
+	const { deletion } = useContext(UserActionsContext);
+	const requestedAt = row.original.deletionRequestedAt;
+	if (requestedAt === null) return "—";
+	return (
+		<>
+			Scheduled · <When at={purgeAfterOf(requestedAt)} />{" "}
+			<Button size="small" onClick={() => deletion(row.original, "cancel")}>
+				Keep
+			</Button>
+			<Button size="small" color="error" onClick={() => deletion(row.original, "purge")}>
+				Delete now
+			</Button>
+		</>
+	);
+}
+
+function SignOutCell({ row }: RowCellProps) {
+	const { signOut } = useContext(UserActionsContext);
+	return (
+		<Button size="small" color="error" onClick={() => signOut(row.original)}>
+			Sign out everywhere
+		</Button>
+	);
+}
+
+const columns: MRT_ColumnDef<UserRow>[] = [
+	{ accessorKey: "name", header: "Name" },
+	{ id: "email", header: "Email", accessorFn: (u) => u.email ?? "—" },
+	{ id: "phone", header: "Phone", accessorFn: (u) => u.phoneNumber ?? "—" },
+	{
+		accessorKey: "createdAt",
+		header: "Signed up",
+		Cell: ({ row }) => <When at={row.original.createdAt} />,
+	},
+	{
+		id: "deletion",
+		header: "Deletion",
+		accessorFn: (u) => u.deletionRequestedAt ?? 0,
+		Cell: DeletionCell,
+	},
+	{
+		accessorKey: "id",
+		header: "User id",
+		Cell: ({ row }) => <code>{row.original.id}</code>,
+	},
+	{
+		id: "actions",
+		header: "",
+		enableSorting: false,
+		enableColumnFilter: false,
+		Cell: SignOutCell,
+	},
+];
 
 /** Every account, newest first; the search runs on the server (name or email). */
 export default function UsersPage() {
@@ -36,61 +100,9 @@ export default function UsersPage() {
 		}),
 	);
 
-	// `setSigningOut` and `setDeletion` are stable state setters: the columns never change.
-	const columns = useMemo<MRT_ColumnDef<UserRow>[]>(
-		() => [
-			{ accessorKey: "name", header: "Name" },
-			{ id: "email", header: "Email", accessorFn: (u) => u.email ?? "—" },
-			{ id: "phone", header: "Phone", accessorFn: (u) => u.phoneNumber ?? "—" },
-			{
-				accessorKey: "createdAt",
-				header: "Signed up",
-				Cell: ({ row }) => <When at={row.original.createdAt} />,
-			},
-			{
-				id: "deletion",
-				header: "Deletion",
-				accessorFn: (u) => u.deletionRequestedAt ?? 0,
-				Cell: ({ row }) => {
-					const requestedAt = row.original.deletionRequestedAt;
-					if (requestedAt === null) return "—";
-					return (
-						<>
-							Scheduled · <When at={purgeAfterOf(requestedAt)} />{" "}
-							<Button
-								size="small"
-								onClick={() => setDeletion({ user: row.original, action: "cancel" })}
-							>
-								Keep
-							</Button>
-							<Button
-								size="small"
-								color="error"
-								onClick={() => setDeletion({ user: row.original, action: "purge" })}
-							>
-								Delete now
-							</Button>
-						</>
-					);
-				},
-			},
-			{
-				accessorKey: "id",
-				header: "User id",
-				Cell: ({ row }) => <code>{row.original.id}</code>,
-			},
-			{
-				id: "actions",
-				header: "",
-				enableSorting: false,
-				enableColumnFilter: false,
-				Cell: ({ row }) => (
-					<Button size="small" color="error" onClick={() => setSigningOut(row.original)}>
-						Sign out everywhere
-					</Button>
-				),
-			},
-		],
+	// `setSigningOut` and `setDeletion` are stable state setters: the actions never change.
+	const actions = useMemo<UserActions>(
+		() => ({ signOut: setSigningOut, deletion: (user, action) => setDeletion({ user, action }) }),
 		[],
 	);
 
@@ -114,11 +126,13 @@ export default function UsersPage() {
 			/>
 			<QueryState query={users} isEmpty={(d) => d.rows.length === 0} emptyText="No users match.">
 				{(d) => (
-					<DataTable
-						columns={columns}
-						data={d.rows}
-						initialSort={{ id: "createdAt", desc: true }}
-					/>
+					<UserActionsContext.Provider value={actions}>
+						<DataTable
+							columns={columns}
+							data={d.rows}
+							initialSort={{ id: "createdAt", desc: true }}
+						/>
+					</UserActionsContext.Provider>
 				)}
 			</QueryState>
 			<SignOutEverywhereDialog user={signingOut} onClose={() => setSigningOut(null)} />

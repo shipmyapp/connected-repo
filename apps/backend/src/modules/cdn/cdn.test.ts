@@ -5,13 +5,10 @@ import {
 import { describe, expect, it } from "vitest";
 
 describe("presigner", () => {
-	it.each([
-		"image/svg+xml",
-		"text/html",
-		"Image/PNG",
-		"image/png; x=1",
-		" image/png",
-	])("refuses %s", (type) => expect(isAllowedContentType(type)).toBe(false));
+	it.each(["image/svg+xml", "text/html", "Image/PNG", "image/png; x=1", " image/png"])(
+		"refuses %s",
+		(type) => expect(isAllowedContentType(type)).toBe(false),
+	);
 	it("accepts what browsers send", () => {
 		for (const type of ["image/png", "image/jpeg", "image/webp", "application/pdf", "video/mp4"]) {
 			expect(isAllowedContentType(type)).toBe(true);

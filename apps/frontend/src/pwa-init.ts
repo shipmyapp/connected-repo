@@ -13,7 +13,7 @@ function isInstalledPWA(): boolean {
 }
 
 async function requestStoragePersistence() {
-	if (!navigator.storage || !navigator.storage.persist) {
+	if (!navigator.storage?.persist) {
 		return;
 	}
 

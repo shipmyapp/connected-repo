@@ -13,7 +13,7 @@ export const assertNotLastOwner = async (teamId: string, memberId: string): Prom
 		.where({ id: memberId, teamId })
 		.select("role", "userId")
 		.takeOptional();
-	if (!member || member.role !== "Owner" || member.userId === null) return;
+	if (member?.role !== "Owner" || member.userId === null) return;
 	const owners = await db.teamMembers
 		.unscope("default")
 		.where({ teamId, role: "Owner" })
