@@ -21,7 +21,9 @@ URLs are grouped by shape on both sides: ULID, UUID and long numeric path segmen
 
 Sentry 11 sends spans as they finish (span streaming); there are no transaction events. A request is one trace: the backend's `http.server` span, the oRPC procedure span under it (`orpc.<router>/<procedure>`), and the Postgres and Redis spans under that; a browser request carries `sentry-trace`, `baggage` and `traceparent`, so the trace starts in the browser. Search and alert on spans (`span.op:http.server`, `is_segment:true`), not on transactions.
 
-Sentry owns the spans (ADR-055): it instruments HTTP, Postgres and Redis itself and, with `enableOpenTelemetrySetup`, takes in the spans oRPC and Better Auth make through `@opentelemetry/api`. Nothing else receives traces. Outbound requests carry W3C `traceparent` next to Sentry's headers (`propagateTraceparent`), so another service can continue a trace.
+Sentry owns the spans (ADR-055): it instruments HTTP, Postgres and Redis itself and, with `enableOpenTelemetrySetup`, takes in the spans oRPC and Better Auth make through `@opentelemetry/api`. Nothing else receives traces. Outbound requests carry W3C `traceparent` next to Sentry's headers (`propagateTraceparent`), and a request that brings only `traceparent` continues that trace, so services instrumented with OpenTelemetry stitch in both directions.
+
+Portability: the backend's own spans are made through `@opentelemetry/api` (`trace.getTracer(...)`), never through `Sentry.startSpan`, and the Sentry tracing setup lives only in `apps/backend/src/otel.sdk.ts`. Moving tracing to another backend means replacing that file (an OpenTelemetry SDK with an exporter instead of `Sentry.init`), not the application code.
 
 ## Proving what is sent
 
