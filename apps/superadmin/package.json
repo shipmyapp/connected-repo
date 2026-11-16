@@ -23,8 +23,8 @@
 		"@connected-repo/typescript-config": "*",
 		"@types/react": "^19.3.0",
 		"@types/react-dom": "^19.3.0",
-		"@vitejs/plugin-react-swc": "^4.2.3",
-		"vite": "^7.3.1"
+		"@vitejs/plugin-react-swc": "^4.3.3",
+		"vite": "^7.3.8"
 	},
 	"license": "AGPL-3.0-only",
 	"name": "@connected-repo/superadmin",
