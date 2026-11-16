@@ -18,9 +18,9 @@
 ---
 
 ## Layer 2: Active Task
-- **Objective**: Run on Node 26 everywhere: engines, `.nvmrc`, the Dockerfiles, CI and `@types/node`; images install Yarn without Corepack.
+- **Objective**: Every dependency on the newest release inside its current major; one range per package across workspaces; the lockfile deduplicated.
 - **Status**: Completed.
-- **Context**: root `package.json`, `.nvmrc`, `apps/*/Dockerfile`, `apps/{backend,frontend}/Dockerfile.dev`, `.github/workflows/ci.yml`, `scripts/check-images.sh` (checks the backend image's Node major); Sentry 10.78 and `tsx` 4.23 moved with the runtime (ADR-054).
+- **Context**: every `package.json`, `yarn.lock`, `biome.json` (Biome 2.6; Markdown not formatted), the Dockerfiles' global turbo. Held back inside the major: Better Auth (1.5.0 exact, moves with its OAuth provider), `@opentelemetry/api` (below 1.10 while Sentry is 10). `pqb` equals the version `orchid-orm` depends on.
 
 ## Layer 3: Decision Records
 

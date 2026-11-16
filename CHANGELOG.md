@@ -46,6 +46,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 - Runtime moved to Node 26 (engines, .nvmrc, Dockerfiles, CI). Docker images install Yarn 1.22.22 with npm. Sentry moved to 10.78 with it (its profiler ships Node 26 binaries for glibc and musl), and `tsx` to 4.23.
 - The build scripts call `turbo`, `tsc-alias` and `vite` directly instead of through `npx`.
+- Dependencies refreshed to the latest release inside each one's current major, and the lockfile deduplicated (one zod, one React, one `@opentelemetry/api` 1.9.x, one Vite). Known advisories (`yarn audit`) down from 362 to 28; every one left waits on a major upgrade (Better Auth, `@novu/api`, `pdfjs-dist`, `firebase-admin`) or on upstream (Firebase's Firestore, Workbox's build tooling). Better Auth stays on 1.5.0 for now.
+- Biome 2.6. Markdown is not run through its formatter.
 - The backend image smoke-tests its runtime stage against `apps/backend/.env.example`, which therefore passes the schema as committed.
 - Docker builds upload source maps again (`turbo.json` passes `SENTRY_UPLOAD_SOURCEMAPS` through).
 - The application MCP's own host (`MCP_PUBLIC_URL`) is `mcp.<root>`, routed by the team-host wildcard to the frontend nginx, which passes it to the backend; `mcp` is a reserved team slug.
@@ -79,6 +81,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Unused helpers reported by knip: the pg-tbus task query module, the dayjs time-zone helper, `isSystemContext`.
 
 ### Fixed
+- The journal entry's attachment preview no longer remounts on every render of the entry (it was a component declared inside a component), so its fall-back from the thumbnail to the main image sticks.
 - The backend image now ships the dependencies Yarn could not hoist (`apps/backend/node_modules`, e.g. `@better-auth/oauth-provider`); the server failed to start without them.
 - The dev stack mounts Postgres 18's data volume where that image expects it (`/var/lib/postgresql`).
 
