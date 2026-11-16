@@ -13,7 +13,7 @@ import type { SyncMetadata } from "@connected-repo/zod-schemas/sync.zod";
  *   pending → lost                (source disappeared before upload)
  *   * → abandoned                 (out of retries)
  */
-export const FILE_UPLOAD_STATES = [
+const FILE_UPLOAD_STATES = [
 	"pending",
 	"uploading",
 	"uploaded_to_cdn", // CDN PUT succeeded; backend not yet told the URL
