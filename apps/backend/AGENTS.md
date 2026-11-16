@@ -10,7 +10,7 @@
 - **Backward Compatibility**: N-1 frontend support; additive-only migrations; two-step deletions.
 - **Dual Team Model**: `teams_app` (Session/UI) vs `teams_api` (Key/External).
 - **Active team gate**: `rpcProtectedActiveTeamProcedure` wants `x-team-id` to name the user's active team. `context.user` is Better Auth's cookie copy of the row (five minutes old at most); when the header and the copy disagree the gate reads `users.activeTeamAppId` once and the row decides (`teams.setActiveTeam` writes it behind Better Auth's back).
-- **Redis**: `configs/redis.config.ts` (`getRedis()`, one ioredis connection opened on first use, `closeRedis()` on shutdown) and `utils/redis.utils.ts` (`getRedisStatus`, `redisReady`). Holds only the rate-limit buckets (`modules/system/services/rate_limit.service.ts`) and the ended-session marks (`modules/auth/services/revoked_sessions.auth.service.ts`); both fail open when it is down. Tests use Redis database 1; tests that need a live Redis skip locally and fail in CI when it is missing.
+- **Redis**: `configs/redis.config.ts` (`getRedis()`, one ioredis connection opened on first use, on RESP2 (`protocol: 2`; ioredis 6 defaults to RESP3), `closeRedis()` on shutdown) and `utils/redis.utils.ts` (`getRedisStatus`, `redisReady`). Holds only the rate-limit buckets (`modules/system/services/rate_limit.service.ts`) and the ended-session marks (`modules/auth/services/revoked_sessions.auth.service.ts`); both fail open when it is down. Tests use Redis database 1; tests that need a live Redis skip locally and fail in CI when it is missing.
 
 ---
 
