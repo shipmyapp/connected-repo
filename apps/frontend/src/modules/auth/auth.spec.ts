@@ -23,6 +23,19 @@ test.describe("Authentication", () => {
 		// Start at login page
 		await page.goto("/auth/login");
 
+		// Every page load the sign-in starts, and any that were cut off by
+		// another: the sign-in makes exactly one, to the dashboard.
+		const documentLoads: string[] = [];
+		const abortedLoads: string[] = [];
+		page.on("request", (request) => {
+			if (request.isNavigationRequest()) documentLoads.push(new URL(request.url()).pathname);
+		});
+		page.on("requestfailed", (request) => {
+			if (request.isNavigationRequest()) {
+				abortedLoads.push(`${request.url()} ${request.failure()?.errorText ?? ""}`);
+			}
+		});
+
 		// Click the login button (shows "Continue with Google" but uses password login in test mode)
 		await page.locator("text=Continue with Google").click();
 
@@ -31,5 +44,7 @@ test.describe("Authentication", () => {
 
 		// Verify user is authenticated by checking for the profile link
 		await expect(page.getByRole("link", { name: "Profile and settings" })).toBeVisible();
+		expect(abortedLoads).toEqual([]);
+		expect(documentLoads).toEqual(["/dashboard"]);
 	});
 });

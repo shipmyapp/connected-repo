@@ -117,17 +117,16 @@ export const LoginPage = () => {
 						email,
 						password,
 						rememberMe: true,
-						callbackURL,
 					},
 					{
 						throw: true,
 					},
 				);
-				// Email/password sign-in does NOT return a redirect URL — it
-				// just sets the session cookie. Navigate manually so the
-				// Playwright e2e globalSetup's `waitForURL('**/dashboard')`
-				// resolves instead of timing out on the login page.
-				// Replace, not push: Back from the app must not return to sign-in.
+				// No `callbackURL` on the sign-in: with one, Better Auth answers
+				// `redirect: true` and its client starts a navigation of its own
+				// (`location.href`), which the replace below then aborts. This
+				// page makes the one navigation, a replace: Back from the app
+				// must not return to sign-in.
 				window.location.replace(callbackURL);
 				return;
 			} else {
