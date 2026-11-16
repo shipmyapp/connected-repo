@@ -2619,10 +2619,10 @@
     "@nodelib/fs.scandir" "2.1.5"
     fastq "^1.6.0"
 
-"@novu/api@^1.8.0":
-  version "1.8.0"
-  resolved "https://registry.yarnpkg.com/@novu/api/-/api-1.8.0.tgz#6d50797078365ed751b6c8e95de7c07f4c2b4b56"
-  integrity sha512-ba/+fogM+a380AfJ2SSGBQSnHJe0H2Io2NWOf7LeJwFhWIjiYlNAZ1N5DaFv+jNRkaKh33jXDoWWkqqgQUu5lw==
+"@novu/api@^3.19.1":
+  version "3.19.1"
+  resolved "https://registry.yarnpkg.com/@novu/api/-/api-3.19.1.tgz#bf4c0976c1cd99e96b01287a8e3a3c380a975cf9"
+  integrity sha512-vCY0c6WLSNWist6jQH3xAyLTmgZz14/JWpxDh2AnEhBIHwsyyz+h3JRQG3OZZYUpdJzCXYiqZwY20WvDturn6w==
   dependencies:
     zod "^3.25.0 || ^4.0.0"
 
