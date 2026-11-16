@@ -20,6 +20,10 @@ export default defineConfig({
 	test: {
 		environment: "node",
 		setupFiles: ["./src/test/setup.ts"],
+		// Node 25+ defines its own global localStorage/sessionStorage (empty
+		// without --localstorage-file), which hides jsdom's: turn Node's off so
+		// jsdom tests get the browser's storage.
+		execArgv: ["--no-experimental-webstorage"],
 		include: ["src/**/*.test.{ts,tsx}"],
 		// e2e specs are Playwright, not vitest.
 		exclude: ["e2e/**", "node_modules/**", "**/*.spec.ts"],
