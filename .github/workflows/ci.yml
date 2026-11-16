@@ -117,6 +117,11 @@ jobs:
       - name: Run tests
         run: yarn test:run
 
+      # The built backend against a local stand-in for Sentry: the spans
+      # nest (HTTP, oRPC, Postgres) and nothing private leaves the process.
+      - name: What the backend sends to Sentry
+        run: yarn check:sentry
+
       # The mobile app's OpenAPI document must match the user-app router.
       # A change to a user-app procedure regenerates it:
       # `NODE_ENV=test yarn workspace @connected-repo/backend gen:openapi`.
