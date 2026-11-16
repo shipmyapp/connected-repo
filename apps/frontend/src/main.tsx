@@ -16,15 +16,16 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { initInstrumentation } from "./instrumentation";
 
-// Test-only escape hatch: expose the DataWorker proxy on `window` so
+// Test-only escape hatch: expose the worker proxies on `window` so
 // Playwright specs can drive Dexie invariants (e.g. the
-// `filesDb.bulkUpsertFromServer` merge policy) without a real CDN
-// upload. Never bundled outside test builds — `isTest` is
-// dead-code-eliminated at build time.
+// `filesDb.bulkUpsertFromServer` merge policy) and the MediaWorker's
+// thumbnails without a real CDN upload. Never bundled outside test
+// builds — `isTest` is dead-code-eliminated at build time.
 if (isTest) {
 	void import("./worker/worker.proxy").then((m) => {
 		(window as unknown as { __testHooks?: unknown }).__testHooks = {
 			getDataProxy: m.getDataProxy,
+			getMediaProxy: m.getMediaProxy,
 		};
 	});
 }

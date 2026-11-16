@@ -241,7 +241,7 @@ UI Thread (React)
 
 **MediaWorker**: Stateless processing worker
 - Image thumbnail generation (browser-image-compression)
-- PDF thumbnail rendering (pdfjs-dist)
+- PDF thumbnail rendering (pdfjs-dist 6: Chrome 125+, Safari 18+; an older browser attaches the PDF without a thumbnail)
 - Returns derived thumbnail blobs to the caller — never persists, never uploads
 
 > Note: video thumbnails currently run on the main thread (`VideoDecoder`/`<video>` need a DOM runtime).

@@ -24,7 +24,7 @@
 		"firebase": "^12.19.0",
 		"lit": "^3.3.3",
 		"material-react-table": "^3.2.1",
-		"pdfjs-dist": "^5.7.284",
+		"pdfjs-dist": "^6.5.438",
 		"react": "^19.3.1",
 		"react-dom": "^19.3.1",
 		"react-hook-form": "^7.92.0",
