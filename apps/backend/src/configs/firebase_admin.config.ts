@@ -1,7 +1,14 @@
 import { env } from "@backend/configs/env.config";
 import { logger } from "@backend/utils/logger.utils";
-import admin from "firebase-admin";
-import type { Messaging } from "firebase-admin/messaging";
+import {
+	type App,
+	applicationDefault,
+	cert,
+	getApps,
+	initializeApp,
+	type ServiceAccount,
+} from "firebase-admin/app";
+import { getMessaging, type Messaging } from "firebase-admin/messaging";
 
 /**
  * Server-side FCM handle. Bypasses Novu for silent-sync pushes so we
@@ -15,16 +22,17 @@ import type { Messaging } from "firebase-admin/messaging";
  * trigger (60s interval + visibilitychange/focus/online) covers the
  * uninstalled-push case.
  */
-function initFirebaseAdmin(): admin.app.App | null {
-	if (admin.apps.length > 0) {
-		return admin.apps[0] ?? null;
+function initFirebaseAdmin(): App | null {
+	const existing = getApps();
+	if (existing.length > 0) {
+		return existing[0] ?? null;
 	}
 
 	if (env.FIREBASE_SERVICE_ACCOUNT_JSON) {
 		try {
-			const parsed = JSON.parse(env.FIREBASE_SERVICE_ACCOUNT_JSON) as admin.ServiceAccount;
-			return admin.initializeApp({
-				credential: admin.credential.cert(parsed),
+			const parsed = JSON.parse(env.FIREBASE_SERVICE_ACCOUNT_JSON) as ServiceAccount;
+			return initializeApp({
+				credential: cert(parsed),
 			});
 		} catch (err) {
 			logger.error(
@@ -37,8 +45,8 @@ function initFirebaseAdmin(): admin.app.App | null {
 
 	if (env.GOOGLE_APPLICATION_CREDENTIALS) {
 		try {
-			return admin.initializeApp({
-				credential: admin.credential.applicationDefault(),
+			return initializeApp({
+				credential: applicationDefault(),
 			});
 		} catch (err) {
 			logger.error({ err }, "[firebase-admin] applicationDefault() failed — silent push disabled");
@@ -52,5 +60,5 @@ function initFirebaseAdmin(): admin.app.App | null {
 const firebaseAdminApp = initFirebaseAdmin();
 
 export const firebaseMessaging: Messaging | null = firebaseAdminApp
-	? admin.messaging(firebaseAdminApp)
+	? getMessaging(firebaseAdminApp)
 	: null;

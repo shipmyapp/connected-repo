@@ -21,7 +21,7 @@
 		"comlink": "^4.4.2",
 		"dayjs": "^1.11.23",
 		"dexie": "^4.4.7",
-		"firebase": "^12.19.0",
+		"firebase": "^13.3.0",
 		"lit": "^3.3.3",
 		"material-react-table": "^3.2.1",
 		"pdfjs-dist": "^6.5.438",

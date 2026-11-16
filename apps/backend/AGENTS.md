@@ -86,6 +86,7 @@ export const create = rpcProtectedProcedure
 - **Procedures**: Use `rpcSensitiveProcedure` for data-destructive actions.
 - **Client address**: never read `x-forwarded-for` or `x-real-ip`: use `getClientIpAddress(reqHeaders)` (the address `main.handler.ts` stamps into `x-client-ip` from `TRUSTED_PROXY_COUNT`).
 - **Better Auth's Orchid adapter** (`modules/auth/orchid-adapter`): every Better Auth table is listed in `model_table_map.orchid_adapter.ts` and in the plugin's `schema` option of `auth.config.ts`. `updateMany` and `deleteMany` return the affected-row count; `consumeOne` and `incrementOne` are native (one guarded statement each). Date fields reach Better Auth as `Date`s, also from `timestampNumber` columns. `where.mode: "insensitive"` is not implemented; matching is case-sensitive.
+- **Firebase Admin** is used through its modular entry points (`firebase-admin/app`, `firebase-admin/messaging`).
 - **Auth secret**: rotating `BETTER_AUTH_SECRET` signs everyone out and makes stored provider tokens unreadable (they are rewritten at the next sign-in).
 - **Webhooks**: calls use `webhookHttpsAgent` and `proxy: false`; receivers verify `X-Webhook-Signature` (`t=<unix>,v1=<hex HMAC-SHA256(secret, t + "." + body)>`).
 - **Logs**: fields named in `LOG_REDACT_PATHS` (`utils/logger.utils.ts`) are censored; add a key there (and a case to `logger.utils.test.ts`) before logging a new kind of secret.
