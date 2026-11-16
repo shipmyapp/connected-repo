@@ -13,9 +13,7 @@
 ---
 
 ## 2. Active Task
-**Context**: Syncing UI package documentation with the monorepo standard.
-**Current Status**: Refactoring `AGENTS.md` to 3-layer lifecycle.
-**Intent**: Ensure agents use direct imports and responsive patterns.
+None (release 2.0.0). See the root `AGENTS.md`.
 
 ---
 

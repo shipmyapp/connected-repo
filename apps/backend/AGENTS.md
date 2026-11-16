@@ -2,7 +2,7 @@
 
 ## 1. Blueprint
 **Intent**: Robust, event-driven oRPC backend with strict schema enforcement and zero-downtime compatibility.
-**Core Stack**: oRPC, Orchid ORM, pg-tbus, Better Auth, Novu, Redis (rate limits only).
+**Core Stack**: oRPC, Orchid ORM, pg-tbus, Better Auth 1.7, Novu, Redis (rate limits and ended-session marks only), Sentry 11 (errors and tracing, `src/otel.sdk.ts`).
 
 **Key Architectures**:
 - **Event-Driven**: `pg-tbus` for async tasks (notifications, usage tracking) and events.
@@ -15,9 +15,7 @@
 ---
 
 ## 2. Active Task
-**Context**: Robust Boilerplate Standardization (Plan 005).
-**Current Status**: Completed restoring advanced patterns (Push notifications, Cron scheduling, Security hardening).
-**Intent**: Ready for next phase of MVP development (User Schedules).
+None (release 2.0.0). See the root `AGENTS.md`.
 
 ---
 
@@ -27,7 +25,7 @@
 | [ADR-B01] | Additive migrations (expand/contract) | Accepted | Never rename or drop in one deployment. Release N expands: add the new column/table, write both, stop reading the old one (old and new code, and N-1 clients, run against the same schema). Release N+1 contracts: drop the old column/table once nothing running reads it. A synced table's dropped column also leaves its zod select schema in N+1, not N. |
 | [ADR-B02] | Mutex Cron | Accepted | Prevent concurrent cron runs via a Postgres advisory lock (`pg_try_advisory_xact_lock`), safe across replicas. |
 | [ADR-B03] | Soft Delete | Accepted | Mandatory for sync compatibility (use `deletedAt` field). |
-| [ADR-B04] | Files Sync Rationale | Accepted | Use .merge() on create to backup asynchronous metadata. |
+| [ADR-B04] | Files Sync Rationale | Superseded by ADR-023 | Was: use .merge() on create to back up asynchronous metadata. A file row is now inserted or refused (409), never upserted; URLs are set only by `pushCdnUpdates`. |
 | [ADR-B05] | Backend Hardening | Accepted | Strict SSRF guards on webhooks, dummy hashes for API keys, and server-owned teamId scoping. |
 | [ADR-B06] | Redis down = limits open | Accepted | `checkAndRecordRateLimit` lets a request through when Redis errors or times out (500 ms), logging once a minute; `{ failClosed: true }` (service) / `failClosed: true` (middleware) refuses instead. All four template limits (`app`, `sensitive`, `super-admin`, `openapi`) are fail-open. |
 | [ADR-B07] | Indexes declared on the table classes | Accepted | Every index, including partial unique ones, is declared on its table class so `yarn db g` reproduces it. The generator leaves enum columns out of its partial-index comparison: check a new partial index on an enum column by hand. |
@@ -121,9 +119,9 @@ export const create = rpcProtectedProcedure
 - A new workspace package the backend imports needs its `dist` copied into the runtime stage of `apps/backend/Dockerfile`; the smoke test fails without it. Packages Yarn cannot hoist land in `apps/backend/node_modules`, which the runtime stage copies too.
 
 ### Testing
-- **Vitest**: Test all CRUD operations. Use `createTestUserAndSession` for auth context.
+- **Vitest**: Test all CRUD operations. Use `createUserAndLogin` (`src/test/utils/user-auth.utils.ts`) for an auth context; it signs in through the test-only email door.
 - `createUserAndLogin()` returns a verified account (as Google/Apple sign-ins are); pass `{ verified: false }` for an unproved address. `src/test/utils/team.utils.ts` builds shared teams and members (`createSharedTeam`, `addMember`, `onTeam`).
 
 ## Quick Reference
 - **DB**: `yarn db g <name>`, `yarn db up`, `yarn db seed`
-- **OpenAPI**: `yarn gen:openapi`
+- **OpenAPI**: `NODE_ENV=test yarn workspace @connected-repo/backend gen:openapi` after any user-app router or schema change; `check:openapi` (CI) fails on a stale `openapi_pretty.json`

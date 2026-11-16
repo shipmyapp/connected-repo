@@ -13,9 +13,7 @@
 ---
 
 ## 2. Active Task
-**Context**: Standardizing schema package documentation with the monorepo standard.
-**Current Status**: Refactoring `AGENTS.md` to 3-layer lifecycle.
-**Intent**: Maintain strict entity patterns and validator usage.
+None (release 2.0.0). See the root `AGENTS.md`.
 
 ---
 

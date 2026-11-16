@@ -14,6 +14,9 @@
 - **Within package**: Relative imports (`./Component`, `../folder/Component`)
 - **Between packages**: Package exports (`@connected-repo/package/path/Component`)
 
+### Sharing between the apps
+A component or client utility that both `apps/frontend` and `apps/superadmin` need lives in a shared package (`@connected-repo/ui-mui` for web pieces, `@connected-repo/zod-schemas` for schemas, env primitives and pure rules) and is imported by direct path. Neither app imports from the other, and neither keeps its own copy (root ADR-030).
+
 ## Available Packages
 
 ### @connected-repo/typescript-config

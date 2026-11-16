@@ -3,12 +3,12 @@
 ## 1. Blueprint
 **Intent**: Offline-capable PWA with worker-isolated storage and pull-based delta sync.
 **Core Stack**: React 19, Vite 8, React Router 8, TanStack Query + oRPC, Dexie.js
-(per-user), Comlink workers, MUI, Better Auth, Sentry.
+(per-user), Comlink workers, MUI, Better Auth, Sentry 11.
 
 **Key Architectures**:
 - **Two dedicated workers** (see `src/worker/AGENTS.md`):
   - `DataWorker` — per-user Dexie DB + `SyncOrchestrator` + `FileUploadWorker`.
-  - `MediaWorker` — stateless thumbnail generation + CDN uploads.
+  - `MediaWorker` — stateless thumbnail generation; it never persists or uploads (CDN uploads are the DataWorker's `FileUploadWorker`).
   Both exposed to the main thread via Comlink (`getDataProxy()`, `getMediaProxy()`).
 - **Pull-based delta sync**: two-cursor pull-delta per table, push-creates for the
   offline queue. No SSE, no long-lived socket.
@@ -65,7 +65,7 @@ src/
 
 ### Worker Access (proxy pattern)
 ```ts
-import { getDataProxy } from "@/worker/worker.proxy";
+import { getDataProxy } from "@frontend/worker/worker.proxy";
 const entry = await (await getDataProxy()).journalEntriesDb.getById(id);
 ```
 Never `new Worker()` directly outside `worker.proxy.ts`.
@@ -109,6 +109,9 @@ Each trigger calls `sync.processQueue()` on the DataWorker, which is idempotent
 ### Env and the production image
 - A new `VITE_*` key goes in: the env schema (`utils/env_validator.zod.utils.ts`), `.env.example`, `apps/frontend/Dockerfile` (`ARG` + `ENV`), `docker-compose.prod.yml` build args, `deploy/dokploy/frontend.build-args` and both `deploy/*.env.example`. `yarn check:deploy` fails on a missing one. It is public: it ends up in the bundle.
 - nginx (`nginx.conf.template`, `nginx.security-headers.inc.template`) sends a report-only CSP: a new third-party origin goes in its `connect-src` (or a deployment's `CSP_CONNECT_EXTRA`). A location with its own `add_header` must include `security-headers.inc` again. Every proxied location sends `X-Forwarded-For $remote_addr`, never `$proxy_add_x_forwarded_for` (root ADR-053).
+
+### Navigating from an effect
+- An effect that redirects (the dashboard's first-run redirect) checks the router's live state, `router.state.navigation` and `router.state.location` (`@frontend/router`), not `useNavigation()`: the router publishes its state in a transition, so a render can still show "idle" after a click has started a navigation, and a `navigate()` then replaces the person's choice.
 
 ### UI Standards
 - **Design**: Tasteful, smooth (200-300ms transitions), responsive.
