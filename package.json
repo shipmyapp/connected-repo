@@ -5,7 +5,7 @@
 		"ulid": "^3.0.2",
 		"zod": "^4.6.7"
 	},
-	"description": "Starter Monorepo using Turbo of Nodejs + OrchidORM + oRPC + Reactjs with opentelemetry setup",
+	"description": "Starter Monorepo using Turbo of Nodejs + OrchidORM + oRPC + Reactjs with Sentry tracing",
 	"devDependencies": {
 		"@biomejs/biome": "^2.6.8",
 		"concurrently": "^10.0.7",

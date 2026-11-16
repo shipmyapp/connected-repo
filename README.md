@@ -16,7 +16,7 @@ Production-ready Turborepo monorepo for building full-stack TypeScript applicati
 - **Task Queue**: [pg-tbus](https://github.com/hextech-dev/pg-tbus) (PostgreSQL-based event bus)
 - **Authentication**: Better Auth (Google OAuth)
 - **Notifications**: Novu (in-app inbox, FCM push, email); workflows kept in code and in the Novu dashboard, the newer winning at boot
-- **Observability**: OpenTelemetry, Sentry
+- **Observability**: Sentry (errors, traces with the oRPC and Postgres spans, profiles, logs), with an explicit data-collection allow list
 - **Security**: Helmet, CORS, Rate Limiting, API key auth
 
 ### Frontend

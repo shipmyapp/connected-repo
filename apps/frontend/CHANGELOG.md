@@ -34,6 +34,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Sentry 11 (`@sentry/react`, `@sentry/vite-plugin` 11.12.0): `dataCollection` replaces `sendDefaultPii` (`utils/sentry_scrub.ts`: no user info beyond the id, no IP, cookies, headers, bodies or query strings); `beforeSendSpan` works on streamed spans and names an unresolved page load after the page's shape; Logs come from `consoleLoggingIntegration` alone (`enableLogs` is gone).
 - @hookform/resolvers 7, @mui/x-date-pickers 9, pdfjs-dist 6 (thumbnails of PDFs need Chrome 125+ or Safari 18+), firebase 13, dotenv 18, Vite 8, Vitest 5, vite-plugin-pwa 2, react-router 8, jsdom 31, sharp 0.35 (`yarn generate:icons`; same pixels). The auth loader no longer writes the session into the router context, which nothing read. An e2e test covers the built service worker taking control and the app starting offline. Tests cover the journal entry form's validation, the reminder time picker and a PDF's thumbnail (e2e, through the MediaWorker the test build exposes on `window.__testHooks`).
 
 - `.env.example` lists every key the app reads; its `VITE_OTEL_SERVICE_NAME` is `connected-repo-frontend` and its Sentry DSN is blank.

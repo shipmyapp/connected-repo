@@ -40,6 +40,7 @@
 | [ADR-B14] | Teammates see public user fields only | Accepted | A relation that shows one member to another selects `userPublicZod` (`id`, `name`, `image`), never `userSelectAllZod`. |
 | [ADR-B15] | Super-admin over RPC and OpenAPI | Accepted | `superAdminRouter` is served twice: RPC at `/api/super-admin` for the console's typed client, OpenAPI + Scalar at `/super-admin/` for people and scripts. Admin reads are cross-tenant on purpose (`team_members` through `.unscope("default")`); lists count the filter and order only the page (`count()` on an ordered query fails in Postgres). Every mutation is wrapped in `withOperatorAudit` (root ADR-033). |
 | [ADR-B16] | modules/devices | Accepted | `device_cookie.devices.middleware.ts` (`applyDeviceCookie` in `main.handler.ts` before the auth handler; `deviceKeyOf(headers)`), `report.devices.service.ts` (one upsert; moves an address between accounts; Novu full-list sync in the same transaction), `push.devices.service.ts` (`syncNovuFcmCredentials`, `pushOffDevice`), `install_tries.devices.service.ts`, `device_state.devices.service.ts` (`devices.here`). The nightly reconcile and the silent-sync cron read `devices`. |
+| [ADR-B17] | Sentry setup in one file | Accepted | `src/otel.sdk.ts` is the first import of `server.ts` (Sentry's runtime hooks must load before `pg` and `ioredis`; `node dist/server.js` and `tsx watch` both work, no `--import`). It holds `Sentry.init` and nothing else of tracing: `dataCollection` (an allow list; never leave a category to Sentry's default), `tracesSampler` (untraced paths, no root span for database or Redis work), `beforeSendSpan` (route-shaped names and URLs, no bound SQL values, client addresses or Redis arguments) and `beforeSend`. Code that wants a span uses `@opentelemetry/api` or `Sentry.startSpan`; both end up in the request's trace. Root ADR-055. Any change to it passes `yarn check:sentry`. |
 
 ## What to declare in a privacy notice
 
@@ -116,7 +117,7 @@ export const create = rpcProtectedProcedure
 
 ### Environment and image
 - The Docker build boots the runtime image against `.env.example`. A new required variable needs a schema-valid placeholder there, or the image build fails. Read env only through `configs/env.config.ts` (never `process.env` elsewhere); a new key also goes in `.env.example`, `.env.test` when tests need it, `deploy/dokploy/backend.env` and both `deploy/*.env.example`. `yarn check:deploy` fails on a missing one.
-- `OTEL_SERVICE_NAME` is the pg-tbus queue name: never change it on a live environment.
+- `OTEL_SERVICE_NAME` names the Sentry release (`<name>@<commit>`) and the log lines; Sentry itself no longer reads it. The pg-tbus queue is named in code (root ADR-018).
 - A new workspace package the backend imports needs its `dist` copied into the runtime stage of `apps/backend/Dockerfile`; the smoke test fails without it. Packages Yarn cannot hoist land in `apps/backend/node_modules`, which the runtime stage copies too.
 
 ### Testing

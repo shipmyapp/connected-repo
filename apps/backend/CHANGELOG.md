@@ -52,6 +52,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Sentry 11 (`@sentry/node`, `@sentry/profiling-node` 11.12.0) owns the spans: `otel.sdk.ts` is one `Sentry.init` with `enableOpenTelemetrySetup: true` (oRPC's spans arrive through `ORPCInstrumentation`), an explicit `dataCollection` (header values only for `accept`, `content-type`, `content-length`, `user-agent`; no cookies, bodies, query strings, user info, database query data or local variables) and a `beforeSendSpan` for streamed spans (route-shaped names and URLs, no bound SQL values, client addresses or Redis command arguments). Health checks are ignored before a span starts (`ignoreIncomingRequests`); database and Redis work outside a request is not sampled. Shutdown calls `Sentry.close` (`closeBackendErrorTracking`). The boot line says `Sentry: on` only when a DSN is set.
 - Better Auth 1.7.25 with its OAuth provider. Migration `0017_oauth_provider_resources` adds the provider's client columns (`application_type`, keys, back-channel logout, machine scopes), the token columns (resources, authorization code, rotation, `revoked`) and the tables `oauth_resources`, `oauth_client_resources`, `oauth_client_assertions`; existing clients get `application_type` and, when public, `token_endpoint_auth_method = 'none'`. `oauth_clients.public` and `type` are no longer read and go in a later release.
 - Tokens are issued for the MCP resource through the provider's `resources` (it seeds `oauth_resources` at boot); `principalFromBearer` also refuses a revoked token and one naming another server. Registration goes through the provider's `registerOAuthClient`; over HTTP its own endpoint takes public clients only, and a loopback `http` redirect URI registers a native client.
 - `@novu/api` 3, dotenv 18, Vitest 5, ioredis 6 (the client keeps RESP2: `protocol: 2`), and firebase-admin 14 through its modular entry points (`firebase-admin/app`, `firebase-admin/messaging`).
@@ -105,6 +106,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Removed
 
+- `OTEL_TRACE_EXPORTER_URL` and the OpenTelemetry SDK behind it (`NodeSDK`, the OTLP exporter, the HTTP and Postgres instrumentations, the composite propagator, `@sentry/opentelemetry`); `flushBackendErrorTracking` (replaced by `closeBackendErrorTracking`).
 - `SESSION_SECRET`, `INTERNAL_API_SECRET` and `DB_SCHEMA` from the env schema (never read).
 
 - `@novu/framework` (and `zod-to-json-schema`, which only it used), the `/api/novu` bridge (`novu.handler.ts`), `yarn novu:sync`, `scripts/deploy_novu_sync.sh` and the `npx novu@latest sync` spawned at every boot.

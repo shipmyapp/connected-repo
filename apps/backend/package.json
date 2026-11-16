@@ -34,7 +34,7 @@
 		"ua-parser-js": "^2.0.10",
 		"ulid": "^3.0.2"
 	},
-	"description": "Starter Monorepo using Turbo of Nodejs + OrchidORM + oRPC + Reactjs with opentelemetry setup",
+	"description": "Starter Monorepo using Turbo of Nodejs + OrchidORM + oRPC + Reactjs with Sentry tracing",
 	"devDependencies": {
 		"@connected-repo/typescript-config": "*",
 		"@orpc/contract": "1.16.2",

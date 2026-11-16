@@ -7,14 +7,25 @@ Two Sentry projects: the frontend (`VITE_SENTRY_DSN`, baked into the bundle) and
 | | Frontend (`apps/frontend/src/instrumentation.ts`) | Backend (`apps/backend/src/otel.sdk.ts`) |
 |---|---|---|
 | Errors | every error, except network noise and extension errors (`IGNORED_ERRORS`, `denyUrls`) | every captured error |
-| Traces | `VITE_SENTRY_TRACES_SAMPLE_RATE`, else 0.3; none in development | `SENTRY_TRACES_SAMPLE_RATE`, else 0.1 in production and 1.0 elsewhere; health checks and the tunnel never traced |
+| Traces | `VITE_SENTRY_TRACES_SAMPLE_RATE`, else 0.3; none in development | `SENTRY_TRACES_SAMPLE_RATE`, else 0.1 in production and 1.0 elsewhere; a request continuing a browser trace keeps the browser's decision; health checks and the tunnel never traced; database and Redis work outside a request (crons, the pg-tbus poller) never starts a trace |
 | Replays | sessions `VITE_SENTRY_REPLAYS_SESSION_SAMPLE_RATE`, else 0; on error `VITE_SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE`, else 1; text, inputs and media masked | — |
 | Profiles | browser profiling during traces | `SENTRY_PROFILES_SAMPLE_RATE`, else 0 |
 | Environment | `VITE_SENTRY_ENV`, else the build's `NODE_ENV` | `SENTRY_ENVIRONMENT`, else `NODE_ENV` |
-| Personal data | no IP, no headers (`sendDefaultPii: false`); the user by id only | no IP, no headers; SQL parameters stripped from spans |
+| Personal data | `dataCollection` (`utils/sentry_scrub.ts`): the user by id only, no IP, cookies, headers, bodies or query strings | `dataCollection`: the user by id only, no IP, cookies, bodies, query strings or database query data; header values only for `accept`, `content-type`, `content-length`, `user-agent`; bound SQL values, client addresses and Redis command arguments stripped from spans |
+| Logs | `console.warn` and `console.error` (`consoleLoggingIntegration`) | none: pino lines are breadcrumbs on errors |
 | Transport | direct; the same-origin tunnel `/api/sentry-tunnel` (proxied by the frontend nginx to Sentry's ingest) only after a direct send fails while online | direct |
 
-URLs are grouped by shape on both sides: ULID, UUID and long numeric path segments become `:id`.
+URLs are grouped by shape on both sides: ULID, UUID and long numeric path segments become `:id`, and the query string is dropped, in events, spans and breadcrumbs.
+
+## Tracing
+
+Sentry 11 sends spans as they finish (span streaming); there are no transaction events. A request is one trace: the backend's `http.server` span, the oRPC procedure span under it (`orpc.<router>/<procedure>`), and the Postgres and Redis spans under that; a browser request carries `sentry-trace`, `baggage` and `traceparent`, so the trace starts in the browser. Search and alert on spans (`span.op:http.server`, `is_segment:true`), not on transactions.
+
+Sentry owns the spans (ADR-055): it instruments HTTP, Postgres and Redis itself and, with `enableOpenTelemetrySetup`, takes in the spans oRPC and Better Auth make through `@opentelemetry/api`. Nothing else receives traces. Outbound requests carry W3C `traceparent` next to Sentry's headers (`propagateTraceparent`), so another service can continue a trace.
+
+## Proving what is sent
+
+`yarn check:sentry` (CI runs it after the tests) starts the built backend against the test database with a DSN pointing at a local stand-in for Sentry, makes real requests carrying a cookie, a bearer token, an `x-api-key`, other headers, a body and a query string with marker values, and checks every envelope: the spans nest, no marker and no client IP appears, ULIDs arrive as `:id`, health checks and an idle server send nothing, an error arrives in its request's trace, profiling follows `SENTRY_PROFILES_SAMPLE_RATE`. It fails if the server sends nothing. Run `yarn build` and `yarn test:db:setup` first. A change to `otel.sdk.ts` or a Sentry upgrade must keep it green.
 
 ## Environment
 
@@ -47,6 +58,8 @@ Each deploy is its own release, named after the commit the image was built from:
 A build without `.git` (a tarball) falls back to the package version for both. The backend prints `Sentry: on (environment …, release …)` or `Sentry: off` on every start.
 
 ## In Sentry, once, by hand
+
+- **Self-hosted Sentry**: 26.4.2 or later (Sentry 11 SDKs).
 
 - **Settings → Projects → each → Inbound Filters**: on for browser extensions, localhost, legacy browsers and web crawlers. Filtered events do not count.
 - **Settings → Subscription → Spike protection**: on, so one runaway loop cannot spend the month.

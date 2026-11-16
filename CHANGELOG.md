@@ -44,6 +44,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `packages/zod-schemas` runs its own tests (`test:run`): the device, install-try and ask rules.
 
 ### Changed
+- Sentry 11 (`@sentry/*` and `@sentry/vite-plugin` 11.12.0) in the backend and the frontend. Sentry owns the backend's tracing: one `Sentry.init` instruments HTTP, Postgres and Redis, and takes in oRPC's procedure spans through `enableOpenTelemetrySetup`; spans are streamed, so there are no transaction events. Data collection is an explicit allow list in both apps (`dataCollection`; Sentry 11 would otherwise collect cookies, headers, bodies and database query data), and `yarn check:sentry` proves it against the built backend in CI.
+- **Upgrade note:** self-hosted Sentry needs 26.4.2 or later. Dashboards, alerts and saved searches built on transactions must move to spans (`span.op:http.server`, `is_segment:true`); span names are low-cardinality now (a server span is named by its method, `GET`, with the path in `url.path`; a query by its operation and table, `SELECT "journal_entries"`).
 - Runtime moved to Node 26 (engines, .nvmrc, Dockerfiles, CI). Docker images install Yarn 1.22.22 with npm. Sentry moved to 10.78 with it (its profiler ships Node 26 binaries for glibc and musl), and `tsx` to 4.23.
 - The build scripts call `turbo`, `tsc-alias` and `vite` directly instead of through `npx`.
 - Dependencies refreshed to the latest release inside each one's current major, and the lockfile deduplicated (one zod, one React, one `@opentelemetry/api` 1.9.x, one Vite). Known advisories (`yarn audit`) down from 362 to 7 (2 high, none critical) with the majors below; every one left waits on upstream (`@grpc/grpc-js` in Firebase's Firestore, which the app never bundles; Workbox's build tooling). Still on their current major: MUI 7, Sentry 10 with OpenTelemetry 2, Yarn 1 (reasons in `AGENTS.md`).
@@ -76,6 +78,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `turbo run test:run` builds dependencies first.
 
 ### Removed
+- The backend's own OpenTelemetry SDK and the optional second trace destination `OTEL_TRACE_EXPORTER_URL` (remove it from deployments); the packages only it used: `@sentry/opentelemetry`, `@opentelemetry/core`, `exporter-trace-otlp-http`, `instrumentation-http`, `instrumentation-pg`, `resources`, `sdk-node`, `sdk-trace-node`.
 - `docker-compose.yml` (Postgres and Redis only): `docker compose -f docker-compose.dev.yml up postgres redis` does the same.
 - Unread env vars: `SESSION_SECRET`, `INTERNAL_API_SECRET`, `DB_SCHEMA`, `CRON_JOB_*`, `SUPRSEND_*`, `DOCKER_STOP_TIMEOUT`, the backend's `VITE_SENTRY_DSN`, the misnamed `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` and the frontend image's `VITE_SENTRY_RELEASE` build arg (the build sets it from the commit).
 

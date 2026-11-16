@@ -117,7 +117,7 @@ Old layers stay until pruned. Turn on Dokploy's daily Docker cleanup for the ser
 - `deploy/prod.env.example` and `deploy/staging.env.example` list every key a deploy sets; `apps/*/.env.example` list every key each app reads. `yarn check:deploy` keeps them, the schemas, the Dockerfiles' build args and `deploy/dokploy/*` in step.
 - **A blank value means "not set" everywhere:** compose interpolates with `${X:-}`; the frontend and console builds unset empty `VITE_*` before Vite runs; the nginx entrypoints default a blank `BACKEND_UPSTREAM`; the backend drops blank values before its schema (`env.config.ts`).
 - **`VITE_*` keys are baked in at build time:** a change needs a **redeploy** of the SPA. Every other key needs a restart of the backend, or of the frontend nginx for `CSP_CONNECT_EXTRA`, `CSP_ENFORCE`, `MCP_PUBLIC_URL` and `SENTRY_DSN`.
-- **Never change `OTEL_SERVICE_NAME` on a live environment:** it is also the pg-tbus queue name.
+- `OTEL_SERVICE_NAME` names the backend's Sentry release (`<name>@<commit>`) and its log lines; the pg-tbus queue is named in code. There is no separate trace exporter: traces go to Sentry only (`SENTRY_DSN`).
 - `BETTER_AUTH_SECRET` must not be the example value: the backend refuses to start in production or staging with it.
 
 ## Staging
