@@ -6,8 +6,8 @@
 	},
 	"devDependencies": {
 		"@connected-repo/typescript-config": "*",
-		"tsc-alias": "^1.8.16",
-		"typescript": "^5.9.3",
+		"tsc-alias": "^1.9.10",
+		"typescript": "5.9.3",
 		"vitest": "^4.0.18",
 		"zod": "^4.3.6"
 	},

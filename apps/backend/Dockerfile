@@ -18,7 +18,7 @@ RUN npm install -g --no-fund --no-audit yarn@1.22.22
 # git reads the short commit for the Sentry releases; the slim image has none.
 RUN apt-get update && apt-get install -y --no-install-recommends git \
     && rm -rf /var/lib/apt/lists/*
-RUN yarn global add turbo@2.8.12
+RUN yarn global add turbo@2.11.11
 COPY . .
 # Empty when .git is absent; the releases then fall back to the package version.
 RUN git -C /app rev-parse --short=7 HEAD > /app/.build-sha 2>/dev/null || : > /app/.build-sha
