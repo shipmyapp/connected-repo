@@ -21,8 +21,8 @@ import { FetchRefusal, fetchRemoteFile } from "./fetch_remote.user_mcp.service";
  * metadata, so nothing registers per person and the app's identity is the
  * document's host. Claude offers this as "Use Claude's published identity".
  *
- * Better Auth 1.5 knows nothing of it, but it finds a client by `client_id`
- * in our table, so when an authorize request names such a URL we fetch the
+ * Better Auth's provider does not fetch them here, but it finds a client by
+ * `client_id` in our table, so when an authorize request names such a URL we fetch the
  * document, check it, and keep it as a public client under that very
  * `client_id`; the token exchange then finds it as any other. Documents are
  * fetched with the SSRF guard (never a private address),
@@ -94,8 +94,8 @@ const fetchDocument = async (clientId: string) => {
 	if (doc.client_id !== clientId) {
 		throw new DocumentRefusal("The document's client_id is not its own URL.");
 	}
-	// Better Auth 1.5 verifies secrets and nothing else, so only a public
-	// client (PKCE) can stand behind a document here.
+	// No secret can stand behind a document fetched from anywhere: only a
+	// public client (PKCE) is kept here.
 	if (doc.token_endpoint_auth_method && doc.token_endpoint_auth_method !== "none") {
 		throw new DocumentRefusal(
 			`token_endpoint_auth_method ${doc.token_endpoint_auth_method} is not supported for a metadata document; use none.`,

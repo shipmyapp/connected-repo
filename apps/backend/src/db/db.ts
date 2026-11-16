@@ -2,9 +2,12 @@ import { dbConfig } from "@backend/db/config.db";
 import { AccountTable } from "@backend/modules/auth/tables/account.auth.table";
 import {
 	OAuthAccessTokenTable,
+	OAuthClientAssertionTable,
+	OAuthClientResourceTable,
 	OAuthClientTable,
 	OAuthConsentTable,
 	OAuthRefreshTokenTable,
+	OAuthResourceTable,
 } from "@backend/modules/auth/tables/oauth.auth.tables";
 import { SessionTable } from "@backend/modules/auth/tables/session.auth.table";
 import { VerificationTable } from "@backend/modules/auth/tables/verification.auth.table";
@@ -64,6 +67,9 @@ export const db = orchidORM(
 		oauthAccessTokens: OAuthAccessTokenTable,
 		oauthRefreshTokens: OAuthRefreshTokenTable,
 		oauthConsents: OAuthConsentTable,
+		oauthResources: OAuthResourceTable,
+		oauthClientResources: OAuthClientResourceTable,
+		oauthClientAssertions: OAuthClientAssertionTable,
 		connectedAppActions: ConnectedAppActionTable,
 		// Bucket objects to delete after an account purge.
 		storageObjectDeletions: StorageObjectDeletionTable,

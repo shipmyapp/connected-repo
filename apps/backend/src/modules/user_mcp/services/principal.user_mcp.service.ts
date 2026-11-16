@@ -34,7 +34,8 @@ const hhmm = (value: string): string => (value.length > 5 ? value.slice(0, 5) : 
  * Resolves a bearer token presented to the MCP resource `resource`
  * (ADR-045). The resource must be one tokens are issued for; the token must
  * carry our prefix, exist (looked up by its hash, so the database never
- * holds a usable token), be unexpired, belong to an app that is not
+ * holds a usable token), be unrevoked and unexpired, name no other server's
+ * resource, belong to an app that is not
  * disabled and that the person has not disconnected (its consent still
  * exists), and act for an existing account.
  */
@@ -42,15 +43,23 @@ export async function principalFromBearer(
 	presented: string | null,
 	resource: string,
 ): Promise<ConnectedAppPrincipal | PrincipalRefusal> {
-	// Tokens carry no audience (opaque, provider 1.5.0); the provider issues
-	// them only for userMcpAudiences(). A resource outside that list is
-	// another server's: never accept these tokens there.
+	// The provider issues tokens only for userMcpAudiences(). A resource
+	// outside that list is another server's: never accept these tokens there.
 	if (!userMcpAudiences().includes(resource)) return "audience";
 	if (!presented?.startsWith(OAUTH_TOKEN_PREFIX.opaqueAccessToken))
 		return presented ? "unknown" : "missing";
 	const raw = presented.slice(OAUTH_TOKEN_PREFIX.opaqueAccessToken.length);
 	const token = await db.oauthAccessTokens.where({ token: hashOAuthToken(raw) }).takeOptional();
 	if (!token?.userId) return "unknown";
+	// Revoked when the session it was issued under ended.
+	if (token.revoked) return "unknown";
+	// The resources the grant named (RFC 8707): ours, or the token is another server's.
+	if (
+		token.resources?.length &&
+		!token.resources.some((named) => userMcpAudiences().includes(named))
+	) {
+		return "audience";
+	}
 	if (token.expiresAt.getTime() <= Date.now()) return "expired";
 
 	const [client, consent] = await Promise.all([

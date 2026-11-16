@@ -10,6 +10,9 @@ const modelNames = [
 	"oauthAccessTokens",
 	"oauthRefreshTokens",
 	"oauthConsents",
+	"oauthResources",
+	"oauthClientResources",
+	"oauthClientAssertions",
 ] as const;
 export type ModelName = (typeof modelNames)[number];
 

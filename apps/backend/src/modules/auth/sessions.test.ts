@@ -20,7 +20,7 @@ describe("sessions", () => {
 		await expect(client.listMyActiveTeamIds()).resolves.toBeDefined();
 
 		const authCtx = await auth.$context;
-		await authCtx.internalAdapter.deleteSessions(context.user.id);
+		await authCtx.internalAdapter.deleteUserSessions(context.user.id);
 
 		await expect(client.listMyActiveTeamIds()).rejects.toMatchObject({ status: 401 });
 	});

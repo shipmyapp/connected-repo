@@ -18,16 +18,15 @@ import { z } from "zod";
  * Dynamic client registration for connected apps (ADR-045, RFC 7591), in front
  * of Better Auth's `/oauth2/register`.
  *
- * Better Auth registers a confidential client (one with a secret) only for a
- * signed-in person, but AI apps register before anyone has signed in, and
- * Claude asks for `client_secret_post`; refused, it cannot connect at all
- * (2026-11-09). The MCP authorization spec expects open registration, and a
- * secret adds nothing a public client with PKCE lacks, so both kinds are
- * accepted here and created through the provider's server-only endpoint.
+ * AI apps register before anyone has signed in, and Claude asks for
+ * `client_secret_post`; refused, it cannot connect at all (2026-11-09). The
+ * MCP authorization spec expects open registration, and a secret adds nothing
+ * a public client with PKCE lacks, so both kinds are accepted here and handed
+ * to the provider's registration from the server. Over HTTP the provider's own
+ * endpoint registers public clients only (`auth.config.ts`, `hooks.before`):
+ * every app comes through here, with these limits.
  *
- * That endpoint also takes fields only an operator should set (skip the
- * consent screen, turn PKCE off, the client-credentials grant), so the
- * request is reduced to the RFC 7591 metadata an app may choose, PKCE is
+ * The request is reduced to the RFC 7591 metadata an app may choose, PKCE is
  * forced on, the grants are authorization code and refresh only, and the
  * scopes are ours. A person still signs in and consents before any token.
  */
@@ -64,7 +63,7 @@ const registrationZod = z.object({
 
 const ALLOWED_GRANTS = new Set(["authorization_code", "refresh_token"]);
 
-/** What goes to the provider's create-client endpoint: app-chosen metadata, our grants, scopes and PKCE. */
+/** What goes to the provider's registration: app-chosen metadata, our grants, scopes and PKCE. */
 interface RegistrationBody {
 	redirect_uris: string[];
 	token_endpoint_auth_method: "none" | "client_secret_basic" | "client_secret_post";
@@ -221,9 +220,11 @@ export async function handleOAuthRegistration(
 	}
 
 	try {
-		const client = await auth.api.adminCreateOAuthClient({
+		const client = await auth.api.registerOAuthClient({
 			body: registration.body,
 		});
+		// The provider requires PKCE of every registered client; the row says so too.
+		await db.oauthClients.where({ clientId: client.client_id }).update({ requirePKCE: true });
 		logger.info(
 			{
 				oauthRegistration: {

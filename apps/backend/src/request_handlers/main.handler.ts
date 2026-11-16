@@ -108,9 +108,9 @@ export async function mainRequestDispatcher(req: NodeHttpRequest, res: NodeHttpR
 			return;
 		}
 
-		// 2d. Connected apps register themselves here, public or confidential;
-		// Better Auth's own /oauth2/register takes confidential clients only
-		// from a signed-in person, which no AI app is when it registers.
+		// 2d. Connected apps register themselves here, public or confidential,
+		// with the limits of oauth_registration.handler.ts; Better Auth's own
+		// /oauth2/register takes public clients only over HTTP.
 		if (isOAuthRegistrationRequest(requestUrl)) {
 			return await handleOAuthRegistration(req, res);
 		}

@@ -6,6 +6,12 @@ import type {
 	DBTransactionAdapter,
 } from "@better-auth/core/db/adapter";
 import { createAdapterFactory } from "@better-auth/core/db/adapter";
+
+type CustomTransformOutputProps = {
+	data: unknown;
+	fieldAttributes: { type: unknown };
+};
+
 import { createCustomAdapterOrchid } from "./custom_adapter.orchid_adapter";
 
 interface OrchidAdapterConfig {
@@ -41,6 +47,12 @@ export const orchidAdapter = (
 				| false
 				| (<R>(cb: (trx: DBTransactionAdapter<BetterAuthOptions>) => Promise<R>) => Promise<R>),
 			disableIdGeneration: true,
+			// The template's own tables keep most timestamps as epoch
+			// milliseconds (`timestampNumber`). Better Auth expects a `Date` for
+			// every date field: it validates the cookie cache against its schema
+			// and compares what it read in later queries.
+			customTransformOutput: ({ data, fieldAttributes }: CustomTransformOutputProps) =>
+				fieldAttributes.type === "date" && typeof data === "number" ? new Date(data) : data,
 		},
 	};
 

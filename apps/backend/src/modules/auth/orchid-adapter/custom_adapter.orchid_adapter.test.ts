@@ -30,6 +30,7 @@ const eq = (field: string, value: string): CleanedWhere => ({
 	value,
 	operator: "eq",
 	connector: "AND",
+	mode: "sensitive",
 });
 
 describe("createCustomAdapterOrchid — update contract", () => {
@@ -93,5 +94,55 @@ describe("createCustomAdapterOrchid — update contract", () => {
 		// blocked it upstream — the row's ipAddress must be unchanged).
 		const persisted = await db.sessions.unscope("default").where({ id: sessionId }).take();
 		expect(persisted.ipAddress).not.toBe("198.51.100.7");
+	});
+});
+
+describe("createCustomAdapterOrchid — counts and one-time rows", () => {
+	const adapter = createCustomAdapterOrchid(db)(rawCreatorArg);
+	const verification = (identifier: string) =>
+		db.verifications.create({
+			identifier,
+			value: "secret",
+			expiresAt: Date.now() + 60_000,
+		});
+
+	it("updateMany returns the number of rows it changed", async () => {
+		await verification("count-a");
+		await verification("count-a");
+		const changed = await adapter.updateMany({
+			model: "verifications",
+			where: [eq("identifier", "count-a")],
+			update: { value: "changed" },
+		});
+		expect(changed).toBe(2);
+	});
+
+	it("consumeOne hands a row to one caller only", async () => {
+		const row = await verification("consume-a");
+		const [first, second] = await Promise.all([
+			adapter.consumeOne?.({ model: "verifications", where: [eq("id", row.id)] }),
+			adapter.consumeOne?.({ model: "verifications", where: [eq("id", row.id)] }),
+		]);
+		expect([first, second].filter(Boolean)).toHaveLength(1);
+		expect(await db.verifications.where({ id: row.id }).takeOptional()).toBeUndefined();
+	});
+
+	it("incrementOne writes only while its where still matches", async () => {
+		const row = await verification("guard-a");
+		const guarded = [eq("id", row.id), eq("value", "secret")];
+		const updated = await adapter.incrementOne?.({
+			model: "verifications",
+			where: guarded,
+			increment: {},
+			set: { value: "rotated" },
+		});
+		expect(updated).toMatchObject({ id: row.id, value: "rotated" });
+		const again = await adapter.incrementOne?.({
+			model: "verifications",
+			where: guarded,
+			increment: {},
+			set: { value: "rotated twice" },
+		});
+		expect(again).toBeNull();
 	});
 });

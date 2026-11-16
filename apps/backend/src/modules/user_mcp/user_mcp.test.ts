@@ -17,6 +17,7 @@ import { createRouterClient } from "@orpc/server";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
 	CIMD_FETCHES_PER_IP_PER_HOUR,
+	hashOAuthToken,
 	MAX_OAUTH_CLIENTS,
 	OAUTH_TOKEN_PREFIX,
 	userMcpResourceUrl,
@@ -343,6 +344,35 @@ describe("Connected apps: sign-in", () => {
 			"audience",
 		);
 		const principal = await principalFromBearer(tokens.access_token, userMcpResourceUrl());
+		expect(typeof principal === "object" && principal.clientId).toBe(tokens.clientId);
+	});
+
+	it("names the MCP resource on the token, and ends it with the session it was issued under", async () => {
+		const tokens = await connectApp();
+		const raw = tokens.access_token.slice(OAUTH_TOKEN_PREFIX.opaqueAccessToken.length);
+		const row = await db.oauthAccessTokens.where({ token: hashOAuthToken(raw) }).take();
+		expect(row.resources).toEqual([userMcpResourceUrl()]);
+
+		const signOut = await authFetch("/sign-out", {
+			method: "POST",
+			cookie: requireContext().reqHeaders.get("cookie") ?? "",
+		});
+		expect(signOut.status).toBe(200);
+		expect(await principalFromBearer(tokens.access_token, userMcpResourceUrl())).toBe("unknown");
+
+		// The app stays connected: its refresh token (offline_access) outlives the session.
+		const refreshed = await authFetch("/oauth2/token", {
+			method: "POST",
+			headers: { "content-type": "application/x-www-form-urlencoded" },
+			body: new URLSearchParams({
+				grant_type: "refresh_token",
+				refresh_token: tokens.refresh_token,
+				client_id: tokens.clientId,
+			}),
+		});
+		expect(refreshed.status).toBe(200);
+		const { access_token } = (await refreshed.json()) as { access_token: string };
+		const principal = await principalFromBearer(access_token, userMcpResourceUrl());
 		expect(typeof principal === "object" && principal.clientId).toBe(tokens.clientId);
 	});
 });
@@ -730,12 +760,31 @@ describe("Connected apps: a client that is its own metadata document (CIMD)", ()
 			code_challenge_method: "S256",
 			resource: userMcpResourceUrl(),
 		});
-		return fetch(`${appBase}/api/auth/oauth2/authorize?${query}`, {
-			headers: {
-				cookie: requireContext().reqHeaders.get("cookie") ?? "",
-				"x-forwarded-for": ip,
-			},
-			redirect: "manual",
+		// The way a browser opens it: a page load, not a script's fetch (Node's
+		// fetch sends `sec-fetch-mode: cors`, which Better Auth answers with
+		// JSON instead of the redirect).
+		const url = new URL(`${appBase}/api/auth/oauth2/authorize?${query}`);
+		return new Promise<Response>((resolve, reject) => {
+			const req = httpRequest(
+				url,
+				{
+					headers: {
+						cookie: requireContext().reqHeaders.get("cookie") ?? "",
+						"x-forwarded-for": ip,
+						"sec-fetch-mode": "navigate",
+					},
+				},
+				(res) => {
+					res.resume();
+					const headers = new Headers();
+					for (const [name, value] of Object.entries(res.headers)) {
+						if (typeof value === "string") headers.set(name, value);
+					}
+					res.on("end", () => resolve(new Response(null, { status: res.statusCode, headers })));
+				},
+			);
+			req.on("error", reject);
+			req.end();
 		});
 	};
 

@@ -85,6 +85,7 @@ export const create = rpcProtectedProcedure
 - **Auth**: Better Auth for sessions; `api-key-auth` for external.
 - **Procedures**: Use `rpcSensitiveProcedure` for data-destructive actions.
 - **Client address**: never read `x-forwarded-for` or `x-real-ip`: use `getClientIpAddress(reqHeaders)` (the address `main.handler.ts` stamps into `x-client-ip` from `TRUSTED_PROXY_COUNT`).
+- **Better Auth's Orchid adapter** (`modules/auth/orchid-adapter`): every Better Auth table is listed in `model_table_map.orchid_adapter.ts` and in the plugin's `schema` option of `auth.config.ts`. `updateMany` and `deleteMany` return the affected-row count; `consumeOne` and `incrementOne` are native (one guarded statement each). Date fields reach Better Auth as `Date`s, also from `timestampNumber` columns. `where.mode: "insensitive"` is not implemented; matching is case-sensitive.
 - **Auth secret**: rotating `BETTER_AUTH_SECRET` signs everyone out and makes stored provider tokens unreadable (they are rewritten at the next sign-in).
 - **Webhooks**: calls use `webhookHttpsAgent` and `proxy: false`; receivers verify `X-Webhook-Signature` (`t=<unix>,v1=<hex HMAC-SHA256(secret, t + "." + body)>`).
 - **Logs**: fields named in `LOG_REDACT_PATHS` (`utils/logger.utils.ts`) are censored; add a key there (and a case to `logger.utils.test.ts`) before logging a new kind of secret.
@@ -101,7 +102,7 @@ export const create = rpcProtectedProcedure
 - A tool never writes with `db` directly; it calls a procedure through `ctx.app(teamId)` (add the procedure to `connectedAppRouter` in `services/app_client.user_mcp.service.ts` first). Writes use the preview + confirmation pattern of `create_journal_entry`. `RpcContext.connectedApp` is set only by `appClientFor`; never derive it from a request.
 - A team-scoped tool resolves its team with `teamForCall(ctx.principal, args.teamId)` (membership checked; `users.activeTeamAppId` is never written). Direct reads of tenant-scoped tables from a tool use `.unscope("default")` with an explicit team or user condition.
 - Every path that creates an OAuth client checks redirect URIs with `isAcceptableRedirectUri` (`@connected-repo/zod-schemas/redirect_uri.utils`); never route `/api/auth/oauth2/register` to Better Auth. Budgets for anything an unauthenticated caller can trigger are per IP (`getClientIpAddress`) and in total, never per `client_id` only.
-- `userMcpAudiences()` is both the provider's `validAudiences` and what `principalFromBearer` accepts: a second resource server goes into that list or is refused.
+- `userMcpAudiences()` is both the provider's `resources` and what `principalFromBearer` accepts: a second resource server goes into that list or is refused. `principalFromBearer` reads the token row itself, so it also refuses a `revoked` token and one whose `resources` name another server.
 
 ### Team hosts (`<slug>.<root>`)
 - `request_handlers/tenant.handler.ts`: `GET /api/tenant/manifest.webmanifest` (slug from `Host`/`X-Forwarded-Host`, else `?slug=`; `Cache-Control: no-cache`). `modules/teams/services/branding.teams.service.ts`: the public projection, the manifest, the slug lookups and the origin checks.

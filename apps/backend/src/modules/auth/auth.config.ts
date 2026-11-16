@@ -17,7 +17,7 @@ import { oauthProvider } from "@better-auth/oauth-provider";
 import { themeSettingZod } from "@connected-repo/zod-schemas/enums.zod";
 import { uniqueTimeArrayZod, zString, zTimezone } from "@connected-repo/zod-schemas/zod_utils";
 import { betterAuth } from "better-auth";
-import { createAuthMiddleware } from "better-auth/api";
+import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
 import { bearer } from "better-auth/plugins";
 import { apple, type GoogleOptions } from "better-auth/social-providers";
 import { generateAppleClientSecret } from "./lib/apple.lib";
@@ -160,7 +160,7 @@ export const auth = betterAuth({
 					await db.accounts.where({ userId: account.userId, providerId: "credential" }).delete();
 					if (endpoint) {
 						// Through Better Auth, so its session-delete hooks run.
-						await endpoint.context.internalAdapter.deleteSessions(account.userId);
+						await endpoint.context.internalAdapter.deleteUserSessions(account.userId);
 					} else {
 						// Orchid runs no Better Auth hook: record the ended sessions here.
 						const ended = await db.sessions
@@ -224,9 +224,15 @@ export const auth = betterAuth({
 			clientRegistrationDefaultScopes: [...OAUTH_SCOPES],
 			allowDynamicClientRegistration: true,
 			allowUnauthenticatedClientRegistration: true,
+			// An app on the person's computer (Claude Code, Cursor) registers a
+			// loopback http redirect URI: that makes it a native client (RFC 8252).
+			clientRegistrationDefaultApplicationType: "infer",
 			grantTypes: ["authorization_code", "refresh_token"],
 			disableJwtPlugin: true,
-			validAudiences: userMcpAudiences(),
+			// Tokens are issued only for the application MCP (RFC 8707). Every
+			// client may ask for it: there is no other resource to keep apart.
+			resources: userMcpAudiences(),
+			enforcePerClientResources: false,
 			accessTokenExpiresIn: ACCESS_TOKEN_SECONDS,
 			refreshTokenExpiresIn: REFRESH_TOKEN_SECONDS,
 			storeTokens: { hash: async (token) => hashOAuthToken(token) },
@@ -236,11 +242,28 @@ export const auth = betterAuth({
 				oauthAccessToken: { modelName: "oauthAccessTokens" },
 				oauthRefreshToken: { modelName: "oauthRefreshTokens" },
 				oauthConsent: { modelName: "oauthConsents" },
+				oauthResource: { modelName: "oauthResources" },
+				oauthClientResource: { modelName: "oauthClientResources" },
+				oauthClientAssertion: { modelName: "oauthClientAssertions" },
 			},
 		}),
 	],
 	hooks: {
 		before: createAuthMiddleware(async (ctx) => {
+			// Apps register through oauth_registration.handler.ts, which calls the
+			// provider from the server (no request) with its own limits. Reached
+			// over HTTP without a session, the provider's endpoint takes public
+			// clients only.
+			if (ctx.path === "/oauth2/register" && ctx.request) {
+				const method: unknown = ctx.body?.token_endpoint_auth_method;
+				if (method !== "none" && !(await getSessionFromCtx(ctx))) {
+					throw new APIError("UNAUTHORIZED", {
+						error: "invalid_client_metadata",
+						error_description: "Register a confidential client at the registration endpoint.",
+					});
+				}
+			}
+
 			const appleClientSecret = await getAppleClientSecret();
 
 			// Each request gets its own copy of the auth context, so providers

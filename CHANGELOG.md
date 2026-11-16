@@ -46,7 +46,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 - Runtime moved to Node 26 (engines, .nvmrc, Dockerfiles, CI). Docker images install Yarn 1.22.22 with npm. Sentry moved to 10.78 with it (its profiler ships Node 26 binaries for glibc and musl), and `tsx` to 4.23.
 - The build scripts call `turbo`, `tsc-alias` and `vite` directly instead of through `npx`.
-- Dependencies refreshed to the latest release inside each one's current major, and the lockfile deduplicated (one zod, one React, one `@opentelemetry/api` 1.9.x, one Vite). Known advisories (`yarn audit`) down from 362 to 28; every one left waits on a major upgrade (Better Auth, `@novu/api`, `pdfjs-dist`, `firebase-admin`) or on upstream (Firebase's Firestore, Workbox's build tooling). Better Auth stays on 1.5.0 for now.
+- Dependencies refreshed to the latest release inside each one's current major, and the lockfile deduplicated (one zod, one React, one `@opentelemetry/api` 1.9.x, one Vite). Known advisories (`yarn audit`) down from 362 to 28; every one left waits on a major upgrade (Better Auth, `@novu/api`, `pdfjs-dist`, `firebase-admin`) or on upstream (Firebase's Firestore, Workbox's build tooling).
+- Better Auth 1.7.25 (`better-auth`, `@better-auth/core`, `@better-auth/oauth-provider`), which clears its two critical advisories. The OAuth provider's new client, token and resource columns and tables come with migration `0017_oauth_provider_resources`. Signing out of the app ends the AI-app access tokens issued under that session; the app stays connected through its refresh token.
 - Biome 2.6. Markdown is not run through its formatter.
 - The backend image smoke-tests its runtime stage against `apps/backend/.env.example`, which therefore passes the schema as committed.
 - Docker builds upload source maps again (`turbo.json` passes `SENTRY_UPLOAD_SOURCEMAPS` through).

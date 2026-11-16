@@ -45,7 +45,7 @@ export const dedicatedMcpHost = (): string | null =>
 export const userMcpResourceUrl = (): string => `${userMcpOrigin()}${USER_MCP_PATH}`;
 
 /**
- * The audiences tokens are issued for (`validAudiences` of the provider) and
+ * The resources tokens are issued for (`resources` of the provider) and
  * the only resources `principalFromBearer` accepts a token for. One list, so
  * the two cannot drift.
  */
