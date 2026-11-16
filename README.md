@@ -34,7 +34,7 @@ Production-ready Turborepo monorepo for building full-stack TypeScript applicati
 - **Monorepo**: [Turborepo](https://turbo.build/repo)
 - **Package Manager**: Yarn 1.22.22
 - **Linting**: Biome (tabs, 100 chars, double quotes)
-- **TypeScript**: v5.9.x strict mode
+- **TypeScript**: 7 (the native compiler), strict mode. Editors: see [CONTRIBUTING.md](CONTRIBUTING.md#editor-setup)
 
 ## Project Structure
 

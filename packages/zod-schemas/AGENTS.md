@@ -2,7 +2,7 @@
 
 ## 1. Blueprint
 **Intent**: Centralized, type-safe validation layer for backend/frontend consistency.
-**Core Stack**: Zod 4, TypeScript 5.
+**Core Stack**: Zod 4, TypeScript 7.
 
 **Key Architectures**:
 - **Entity Pattern**: Fragment-based composition — `Mandatory` + `Optional` fragments derive `CreateInput`, `UpdateInput`, and `SelectAll`. (There is no separate `Query` schema; entities hand-tune the derivation where offline/ULID concerns require it.)

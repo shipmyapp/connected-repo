@@ -12,7 +12,7 @@
 		"knip": "^6.45.1",
 		"tsc-alias": "^1.9.10",
 		"turbo": "^2.11.11",
-		"typescript": "6.0.3"
+		"typescript": "7.0.2"
 	},
 	"engines": {
 		"node": ">=26"

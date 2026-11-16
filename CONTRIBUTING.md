@@ -31,6 +31,16 @@
    yarn dev
    ```
 
+## Editor Setup
+
+The repository's TypeScript is 7, the native compiler. It ships `tsc` and a language server (`tsc --lsp --stdio`), but not the JavaScript language-service API that editors built on TypeScript 5 load from a workspace's `node_modules`.
+
+- **VS Code**: install Microsoft's "TypeScript 7" extension (`TypeScriptTeam.native-preview`) and turn it on (`"js/ts.experimental.useTsgo": true`, or the command "TypeScript: Enable TypeScript 7"), or keep the editor's bundled TypeScript; do not pick "Use Workspace Version", which looks for a TypeScript 5-style `tsserver` this package does not have.
+- **Other editors** (Neovim, Zed, JetBrains, Helix): point the TypeScript language-server client at `node_modules/.bin/tsc --lsp --stdio`.
+- Biome (formatting and lint) is unaffected; its VS Code extension is the default formatter (`.vscode/settings.json`).
+
+`yarn check-types` is the source of truth either way.
+
 ## Code Style Guidelines
 
 - **Formatting**: Tabs (NOT spaces), 100 char line width, double quotes
