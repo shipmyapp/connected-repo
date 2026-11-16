@@ -15,7 +15,7 @@ import BusinessIcon from "@mui/icons-material/Business";
 import PersonIcon from "@mui/icons-material/Person";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useNavigation } from "react-router";
 
 // Fires on the FIRST Dashboard mount within a single JS runtime. A full
 // page load (login callback via `window.location.href`, cold tab open,
@@ -26,6 +26,7 @@ let firstRunRedirectChecked = false;
 
 const DashboardPage = () => {
 	const navigate = useNavigate();
+	const navigation = useNavigation();
 	// Get user data from session context (provided by AppLayout)
 	const { user } = useSessionInfo();
 	const { activeWorkspace } = useWorkspace();
@@ -48,10 +49,13 @@ const DashboardPage = () => {
 		if (!entries) return;
 
 		firstRunRedirectChecked = true;
+		// The person already chose to go somewhere else while the entries
+		// loaded: a redirect now would replace that navigation.
+		if (navigation.state !== "idle") return;
 		if (entries.length === 0) {
 			navigate("/journal-entries/new", { replace: true });
 		}
-	}, [teamId, entriesLoading, entries, navigate]);
+	}, [teamId, entriesLoading, entries, navigate, navigation.state]);
 
 	// Avoid a one-frame flash of the empty dashboard on the render that
 	// will trigger the first-run redirect. Once the check has run, always
