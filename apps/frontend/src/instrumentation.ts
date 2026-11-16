@@ -1,7 +1,12 @@
 import { env, isDev } from "@frontend/configs/env.config";
 import { sentryReleaseName } from "@frontend/configs/sentry_release.config";
+import {
+	FRONTEND_DATA_COLLECTION,
+	scrubBreadcrumb,
+	scrubEvent,
+	scrubSpan,
+} from "@frontend/utils/sentry_scrub";
 import { fallbackToTunnel } from "@frontend/utils/sentry_transport";
-import { normalizeUrl, normalizeUrlPath } from "@frontend/utils/sentry_url_template";
 import { useEffect } from "react";
 import {
 	createRoutesFromChildren,
@@ -54,12 +59,14 @@ export async function initInstrumentation() {
 		dsn: env.VITE_SENTRY_DSN,
 		release: sentryReleaseName(env.VITE_OTEL_SERVICE_NAME, env.VITE_SENTRY_RELEASE, pkg.version),
 		environment: env.VITE_SENTRY_ENV || env.VITE_USER_NODE_ENV,
-		// No IP address and no request headers: the user is named by id alone (setSentryUser).
-		sendDefaultPii: false,
+		// No IP address, cookies, headers, bodies or query strings: the user is
+		// named by id alone (setSentryUser). See utils/sentry_scrub.
+		dataCollection: FRONTEND_DATA_COLLECTION,
 		integrations: [
 			Sentry.browserProfilingIntegration(),
 			Sentry.browserTracingIntegration(),
-			// Warnings and errors go to Logs; a plain console.log is development noise.
+			// Warnings and errors go to Logs (this integration is what sends
+			// Logs); a plain console.log is development noise.
 			Sentry.consoleLoggingIntegration({ levels: ["warn", "error"] }),
 			// A replay shows where people tapped and what broke, never what they
 			// read or typed: every word, input and image is masked, and network
@@ -78,7 +85,6 @@ export async function initInstrumentation() {
 				matchRoutes,
 			}),
 		],
-		enableLogs: true,
 		profileLifecycle: "trace",
 		// Also emit W3C `traceparent` on outbound fetches so the backend (and any
 		// downstream) stitches under the vendor-neutral standard, not just Sentry's
@@ -104,38 +110,10 @@ export async function initInstrumentation() {
 		// Extensions and injected scripts are not ours.
 		denyUrls: [/^chrome-extension:\/\//, /^moz-extension:\/\//, /^safari-web-extension:\/\//],
 		// Collapse ULID/UUID/6+digit path segments to `:id` and drop query and
-		// hash, so events group by URL shape — see utils/sentry_url_template.
-		beforeSend: (event) => {
-			if (event.transaction) event.transaction = normalizeUrlPath(event.transaction);
-			if (event.request?.url) event.request.url = normalizeUrl(event.request.url);
-			return event;
-		},
-		beforeSendTransaction: (event) => {
-			if (event.transaction) event.transaction = normalizeUrlPath(event.transaction);
-			if (event.request?.url) event.request.url = normalizeUrl(event.request.url);
-			return event;
-		},
-		// Interaction and web-vital spans are sent on their own, past
-		// beforeSendTransaction; their names and attributes carry URLs too.
-		beforeSendSpan: (span) => {
-			if (span.description) span.description = normalizeUrlPath(span.description);
-			if (span.data) {
-				for (const [key, value] of Object.entries(span.data)) {
-					if (typeof value !== "string") continue;
-					if (/^https?:\/\//.test(value)) span.data[key] = normalizeUrl(value);
-					else if (value.startsWith("/")) span.data[key] = normalizeUrlPath(value);
-				}
-			}
-			return span;
-		},
-		beforeBreadcrumb: (breadcrumb) => {
-			// Navigation and fetch breadcrumbs carry URLs: the same shapes as above.
-			const data = breadcrumb.data;
-			if (data && typeof data.url === "string") data.url = normalizeUrl(data.url);
-			if (data && typeof data.to === "string") data.to = normalizeUrlPath(data.to);
-			if (data && typeof data.from === "string") data.from = normalizeUrlPath(data.from);
-			return breadcrumb;
-		},
+		// hash in events, spans and breadcrumbs, so they group by URL shape.
+		beforeSend: scrubEvent,
+		beforeSendSpan: scrubSpan,
+		beforeBreadcrumb: scrubBreadcrumb,
 	});
 }
 
@@ -175,7 +153,8 @@ export async function captureTopLevelError(error: Error, componentStack?: string
 }
 
 /**
- * Lazily set the Sentry user. Pass the id only (`sendDefaultPii: false`).
+ * Lazily set the Sentry user. Pass the id only: `dataCollection.userInfo` is
+ * off, so nothing else about the person is collected.
  */
 export async function setSentryUser(user: { id: string }) {
 	const Sentry = await import("@sentry/react");

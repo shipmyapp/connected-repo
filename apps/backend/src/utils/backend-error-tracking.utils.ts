@@ -62,7 +62,8 @@ export function captureBackendException(error: unknown, options: CaptureOptions 
 	});
 }
 
-export async function flushBackendErrorTracking(timeoutMs = 2000) {
+/** Sends what is still buffered (errors, spans, profiles) and stops the SDK. Called once, at shutdown. */
+export async function closeBackendErrorTracking(timeoutMs = 2000) {
 	if (!env.SENTRY_DSN || !Sentry.isInitialized()) return;
-	await Sentry.flush(timeoutMs);
+	await Sentry.close(timeoutMs);
 }

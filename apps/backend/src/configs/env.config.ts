@@ -83,7 +83,6 @@ const envSchema = z.object({
 	LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal", "silent"]).optional(),
 	NODE_ENV: NODE_ENV_ZOD,
 	OTEL_SERVICE_NAME: zString.min(1),
-	OTEL_TRACE_EXPORTER_URL: z.url().optional(),
 	PG_TBUS_CONCURRENCY: z.coerce.number().int().min(1).default(3),
 	PORT: z.coerce.number().default(3000),
 	// Redis 7 (required, next to Postgres). Holds the rate-limit buckets only;

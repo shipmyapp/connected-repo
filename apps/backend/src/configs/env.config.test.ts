@@ -9,7 +9,7 @@ const withValues = (overrides: Record<string, string>) =>
 describe("the env schema reads a blank value as unset", () => {
 	it("falls back to the default of every blank optional or defaulted variable", () => {
 		const env = withValues({
-			OTEL_TRACE_EXPORTER_URL: "",
+			NOVU_API_URL: "",
 			DB_POOL_SIZE: "",
 			PG_TBUS_CONCURRENCY: "",
 			PORT: "",
@@ -19,7 +19,7 @@ describe("the env schema reads a blank value as unset", () => {
 			SENTRY_PROFILES_SAMPLE_RATE: "",
 			DB_SSL: "",
 		});
-		expect(env.OTEL_TRACE_EXPORTER_URL).toBeUndefined();
+		expect(env.NOVU_API_URL).toBeUndefined();
 		expect(env.DB_POOL_SIZE).toBe(25);
 		expect(env.PG_TBUS_CONCURRENCY).toBe(3);
 		expect(env.PORT).toBe(3000);
@@ -32,9 +32,7 @@ describe("the env schema reads a blank value as unset", () => {
 	});
 
 	it("still refuses a value that is set but wrong", () => {
-		expect(() => withValues({ OTEL_TRACE_EXPORTER_URL: "not a url" })).toThrow(
-			/OTEL_TRACE_EXPORTER_URL/,
-		);
+		expect(() => withValues({ NOVU_API_URL: "not a url" })).toThrow(/NOVU_API_URL/);
 		expect(() => withValues({ DB_POOL_SIZE: "0" })).toThrow(/DB_POOL_SIZE/);
 		expect(() => withValues({ DB_SSL: "sometimes" })).toThrow(/DB_SSL/);
 	});

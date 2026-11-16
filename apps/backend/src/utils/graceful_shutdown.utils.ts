@@ -9,10 +9,9 @@ import { stopSilentSyncDispatchCron } from "@backend/cron_jobs/silent_sync_dispa
 import { db } from "@backend/db/db";
 import { getTbusStartPromise } from "@backend/events/events.utils";
 import { tbus } from "@backend/events/tbus";
-import { otelNodeSdk } from "@backend/otel.sdk";
 import {
 	captureBackendException,
-	flushBackendErrorTracking,
+	closeBackendErrorTracking,
 } from "@backend/utils/backend-error-tracking.utils";
 import { logger } from "@backend/utils/logger.utils";
 import { recordErrorOtel } from "@backend/utils/record-message.otel.utils";
@@ -133,12 +132,9 @@ export const handleServerClose = (server: Server) => {
 				logger.error({ err: error }, "Error closing Redis connection");
 			});
 
-			// Drain Sentry's buffer before OTel shuts down — otherwise the
-			// last batch of in-flight errors is lost on every deploy.
-			await flushBackendErrorTracking();
-			await otelNodeSdk.shutdown().catch((error) => {
-				logger.error("Error shutting down OpenTelemetry SDK", error);
-			});
+			// Send what Sentry still holds (errors and the last spans) and
+			// stop it, otherwise the last batch is lost on every deploy.
+			await closeBackendErrorTracking();
 
 			const shutdownDuration = Date.now() - shutdownStartTime;
 			logger.info(
