@@ -53,7 +53,7 @@
                     "properties": {
                       "teamId": {
                         "type": "string",
-                        "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                        "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                       },
                       "name": {
                         "type": "string"
@@ -2920,7 +2920,7 @@
             "required": false,
             "schema": {
               "type": "string",
-              "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+              "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
             },
             "allowEmptyValue": true,
             "allowReserved": true
@@ -3255,7 +3255,7 @@
                   "properties": {
                     "id": {
                       "type": "string",
-                      "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                      "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                     },
                     "fileName": {
                       "type": "string",
@@ -3567,7 +3567,7 @@
             "required": false,
             "schema": {
               "type": "string",
-              "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+              "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
             },
             "allowEmptyValue": true,
             "allowReserved": true
@@ -6737,7 +6737,7 @@
                 "properties": {
                   "id": {
                     "type": "string",
-                    "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                    "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                   },
                   "tableName": {
                     "enum": [
@@ -6749,7 +6749,7 @@
                     "anyOf": [
                       {
                         "type": "string",
-                        "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                        "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                       },
                       {
                         "type": "string",
@@ -6819,7 +6819,7 @@
                   "properties": {
                     "id": {
                       "type": "string",
-                      "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                      "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                     },
                     "tableName": {
                       "enum": [
@@ -6831,7 +6831,7 @@
                       "anyOf": [
                         {
                           "type": "string",
-                          "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                          "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                         },
                         {
                           "type": "string",
@@ -6902,7 +6902,7 @@
                       "anyOf": [
                         {
                           "type": "string",
-                          "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                          "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                         },
                         {
                           "type": "null"
@@ -7220,7 +7220,7 @@
                     "properties": {
                       "id": {
                         "type": "string",
-                        "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                        "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                       },
                       "tableName": {
                         "enum": [
@@ -7232,7 +7232,7 @@
                         "anyOf": [
                           {
                             "type": "string",
-                            "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                            "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                           },
                           {
                             "type": "string",
@@ -7303,7 +7303,7 @@
                         "anyOf": [
                           {
                             "type": "string",
-                            "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                            "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                           },
                           {
                             "type": "null"
@@ -7599,7 +7599,7 @@
                       "properties": {
                         "id": {
                           "type": "string",
-                          "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                          "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                         },
                         "cdnUrl": {
                           "anyOf": [
@@ -7665,7 +7665,7 @@
                           },
                           "id": {
                             "type": "string",
-                            "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                            "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                           },
                           "row": {
                             "anyOf": [
@@ -7674,7 +7674,7 @@
                                 "properties": {
                                   "id": {
                                     "type": "string",
-                                    "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                                    "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                                   },
                                   "tableName": {
                                     "enum": [
@@ -7686,7 +7686,7 @@
                                     "anyOf": [
                                       {
                                         "type": "string",
-                                        "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                                        "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                                       },
                                       {
                                         "type": "string",
@@ -7757,7 +7757,7 @@
                                     "anyOf": [
                                       {
                                         "type": "string",
-                                        "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                                        "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                                       },
                                       {
                                         "type": "null"
@@ -8079,7 +8079,7 @@
                         "properties": {
                           "teamId": {
                             "type": "string",
-                            "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                            "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                           },
                           "syncedTable": {
                             "enum": [
@@ -8095,7 +8095,7 @@
                             "anyOf": [
                               {
                                 "type": "string",
-                                "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                                "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                               },
                               {
                                 "type": "null"
@@ -8119,7 +8119,7 @@
                             "anyOf": [
                               {
                                 "type": "string",
-                                "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                                "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                               },
                               {
                                 "type": "null"
@@ -8200,7 +8200,7 @@
                         "properties": {
                           "id": {
                             "type": "string",
-                            "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                            "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                           },
                           "tableName": {
                             "enum": [
@@ -8212,7 +8212,7 @@
                             "anyOf": [
                               {
                                 "type": "string",
-                                "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                                "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                               },
                               {
                                 "type": "string",
@@ -8283,7 +8283,7 @@
                             "anyOf": [
                               {
                                 "type": "string",
-                                "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                                "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                               },
                               {
                                 "type": "null"
@@ -8324,7 +8324,7 @@
                       "properties": {
                         "teamId": {
                           "type": "string",
-                          "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                          "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                         },
                         "syncedTable": {
                           "enum": [
@@ -8340,7 +8340,7 @@
                           "anyOf": [
                             {
                               "type": "string",
-                              "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                              "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                             },
                             {
                               "type": "null"
@@ -8364,7 +8364,7 @@
                           "anyOf": [
                             {
                               "type": "string",
-                              "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                              "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                             },
                             {
                               "type": "null"
@@ -8969,7 +8969,7 @@
                         "anyOf": [
                           {
                             "type": "string",
-                            "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                            "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                           },
                           {
                             "type": "null"
@@ -8992,7 +8992,7 @@
                         "anyOf": [
                           {
                             "type": "string",
-                            "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                            "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                           },
                           {
                             "type": "null"
@@ -9013,7 +9013,7 @@
                       },
                       "id": {
                         "type": "string",
-                        "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                        "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                       },
                       "author": {
                         "type": "object",
@@ -9308,7 +9308,7 @@
                 "properties": {
                   "id": {
                     "type": "string",
-                    "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                    "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                   }
                 },
                 "required": [
@@ -9350,7 +9350,7 @@
                       "anyOf": [
                         {
                           "type": "string",
-                          "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                          "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                         },
                         {
                           "type": "null"
@@ -9373,7 +9373,7 @@
                       "anyOf": [
                         {
                           "type": "string",
-                          "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                          "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                         },
                         {
                           "type": "null"
@@ -9394,7 +9394,7 @@
                     },
                     "id": {
                       "type": "string",
-                      "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                      "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                     },
                     "files": {
                       "type": "array",
@@ -9403,7 +9403,7 @@
                         "properties": {
                           "id": {
                             "type": "string",
-                            "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                            "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                           },
                           "tableName": {
                             "enum": [
@@ -9415,7 +9415,7 @@
                             "anyOf": [
                               {
                                 "type": "string",
-                                "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                                "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                               },
                               {
                                 "type": "string",
@@ -9486,7 +9486,7 @@
                             "anyOf": [
                               {
                                 "type": "string",
-                                "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                                "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                               },
                               {
                                 "type": "null"
@@ -9805,7 +9805,7 @@
                     "anyOf": [
                       {
                         "type": "string",
-                        "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                        "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                       },
                       {
                         "type": "null"
@@ -9826,7 +9826,7 @@
                   },
                   "id": {
                     "type": "string",
-                    "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                    "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                   },
                   "files": {
                     "anyOf": [
@@ -9837,7 +9837,7 @@
                           "properties": {
                             "id": {
                               "type": "string",
-                              "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                              "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                             },
                             "tableName": {
                               "enum": [
@@ -9849,7 +9849,7 @@
                               "anyOf": [
                                 {
                                   "type": "string",
-                                  "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                                  "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                                 },
                                 {
                                   "type": "string",
@@ -9953,7 +9953,7 @@
                       "anyOf": [
                         {
                           "type": "string",
-                          "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                          "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                         },
                         {
                           "type": "null"
@@ -9976,7 +9976,7 @@
                       "anyOf": [
                         {
                           "type": "string",
-                          "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                          "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                         },
                         {
                           "type": "null"
@@ -9997,7 +9997,7 @@
                     },
                     "id": {
                       "type": "string",
-                      "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                      "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                     },
                     "files": {
                       "type": "array",
@@ -10006,7 +10006,7 @@
                         "properties": {
                           "id": {
                             "type": "string",
-                            "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                            "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                           },
                           "tableName": {
                             "enum": [
@@ -10018,7 +10018,7 @@
                             "anyOf": [
                               {
                                 "type": "string",
-                                "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                                "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                               },
                               {
                                 "type": "string",
@@ -10089,7 +10089,7 @@
                             "anyOf": [
                               {
                                 "type": "string",
-                                "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                                "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                               },
                               {
                                 "type": "null"
@@ -10408,7 +10408,7 @@
                     "anyOf": [
                       {
                         "type": "string",
-                        "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                        "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                       },
                       {
                         "type": "null"
@@ -10429,7 +10429,7 @@
                   },
                   "id": {
                     "type": "string",
-                    "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                    "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                   }
                 },
                 "required": [
@@ -10472,7 +10472,7 @@
                       "anyOf": [
                         {
                           "type": "string",
-                          "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                          "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                         },
                         {
                           "type": "null"
@@ -10495,7 +10495,7 @@
                       "anyOf": [
                         {
                           "type": "string",
-                          "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                          "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                         },
                         {
                           "type": "null"
@@ -10516,7 +10516,7 @@
                     },
                     "id": {
                       "type": "string",
-                      "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                      "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                     }
                   },
                   "required": [
@@ -10826,7 +10826,7 @@
                         "anyOf": [
                           {
                             "type": "string",
-                            "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                            "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                           },
                           {
                             "type": "null"
@@ -10849,7 +10849,7 @@
                         "anyOf": [
                           {
                             "type": "string",
-                            "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                            "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                           },
                           {
                             "type": "null"
@@ -10870,7 +10870,7 @@
                       },
                       "id": {
                         "type": "string",
-                        "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                        "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                       },
                       "author": {
                         "type": "object",
@@ -11165,7 +11165,7 @@
                 "properties": {
                   "id": {
                     "type": "string",
-                    "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                    "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                   }
                 },
                 "required": [
@@ -11469,7 +11469,7 @@
                           "anyOf": [
                             {
                               "type": "string",
-                              "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                              "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                             },
                             {
                               "type": "null"
@@ -11490,7 +11490,7 @@
                         },
                         "id": {
                           "type": "string",
-                          "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                          "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                         },
                         "files": {
                           "anyOf": [
@@ -11501,7 +11501,7 @@
                                 "properties": {
                                   "id": {
                                     "type": "string",
-                                    "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                                    "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                                   },
                                   "tableName": {
                                     "enum": [
@@ -11513,7 +11513,7 @@
                                     "anyOf": [
                                       {
                                         "type": "string",
-                                        "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                                        "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                                       },
                                       {
                                         "type": "string",
@@ -11609,7 +11609,7 @@
                           },
                           "id": {
                             "type": "string",
-                            "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                            "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                           },
                           "row": {
                             "anyOf": [
@@ -11640,7 +11640,7 @@
                                     "anyOf": [
                                       {
                                         "type": "string",
-                                        "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                                        "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                                       },
                                       {
                                         "type": "null"
@@ -11663,7 +11663,7 @@
                                     "anyOf": [
                                       {
                                         "type": "string",
-                                        "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                                        "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                                       },
                                       {
                                         "type": "null"
@@ -11684,7 +11684,7 @@
                                   },
                                   "id": {
                                     "type": "string",
-                                    "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                                    "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                                   },
                                   "files": {
                                     "type": "array",
@@ -11693,7 +11693,7 @@
                                       "properties": {
                                         "id": {
                                           "type": "string",
-                                          "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                                          "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                                         },
                                         "tableName": {
                                           "enum": [
@@ -11705,7 +11705,7 @@
                                           "anyOf": [
                                             {
                                               "type": "string",
-                                              "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                                              "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                                             },
                                             {
                                               "type": "string",
@@ -11776,7 +11776,7 @@
                                           "anyOf": [
                                             {
                                               "type": "string",
-                                              "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                                              "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                                             },
                                             {
                                               "type": "null"
@@ -12112,7 +12112,7 @@
                         "properties": {
                           "teamId": {
                             "type": "string",
-                            "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                            "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                           },
                           "syncedTable": {
                             "enum": [
@@ -12128,7 +12128,7 @@
                             "anyOf": [
                               {
                                 "type": "string",
-                                "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                                "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                               },
                               {
                                 "type": "null"
@@ -12152,7 +12152,7 @@
                             "anyOf": [
                               {
                                 "type": "string",
-                                "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                                "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                               },
                               {
                                 "type": "null"
@@ -12255,7 +12255,7 @@
                             "anyOf": [
                               {
                                 "type": "string",
-                                "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                                "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                               },
                               {
                                 "type": "null"
@@ -12278,7 +12278,7 @@
                             "anyOf": [
                               {
                                 "type": "string",
-                                "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                                "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                               },
                               {
                                 "type": "null"
@@ -12299,7 +12299,7 @@
                           },
                           "id": {
                             "type": "string",
-                            "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                            "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                           }
                         },
                         "required": [
@@ -12319,7 +12319,7 @@
                       "properties": {
                         "teamId": {
                           "type": "string",
-                          "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                          "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                         },
                         "syncedTable": {
                           "enum": [
@@ -12335,7 +12335,7 @@
                           "anyOf": [
                             {
                               "type": "string",
-                              "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                              "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                             },
                             {
                               "type": "null"
@@ -12359,7 +12359,7 @@
                           "anyOf": [
                             {
                               "type": "string",
-                              "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                              "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                             },
                             {
                               "type": "null"
@@ -13232,7 +13232,7 @@
                           },
                           "id": {
                             "type": "string",
-                            "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                            "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                           },
                           "createdAt": {
                             "type": "integer",
@@ -15609,7 +15609,7 @@
                       },
                       "id": {
                         "type": "string",
-                        "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                        "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                       }
                     },
                     "required": [
@@ -15928,7 +15928,7 @@
                     },
                     "id": {
                       "type": "string",
-                      "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                      "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                     }
                   },
                   "required": [
@@ -16193,7 +16193,7 @@
                 "properties": {
                   "id": {
                     "type": "string",
-                    "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                    "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                   }
                 },
                 "required": [
@@ -16265,7 +16265,7 @@
                     },
                     "id": {
                       "type": "string",
-                      "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                      "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                     }
                   },
                   "required": [
@@ -16603,7 +16603,7 @@
                       },
                       "id": {
                         "type": "string",
-                        "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                        "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                       }
                     },
                     "required": [
@@ -16877,7 +16877,7 @@
                         "properties": {
                           "teamId": {
                             "type": "string",
-                            "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                            "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                           },
                           "syncedTable": {
                             "enum": [
@@ -16893,7 +16893,7 @@
                             "anyOf": [
                               {
                                 "type": "string",
-                                "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                                "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                               },
                               {
                                 "type": "null"
@@ -16917,7 +16917,7 @@
                             "anyOf": [
                               {
                                 "type": "string",
-                                "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                                "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                               },
                               {
                                 "type": "null"
@@ -17050,7 +17050,7 @@
                           },
                           "id": {
                             "type": "string",
-                            "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                            "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                           }
                         },
                         "required": [
@@ -17069,7 +17069,7 @@
                       "properties": {
                         "teamId": {
                           "type": "string",
-                          "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                          "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                         },
                         "syncedTable": {
                           "enum": [
@@ -17085,7 +17085,7 @@
                           "anyOf": [
                             {
                               "type": "string",
-                              "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                              "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                             },
                             {
                               "type": "null"
@@ -17109,7 +17109,7 @@
                           "anyOf": [
                             {
                               "type": "string",
-                              "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                              "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                             },
                             {
                               "type": "null"
@@ -17562,7 +17562,7 @@
                       },
                       "id": {
                         "type": "string",
-                        "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                        "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                       },
                       "createdAt": {
                         "type": "integer",
@@ -17876,7 +17876,7 @@
                       "type": "array",
                       "items": {
                         "type": "string",
-                        "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                        "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                       }
                     }
                   },
@@ -18312,7 +18312,7 @@
                     },
                     "id": {
                       "type": "string",
-                      "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                      "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                     },
                     "createdAt": {
                       "type": "integer",
@@ -18850,7 +18850,7 @@
                     },
                     "id": {
                       "type": "string",
-                      "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                      "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                     },
                     "createdAt": {
                       "type": "integer",
@@ -19238,7 +19238,7 @@
                         },
                         "teamId": {
                           "type": "string",
-                          "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                          "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                         },
                         "name": {
                           "type": "string",
@@ -19531,7 +19531,7 @@
                 "properties": {
                   "teamAppId": {
                     "type": "string",
-                    "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                    "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                   }
                 },
                 "required": [
@@ -19812,7 +19812,7 @@
                 "properties": {
                   "teamId": {
                     "type": "string",
-                    "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                    "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                   }
                 },
                 "required": [
@@ -20093,7 +20093,7 @@
                 "properties": {
                   "teamId": {
                     "type": "string",
-                    "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                    "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                   }
                 },
                 "required": [
@@ -20384,7 +20384,7 @@
                     "properties": {
                       "teamId": {
                         "type": "string",
-                        "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                        "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                       },
                       "role": {
                         "enum": [
@@ -20461,7 +20461,7 @@
                       },
                       "id": {
                         "type": "string",
-                        "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                        "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                       },
                       "createdAt": {
                         "type": "integer",
@@ -20791,7 +20791,7 @@
                   "properties": {
                     "teamId": {
                       "type": "string",
-                      "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                      "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                     },
                     "role": {
                       "enum": [
@@ -20868,7 +20868,7 @@
                     },
                     "id": {
                       "type": "string",
-                      "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                      "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                     },
                     "createdAt": {
                       "type": "integer",
@@ -21151,7 +21151,7 @@
                 "properties": {
                   "id": {
                     "type": "string",
-                    "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                    "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                   }
                 },
                 "required": [
@@ -21432,7 +21432,7 @@
                 "properties": {
                   "id": {
                     "type": "string",
-                    "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                    "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                   },
                   "role": {
                     "enum": [
@@ -21461,7 +21461,7 @@
                   "properties": {
                     "teamId": {
                       "type": "string",
-                      "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                      "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                     },
                     "role": {
                       "enum": [
@@ -21538,7 +21538,7 @@
                     },
                     "id": {
                       "type": "string",
-                      "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                      "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                     },
                     "createdAt": {
                       "type": "integer",
@@ -21963,7 +21963,7 @@
                     },
                     "id": {
                       "type": "string",
-                      "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                      "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                     },
                     "createdAt": {
                       "type": "integer",
@@ -22256,7 +22256,7 @@
                         "properties": {
                           "teamId": {
                             "type": "string",
-                            "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                            "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                           },
                           "syncedTable": {
                             "enum": [
@@ -22272,7 +22272,7 @@
                             "anyOf": [
                               {
                                 "type": "string",
-                                "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                                "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                               },
                               {
                                 "type": "null"
@@ -22296,7 +22296,7 @@
                             "anyOf": [
                               {
                                 "type": "string",
-                                "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                                "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                               },
                               {
                                 "type": "null"
@@ -22510,7 +22510,7 @@
                           },
                           "id": {
                             "type": "string",
-                            "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                            "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                           },
                           "createdAt": {
                             "type": "integer",
@@ -22549,7 +22549,7 @@
                       "properties": {
                         "teamId": {
                           "type": "string",
-                          "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                          "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                         },
                         "syncedTable": {
                           "enum": [
@@ -22565,7 +22565,7 @@
                           "anyOf": [
                             {
                               "type": "string",
-                              "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                              "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                             },
                             {
                               "type": "null"
@@ -22589,7 +22589,7 @@
                           "anyOf": [
                             {
                               "type": "string",
-                              "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                              "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                             },
                             {
                               "type": "null"
@@ -22909,7 +22909,7 @@
                         "properties": {
                           "teamId": {
                             "type": "string",
-                            "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                            "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                           },
                           "syncedTable": {
                             "enum": [
@@ -22925,7 +22925,7 @@
                             "anyOf": [
                               {
                                 "type": "string",
-                                "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                                "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                               },
                               {
                                 "type": "null"
@@ -22949,7 +22949,7 @@
                             "anyOf": [
                               {
                                 "type": "string",
-                                "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                                "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                               },
                               {
                                 "type": "null"
@@ -23030,7 +23030,7 @@
                         "properties": {
                           "teamId": {
                             "type": "string",
-                            "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                            "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                           },
                           "role": {
                             "enum": [
@@ -23107,7 +23107,7 @@
                           },
                           "id": {
                             "type": "string",
-                            "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                            "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                           },
                           "createdAt": {
                             "type": "integer",
@@ -23141,7 +23141,7 @@
                       "properties": {
                         "teamId": {
                           "type": "string",
-                          "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                          "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                         },
                         "syncedTable": {
                           "enum": [
@@ -23157,7 +23157,7 @@
                           "anyOf": [
                             {
                               "type": "string",
-                              "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                              "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                             },
                             {
                               "type": "null"
@@ -23181,7 +23181,7 @@
                           "anyOf": [
                             {
                               "type": "string",
-                              "pattern": "^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$"
+                              "pattern": "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$"
                             },
                             {
                               "type": "null"

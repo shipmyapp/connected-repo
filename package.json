@@ -1,9 +1,9 @@
 {
 	"author": "Balkrishna Agarwal <krishna@shipmyapp.in>",
 	"dependencies": {
-		"@orpc/server": "^1.14.6",
-		"ulid": "^3.0.1",
-		"zod": "^4.3.6"
+		"@orpc/server": "^1.16.2",
+		"ulid": "^3.0.2",
+		"zod": "^4.6.7"
 	},
 	"description": "Starter Monorepo using Turbo of Nodejs + OrchidORM + oRPC + Reactjs with opentelemetry setup",
 	"devDependencies": {
