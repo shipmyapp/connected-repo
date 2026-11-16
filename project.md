@@ -1,3 +1,9 @@
+# About this repository
+
+This repository is a production-ready template for full-stack TypeScript apps: a Turborepo monorepo (Node 26) with an oRPC backend on PostgreSQL and Redis, a React PWA that keeps working offline and syncs per table, per-team branded hosts, an operator console with an audit trail, an OAuth-protected MCP server for a person's AI apps, account self-service (sessions, data export, deletion with a grace period) and an API product with per-team keys and quotas. It is for teams that want to start a multi-tenant, installable web app with these pieces already working and tested, and replace the demo with their own features. The demo is the journal app "OneQ"; the brief below is that demo's product idea, not a description of what is built (there are no ads, streaks, badges or search, and every account's entries sync to the server).
+
+---
+
 # The "Scheduled Prompt & Journal"
 **Name: OneQ**
 

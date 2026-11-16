@@ -2,9 +2,11 @@
 
 ## Development Setup
 
+Prerequisites: Node 26 (`engines.node` `>=26`, `.nvmrc`), Yarn 1.22.22, PostgreSQL 18 and Redis 8 (or Docker, which runs both: `docker compose -f docker-compose.dev.yml up postgres redis`). The README's "Getting Started" has the one-command Docker stack too.
+
 1. **Clone the repository**
    ```bash
-   git clone <repository-url>
+   git clone git@github.com:shipmyapp/connected-repo.git
    cd connected-repo
    ```
 
@@ -17,18 +19,20 @@
    ```bash
    cp apps/backend/.env.example apps/backend/.env
    cp apps/frontend/.env.example apps/frontend/.env
-   # Edit both files with your configuration
+   cp apps/superadmin/.env.example apps/superadmin/.env
+   # Edit them with your configuration
    ```
 
 4. **Initialize database**
    ```bash
-   cd apps/backend
-   yarn db create && yarn db up
+   yarn build
+   yarn db create && yarn db up && yarn db seed
+   yarn test:db:setup
    ```
 
 5. **Start development servers**
    ```bash
-   yarn dev
+   yarn dev   # backend :3000, frontend :5173, console :5175
    ```
 
 ## Editor Setup
@@ -61,7 +65,23 @@ The repository's TypeScript is 7, the native compiler. It ships `tsc` and a lang
 - Feature branches: one per atomic plan in `.agent/plans/`, `feat/description`, `fix/description`, `chore/description`
 
 ### Commits
-Use descriptive commit messages that clearly explain the changes made.
+Small commits in the conventional style: `feat(pwa): …`, `fix(auth): …`, `chore(ci): …`, `docs: …`, `test: …`. The message says what changed and why, in the template's own terms. Never commit secrets, `.env` files, `node_modules`, `dist` or database dumps.
+
+### Before you push
+Run the gate; CI runs the same steps:
+```bash
+yarn install --frozen-lockfile
+yarn build
+yarn check-types
+yarn lint
+yarn knip
+yarn workspace @connected-repo/backend check:openapi   # after a user-app router or schema change: NODE_ENV=test yarn workspace @connected-repo/backend gen:openapi
+yarn test:db:setup && yarn test:run                    # needs Postgres and Redis
+yarn test:e2e:with-build                               # Playwright (chromium)
+yarn check:deploy
+yarn check:sentry                                      # after yarn build
+```
+A migration also needs `yarn db g check_no_drift` to write nothing (delete what it writes).
 
 ### Pull Requests
 - One plan, one pull request, at most one new migration file
@@ -93,9 +113,10 @@ CI runs knip and lint again. Do not skip a hook with `--no-verify`.
 
 ## Architecture
 
-- **Backend**: oRPC with TypeScript, Orchid ORM, PostgreSQL, pg-tbus, Novu
-- **Frontend**: React 19, Material UI, TanStack Query, Dexie (offline-first), Vite PWA
-- **Auth**: Better Auth with Google and Apple sign-in, bearer tokens for the mobile app
+- **Backend**: oRPC with TypeScript, Orchid ORM, PostgreSQL, Redis, pg-tbus, Novu, Sentry 11
+- **Frontend**: React 19, Material UI, TanStack Query, Dexie (offline-first), Vite PWA, Sentry 11
+- **Console**: `apps/superadmin`, the operator console (no Sentry)
+- **Auth**: Better Auth with Google and Apple sign-in, bearer tokens for the mobile app; email + password only in tests
 - **Validation**: Zod schemas
 
 ## Code Hygiene
