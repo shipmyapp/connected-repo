@@ -9,7 +9,7 @@
 		"@khmyznikov/pwa-install": "0.7.0",
 		"@mui/icons-material": "^7.3.11",
 		"@mui/material": "^7.3.11",
-		"@mui/x-date-pickers": "^8.29.6",
+		"@mui/x-date-pickers": "^9.18.0",
 		"@novu/js": "3.19.2",
 		"@novu/react": "^3.19.2",
 		"@orpc/client": "^1.16.2",
