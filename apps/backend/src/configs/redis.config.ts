@@ -19,6 +19,9 @@ export const getRedis = (): Redis => {
 	if (client) return client;
 
 	const created = new Redis(env.REDIS_URL, {
+		// RESP2, the wire protocol the rate-limit Lua script's replies were written for
+		// (ioredis 6 speaks RESP3 unless told otherwise).
+		protocol: 2,
 		lazyConnect: true,
 		// Fail fast: a command against a down Redis rejects at once instead of
 		// queueing, so the caller's fail-open / fail-closed rule applies promptly.
