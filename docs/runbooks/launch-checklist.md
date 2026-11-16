@@ -7,7 +7,7 @@ Work top to bottom. The deploy steps themselves are in [deploy/README.md](../../
 | Item | Where | Notes |
 | --- | --- | --- |
 | PostgreSQL 18, backups on | bundled, Dokploy or managed | `DB_*`, `DB_SSL*` |
-| Redis 7 | bundled, Dokploy or managed | `REDIS_URL` (required) |
+| Redis 8 | bundled, Dokploy or managed | `REDIS_URL` (required) |
 | Object storage bucket, scoped key, CORS for PUT, public read without listing | your provider | `S3_*`, `CSP_CONNECT_EXTRA` |
 | `BETTER_AUTH_SECRET` | `openssl rand -base64 48` | never reuse between environments |
 | Google OAuth client (web; iOS/Android client ids for the mobile app) | Google Cloud | `GOOGLE_*` |

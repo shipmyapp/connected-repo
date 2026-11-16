@@ -121,7 +121,7 @@ RUN --mount=type=cache,target=/app/node_modules/.cache/turbo \
     npx turbo run build --filter=@connected-repo/frontend
 
 # The image that ships: nginx serving the bundle and proxying to the backend.
-FROM nginx:1.27-alpine AS runner
+FROM nginx:1.30-alpine AS runner
 
 RUN apk add --no-cache curl
 

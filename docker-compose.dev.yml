@@ -77,7 +77,7 @@ services:
       - dev-network
 
   redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
     container_name: connected_repo_dev_redis
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
@@ -211,7 +211,7 @@ services:
   # Mimics production: / → SPA; /api/*, /mcp and the OAuth /.well-known/* →
   # backend. Same origin, no CORS, cookies stay first-party.
   nginx:
-    image: nginx:1.27-alpine
+    image: nginx:1.30-alpine
     container_name: connected_repo_dev_nginx
     restart: unless-stopped
     ports:

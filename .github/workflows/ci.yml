@@ -18,9 +18,10 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-# Pinned to ubuntu-24.04: `ubuntu-latest` is Ubuntu 26.04, for which
-# @playwright/test 1.58 ships no chromium build (the E2E job fails to install
-# the browser). Bump the pin together with the Playwright version.
+# Pinned to ubuntu-24.04 rather than `ubuntu-latest` (Ubuntu 26.04), so a new
+# runner image never changes the system libraries Playwright's chromium needs
+# under a passing branch. @playwright/test 1.65 supports both; move the pin
+# deliberately, together with a Playwright upgrade.
 jobs:
   ci:
     name: Build, type-check & test
@@ -45,7 +46,7 @@ jobs:
       # Redis for the backend tests (REDIS_URL in apps/backend/.env.test). The
       # rate-limit tests that need a live Redis fail in CI without it.
       redis:
-        image: redis:7-alpine
+        image: redis:8-alpine
         ports:
           - 6379:6379
         options: >-
@@ -55,9 +56,9 @@ jobs:
           --health-retries 5
 
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 26
           cache: yarn
@@ -94,13 +95,13 @@ jobs:
       # real ones (dev reads apps/*/.env, prod reads ./.env).
       - name: Validate compose files
         run: |
-          cp apps/backend/.env.example apps/backend/.env
+          for app in backend frontend superadmin; do cp apps/$app/.env.example apps/$app/.env; done
           docker compose -f docker-compose.dev.yml config -q
           cp deploy/prod.env.example .env
           docker compose -f docker-compose.prod.yml config -q
           cp deploy/staging.env.example .env
           docker compose -f docker-compose.prod.yml config -q
-          rm .env apps/backend/.env
+          rm .env apps/backend/.env apps/frontend/.env apps/superadmin/.env
 
       # Blocking: lint is clean on main, so a red lint is the change's own.
       - name: Lint
@@ -132,7 +133,7 @@ jobs:
     name: Docker images
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Build and check the images
         run: sh scripts/check-images.sh
@@ -157,7 +158,7 @@ jobs:
           --health-retries 5
 
       redis:
-        image: redis:7-alpine
+        image: redis:8-alpine
         ports:
           - 6379:6379
         options: >-
@@ -173,9 +174,9 @@ jobs:
       CI: "true"
 
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 26
           cache: yarn
@@ -197,7 +198,7 @@ jobs:
 
       - name: Upload Playwright report
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: playwright-report
           path: apps/frontend/e2e/playwright-report/

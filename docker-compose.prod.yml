@@ -55,7 +55,7 @@ services:
           - ${STACK_NAME:?STACK_NAME is required}-postgres
 
   redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
     profiles: ["redis"]
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]

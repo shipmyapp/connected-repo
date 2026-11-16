@@ -37,7 +37,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - `assertNotLastOwner(teamId, memberId)`: the last-Owner rule as one function.
 - `teams_api.writes_as_team_member_id`: the team member an API key's journal entries are written as.
-- Redis 7 as a required service (`REDIS_URL`): `configs/redis.config.ts` (`getRedis`, `closeRedis`), `utils/redis.utils.ts` (`getRedisStatus`, `redisReady`); `ioredis` ^5.11.1. Compose (`redis` service in `docker-compose.dev.yml` and `docker-compose.yml`) and CI run one.
+- Redis 8 as a required service (`REDIS_URL`): `configs/redis.config.ts` (`getRedis`, `closeRedis`), `utils/redis.utils.ts` (`getRedisStatus`, `redisReady`); `ioredis`. Compose (`redis` service in `docker-compose.dev.yml` and `docker-compose.prod.yml`) and CI run one.
 - `/health` reports `redis: "ok" | "down"`.
 - `createRateLimitMiddleware` takes an async `bucketFn` and a `failClosed` option.
 - `DB_SSL` (`disable` | `require` | `verify-full`) and `DB_SSL_CA` for a managed Postgres, used by the app pool, migrations and pg-tbus.

@@ -17,7 +17,7 @@ Services in both:
 - **backend**: API, crons and pg-tbus in one process (there is no worker container). It is never published. It applies migrations as it starts, then listens on 3000. Health: `GET /` returns `"status":"ok"`.
 - **frontend**: nginx with the SPA. It serves the shared app host and every team host (`<team>.<root>`), and proxies `/api/*`, `/mcp` and the OAuth `/.well-known/*` documents to the backend. With `MCP_PUBLIC_URL` set it also passes the application MCP's own host (`mcp.<root>`) to the backend. Health: `GET /healthz`.
 - **superadmin**: nginx with the operator console. It proxies `/api/auth/*` and the super-admin router (`/api/super-admin/*`) only, and answers 404 for the rest of `/api/`. Health: `GET /healthz`.
-- **Postgres 18** and **Redis 7**: both required.
+- **Postgres 18** and **Redis 8**: both required. Redis 8 is offered under a choice of three licences: RSALv2, SSPLv1 or AGPLv3.
 
 Each nginx finds the backend through `BACKEND_UPSTREAM` (`host:port`; image default `backend:3000`).
 
@@ -77,7 +77,7 @@ The backend has `stop_grace_period: 310s`: graceful shutdown drains HTTP, then p
 
 ## Application mode
 
-Create the database services first if Dokploy runs them (Create Service → Database → PostgreSQL 18, and Redis 7). Then three Applications: Create Service → **Application**, provider GitHub, this repository, the deploy branch, Build Type **Dockerfile**, Docker Context Path `.`. Leave Docker Build Stage empty: each Dockerfile's last stage is the one that ships.
+Create the database services first if Dokploy runs them (Create Service → Database → PostgreSQL 18, and Redis 8). Then three Applications: Create Service → **Application**, provider GitHub, this repository, the deploy branch, Build Type **Dockerfile**, Docker Context Path `.`. Leave Docker Build Stage empty: each Dockerfile's last stage is the one that ships.
 
 | | `backend` | `frontend` | `superadmin` |
 |---|---|---|---|
@@ -154,7 +154,7 @@ The previous backend runs against the current schema, because changes are additi
 ## Backups
 
 - **Postgres:** a nightly dump off the server at least (`docker exec <postgres> pg_dump -U <user> <db> | gzip > …`). A managed cluster's point-in-time recovery is better.
-- **Redis:** holds rate limits and short-lived state only, so it needs no backup.
+- **Redis:** holds rate limits and short-lived state only, so it needs no backup. Moving an existing Redis 7 to 8: its volume can simply be dropped.
 - **Object storage:** copy the bucket nightly to a second bucket or provider (`rclone sync`).
 
 Rehearse a restore before launch.

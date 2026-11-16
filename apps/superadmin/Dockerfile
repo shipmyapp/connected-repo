@@ -57,7 +57,7 @@ RUN --mount=type=cache,target=/app/node_modules/.cache/turbo \
     npx turbo run build --filter=@connected-repo/superadmin
 
 # The image that ships: nginx serving the console and proxying to the backend.
-FROM nginx:1.27-alpine AS runner
+FROM nginx:1.30-alpine AS runner
 RUN apk add --no-cache curl
 COPY --from=builder /app/apps/superadmin/dist /usr/share/nginx/html
 COPY apps/superadmin/nginx.conf.template /etc/nginx/templates/default.conf.template

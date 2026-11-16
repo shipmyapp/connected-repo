@@ -27,7 +27,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Git hooks in `.githooks/` (installed by `yarn install`): Biome on staged files before a commit; knip and the typecheck before a push.
 - CI: run on demand (`workflow_dispatch`), a knip step, a Redis service container for the backend tests.
-- Redis 7 next to Postgres in `docker-compose.dev.yml` and `docker-compose.yml`; the backend requires it (`REDIS_URL`) for its rate limits (see `apps/backend/CHANGELOG.md`).
+- Redis 8 next to Postgres in `docker-compose.dev.yml` and `docker-compose.prod.yml`; the backend requires it (`REDIS_URL`) for its rate limits (see `apps/backend/CHANGELOG.md`).
 - Light / Dark / System on the profile page, saved to the account and kept for offline start.
 - `packages/ui-mui`: `ConfirmDialog`, `When` + `utils/relative_time`, `AppErrorBoundary`, `ErrorScreen`, `AppToastContainer`, `DrawerTransition`; every dialog opens as a drawer; fields type at 16px on touch screens.
 - `packages/zod-schemas/src/env_utils.ts`: blank-means-unset env primitives.
@@ -48,7 +48,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The build scripts call `turbo`, `tsc-alias` and `vite` directly instead of through `npx`.
 - Dependencies refreshed to the latest release inside each one's current major, and the lockfile deduplicated (one zod, one React, one `@opentelemetry/api` 1.9.x, one Vite). Known advisories (`yarn audit`) down from 362 to 28; every one left waits on a major upgrade (Better Auth, `@novu/api`, `pdfjs-dist`, `firebase-admin`) or on upstream (Firebase's Firestore, Workbox's build tooling).
 - Better Auth 1.7.25 (`better-auth`, `@better-auth/core`, `@better-auth/oauth-provider`), which clears its two critical advisories. The OAuth provider's new client, token and resource columns and tables come with migration `0017_oauth_provider_resources`. Signing out of the app ends the AI-app access tokens issued under that session; the app stays connected through its refresh token.
-- Major upgrades: concurrently 10, dotenv 18, @hookform/resolvers 7, @mui/x-date-pickers 9 (on MUI 7), pdfjs-dist 6 (PDF thumbnails need Chrome 125+ or Safari 18+; older browsers attach without one), @novu/api 3, firebase 13, firebase-admin 14 (modular API), knip 6, Vite 8, Vitest 5, vite-plugin-pwa 2, react-router 8, ioredis 6 (kept on the RESP2 wire protocol), jsdom 31, TypeScript 7 (the native compiler; CONTRIBUTING.md has the editor setup). pdf.js, the Novu SDK and Firebase Admin each clear an advisory.
+- Major upgrades: concurrently 10, dotenv 18, @hookform/resolvers 7, @mui/x-date-pickers 9 (on MUI 7), pdfjs-dist 6 (PDF thumbnails need Chrome 125+ or Safari 18+; older browsers attach without one), @novu/api 3, firebase 13, firebase-admin 14 (modular API), knip 6, Vite 8, Vitest 5, vite-plugin-pwa 2, react-router 8, ioredis 6 (kept on the RESP2 wire protocol), jsdom 31, TypeScript 7 (the native compiler; CONTRIBUTING.md has the editor setup). Images: nginx 1.30, Redis 8 (compose and CI); GitHub Actions checkout, setup-node and upload-artifact v7, still pinned by commit. pdf.js, the Novu SDK and Firebase Admin each clear an advisory.
 - Biome 2.6. Markdown is not run through its formatter.
 - The backend image smoke-tests its runtime stage against `apps/backend/.env.example`, which therefore passes the schema as committed.
 - Docker builds upload source maps again (`turbo.json` passes `SENTRY_UPLOAD_SOURCEMAPS` through).
@@ -87,6 +87,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The journal entry's attachment preview no longer remounts on every render of the entry (it was a component declared inside a component), so its fall-back from the thumbnail to the main image sticks.
 - The backend image now ships the dependencies Yarn could not hoist (`apps/backend/node_modules`, e.g. `@better-auth/oauth-provider`); the server failed to start without them.
 - The dev stack mounts Postgres 18's data volume where that image expects it (`/var/lib/postgresql`).
+- CI's compose check gives the dev compose file all three example env files (it reads `apps/frontend/.env` and `apps/superadmin/.env` too), so it no longer stops on a missing file.
 
 - Deleting a team now removes every member's access (members' devices drop it at their next sync) instead of leaving the deleted team usable.
 - Deleting an account no longer deletes the shared teams it created.
